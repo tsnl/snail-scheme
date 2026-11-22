@@ -65,7 +65,7 @@
     (root root)
     (runtime runtime)
     (toolchain toolchain)
-    (node (match (environment::variable "NODE")
+    (node (match ((● environment variable) "NODE")
             ((Some node) node)
             ((None) "node")))
     (building (Nil))))
@@ -151,7 +151,8 @@
 
 (define (become (processes Processes) (program String) (arguments (List String))) (→ Unit)
   (let ((error
-         (processes::exec (new Command (program program) (arguments arguments) (directory ".")))))
+         ((● processes exec)
+          (new Command (program program) (arguments arguments) (directory ".")))))
     (panic (string-append "cannot run " program ": " (● error code)))))
 
 ;; The script's whole program as WebAssembly text. A generated library
@@ -185,7 +186,7 @@
                                        (panic "wat does not run producers: build the script"))
                                      (Some (platform-library (● flags platform)))
                                      (Nil))))
-      ((Ok program) (out::write-string (● program text)))
+      ((Ok program) ((● out write-string) (● program text)))
       ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
       ((Err (Requested _)) (panic "wat does not run producers: build the script")))))
 
@@ -225,7 +226,7 @@
 
 (define (read-input (in InputPort)) (→ String)
   (let loop ((characters (Nil)))
-    (match (in::read-char)
+    (match ((● in read-char))
       ((None) (list->string (reverse characters)))
       ((Some char) (loop (Cons char characters))))))
 
@@ -258,7 +259,7 @@
 (define (format-command (fs Fs) (in InputPort) (out OutputPort) (request FormatRequest))
   (→ Unit)
   (match (● request input)
-    ((StandardInput) (out::write-string (format-source (read-input in) (● request width))))
+    ((StandardInput) ((● out write-string) (format-source (read-input in) (● request width))))
     ((CheckFiles paths) (check-files fs (● request width) paths))
     ((WriteFiles paths) (format-files fs (● request width) #t paths) (unit))))
 

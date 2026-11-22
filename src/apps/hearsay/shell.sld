@@ -131,7 +131,7 @@
                         (drawing Drawing)
                         (art (Fn String → (Option Source))))
       (→ Drawing)
-      (let ((time (quotient (clock::monotonic-nanoseconds) 1000000)))
+      (let ((time (quotient ((● clock monotonic-nanoseconds)) 1000000)))
         (match (● shell screen)
           ((Rumors screen)
            (draw-quads-frame gpu drawing

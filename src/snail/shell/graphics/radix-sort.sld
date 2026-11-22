@@ -81,7 +81,7 @@
       (→ Sorter)
       (unless (and (any? (lambda (bits) (= bits key-bits)) (list 8 16 24 32)) (> count 0))
         (panic "radix-sort: a sorter sorts 8, 16, 24 or 32 bits of at least one key"))
-      (let* ((module (gpu::create-shader-module
+      (let* ((module ((● gpu create-shader-module)
                       (new ShaderModuleDescriptor
                         (label "radix-sort")
                         (code sort-code))))
@@ -112,29 +112,29 @@
 
     (define (sort-pipeline (gpu Gpu) (module GpuShaderModule) (entry String))
       (→ GpuComputePipeline)
-      (gpu::create-compute-pipeline (new ComputePipelineDescriptor
-                                      (label (string-append "radix-sort/" entry))
-                                      (module module)
-                                      (entry entry))))
+      ((● gpu create-compute-pipeline) (new ComputePipelineDescriptor
+                                         (label (string-append "radix-sort/" entry))
+                                         (module module)
+                                         (entry entry))))
 
     (define (u32-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer)
-      (gpu::create-buffer (new BufferDescriptor
-                            (label label)
-                            (size (i64->i32 (* 4 count)))
-                            (usage (list (Storage) (CopySrc) (CopyDst))))))
+      ((● gpu create-buffer) (new BufferDescriptor
+                               (label label)
+                               (size (i64->i32 (* 4 count)))
+                               (usage (list (Storage) (CopySrc) (CopyDst))))))
 
     (define (pass-uniform (gpu Gpu) (label String) (shift I64) (count I64)) (→ GpuBuffer)
-      (let ((uniform (gpu::create-buffer (new BufferDescriptor
-                                           (label (string-append label "/pass"))
-                                           (size 16)
-                                           (usage (list (Uniform) (CopyDst)))))))
-        (gpu::write-buffer uniform
-                           0
-                           (pod-bytes pass-shape
-                                      (new SortPass
-                                        (shift (i64->i32 shift))
-                                        (blocks (i64->i32 (tiles count 256)))
-                                        (count (i64->i32 count)))))
+      (let ((uniform ((● gpu create-buffer) (new BufferDescriptor
+                                              (label (string-append label "/pass"))
+                                              (size 16)
+                                              (usage (list (Uniform) (CopyDst)))))))
+        ((● gpu write-buffer) uniform
+         0
+         (pod-bytes pass-shape
+                    (new SortPass
+                      (shift (i64->i32 shift))
+                      (blocks (i64->i32 (tiles count 256)))
+                      (count (i64->i32 count)))))
         uniform))
 
     ;; A pass from the lane `from` to the lane `to`.
@@ -166,11 +166,11 @@
                         (pipeline GpuComputePipeline)
                         (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
-      (gpu::create-bind-group (new BindGroupDescriptor
-                                (label (string-append "radix-sort/" label))
-                                (pipeline (ComputePipeline pipeline))
-                                (group 0)
-                                (entries entries))))
+      ((● gpu create-bind-group) (new BindGroupDescriptor
+                                   (label (string-append "radix-sort/" label))
+                                   (pipeline (ComputePipeline pipeline))
+                                   (group 0)
+                                   (entries entries))))
 
     ;; ---- Sorting ----
 
@@ -192,8 +192,8 @@
                              (group GpuBindGroup)
                              (sorter Sorter))
       (→ Unit)
-      (gpu::set-compute-pipeline pass pipeline)
-      (gpu::set-compute-bind-group pass 0 group)
+      ((● gpu set-compute-pipeline) pass pipeline)
+      ((● gpu set-compute-bind-group) pass 0 group)
       (dispatch-rows gpu pass (● sorter blocks)))
 
     ;; Everything the sorter made, and its scan, goes at the next submit;
@@ -201,11 +201,11 @@
     (define (release-sorter (gpu Gpu) (sorter Sorter)) (→ Unit)
       (release-scan gpu (● sorter scan))
       (for-each (lambda (step)
-                  (gpu::destroy (BufferObject (● step uniform)))
-                  (gpu::destroy (BindGroupObject (● step count-group)))
-                  (gpu::destroy (BindGroupObject (● step scatter-group))))
+                  ((● gpu destroy) (BufferObject (● step uniform)))
+                  ((● gpu destroy) (BindGroupObject (● step count-group)))
+                  ((● gpu destroy) (BindGroupObject (● step scatter-group))))
                 (● sorter steps))
-      (for-each (lambda (object) (gpu::destroy object))
+      (for-each (lambda (object) ((● gpu destroy) object))
                 (list (BufferObject (● sorter counts))
                       (BufferObject (● sorter spare keys))
                       (BufferObject (● sorter spare values))

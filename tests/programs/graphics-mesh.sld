@@ -54,23 +54,23 @@
             (heads (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
   (unit))
 (define (frame (gpu Gpu)) (→ Unit)
-  (gpu::request-device)
+  ((● gpu request-device))
   (let* ((geometry (make-geometry gpu))
          (uploaded (upload-batch gpu "mesh/test" batch))
-         (encoder (gpu::create-command-encoder))
-         (pass (gpu::begin-render-pass encoder
-                                       (new RenderPassDescriptor
-                                         (colors (list (Some (new ColorAttachment
-                                                               (view
-                                                                (view-of gpu
-                                                                         (● (gpu::current-texture)
-                                                                            texture)
-                                                                         1))
-                                                               (load (Keep))
-                                                               (store #t)))))
-                                         (depth (None))))))
+         (encoder ((● gpu create-command-encoder)))
+         (pass ((● gpu begin-render-pass) encoder
+                (new RenderPassDescriptor
+                  (colors (list (Some (new ColorAttachment
+                                        (view
+                                         (view-of gpu
+                                                  (● ((● gpu current-texture))
+                                                     texture)
+                                                  1))
+                                        (load (Keep))
+                                        (store #t)))))
+                  (depth (None))))))
     (draw-meshes gpu pass geometry uploaded)
-    (gpu::end-pass pass)
-    (gpu::submit (list (gpu::finish encoder)))
+    ((● gpu end-pass) pass)
+    ((● gpu submit) (list ((● gpu finish) encoder)))
     (release-batch gpu uploaded)))
 

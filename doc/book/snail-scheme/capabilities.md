@@ -28,7 +28,7 @@ Changing a value is not a capability. Every field of every record can be
 written, and every element of an array, by whoever holds it:
 
 ```scheme
-(set! record::field value)
+(set! (● record field) value)
 (array-set! items index value)
 ```
 
@@ -61,13 +61,13 @@ writes it, and `write-line` takes the port it writes to:
   ((write-string (Fn String → Unit))))
 
 (define (write-line (out OutputPort) (text String)) (→ Unit)
-  (out::write-string (string-append text "\n")))
+  ((● out write-string) (string-append text "\n")))
 ```
 
-`out::write-string` is the port's field, so `(out::write-string text)`
-calls the port's own function, and `write-line` is an ordinary function
-built on it. Nothing stands between a caller and a capability's
-operations but the record.
+`(● out write-string)` is the port's field, so `((● out write-string)
+text)` calls the port's own function, and `write-line` is an ordinary
+function built on it. Nothing stands between a caller and a capability's
+operations but the record: an operation is declared once, as a field.
 
 A function that should print takes an `OutputPort`. One that takes none
 cannot print, whatever it calls, unless something it is given can. A

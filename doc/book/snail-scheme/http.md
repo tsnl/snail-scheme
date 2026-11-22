@@ -41,7 +41,7 @@ all matching values. It expects the normalized names produced by the parser.
 ## Request targets
 
 ```scheme
-(parse-target head::target)
+(parse-target (● head target))
 ;; Result Target HttpError
 ```
 

@@ -87,17 +87,17 @@
 
     (define (buffer-named (gpu Gpu) (name String) (size I32) (usage (List BufferUsage)))
       (→ GpuBuffer)
-      (gpu::create-buffer (new BufferDescriptor (label name) (size size) (usage usage))))
+      ((● gpu create-buffer) (new BufferDescriptor (label name) (size size) (usage usage))))
 
     (define (texture-named (gpu Gpu) (name String) (width I32) (height I32)) (→ GpuTexture)
-      (gpu::create-texture (new TextureDescriptor
-                             (label name)
-                             (width width)
-                             (height height)
-                             (layers 1)
-                             (mips 1)
-                             (format (Rgba8Unorm))
-                             (usage (list (RenderAttachment) (TextureCopySrc))))))
+      ((● gpu create-texture) (new TextureDescriptor
+                                (label name)
+                                (width width)
+                                (height height)
+                                (layers 1)
+                                (mips 1)
+                                (format (Rgba8Unorm))
+                                (usage (list (RenderAttachment) (TextureCopySrc))))))
 
     ;; A red texel beside a green one, as a PNG.
     (define two-texels
@@ -174,21 +174,21 @@
     ;; The PNG's texels as the host decodes them: the browser, or
     ;; @napi-rs/canvas on Node.
     (define (decoded-texels (gpu Gpu)) (→ Bytes)
-      (match (gpu::decode-image two-texels)
+      (match ((● gpu decode-image) two-texels)
         ((Some image)
          (let ((readback (buffer-named gpu "image-readback" 256 (list (MapRead) (CopyDst))))
-               (encoder (gpu::create-command-encoder)))
-           (gpu::copy-texture-to-buffer encoder
-                                        (whole-texture (● image texture))
-                                        readback
-                                        0
-                                        256
-                                        2
-                                        1)
-           (gpu::submit (list (gpu::finish encoder)))
-           (let ((read (gpu::read-buffer readback 0 8)))
-             (gpu::destroy (BufferObject readback))
-             (gpu::destroy (TextureObject (● image texture)))
+               (encoder ((● gpu create-command-encoder))))
+           ((● gpu copy-texture-to-buffer) encoder
+            (whole-texture (● image texture))
+            readback
+            0
+            256
+            2
+            1)
+           ((● gpu submit) (list ((● gpu finish) encoder)))
+           (let ((read ((● gpu read-buffer) readback 0 8)))
+             ((● gpu destroy) (BufferObject readback))
+             ((● gpu destroy) (TextureObject (● image texture)))
              read)))
         ((None) (panic "the two texels did not decode"))))
 
@@ -240,45 +240,45 @@
              (light (make-sunlight gpu light-format g r))
              (post (make-post gpu (Rgba8Unorm) 4 4 curve))
              (tiles (tiles gpu r))
-             (encoder (gpu::create-command-encoder)))
+             (encoder ((● gpu create-command-encoder))))
         (write-raster gpu r (looking-down 0.0) overhead)
         (let ((pass (begin-gbuffer gpu encoder g)))
           (draw-surface gpu pass r tiles)
-          (gpu::end-pass pass))
+          ((● gpu end-pass) pass))
         (let ((pass (begin-lit gpu encoder
                                (● post targets light-view)
                                (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
                                g)))
           (draw-sun gpu pass light)
-          (gpu::end-pass pass))
+          ((● gpu end-pass) pass))
         (draw-post gpu encoder (view-of gpu target 1) post)
-        (gpu::copy-texture-to-buffer encoder (whole-texture target) readback 0 256 4 4)
-        (gpu::submit (list (gpu::finish encoder)))
-        (gpu::read-buffer readback 0 16)))
+        ((● gpu copy-texture-to-buffer) encoder (whole-texture target) readback 0 256 4 4)
+        ((● gpu submit) (list ((● gpu finish) encoder)))
+        ((● gpu read-buffer) readback 0 16)))
 
     ;; Render one surface and read the motion plane at the given pixel.
 
     (define (surface-motion (gpu Gpu) (r Raster) (g GBuffer) (surface Surface) (x I32) (y I32))
       (→ Bytes)
       (let* ((readback (buffer-named gpu "motion-readback" 4 (list (MapRead) (CopyDst))))
-             (encoder (gpu::create-command-encoder)))
+             (encoder ((● gpu create-command-encoder))))
         (let ((pass (begin-gbuffer gpu encoder g)))
           (draw-surface gpu pass r surface)
-          (gpu::end-pass pass))
+          ((● gpu end-pass) pass))
         (match (● g motion)
           ((Some plane)
-           (gpu::copy-texture-to-buffer encoder
-                                        (new TextureCopy
-                                          (texture (● plane texture))
-                                          (mip 0)
-                                          (x x)
-                                          (y y)
-                                          (layer 0))
-                                        readback 0 256 1 1))
+           ((● gpu copy-texture-to-buffer) encoder
+            (new TextureCopy
+              (texture (● plane texture))
+              (mip 0)
+              (x x)
+              (y y)
+              (layer 0))
+            readback 0 256 1 1))
           ((None) (panic "missing motion plane")))
-        (gpu::submit (list (gpu::finish encoder)))
-        (let ((motion (gpu::read-buffer readback 0 4)))
-          (gpu::destroy (BufferObject readback))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
+        (let ((motion ((● gpu read-buffer) readback 0 4)))
+          ((● gpu destroy) (BufferObject readback))
           motion)))
 
     ;; The camera moved half a tile right, so the scene moved a quarter of the
@@ -359,32 +359,32 @@
 
     (define (compute-frame (gpu Gpu)) (→ Bytes)
       (let* ((module
-              (gpu::create-shader-module
+              ((● gpu create-shader-module)
                (new ShaderModuleDescriptor (label "square") (code square))))
-             (pipeline (gpu::create-compute-pipeline
+             (pipeline ((● gpu create-compute-pipeline)
                         (new ComputePipelineDescriptor
                           (label "square")
                           (module module)
                           (entry "square_main"))))
              (numbers (buffer-named gpu "numbers" 400 (list (Storage) (CopySrc) (CopyDst))))
              (readback (buffer-named gpu "numbers-readback" 400 (list (MapRead) (CopyDst))))
-             (group (gpu::create-bind-group (new BindGroupDescriptor
-                                              (label "square")
-                                              (pipeline (ComputePipeline pipeline))
-                                              (group 0)
-                                              (entries (list (BufferEntry 0 numbers 0 0))))))
-             (encoder (gpu::create-command-encoder))
-             (pass (gpu::begin-compute-pass encoder)))
-        (gpu::write-buffer numbers
-                           0
-                           (pack (shape) (map (lambda (n) (+ 1 (i64->i32 n))) (iota 100))))
-        (gpu::set-compute-pipeline pass pipeline)
-        (gpu::set-compute-bind-group pass 0 group)
-        (gpu::dispatch-workgroups pass 2 1 1)
-        (gpu::end-compute-pass pass)
-        (gpu::copy-buffer-to-buffer encoder numbers 0 readback 0 400)
-        (gpu::submit (list (gpu::finish encoder)))
-        (let ((bytes (gpu::read-buffer readback 0 400)))
+             (group ((● gpu create-bind-group) (new BindGroupDescriptor
+                                                 (label "square")
+                                                 (pipeline (ComputePipeline pipeline))
+                                                 (group 0)
+                                                 (entries (list (BufferEntry 0 numbers 0 0))))))
+             (encoder ((● gpu create-command-encoder)))
+             (pass ((● gpu begin-compute-pass) encoder)))
+        ((● gpu write-buffer) numbers
+         0
+         (pack (shape) (map (lambda (n) (+ 1 (i64->i32 n))) (iota 100))))
+        ((● gpu set-compute-pipeline) pass pipeline)
+        ((● gpu set-compute-bind-group) pass 0 group)
+        ((● gpu dispatch-workgroups) pass 2 1 1)
+        ((● gpu end-compute-pass) pass)
+        ((● gpu copy-buffer-to-buffer) encoder numbers 0 readback 0 400)
+        ((● gpu submit) (list ((● gpu finish) encoder)))
+        (let ((bytes ((● gpu read-buffer) readback 0 400)))
           (array-append (subarray bytes 0 16) (subarray bytes 396 400)))))
 
     (define (words (bytes Bytes)) (→ String)
@@ -411,11 +411,11 @@
                            "numbers-readback"
                            (i64->i32 (* 4 count))
                            (list (MapRead) (CopyDst))))
-            (encoder (gpu::create-command-encoder)))
-        (gpu::copy-buffer-to-buffer encoder buffer 0 readback 0 (i64->i32 (* 4 count)))
-        (gpu::submit (list (gpu::finish encoder)))
-        (let ((bytes (gpu::read-buffer readback 0 (i64->i32 (* 4 count)))))
-          (gpu::destroy (BufferObject readback))
+            (encoder ((● gpu create-command-encoder))))
+        ((● gpu copy-buffer-to-buffer) encoder buffer 0 readback 0 (i64->i32 (* 4 count)))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
+        (let ((bytes ((● gpu read-buffer) readback 0 (i64->i32 (* 4 count)))))
+          ((● gpu destroy) (BufferObject readback))
           bytes)))
 
     ;; Number `index` of the bytes, unsigned.
@@ -437,15 +437,15 @@
       (let* ((count 300000)
              (numbers (storage-buffer gpu "scanned" count))
              (scan (make-scan gpu "test" numbers count))
-             (encoder (gpu::create-command-encoder))
-             (pass (gpu::begin-compute-pass encoder)))
-        (gpu::write-buffer numbers
-                           0
-                           (pack (shape)
-                                 (map (lambda (i) (i64->i32 (remainder i 3))) (iota count))))
+             (encoder ((● gpu create-command-encoder)))
+             (pass ((● gpu begin-compute-pass) encoder)))
+        ((● gpu write-buffer) numbers
+         0
+         (pack (shape)
+               (map (lambda (i) (i64->i32 (remainder i 3))) (iota count))))
         (dispatch-scan gpu pass scan)
-        (gpu::end-compute-pass pass)
-        (gpu::submit (list (gpu::finish encoder)))
+        ((● gpu end-compute-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))
         (let ((bytes (read-numbers gpu numbers count)))
           (string-append (string-join (map (lambda (index) (show (number-at bytes index)))
                                            (list 0 1 2 3 511 512 513 262144 299999))
@@ -470,16 +470,16 @@
              (keys (storage-buffer gpu "sort-keys" count))
              (values (storage-buffer gpu "sort-values" count))
              (sorter (make-sorter gpu "test" keys values count 32))
-             (encoder (gpu::create-command-encoder))
-             (pass (gpu::begin-compute-pass encoder)))
-        (gpu::write-buffer
+             (encoder ((● gpu create-command-encoder)))
+             (pass ((● gpu begin-compute-pass) encoder)))
+        ((● gpu write-buffer)
          keys
          0
          (pack (shape) (map (lambda (i) (as-i32 (test-key i))) (iota count))))
-        (gpu::write-buffer values 0 (pack (shape) (map i64->i32 (iota count))))
+        ((● gpu write-buffer) values 0 (pack (shape) (map i64->i32 (iota count))))
         (dispatch-sort gpu pass sorter)
-        (gpu::end-compute-pass pass)
-        (gpu::submit (list (gpu::finish encoder)))
+        ((● gpu end-compute-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))
         (sort-verdict (read-numbers gpu keys count) (read-numbers gpu values count) count)))
 
     ;; Whether each key is its value's, the keys ascend, equal keys keep their
@@ -550,13 +550,13 @@
 
     (define (splat-texels (gpu Gpu) (splats Splats) (target GpuTexture) (readback GpuBuffer))
       (→ Bytes)
-      (let ((encoder (gpu::create-command-encoder)))
-        (let ((pass (gpu::begin-compute-pass encoder)))
+      (let ((encoder ((● gpu create-command-encoder))))
+        (let ((pass ((● gpu begin-compute-pass) encoder)))
           (sort-splats gpu pass splats splats-camera)
-          (gpu::end-compute-pass pass))
-        (let ((pass (gpu::begin-render-pass encoder (cleared (view-of gpu target 1) black))))
+          ((● gpu end-compute-pass) pass))
+        (let ((pass ((● gpu begin-render-pass) encoder (cleared (view-of gpu target 1) black))))
           (draw-splats gpu pass splats)
-          (gpu::end-pass pass))
+          ((● gpu end-pass) pass))
         (four-texels gpu encoder target readback)))
 
     ;; The four texels the splat checks read, once the encoder is submitted.
@@ -565,9 +565,9 @@
                          (target GpuTexture)
                          (readback GpuBuffer))
       (→ Bytes)
-      (gpu::copy-texture-to-buffer encoder (whole-texture target) readback 0 256 16 16)
-      (gpu::submit (list (gpu::finish encoder)))
-      (let ((bytes (gpu::read-buffer readback 0 4096)))
+      ((● gpu copy-texture-to-buffer) encoder (whole-texture target) readback 0 256 16 16)
+      ((● gpu submit) (list ((● gpu finish) encoder)))
+      (let ((bytes ((● gpu read-buffer) readback 0 4096)))
         (array-concatenate (map (lambda (texel)
                                   (subarray bytes
                                             (+ (* 256 (● texel second)) (* 4 (● texel first)))
@@ -616,14 +616,14 @@
 
     (define (viewed-texels (gpu Gpu) (view SplatView) (target GpuTexture) (readback GpuBuffer))
       (→ Bytes)
-      (let ((encoder (gpu::create-command-encoder)))
+      (let ((encoder ((● gpu create-command-encoder))))
         (write-view-camera gpu view splats-camera)
-        (let ((pass (gpu::begin-compute-pass encoder)))
+        (let ((pass ((● gpu begin-compute-pass) encoder)))
           (encode-splat-view gpu pass view)
-          (gpu::end-compute-pass pass))
-        (let ((pass (gpu::begin-render-pass encoder (cleared (view-of gpu target 1) black))))
+          ((● gpu end-compute-pass) pass))
+        (let ((pass ((● gpu begin-render-pass) encoder (cleared (view-of gpu target 1) black))))
           (present-splat-view gpu pass view)
-          (gpu::end-pass pass))
+          ((● gpu end-pass) pass))
         (four-texels gpu encoder target readback)))
 
     ;; ---- Timestamps ----
@@ -633,18 +633,18 @@
     ;; none and under a second.
     (define (timed-pass (gpu Gpu)) (→ String)
       (let* ((target (texture-named gpu "timed" 4 4))
-             (queries (gpu::create-query-set (new QuerySetDescriptor (label "timed") (count 2))))
-             (encoder (gpu::create-command-encoder))
-             (pass (gpu::begin-timed-render-pass encoder
-                                                 (cleared (view-of gpu target 1) red)
-                                                 (new TimestampWrites
-                                                   (query-set queries)
-                                                   (beginning 0)
-                                                   (end 1)))))
-        (gpu::end-pass pass)
+             (queries ((● gpu create-query-set) (new QuerySetDescriptor (label "timed") (count 2))))
+             (encoder ((● gpu create-command-encoder)))
+             (pass ((● gpu begin-timed-render-pass) encoder
+                    (cleared (view-of gpu target 1) red)
+                    (new TimestampWrites
+                      (query-set queries)
+                      (beginning 0)
+                      (end 1)))))
+        ((● gpu end-pass) pass)
         (let ((seconds (elapsed-seconds (submit-timed gpu encoder queries 2) 0 1)))
-          (gpu::destroy (QuerySetObject queries))
-          (gpu::destroy (TextureObject target))
+          ((● gpu destroy) (QuerySetObject queries))
+          ((● gpu destroy) (TextureObject target))
           (if (and (>= seconds 0.0) (< seconds 1.0))
               "a render pass between 0 and 1 seconds"
               (f64->string seconds)))))

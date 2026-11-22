@@ -63,4 +63,4 @@
        (stream-close (Fn Stream → Unit))))
 
     (define (fetch-bytes (fetch Fetch) (url String)) (→ (Result Bytes String))
-      (list-ref (fetch::fetch-all-bytes (list url)) 0))))
+      (list-ref ((● fetch fetch-all-bytes) (list url)) 0))))

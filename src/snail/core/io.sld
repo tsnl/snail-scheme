@@ -123,7 +123,7 @@
 
     (define (read-line (in InputPort)) (→ (Option String))
       (let loop ((chars (Nil)))
-        (match (in::read-char)
+        (match ((● in read-char))
           ((None) (if (null? chars) (None) (Some (list->string (reverse chars)))))
           ((Some char)
            (if (= char #\newline)
@@ -133,19 +133,19 @@
     ;; ---- Text output ----
 
     (define (write-char (out OutputPort) (char Char)) (→ Unit)
-      (out::write-string (make-string 1 char)))
+      ((● out write-string) (make-string 1 char)))
 
     (define (newline (out OutputPort)) (→ Unit)
-      (out::write-string "\n"))
+      ((● out write-string) "\n"))
 
     (define (write-line (out OutputPort) (text String)) (→ Unit)
-      (out::write-string (string-append text "\n")))
+      ((● out write-string) (string-append text "\n")))
 
     (define (display (out OutputPort) (value T)) (→ Unit) (∀ (T)) (⊨ (Show T))
-      (out::write-string (show value)))
+      ((● out write-string) (show value)))
 
     (define (write (out OutputPort) (value T)) (→ Unit) (∀ (T)) (⊨ (Repr T))
-      (out::write-string (repr value)))
+      ((● out write-string) (repr value)))
 
     ;; ---- Files ----
 

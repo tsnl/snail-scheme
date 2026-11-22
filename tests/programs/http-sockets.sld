@@ -20,13 +20,14 @@
 (define (write-all (tcp Tcp) (connection Connection) (bytes Bytes)) (→ Unit)
   (let loop ((offset 0))
     (when (< offset (array-length bytes))
-      (let ((count (require (tcp::write connection (subarray bytes offset (array-length bytes))))))
+      (let ((count
+             (require ((● tcp write) connection (subarray bytes offset (array-length bytes))))))
         (unless (> count 0) (panic "write did not progress"))
         (loop (+ offset (i32->i64 count)))))))
 
 (define (read-all (tcp Tcp) (connection Connection)) (→ Bytes)
   (let loop ((chunks (ann (Nil) (List Bytes))))
-    (match (require (tcp::read connection 65536))
+    (match (require ((● tcp read) connection 65536))
       ((None) (array-concatenate (reverse chunks)))
       ((Some bytes) (loop (Cons bytes chunks))))))
 
@@ -42,11 +43,11 @@
   ;; main returns.
   (dispatch
    (lambda ()
-     (let* ((listener (require (tcp::listen (require (endpoint "127.0.0.1" 0)))))
+     (let* ((listener (require ((● tcp listen) (require (endpoint "127.0.0.1" 0)))))
             (client
-             (require (tcp::connect (require (endpoint "127.0.0.1" (● listener port))))))
-            (server (require (tcp::accept listener))))
-       (require (tcp::close-listener listener))
+             (require ((● tcp connect) (require (endpoint "127.0.0.1" (● listener port))))))
+            (server (require ((● tcp accept) listener))))
+       (require ((● tcp close-listener) listener))
        (dispatch
         (lambda ()
           (match (serve-one tcp server 2000 echo)
@@ -57,7 +58,7 @@
                    "POST /echo HTTP/1.1\r\nHost: test\r\nContent-Length: 4\r\n\r\nbody"))
        (write-all tcp client (make-array 131073 (i32->u8 88)))
        (let ((response (read-all tcp client)))
-         (require (tcp::finish-connection client 2000))
+         (require ((● tcp finish-connection) client 2000))
          (unless (string=? (text response)
                            "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 4\r\ncontent-type: text/plain\r\n\r\nbody")
            (panic "incomplete HTTP response")))

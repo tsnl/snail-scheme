@@ -42,31 +42,31 @@
   (let ((in (new InputPort (read-char (lambda () (None)))))
         (out (new OutputPort (write-string (lambda (text) (unit))))))
     (write out "discarded")
-    (in::read-char)))
+    ((● in read-char))))
 
 (define (main (out OutputPort)) (→ Unit)
   (let ((in (from-text "aλ😀\n\nlast")))
-    (line out (in::read-char))
+    (line out ((● in read-char)))
     (line out (read-line in))
     (line out (read-line in))
     (line out (read-line in))
-    (line out (in::read-char))
-    (line out (in::read-char)))
+    (line out ((● in read-char)))
+    (line out ((● in read-char))))
   ;; Each port keeps its own cursor, and reading one writes nothing.
   (let ((in (from-text "ab")))
-    (line out (in::read-char))
+    (line out ((● in read-char)))
     (line out (read-line (from-text "inner")))
-    (line out (in::read-char)))
+    (line out ((● in read-char))))
   ;; Capturing output leaves the input available to the computation.
   (let ((in (from-text "my string input\n")))
     (write-line out (capture (lambda (captured) (write captured (read-line in))))))
   ;; Nested output goes to its own port, and the outer one is still there.
   (write-line out
               (capture (lambda (outer)
-                         (outer::write-string "before:")
+                         ((● outer write-string) "before:")
                          (let ((inner
                                 (capture (lambda (inner) (write inner (Some "inner"))))))
-                           (outer::write-string inner))
+                           ((● outer write-string) inner))
                          (write-char outer #\:)
                          (display outer "after"))))
   ;; A port made from another one writes through it.
@@ -75,7 +75,7 @@
                          (write (new OutputPort
                                   (write-string
                                    (lambda (text)
-                                     (outer::write-string (string-append "[" text "]")))))
+                                     ((● outer write-string) (string-append "[" text "]")))))
                                 "forwarded"))))
   (line out (silent-eof))
   (unit))

@@ -105,17 +105,17 @@
         (name name)
         (size size)
         (pages pages)
-        (texture (gpu::create-texture (new TextureDescriptor
-                                        (label (string-append "atlas/" name))
-                                        (width size)
-                                        (height size)
-                                        (layers pages)
-                                        (mips 1)
-                                        (format (Rgba8Unorm))
-                                        (usage (list (TextureBinding)
-                                                     (TextureCopySrc)
-                                                     (TextureCopyDst)
-                                                     (RenderAttachment))))))
+        (texture ((● gpu create-texture) (new TextureDescriptor
+                                           (label (string-append "atlas/" name))
+                                           (width size)
+                                           (height size)
+                                           (layers pages)
+                                           (mips 1)
+                                           (format (Rgba8Unorm))
+                                           (usage (list (TextureBinding)
+                                                        (TextureCopySrc)
+                                                        (TextureCopyDst)
+                                                        (RenderAttachment))))))
         (pipeline (compose-pipeline gpu))
         (sources (empty-table))
         (page 0)
@@ -250,8 +250,8 @@
                       (when (or clear? (not (null? on-page)))
                         (page-pass gpu encoder atlas page swaps instances on-page clear?))))
                   (map i64->i32 (iota (i32->i64 (● atlas pages)))))
-        (gpu::destroy (BufferObject swaps))
-        (gpu::destroy (BufferObject instances))
+        ((● gpu destroy) (BufferObject swaps))
+        ((● gpu destroy) (BufferObject instances))
         atlas))
 
     ;; The atlas with each layer's source decoded.
@@ -269,7 +269,7 @@
                  layers))
 
     (define (decoded-view (gpu Gpu) (layer Placed)) (→ GpuTextureView)
-      (match (gpu::decode-image ((● layer source bytes)))
+      (match ((● gpu decode-image) ((● layer source bytes)))
         ((Some image) (view-of gpu (● image texture) 1))
         ((None) (panic "atlas: a source is no image the host decodes"))))
 
@@ -332,24 +332,24 @@
                        (clear? Bool))
       (→ Unit)
       (let* ((target (layer-view gpu (● atlas texture) page))
-             (pass (gpu::begin-render-pass encoder
-                                           (new RenderPassDescriptor
-                                             (colors (list (Some (new ColorAttachment
-                                                                   (view target)
-                                                                   (load (if clear?
-                                                                             (Clear (new Color
-                                                                                      (red 0.0)
-                                                                                      (green 0.0)
-                                                                                      (blue 0.0)
-                                                                                      (alpha 0.0)))
-                                                                             (Keep)))
-                                                                   (store #t)))))
-                                             (depth (None))))))
-        (gpu::set-pipeline pass (● atlas pipeline))
-        (gpu::set-vertex-buffer pass 0 instances 0)
+             (pass ((● gpu begin-render-pass) encoder
+                    (new RenderPassDescriptor
+                      (colors (list (Some (new ColorAttachment
+                                            (view target)
+                                            (load (if clear?
+                                                      (Clear (new Color
+                                                               (red 0.0)
+                                                               (green 0.0)
+                                                               (blue 0.0)
+                                                               (alpha 0.0)))
+                                                      (Keep)))
+                                            (store #t)))))
+                      (depth (None))))))
+        ((● gpu set-pipeline) pass (● atlas pipeline))
+        ((● gpu set-vertex-buffer) pass 0 instances 0)
         (for-each (lambda (indexed) (draw-layer gpu pass atlas swaps indexed)) layers)
-        (gpu::end-pass pass)
-        (gpu::destroy (ViewObject target))))
+        ((● gpu end-pass) pass)
+        ((● gpu destroy) (ViewObject target))))
 
     ;; A layer's draw, with its source and the swaps bound in a group that
     ;; goes once set: the pass holds what it binds.
@@ -359,7 +359,7 @@
                         (swaps GpuBuffer)
                         (indexed (Pair I32 Placed)))
       (→ Unit)
-      (let ((group (gpu::create-bind-group
+      (let ((group ((● gpu create-bind-group)
                     (new BindGroupDescriptor
                       (label (string-append "atlas/" (● atlas name) "/source"))
                       (pipeline (RenderPipeline (● atlas pipeline)))
@@ -370,9 +370,9 @@
                                                                    second
                                                                    source)))
                                      (BufferEntry 1 swaps 0 0)))))))
-        (gpu::set-bind-group pass 0 group)
-        (gpu::draw pass 4 1 0 (● indexed first))
-        (gpu::destroy (BindGroupObject group))))
+        ((● gpu set-bind-group) pass 0 group)
+        ((● gpu draw) pass 4 1 0 (● indexed first))
+        ((● gpu destroy) (BindGroupObject group))))
 
     (define (source-view (atlas Atlas) (source Source)) (→ GpuTextureView)
       (match (table-ref (● atlas sources) (show (● source key)))
@@ -380,10 +380,10 @@
         ((None) (panic "atlas: a source was not decoded"))))
 
     (define (compose-pipeline (gpu Gpu)) (→ GpuRenderPipeline)
-      (gpu::create-render-pipeline
+      ((● gpu create-render-pipeline)
        (new RenderPipelineDescriptor
          (label "atlas/compose")
-         (module (gpu::create-shader-module
+         (module ((● gpu create-shader-module)
                   (new ShaderModuleDescriptor
                     (label "atlas")
                     (code atlas-shader))))
@@ -418,11 +418,12 @@
 
     (define (filled-buffer (gpu Gpu) (atlas Atlas) (part String) (bytes Bytes) (usage BufferUsage))
       (→ GpuBuffer)
-      (let ((buffer (gpu::create-buffer (new BufferDescriptor
-                                          (label (string-append "atlas/" (● atlas name) "/" part))
-                                          (size (i64->i32 (array-length bytes)))
-                                          (usage (list usage (CopyDst)))))))
-        (gpu::write-buffer buffer 0 bytes)
+      (let ((buffer ((● gpu create-buffer) (new BufferDescriptor
+                                             (label
+                                              (string-append "atlas/" (● atlas name) "/" part))
+                                             (size (i64->i32 (array-length bytes)))
+                                             (usage (list usage (CopyDst)))))))
+        ((● gpu write-buffer) buffer 0 bytes)
         buffer))
 
     ;; ---- Reading back ----
@@ -438,27 +439,29 @@
          (let* ((width (● region width))
                 (height (● region height))
                 (row (* 256 (quotient (+ (* 4 width) 255) 256)))
-                (buffer (gpu::create-buffer (new BufferDescriptor
-                                              (label
-                                               (string-append "atlas/" (● atlas name) "/readback"))
-                                              (size (* row height))
-                                              (usage (list (MapRead) (CopyDst))))))
-                (encoder (gpu::create-command-encoder)))
-           (gpu::copy-texture-to-buffer encoder
-                                        (new TextureCopy
-                                          (texture (● atlas texture))
-                                          (mip 0)
-                                          (x (+ (● slot x) (● region x)))
-                                          (y (+ (● slot y) (● region y)))
-                                          (layer (● slot page)))
-                                        buffer
-                                        0
-                                        row
-                                        width
-                                        height)
-           (gpu::submit (list (gpu::finish encoder)))
-           (let ((bytes (gpu::read-buffer buffer 0 (* row height))))
-             (gpu::destroy (BufferObject buffer))
+                (buffer ((● gpu create-buffer) (new BufferDescriptor
+                                                 (label
+                                                  (string-append "atlas/"
+                                                                 (● atlas name)
+                                                                 "/readback"))
+                                                 (size (* row height))
+                                                 (usage (list (MapRead) (CopyDst))))))
+                (encoder ((● gpu create-command-encoder))))
+           ((● gpu copy-texture-to-buffer) encoder
+            (new TextureCopy
+              (texture (● atlas texture))
+              (mip 0)
+              (x (+ (● slot x) (● region x)))
+              (y (+ (● slot y) (● region y)))
+              (layer (● slot page)))
+            buffer
+            0
+            row
+            width
+            height)
+           ((● gpu submit) (list ((● gpu finish) encoder)))
+           (let ((bytes ((● gpu read-buffer) buffer 0 (* row height))))
+             ((● gpu destroy) (BufferObject buffer))
              (png-data-url (rgba->png width height (unpadded bytes row width height))))))))
 
     (define (unpadded (bytes Bytes) (row I32) (width I32) (height I32)) (→ Bytes)

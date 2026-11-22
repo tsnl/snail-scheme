@@ -41,7 +41,7 @@
                " "))
 
 (define (main (out OutputPort)) (→ Unit)
-  (out::write-string (declarations scene-shape))
+  ((● out write-string) (declarations scene-shape))
   (write-line out (string-append "scene: size "
                                  (show (● scene-shape layout size))
                                  ", align "

@@ -89,18 +89,7 @@
         (imports (Table Binding)))))
 
     (define (extend (env Env) (ident Syntax) (binding Binding)) (→ Env)
-      (check-defined (ident-name ident) (syntax-loc ident))
       (Frame (ident-key ident) binding env))
-
-    ;; `::` reads a field (`record::field`), so no name that is defined
-    ;; holds one: a parameter, a local, a definition, a field or an import.
-    ;; A name that does is always a path.
-
-    (define (check-defined (name String) (loc Loc)) (→ Unit)
-      (when (path-name? name)
-        (compile-error loc
-                       (string-append "a name that is defined cannot hold ::, which reads a field: "
-                                      name))))
 
     ;; A marked identifier is keyed by its mark, so the same name introduced by
     ;; two expansions binds two variables.
@@ -376,7 +365,6 @@
     (define (bind-top (cx Context) (env Env) (ident Syntax) (binding Binding))
       (→ Context)
       (let ((identifier-name (ident-name ident)))
-        (check-defined identifier-name (syntax-loc ident))
         (match env
           ((Top top _)
            (let ((definitions (top-definitions cx top)))
@@ -999,9 +987,7 @@
          (if (string=? (binding-identity existing) (binding-identity (● entry second)))
              imports
              (compile-error loc (string-append "conflicting imports of " (● entry first)))))
-        ((None)
-         (check-defined (● entry first) loc)
-         (table-set imports (● entry first) (● entry second)))))
+        ((None) (table-set imports (● entry first) (● entry second)))))
 
     ;; The (name . binding) entries an import set provides.
 
@@ -1637,8 +1623,7 @@
     (define (parse-field (field Syntax)) (→ FieldSyntax)
       (match field
         ((Form (Cons name (Cons type (Nil))) _)
-         (check-defined (expect-name name "a field name") (syntax-loc name))
-         (new FieldSyntax (name name) (type type)))
+         (new FieldSyntax (name (expect-ident name "a field name")) (type type)))
         (_ (compile-error (syntax-loc field) "expected (field type)"))))
 
     ;; Only a record's fields have a name a program writes: the pure
@@ -2325,10 +2310,7 @@
            (expr (Var (check-constructor-reference cx constructor loc) (Nil) (Nil)) loc))
           ((Some (TypeName _ _ (None)))
            (compile-error loc (string-append "a type is not a value: " identifier-name)))
-          ((None)
-           (match (name-path cx env ident loc)
-             ((Some path) (expr (FieldRead (● path record) (● path label) (None)) loc))
-             ((None) (compile-error loc (string-append "unbound identifier " identifier-name)))))
+          ((None) (compile-error loc (string-append "unbound identifier " identifier-name)))
           (_ (compile-error loc (string-append "syntax used as a value: " identifier-name))))))
 
     (define (check-constructor-reference (cx Context) (name String) (loc Loc))
@@ -2364,59 +2346,6 @@
         ((Nil) (new FieldPath (record record) (label label)))
         ((Cons next rest) (field-path (expr (FieldRead record label (None)) loc) next rest loc))))
 
-    ;; `name::label ...` is `(● name label ...)`: the name before the first
-    ;; `::`, and the labels after it. No defined name holds a `::`
-    ;; (`check-defined`), so a name that does is a path and nothing else.
-    ;; So wherever a record is in scope by a name, each of its fields is
-    ;; too, by the name's path to it.
-
-    (define (name-path (cx Context) (env Env) (ident Syntax) (loc Loc)) (→ (Option FieldPath))
-      (match (path-parts (ident-name ident))
-        ((Cons name (Cons label rest))
-         (if (member? "" (Cons name (Cons label rest)))
-             (None)
-             (Some (field-path (expand-reference cx env (ident-prefix ident name) loc)
-                               label
-                               rest
-                               loc))))
-        (_ (None))))
-
-    (define (path-name? (name String)) (→ Bool)
-      (> (length (path-parts name)) 1))
-
-    ;; A name's parts, between each `::` and the next.
-
-    (define (path-parts (name String)) (→ (List String))
-      (let loop ((start 0) (index 0) (parts (Nil)))
-        (cond ((>= index (string-length name))
-               (reverse (Cons (substring name start index) parts)))
-              ((and (< (+ index 1) (string-length name))
-                    (char=? (string-ref name index) #\:)
-                    (char=? (string-ref name (+ index 1)) #\:))
-               (loop (+ index 2) (+ index 2) (Cons (substring name start index) parts)))
-              (else (loop start (+ index 1) parts)))))
-
-    ;; The identifier `prefix`, which a path starts with, with the path's
-    ;; marks: a mark's key is the name it marks and then each expansion's
-    ;; stamp, so a template's `record::field` reads the `record` the
-    ;; template binds.
-
-    (define (ident-prefix (ident Syntax) (prefix String)) (→ Syntax)
-      (match ident
-        ((Ident _ (None) loc) (Ident prefix (None) loc))
-        ((Ident name (Some mark) loc)
-         (let ((key (● mark key)))
-           (Ident prefix
-                  (Some (new Mark
-                          (key (string-append prefix
-                                              (substring key
-                                                         (string-length name)
-                                                         (string-length key))))
-                          (original (ident-prefix (● mark original) prefix))
-                          (scope (● mark scope))))
-                  loc)))
-        (_ (panic "internal error: not an identifier"))))
-
     (define (expand-field-read (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ (Pair Expr Context))
       (threading cx ((path (expand-field-path env items loc)))
@@ -2424,34 +2353,25 @@
                    (first (expr (FieldRead (● path record) (● path label) (None)) loc))
                    (second cx))))
 
-    ;; `(set! record::field value)` writes the field the path names, and
-    ;; is located where the place is, as a read of it would be. Only a
-    ;; field is a place: a local or a parameter is not.
+    ;; `(set! (● receiver label ...) value)` writes the field the path
+    ;; names, and is located where the place is, as a read of it would be.
+    ;; Only a field is a place: a local or a parameter is not.
 
     (define (expand-field-write (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ (Pair Expr Context))
       (match items
         ((Cons place (Cons value (Nil)))
-         (threading cx ((path (expand-place env place))
-                        (value (expand-expr env value)))
-                    (new Pair
-                      (first (expr (FieldWrite (● path record) (● path label) value (None))
-                                   (syntax-loc place)))
-                      (second cx))))
-        (_ (compile-error loc "expected (set! record::field value)"))))
-
-    ;; A place is a path by name, or `(● receiver label ...)`.
-
-    (define (expand-place (cx Context) (env Env) (place Syntax)) (→ (Pair FieldPath Context))
-      (let ((at (syntax-loc place)))
-        (match place
-          ((Ident _ _ _)
-           (match (name-path cx env place at)
-             ((Some path) (new Pair (first path) (second cx)))
-             ((None) (compile-error at "a place must select a field"))))
-          (_ (if (core-form? cx env place "●")
-                 (expand-field-path cx env (form-tail place) at)
-                 (compile-error at "a place must select a field"))))))
+         (match (head-binding cx env place)
+           ((Some (Core "●"))
+            (let ((at (syntax-loc place)))
+              (threading cx ((path (expand-field-path env (form-tail place) at))
+                             (value (expand-expr env value)))
+                         (new Pair
+                           (first
+                            (expr (FieldWrite (● path record) (● path label) value (None)) at))
+                           (second cx)))))
+           (_ (compile-error (syntax-loc place) "a place must select a field"))))
+        (_ (compile-error loc "expected (set! (● receiver field ...) value)"))))
 
     ;; Resolve names once into slots. The checker supplies each initializer's
     ;; field type before lowering this form to ordinary bindings and a call.

@@ -184,7 +184,8 @@
              (radiance (plane gpu "environment/radiance" width height (Rgba32Float)))
              (uniform (shape-uniform gpu (sized hdr width height factor)))
              (kernels (environment-kernels gpu)))
-        (let* ((encoder (gpu::create-command-encoder)) (pass (gpu::begin-compute-pass encoder)))
+        (let* ((encoder ((● gpu create-command-encoder)))
+               (pass ((● gpu begin-compute-pass) encoder)))
           (bound gpu pass
                  kernels
                  "unrle"
@@ -195,9 +196,9 @@
                  "downsample"
                  (list (buffer 2 rgbe) (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
           (dispatch-texels gpu pass (i64->i32 width) (i64->i32 height))
-          (gpu::end-compute-pass pass)
-          (gpu::submit (list (gpu::finish encoder))))
-        (for-each (lambda (spent) (gpu::destroy (BufferObject spent)))
+          ((● gpu end-compute-pass) pass)
+          ((● gpu submit) (list ((● gpu finish) encoder))))
+        (for-each (lambda (spent) ((● gpu destroy) (BufferObject spent)))
                   (list file rows rgbe uniform))
         (with-table gpu kernels radiance width height)))
 
@@ -234,16 +235,17 @@
                                            (horizon (● sky horizon))
                                            (ground (● sky ground)))))
              (kernels (environment-kernels gpu)))
-        (let* ((encoder (gpu::create-command-encoder)) (pass (gpu::begin-compute-pass encoder)))
+        (let* ((encoder ((● gpu create-command-encoder)))
+               (pass ((● gpu begin-compute-pass) encoder)))
           (bound gpu
                  pass
                  kernels
                  "sky"
                  (list (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
           (dispatch-texels gpu pass (i64->i32 width) (i64->i32 height))
-          (gpu::end-compute-pass pass)
-          (gpu::submit (list (gpu::finish encoder))))
-        (gpu::destroy (BufferObject uniform))
+          ((● gpu end-compute-pass) pass)
+          ((● gpu submit) (list ((● gpu finish) encoder))))
+        ((● gpu destroy) (BufferObject uniform))
         (with-table gpu kernels radiance width height)))
 
     ;; The radiance with its table: each row's distribution, then the
@@ -258,15 +260,17 @@
              (entries (list (TextureEntry 5 (● radiance view))
                             (buffer 6 sums)
                             (TextureEntry 7 (● table view)))))
-        (let* ((encoder (gpu::create-command-encoder)) (pass (gpu::begin-compute-pass encoder)))
+        (let* ((encoder ((● gpu create-command-encoder)))
+               (pass ((● gpu begin-compute-pass) encoder)))
           (bound gpu pass kernels "weigh" entries)
           (dispatch-items gpu pass height 64)
           (bound gpu pass kernels "marginal" entries)
-          (gpu::dispatch-workgroups pass 1 1 1)
-          (gpu::end-compute-pass pass)
-          (gpu::submit (list (gpu::finish encoder))))
-        (gpu::destroy (BufferObject sums))
-        (for-each (lambda (named) (gpu::destroy (ComputePipelineObject (● named second)))) kernels)
+          ((● gpu dispatch-workgroups) pass 1 1 1)
+          ((● gpu end-compute-pass) pass)
+          ((● gpu submit) (list ((● gpu finish) encoder))))
+        ((● gpu destroy) (BufferObject sums))
+        (for-each (lambda (named) ((● gpu destroy) (ComputePipelineObject (● named second))))
+                  kernels)
         (new Environment (radiance radiance) (table table))))
 
     (define (release-environment (gpu Gpu) (environment Environment)) (→ Unit)
@@ -286,10 +290,10 @@
     ;; ---- Kernels ----
 
     (define (environment-kernels (gpu Gpu)) (→ (List (Pair String GpuComputePipeline)))
-      (let ((module (gpu::create-shader-module (new ShaderModuleDescriptor
-                                                 (label "environment")
-                                                 (code (string-append (declarations shape-shape)
-                                                                      environment-shader))))))
+      (let ((module ((● gpu create-shader-module) (new ShaderModuleDescriptor
+                                                    (label "environment")
+                                                    (code (string-append (declarations shape-shape)
+                                                                         environment-shader))))))
         (map (lambda (entry)
                (new Pair (first entry) (second (compute-kernel gpu module "environment" entry))))
              (list "unrle" "downsample" "sky" "weigh" "marginal"))))
@@ -305,9 +309,9 @@
                        ((Some kernel) kernel)
                        ((None) (panic (string-append "environment: no kernel " entry)))))
              (group (kernel-group gpu kernel 0 (string-append "environment/" entry) entries)))
-        (gpu::set-compute-pipeline pass kernel)
-        (gpu::set-compute-bind-group pass 0 group)
-        (gpu::destroy (BindGroupObject group))))
+        ((● gpu set-compute-pipeline) pass kernel)
+        ((● gpu set-compute-bind-group) pass 0 group)
+        ((● gpu destroy) (BindGroupObject group))))
 
     (define (buffer (binding I32) (b GpuBuffer)) (→ BindGroupEntry) (BufferEntry binding b 0 0))
 
@@ -319,7 +323,7 @@
 
     (define (filled (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer)
       (let ((b (storage gpu label (array-length bytes))))
-        (gpu::write-buffer b 0 bytes)
+        ((● gpu write-buffer) b 0 bytes)
         b))
 
     (define (padded (bytes Bytes)) (→ Bytes)

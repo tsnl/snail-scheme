@@ -225,7 +225,7 @@
         (height (● sensor height))
         (present-module module)
         (present-pipeline pipeline)
-        (present-group (gpu::create-bind-group
+        (present-group ((● gpu create-bind-group)
                         (new BindGroupDescriptor
                           (label "splat/present")
                           (pipeline (RenderPipeline pipeline))
@@ -236,7 +236,7 @@
                                                       0))))))))
 
     (define (present-module-of (gpu Gpu) (width I64)) (→ GpuShaderModule)
-      (gpu::create-shader-module
+      ((● gpu create-shader-module)
        (new ShaderModuleDescriptor
          (label "splat/present")
          (code (string-append "const WIDTH = "
@@ -246,7 +246,7 @@
 
     (define (present-pipeline-of (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
       (→ GpuRenderPipeline)
-      (gpu::create-render-pipeline
+      ((● gpu create-render-pipeline)
        (new RenderPipelineDescriptor
          (label "splat/present")
          (module module)
@@ -279,14 +279,14 @@
 
     ;; The image blended, covering the caller's render pass's target.
     (define (present-splat-view (gpu Gpu) (pass GpuRenderPass) (view SplatView)) (→ Unit)
-      (gpu::set-pipeline pass (● view present-pipeline))
-      (gpu::set-bind-group pass 0 (● view present-group))
-      (gpu::draw pass 3 1 0 0))
+      ((● gpu set-pipeline) pass (● view present-pipeline))
+      ((● gpu set-bind-group) pass 0 (● view present-group))
+      ((● gpu draw) pass 3 1 0 0))
 
     ;; What the view made goes at the next submit; the splats' buffers stay.
     (define (release-splat-view (gpu Gpu) (view SplatView)) (→ Unit)
       (release-program gpu (● view program))
-      (for-each (lambda (object) (gpu::destroy object))
+      (for-each (lambda (object) ((● gpu destroy) object))
                 (list (BindGroupObject (● view present-group))
                       (PipelineObject (● view present-pipeline))
                       (ModuleObject (● view present-module)))))

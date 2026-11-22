@@ -331,10 +331,10 @@
     (define (bytes-of (port Port)) (→ I64) (max 4 (* 4 (product (● port shape)))))
 
     (define (new-buffer (gpu Gpu) (label String) (size I64)) (→ GpuBuffer)
-      (gpu::create-buffer (new BufferDescriptor
-                            (label label)
-                            (size (i64->i32 size))
-                            (usage (list (Storage) (CopySrc) (CopyDst))))))
+      ((● gpu create-buffer) (new BufferDescriptor
+                               (label label)
+                               (size (i64->i32 size))
+                               (usage (list (Storage) (CopySrc) (CopyDst))))))
 
     ;; A buffer of `size` bytes: a free one from the pool, or a new one.
     (define (taken (gpu Gpu) (b Build) (label String) (size I64)) (→ (Pair Build GpuBuffer))
@@ -380,7 +380,7 @@
                                           (new Binding (buffer (● made second)) (port port))))))
           ((Constant name data)
            (let ((buffer (new-buffer gpu (string-append (● b label) "/" name) (bytes-of port))))
-             (gpu::write-buffer buffer 0 data)
+             ((● gpu write-buffer) buffer 0 data)
              (buffer-set (made-buffer b "constant" buffer (bytes-of port)) key buffer)))
           (_
            (let ((pair (taken gpu b key (bytes-of port))))
@@ -430,7 +430,7 @@
           b
           (let* ((with (pipeline-for gpu b code entry))
                  (pipeline (● with second))
-                 (group (gpu::create-bind-group
+                 (group ((● gpu create-bind-group)
                          (new BindGroupDescriptor
                            (label (string-append (● b label) "/" entry))
                            (pipeline (ComputePipeline pipeline))
@@ -458,11 +458,11 @@
         (match (table-ref (● b pipelines) key)
           ((Some pipeline) (new Pair (first b) (second pipeline)))
           ((None)
-           (let* ((module (gpu::create-shader-module
+           (let* ((module ((● gpu create-shader-module)
                            (new ShaderModuleDescriptor
                              (label (● b label))
                              (code code))))
-                  (pipeline (gpu::create-compute-pipeline
+                  (pipeline ((● gpu create-compute-pipeline)
                              (new ComputePipelineDescriptor
                                (label (● b label))
                                (module module)
@@ -694,10 +694,10 @@
                          (new Pair
                            (first (copied-into gpu (made-buffer b "sink" buffer size) view buffer))
                            (second buffer)))))
-             (readback (gpu::create-buffer (new BufferDescriptor
-                                             (label (string-append (● b label) "/readback"))
-                                             (size (i64->i32 size))
-                                             (usage (list (MapRead) (CopyDst)))))))
+             (readback ((● gpu create-buffer) (new BufferDescriptor
+                                                (label (string-append (● b label) "/readback"))
+                                                (size (i64->i32 size))
+                                                (usage (list (MapRead) (CopyDst)))))))
         (new Pair
           (first (made-buffer (● made first) "readback" readback size))
           (second (Cons (new Sink (buffer (● made second)) (readback readback) (size size))
@@ -729,7 +729,7 @@
         ((Some binding)
          (unless (= (array-length data) (* 4 (product (● binding port shape))))
            (panic (string-append "tensor: param " name " written with the wrong number of bytes")))
-         (gpu::write-buffer (● binding buffer) 0 data))
+         ((● gpu write-buffer) (● binding buffer) 0 data))
         ((None) (panic (string-append "tensor: the program has no param " name)))))
 
     ;; A param's buffer, for a host to copy into on the device, as from a
@@ -753,47 +753,50 @@
       (run-steps gpu (● program steps)))
 
     (define (run-steps (gpu Gpu) (steps (List Step))) (→ Unit)
-      (let* ((encoder (gpu::create-command-encoder)) (pass (gpu::begin-compute-pass encoder)))
+      (let* ((encoder ((● gpu create-command-encoder))) (pass ((● gpu begin-compute-pass) encoder)))
         (for-each (lambda (step) (encode-step gpu pass step)) steps)
-        (gpu::end-compute-pass pass)
-        (gpu::submit (list (gpu::finish encoder)))))
+        ((● gpu end-compute-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))))
 
     (define (encode-step (gpu Gpu) (pass GpuComputePass) (step Step)) (→ Unit)
       (match step
         ((Dispatch pipeline group x y _ _)
-         (gpu::set-compute-pipeline pass pipeline)
-         (gpu::set-compute-bind-group pass 0 group)
-         (gpu::dispatch-workgroups pass (i64->i32 x) (i64->i32 y) 1))
+         ((● gpu set-compute-pipeline) pass pipeline)
+         ((● gpu set-compute-bind-group) pass 0 group)
+         ((● gpu dispatch-workgroups) pass (i64->i32 x) (i64->i32 y) 1))
         ((Sorting sorter) (dispatch-sort gpu pass sorter))
         ((Scanning scan) (dispatch-scan gpu pass scan))))
 
     ;; Sink `k`'s bytes as the last run left them.
     (define (read-sink (gpu Gpu) (program Program) (k I64)) (→ Bytes)
-      (let ((sink (list-ref (● program sinks) k)) (encoder (gpu::create-command-encoder)))
-        (gpu::copy-buffer-to-buffer encoder
-                                    (● sink buffer)
-                                    0
-                                    (● sink readback)
-                                    0
-                                    (i64->i32 (● sink size)))
-        (gpu::submit (list (gpu::finish encoder)))
-        (gpu::read-buffer (● sink readback) 0 (i64->i32 (● sink size)))))
+      (let ((sink (list-ref (● program sinks) k)) (encoder ((● gpu create-command-encoder))))
+        ((● gpu copy-buffer-to-buffer) encoder
+         (● sink buffer)
+         0
+         (● sink readback)
+         0
+         (i64->i32 (● sink size)))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
+        ((● gpu read-buffer) (● sink readback) 0 (i64->i32 (● sink size)))))
 
     ;; A param's bytes, through a buffer made for the reading.
     (define (read-param (gpu Gpu) (program Program) (name String)) (→ Bytes)
       (match (table-ref (● program params) name)
         ((Some binding)
          (let* ((size (bytes-of (● binding port)))
-                (readback (gpu::create-buffer (new BufferDescriptor
-                                                (label (string-append "read " name))
-                                                (size (i64->i32 size))
-                                                (usage (list (MapRead) (CopyDst))))))
-                (encoder (gpu::create-command-encoder)))
-           (gpu::copy-buffer-to-buffer encoder (● binding buffer) 0 readback 0 (i64->i32 size))
-           (gpu::submit (list (gpu::finish encoder)))
+                (readback ((● gpu create-buffer) (new BufferDescriptor
+                                                   (label (string-append "read " name))
+                                                   (size (i64->i32 size))
+                                                   (usage (list (MapRead) (CopyDst))))))
+                (encoder ((● gpu create-command-encoder))))
+           ((● gpu copy-buffer-to-buffer) encoder (● binding buffer) 0 readback 0 (i64->i32 size))
+           ((● gpu submit) (list ((● gpu finish) encoder)))
            (let ((data
-                  (gpu::read-buffer readback 0 (i64->i32 (* 4 (product (● binding port shape)))))))
-             (gpu::destroy (BufferObject readback))
+                  ((● gpu read-buffer)
+                   readback
+                   0
+                   (i64->i32 (* 4 (product (● binding port shape)))))))
+             ((● gpu destroy) (BufferObject readback))
              data)))
         ((None) (panic (string-append "tensor: the program has no param " name)))))
 
@@ -804,7 +807,7 @@
                     ((Scanning scan) (release-scan gpu scan))
                     (_ (unit))))
                 (● program steps))
-      (for-each (lambda (object) (gpu::destroy object)) (● program objects)))
+      (for-each (lambda (object) ((● gpu destroy) object)) (● program objects)))
 
     ;; ---- Growing ----
 
@@ -815,24 +818,24 @@
       ((params (Table Binding))))
 
     (define (stash-params (gpu Gpu) (program Program)) (→ Stash)
-      (let* ((encoder (gpu::create-command-encoder))
+      (let* ((encoder ((● gpu create-command-encoder)))
              (copies (map (lambda (name)
                             (match (table-ref (● program params) name)
                               ((Some binding)
                                (let ((copy (new-buffer gpu (string-append "stash/" name)
                                                        (bytes-of (● binding port)))))
-                                 (gpu::copy-buffer-to-buffer encoder
-                                                             (● binding buffer)
-                                                             0
-                                                             copy
-                                                             0
-                                                             (i64->i32 (bytes-of (● binding port))))
+                                 ((● gpu copy-buffer-to-buffer) encoder
+                                  (● binding buffer)
+                                  0
+                                  copy
+                                  0
+                                  (i64->i32 (bytes-of (● binding port))))
                                  (new Pair
                                    (first name)
                                    (second (new Binding (buffer copy) (port (● binding port)))))))
                               ((None) (panic "tensor: a param went missing"))))
                           (table-keys (● program params)))))
-        (gpu::submit (list (gpu::finish encoder)))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
         (new Stash
           (params (fold-left (lambda (t pair) (table-set t (● pair first) (● pair second)))
                              (empty-table)
@@ -841,25 +844,25 @@
     ;; Each stashed param copied into the program's of the same name, as
     ;; much of it as both hold, and the stash destroyed.
     (define (unstash-params (gpu Gpu) (stash Stash) (program Program)) (→ Unit)
-      (let ((encoder (gpu::create-command-encoder)))
+      (let ((encoder ((● gpu create-command-encoder))))
         (for-each (lambda (name)
                     (match (new Pair
                              (first (table-ref (● stash params) name))
                              (second (table-ref (● program params) name)))
                       ((Pair (Some source) (Some target))
-                       (gpu::copy-buffer-to-buffer encoder
-                                                   (● source buffer)
-                                                   0
-                                                   (● target buffer)
-                                                   0
-                                                   (i64->i32 (min (bytes-of (● source port))
-                                                                  (bytes-of (● target port))))))
+                       ((● gpu copy-buffer-to-buffer) encoder
+                        (● source buffer)
+                        0
+                        (● target buffer)
+                        0
+                        (i64->i32 (min (bytes-of (● source port))
+                                       (bytes-of (● target port))))))
                       (_ (unit))))
                   (table-keys (● stash params)))
-        (gpu::submit (list (gpu::finish encoder)))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
         (for-each (lambda (name)
                     (match (table-ref (● stash params) name)
-                      ((Some binding) (gpu::destroy (BufferObject (● binding buffer))))
+                      ((Some binding) ((● gpu destroy) (BufferObject (● binding buffer))))
                       ((None) (unit))))
                   (table-keys (● stash params)))))
 
@@ -886,15 +889,15 @@
     ;; The steps, each in a timed pass of its own, then their times read.
     (define (timed-steps (gpu Gpu) (steps (List Step))) (→ (List (Pair String F64)))
       (let* ((count (length steps))
-             (queries (gpu::create-query-set (new QuerySetDescriptor
-                                               (label "profile")
-                                               (count (i64->i32 (* 2 count))))))
+             (queries ((● gpu create-query-set) (new QuerySetDescriptor
+                                                  (label "profile")
+                                                  (count (i64->i32 (* 2 count))))))
              (writes (map (lambda (k) (step-writes queries k)) (iota count)))
-             (encoder (gpu::create-command-encoder)))
+             (encoder ((● gpu create-command-encoder))))
         (for-each (lambda (pair) (timed-step gpu encoder (● pair first) (● pair second)))
                   (zip writes steps))
         (let ((times (submit-timed gpu encoder queries (i64->i32 (* 2 count)))))
-          (gpu::destroy (QuerySetObject queries))
+          ((● gpu destroy) (QuerySetObject queries))
           (map (lambda (pair)
                  (new Pair
                    (first (step-name (● pair second)))
@@ -910,9 +913,9 @@
 
     (define (timed-step (gpu Gpu) (encoder GpuCommandEncoder) (writes TimestampWrites) (step Step))
       (→ Unit)
-      (let ((pass (gpu::begin-timed-compute-pass encoder writes)))
+      (let ((pass ((● gpu begin-timed-compute-pass) encoder writes)))
         (encode-step gpu pass step)
-        (gpu::end-compute-pass pass)))
+        ((● gpu end-compute-pass) pass)))
 
     ;; The bytes of the buffers a program made, by use and size, the
     ;; largest first; its sorts and scans hold their own beside these.

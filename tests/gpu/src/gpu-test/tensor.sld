@@ -215,22 +215,25 @@
     ;; to it reads back.
     (define (bound-param (gpu Gpu)) (→ String)
       (let* ((a (param "a" (list 4) (Signed)))
-             (buffer (gpu::create-buffer (new BufferDescriptor
-                                           (label "caller's a")
-                                           (size 16)
-                                           (usage (list (Storage) (CopySrc) (CopyDst))))))
+             (buffer ((● gpu create-buffer) (new BufferDescriptor
+                                              (label "caller's a")
+                                              (size 16)
+                                              (usage (list (Storage) (CopySrc) (CopyDst))))))
              (given (bound nothing-given a buffer))
              (program (lower-with gpu "bound"
                                   (list (+ a a))
                                   (list
                                    (new Pair (first a) (second (+ a (fill 1.0 (list 4) (Signed))))))
                                   given))
-             (encoder (gpu::create-command-encoder))
-             (pass (gpu::begin-compute-pass encoder)))
-        (gpu::write-buffer buffer 0 (values->bytes (list->array (list 1.0 2.0 3.0 4.0)) (Signed)))
+             (encoder ((● gpu create-command-encoder)))
+             (pass ((● gpu begin-compute-pass) encoder)))
+        ((● gpu write-buffer)
+         buffer
+         0
+         (values->bytes (list->array (list 1.0 2.0 3.0 4.0)) (Signed)))
         (encode-steps gpu pass program)
-        (gpu::end-compute-pass pass)
-        (gpu::submit (list (gpu::finish encoder)))
+        ((● gpu end-compute-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))
         (let ((doubled (signed-words (read-sink gpu program 0))))
           (release-program gpu program)
           (let* ((reader (lower-with gpu "reader" (list a) (Nil) given))

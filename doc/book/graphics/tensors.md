@@ -119,7 +119,7 @@ graph; `(fuse roots)` does the same for a list of views.
 
 ```scheme
 (let ((fused (fuse-program sinks updates)))
-  (lower gpu "step" fused::first fused::second))
+  (lower gpu "step" (● fused first) (● fused second)))
 ```
 
 A producer is inlined into each map that reads it: the consumer's load

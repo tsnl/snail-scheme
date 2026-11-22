@@ -131,8 +131,9 @@
     ((None) (list text))))
 
 (define (compose (gpu Gpu) (atlas Atlas) (pictures (List Picture))) (→ Atlas)
-  (let* ((encoder (gpu::create-command-encoder)) (next (atlas-pictures gpu atlas encoder pictures)))
-    (gpu::submit (list (gpu::finish encoder)))
+  (let* ((encoder ((● gpu create-command-encoder)))
+         (next (atlas-pictures gpu atlas encoder pictures)))
+    ((● gpu submit) (list ((● gpu finish) encoder)))
     next))
 
 ;; Composed a call at a time, `calls` times.
@@ -141,7 +142,7 @@
   (if (= calls 0) atlas (settled gpu (compose gpu atlas pictures) pictures (- calls 1))))
 
 (define (frames (gpu Gpu)) (→ (List Atlas))
-  (gpu::request-device)
+  ((● gpu request-device))
   (let* ((first (settled gpu (make-atlas gpu "test" 64 2)
                          (list (picture 1 1 30 20) (picture 2 1 30 20) (picture 3 1 30 40))
                          3))
@@ -170,18 +171,18 @@
 
 ;; A frame's run of quads, over a cleared canvas.
 (define (quad-frame (gpu Gpu) (quads Quads) (count I64)) (→ Quads)
-  (let* ((encoder (gpu::create-command-encoder))
-         (pass (gpu::begin-render-pass encoder
-                                       (new RenderPassDescriptor
-                                         (colors (list (Some (new ColorAttachment
-                                                               (view
-                                                                (view-of gpu
-                                                                         (● (gpu::current-texture)
-                                                                            texture)
-                                                                         1))
-                                                               (load (Keep))
-                                                               (store #t)))))
-                                         (depth (None)))))
+  (let* ((encoder ((● gpu create-command-encoder)))
+         (pass ((● gpu begin-render-pass) encoder
+                (new RenderPassDescriptor
+                  (colors (list (Some (new ColorAttachment
+                                        (view
+                                         (view-of gpu
+                                                  (● ((● gpu current-texture))
+                                                     texture)
+                                                  1))
+                                        (load (Keep))
+                                        (store #t)))))
+                  (depth (None)))))
          (quads (draw-quads gpu pass
                             quads
                             (new View2D
@@ -189,14 +190,14 @@
                               (extent (new Vec2f (x 10.0) (y 10.0)))
                               (pixels (new Vec2f (x 100.0) (y 100.0))))
                             (map quad (iota count)))))
-    (gpu::end-pass pass)
-    (gpu::submit (list (gpu::finish encoder)))
+    ((● gpu end-pass) pass)
+    ((● gpu submit) (list ((● gpu finish) encoder)))
     quads))
 
 ;; A run of three, then runs of a hundred and of two hundred, which grow
 ;; the instances: the outgrown buffer goes at its frame's submit.
 (define (quad-frames (gpu Gpu)) (→ Unit)
-  (gpu::request-device)
+  ((● gpu request-device))
   (fold-left (lambda (quads count) (quad-frame gpu quads count))
              (make-quads gpu "test" (Bgra8Unorm) (● (make-atlas gpu "test" 64 2) texture))
              (list 3 100 200))

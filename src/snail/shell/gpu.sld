@@ -578,33 +578,33 @@
     ;; A view of the first `mips` levels of layer 0.
 
     (define (view-of (gpu Gpu) (texture GpuTexture) (mips I32)) (→ GpuTextureView)
-      (gpu::create-view texture
-                        (new TextureViewDescriptor
-                          (dimension (View2d))
-                          (base-mip 0)
-                          (mips mips)
-                          (base-layer 0)
-                          (layers 1))))
+      ((● gpu create-view) texture
+       (new TextureViewDescriptor
+         (dimension (View2d))
+         (base-mip 0)
+         (mips mips)
+         (base-layer 0)
+         (layers 1))))
 
     ;; A texture's whole array, at its first level.
 
     (define (array-view (gpu Gpu) (texture GpuTexture)) (→ GpuTextureView)
-      (gpu::create-view texture
-                        (new TextureViewDescriptor
-                          (dimension (View2dArray))
-                          (base-mip 0)
-                          (mips 1)
-                          (base-layer 0)
-                          (layers 0))))
+      ((● gpu create-view) texture
+       (new TextureViewDescriptor
+         (dimension (View2dArray))
+         (base-mip 0)
+         (mips 1)
+         (base-layer 0)
+         (layers 0))))
 
     (define (layer-view (gpu Gpu) (texture GpuTexture) (layer I32)) (→ GpuTextureView)
-      (gpu::create-view texture
-                        (new TextureViewDescriptor
-                          (dimension (View2d))
-                          (base-mip 0)
-                          (mips 1)
-                          (base-layer layer)
-                          (layers 1))))
+      ((● gpu create-view) texture
+       (new TextureViewDescriptor
+         (dimension (View2d))
+         (base-mip 0)
+         (mips 1)
+         (base-layer layer)
+         (layers 1))))
 
     ;; A buffer's size 0 binds the rest of it.
     (enum BindGroupEntry
@@ -686,22 +686,22 @@
                           (queries GpuQuerySet)
                           (count I32))
       (→ Bytes)
-      (let ((resolved (gpu::create-buffer
+      (let ((resolved ((● gpu create-buffer)
                        (new BufferDescriptor
                          (label "timestamps")
                          (size (* 8 count))
                          (usage (list (QueryResolve) (CopySrc))))))
-            (readback (gpu::create-buffer
+            (readback ((● gpu create-buffer)
                        (new BufferDescriptor
                          (label "timestamps/readback")
                          (size (* 8 count))
                          (usage (list (MapRead) (CopyDst)))))))
-        (gpu::resolve-query-set encoder queries 0 count resolved 0)
-        (gpu::copy-buffer-to-buffer encoder resolved 0 readback 0 (* 8 count))
-        (gpu::submit (list (gpu::finish encoder)))
-        (let ((times (gpu::read-buffer readback 0 (* 8 count))))
-          (gpu::destroy (BufferObject resolved))
-          (gpu::destroy (BufferObject readback))
+        ((● gpu resolve-query-set) encoder queries 0 count resolved 0)
+        ((● gpu copy-buffer-to-buffer) encoder resolved 0 readback 0 (* 8 count))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
+        (let ((times ((● gpu read-buffer) readback 0 (* 8 count))))
+          ((● gpu destroy) (BufferObject resolved))
+          ((● gpu destroy) (BufferObject readback))
           times)))
 
     ;; The seconds from query `beginning` to query `end` of the times read.

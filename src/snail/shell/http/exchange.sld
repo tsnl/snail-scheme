@@ -50,7 +50,7 @@
     (define (read-chunk (tcp Tcp) (connection Connection) (maximum I64))
       (→ (Result (Option Bytes) (ExchangeError E)))
       (∀ (E))
-      (match (tcp::read connection (i64->i32 maximum))
+      (match ((● tcp read) connection (i64->i32 maximum))
         ((Err error) (Err (TransportFailure error)))
         ((Ok (None)) (Ok (None)))
         ((Ok (Some bytes))
@@ -133,7 +133,7 @@
         (if (= offset (array-length bytes))
             (Ok (unit))
             (let ((end (min (array-length bytes) (+ offset limit))))
-              (match (tcp::write connection (subarray bytes offset end))
+              (match ((● tcp write) connection (subarray bytes offset end))
                 ((Err error) (Err (TransportFailure error)))
                 ((Ok written)
                  (let ((count (i32->i64 written)))
@@ -150,7 +150,7 @@
          (match (write-bytes tcp connection (● parts body))
            ((Err error) (Err error))
            ((Ok _)
-            (match (tcp::finish-connection connection grace)
+            (match ((● tcp finish-connection) connection grace)
               ((Err error) (Err (TransportFailure error)))
               ((Ok _) (Ok (unit)))))))))
 
@@ -201,5 +201,5 @@
       (∀ (E))
       (let ((result (exchange tcp connection grace handler)))
         (match result
-          ((Err _) (tcp::close-connection connection) result)
+          ((Err _) ((● tcp close-connection) connection) result)
           ((Ok _) result))))))

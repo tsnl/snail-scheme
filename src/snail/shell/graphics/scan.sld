@@ -64,7 +64,7 @@
     ;; ---- Making ----
 
     (define (make-scan (gpu Gpu) (label String) (data GpuBuffer) (count I64)) (→ Scan)
-      (let* ((module (gpu::create-shader-module
+      (let* ((module ((● gpu create-shader-module)
                       (new ShaderModuleDescriptor
                         (label "scan")
                         (code scan-code))))
@@ -77,7 +77,7 @@
 
     (define (step-pipeline (gpu Gpu) (module GpuShaderModule) (entry String))
       (→ GpuComputePipeline)
-      (gpu::create-compute-pipeline
+      ((● gpu create-compute-pipeline)
        (new ComputePipelineDescriptor
          (label (string-append "scan/" entry))
          (module module)
@@ -105,17 +105,17 @@
           (add-group (level-group gpu label (● scan add-pipeline) uniform data sums)))))
 
     (define (u32-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer)
-      (gpu::create-buffer (new BufferDescriptor
-                            (label label)
-                            (size (i64->i32 (* 4 count)))
-                            (usage (list (Storage) (CopySrc) (CopyDst))))))
+      ((● gpu create-buffer) (new BufferDescriptor
+                               (label label)
+                               (size (i64->i32 (* 4 count)))
+                               (usage (list (Storage) (CopySrc) (CopyDst))))))
 
     (define (level-uniform (gpu Gpu) (label String) (count I64)) (→ GpuBuffer)
-      (let ((uniform (gpu::create-buffer (new BufferDescriptor
-                                           (label (string-append label "/level"))
-                                           (size 16)
-                                           (usage (list (Uniform) (CopyDst)))))))
-        (gpu::write-buffer
+      (let ((uniform ((● gpu create-buffer) (new BufferDescriptor
+                                              (label (string-append label "/level"))
+                                              (size 16)
+                                              (usage (list (Uniform) (CopyDst)))))))
+        ((● gpu write-buffer)
          uniform
          0
          (pod-bytes level-shape (new ScanLevel (count (i64->i32 count)))))
@@ -127,13 +127,13 @@
                          (data GpuBuffer)
                          (sums GpuBuffer))
       (→ GpuBindGroup)
-      (gpu::create-bind-group (new BindGroupDescriptor
-                                (label (string-append "scan/" label))
-                                (pipeline (ComputePipeline pipeline))
-                                (group 0)
-                                (entries (list (BufferEntry 0 uniform 0 0)
-                                               (BufferEntry 1 data 0 0)
-                                               (BufferEntry 2 sums 0 0))))))
+      ((● gpu create-bind-group) (new BindGroupDescriptor
+                                   (label (string-append "scan/" label))
+                                   (pipeline (ComputePipeline pipeline))
+                                   (group 0)
+                                   (entries (list (BufferEntry 0 uniform 0 0)
+                                                  (BufferEntry 1 data 0 0)
+                                                  (BufferEntry 2 sums 0 0))))))
 
     ;; ---- Scanning ----
 
@@ -142,22 +142,22 @@
     ;; writes of those before them.
 
     (define (dispatch-scan (gpu Gpu) (pass GpuComputePass) (scan Scan)) (→ Unit)
-      (gpu::set-compute-pipeline pass (● scan scan-pipeline))
+      ((● gpu set-compute-pipeline) pass (● scan scan-pipeline))
       (for-each (lambda (level) (dispatch-level gpu pass (● level scan-group) (● level count)))
                 (● scan levels))
-      (gpu::set-compute-pipeline pass (● scan add-pipeline))
+      ((● gpu set-compute-pipeline) pass (● scan add-pipeline))
       (for-each (lambda (level) (dispatch-level gpu pass (● level add-group) (● level count)))
                 (reverse (but-last (● scan levels)))))
 
     (define (dispatch-level (gpu Gpu) (pass GpuComputePass) (group GpuBindGroup) (count I64))
       (→ Unit)
-      (gpu::set-compute-bind-group pass 0 group)
+      ((● gpu set-compute-bind-group) pass 0 group)
       (dispatch-rows gpu pass (tiles count 512)))
 
     ;; `count` workgroups in rows of at most 65535.
     (define (dispatch-rows (gpu Gpu) (pass GpuComputePass) (count I64)) (→ Unit)
       (let ((x (min count 65535)))
-        (gpu::dispatch-workgroups pass (i64->i32 x) (i64->i32 (tiles count x)) 1)))
+        ((● gpu dispatch-workgroups) pass (i64->i32 x) (i64->i32 (tiles count x)) 1)))
 
     (define (but-last (items (List T))) (→ (List T)) (∀ (T))
       (match items
@@ -168,13 +168,13 @@
     ;; scans stays.
     (define (release-scan (gpu Gpu) (scan Scan)) (→ Unit)
       (for-each (lambda (level)
-                  (for-each (lambda (object) (gpu::destroy object))
+                  (for-each (lambda (object) ((● gpu destroy) object))
                             (list (BufferObject (● level uniform))
                                   (BufferObject (● level sums))
                                   (BindGroupObject (● level scan-group))
                                   (BindGroupObject (● level add-group)))))
                 (● scan levels))
-      (for-each (lambda (object) (gpu::destroy object))
+      (for-each (lambda (object) ((● gpu destroy) object))
                 (list (ComputePipelineObject (● scan scan-pipeline))
                       (ComputePipelineObject (● scan add-pipeline))
                       (ModuleObject (● scan module)))))

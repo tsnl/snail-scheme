@@ -91,7 +91,7 @@
              (points (parsed (read-points (sparse "points3D.bin"))))
              (first (dataset-photograph gpu read settings (list-ref images 0)))
              (held? (lambda (k) (= (remainder k 8) 0))))
-        (gpu::destroy (TextureObject (● first texture)))
+        ((● gpu destroy) (TextureObject (● first texture)))
         (make-scene (camera-sized camera (i32->i64 (● first width)) (i32->i64 (● first height)))
                     (filter-indexed (lambda (k) (not (held? k))) images)
                     (filter-indexed held? images)
@@ -113,7 +113,7 @@
       (→ Image)
       (let ((address
              (string-append (● settings scene) (● settings images) "/" (● image name))))
-        (match (gpu::decode-image (read address))
+        (match ((● gpu decode-image) (read address))
           ((Some photo) photo)
           ((None) (panic (string-append address " is no image the host decodes"))))))
 

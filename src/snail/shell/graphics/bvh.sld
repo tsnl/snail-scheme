@@ -82,8 +82,8 @@
 
     ;; Its nodes and uniform; the triangles are their owner's.
     (define (release-bvh (gpu Gpu) (bvh Bvh)) (→ Unit)
-      (gpu::destroy (BufferObject (● bvh nodes)))
-      (gpu::destroy (BufferObject (● bvh layout))))
+      ((● gpu destroy) (BufferObject (● bvh nodes)))
+      ((● gpu destroy) (BufferObject (● bvh layout))))
 
 
 
@@ -100,7 +100,7 @@
              (spare (storage-buffer gpu "bvh/spare" (* 32 (- (* 2 n) 1)) (Nil)))
              (wide (storage-buffer gpu "bvh/wide" (* 64 (max 1 (- n 1))) (Nil)))
              (kernels (new Kernels
-                        (pipelines (pipelines-of gpu (gpu::create-shader-module
+                        (pipelines (pipelines-of gpu ((● gpu create-shader-module)
                                                       (new ShaderModuleDescriptor
                                                         (label "bvh")
                                                         (code
@@ -109,8 +109,8 @@
                                                            build-shape)
                                                           bvh-shader))))))
                         (build build)
-                        (encoder (gpu::create-command-encoder)))))
-        (let ((pass (gpu::begin-compute-pass (● kernels encoder))))
+                        (encoder ((● gpu create-command-encoder))))))
+        (let ((pass ((● gpu begin-compute-pass) (● kernels encoder))))
           (run gpu kernels
                pass
                "morton"
@@ -143,11 +143,11 @@
                              (list (buffer 5 to) (buffer 6 from)))))
                     (iota (refits n)))
           (run gpu kernels pass "pack" 0 (max 1 (- n 1)) (list (buffer 6 nodes) (buffer 7 wide)))
-          (gpu::end-compute-pass pass))
-        (gpu::submit (list (gpu::finish (● kernels encoder))))
-        (for-each (lambda (spent) (gpu::destroy (BufferObject spent)))
+          ((● gpu end-compute-pass) pass))
+        ((● gpu submit) (list ((● gpu finish) (● kernels encoder))))
+        (for-each (lambda (spent) ((● gpu destroy) (BufferObject spent)))
                   (list build keys order nodes spare))
-        (for-each (lambda (named) (gpu::destroy (ComputePipelineObject (● named second))))
+        (for-each (lambda (named) ((● gpu destroy) (ComputePipelineObject (● named second))))
                   (● kernels pipelines))
         (new Bvh (nodes wide) (triangles triangles) (layout (layout-of gpu triangles)))))
 
@@ -188,10 +188,10 @@
                                   (string-append "bvh/" entry)
                                   (Cons (slot-entry 0 (● kernels build) uniform) entries))))
         (when (> count 0)
-          (gpu::set-compute-pipeline pass pipeline)
-          (gpu::set-compute-bind-group pass 0 group)
+          ((● gpu set-compute-pipeline) pass pipeline)
+          ((● gpu set-compute-bind-group) pass 0 group)
           (dispatch-items gpu pass count 256))
-        (gpu::destroy (BindGroupObject group))))
+        ((● gpu destroy) (BindGroupObject group))))
 
     (define (buffer (binding I32) (b GpuBuffer)) (→ BindGroupEntry) (BufferEntry binding b 0 0))
 
@@ -270,11 +270,11 @@
     ;; The queries with `cutout`, WGSL that defines the function and
     ;; declares what it reads in group 1.
     (define (make-ray-kernels (gpu Gpu) (cutout String)) (→ RayKernels)
-      (let ((module (gpu::create-shader-module (new ShaderModuleDescriptor
-                                                 (label "rays")
-                                                 (code (string-append (declarations layout-shape)
-                                                                      cutout
-                                                                      rays-shader))))))
+      (let ((module ((● gpu create-shader-module) (new ShaderModuleDescriptor
+                                                    (label "rays")
+                                                    (code (string-append (declarations layout-shape)
+                                                                         cutout
+                                                                         rays-shader))))))
         (new RayKernels
           (intersect (compute-kernel gpu module "rays" "intersect"))
           (occlude (compute-kernel gpu module "rays" "occlude")))))
@@ -305,10 +305,10 @@
                         (cutout (Option GpuBindGroup))
                         (capacity I64))
       (→ Unit)
-      (gpu::set-compute-pipeline pass query)
-      (gpu::set-compute-bind-group pass 0 rays)
+      ((● gpu set-compute-pipeline) pass query)
+      ((● gpu set-compute-bind-group) pass 0 rays)
       (match cutout
-        ((Some group) (gpu::set-compute-bind-group pass 1 group))
+        ((Some group) ((● gpu set-compute-bind-group) pass 1 group))
         ((None) (unit)))
       (dispatch-items gpu pass capacity 64))
 

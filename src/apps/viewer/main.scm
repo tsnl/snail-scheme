@@ -119,24 +119,24 @@
          ((Some shown)
           (let* ((fly (flown fly elapsed))
                  (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly))))
-            (gpu::work-done)
-            (events::report-ready)
+            ((● gpu work-done))
+            ((● events report-ready))
             (loop (Some shown) fly (timed out timing elapsed))))
          ((None)
-          (events::report-ready)
+          ((● events report-ready))
           (loop view fly timing))))
       ((InputEvent (KeyDown 111 shift))
-       (picker::open-picker (if shift (Folder) (SomeFiles)))
+       ((● picker open-picker) (if shift (Folder) (SomeFiles)))
        (loop view fly timing))
       ((InputEvent input) (loop view (steered fly input) timing))
       ((FilesEvent _)
-       (match (opened gpu dom fetch out format view fly (picker::chosen-files) (None))
+       (match (opened gpu dom fetch out format view fly ((● picker chosen-files)) (None))
          ((Pair view fly) (loop view fly timing))))
       (_ (loop view fly timing)))))
 
 ;; A frame drawn into the canvas, from where the fly is.
 (define (drawn (gpu Gpu) (tracer Tracer) (fly Fly)) (→ Tracer)
-  (let* ((canvas (gpu::current-texture))
+  (let* ((canvas ((● gpu current-texture)))
          (width (● canvas width))
          (height (● canvas height)))
     (draw-traced gpu (resize-tracer gpu tracer width height)
@@ -171,10 +171,10 @@
                 (files (List Chosen))
                 (eye (Option (List F64))))
   (→ (Pair (Option View) Fly))
-  (dom::set-text (dom::document-root) "Loading…")
+  ((● dom set-text) ((● dom document-root)) "Loading…")
   (match (attempt-reading (lambda () (chosen gpu fetch out view files)))
     ((Ok replacing)
-     (dom::set-text (dom::document-root) "")
+     ((● dom set-text) ((● dom document-root)) "")
      (new Pair
        (first (Some (shown gpu view (● replacing first) (● replacing second) format)))
        (second (match (● replacing first)
@@ -191,7 +191,7 @@
 
 ;; What the page says under the view, and the console with it.
 (define (say (dom Dom) (out OutputPort) (message String)) (→ Unit)
-  (dom::set-text (dom::document-root) message)
+  ((● dom set-text) ((● dom document-root)) message)
   (write-line out message))
 
 ;; What the files replace: the scene, by the model among them, and the
@@ -240,7 +240,7 @@
          (match reply
            ((Ok bytes) bytes)
            ((Err why) (unreadable why))))
-       (fetch::fetch-all-bytes addresses)))
+       ((● fetch fetch-all-bytes) addresses)))
 
 (define (none? (option (Option A))) (→ Bool) (∀ (A))
   (match option
@@ -282,7 +282,7 @@
          (environment environment)
          (tracer (retrace gpu (● old tracer) scene environment)))))
     ((None)
-     (let ((canvas (gpu::current-texture))
+     (let ((canvas ((● gpu current-texture)))
            (scene (match scene
                     ((Some scene) scene)
                     ((None) (panic "internal error: a first view without a scene"))))
@@ -359,9 +359,9 @@
               (events Events)
               (out OutputPort))
   (→ Unit)
-  (let ((format (● (gpu::request-device) format))
+  (let ((format (● ((● gpu request-device)) format))
         (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
-        (address (fetch::page-address)))
+        (address ((● fetch page-address))))
     (match (match (query-files address)
              ((Nil) (new Pair (first (None)) (second outside)))
              (files (opened gpu dom fetch out format (None) outside files (query-eye address))))

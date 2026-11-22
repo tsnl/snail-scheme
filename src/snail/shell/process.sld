@@ -232,7 +232,7 @@
     ;; PATH's entries, empty ones included.
 
     (define (path-entries (environment ProcessEnvironment)) (→ (List String))
-      (match (environment::variable "PATH")
+      (match ((● environment variable) "PATH")
         ((Some text) (split-entries text))
         ((None) (Nil))))
 

@@ -2,54 +2,65 @@
  (snail core base)
  (snail core io))
 
-;; `record::field` reads a field of the record a name holds, and a longer
-;; path reads through each record in turn.
+;; Nominal projections select stored slots. The book's types chapter
+;; includes the text between ANCHOR and ANCHOR_END.
+;; ANCHOR: paths
 (record Point
   ((x I64)
    (y I64)))
 
 (record Segment
   ((from Point)
-   (to Point)))
+   (to Point)
+   (label String)))
 
-;; A record of functions is called by path.
-(record Counter
-  ((current (Fn → I64))
-   (advance (Fn I64 → Unit))))
+(record Tag
+  ((label String)
+   (weight I64)))
 
-(define origin (→ Point) (new Point (x 0) (y 0)))
+(define (describe (segment Segment)) (→ String)
+  (string-append (● segment label)
+                 ": "
+                 (show (● segment from x))
+                 " to "
+                 (show (● segment to x))))
 
-(define (length-squared (segment Segment)) (→ I64)
-  (let ((dx (- segment::to::x segment::from::x))
-        (dy (- segment::to::y segment::from::y)))
-    (+ (* dx dx) (* dy dy))))
+;; A generic nominal record still identifies the slot being read.
+(define (labelled (record (Pair T String))) (→ String) (∀ (T))
+  (string-append "[" (● record second) "]"))
 
-;; A template's path starts at the name the template binds.
-(define-syntax swap-ends!
-  (syntax-rules ()
-    ((_ segment)
-     (let ((held segment))
-       (let ((first held::from))
-         (set! held::from held::to)
-         (set! held::to first))))))
+;; Computation uses an ordinary function; projection always means storage.
+(record Circle
+  ((radius I64)))
 
-(define (counter-over (cell Point)) (→ Counter)
-  (new Counter
-    (current (lambda () cell::x))
-    (advance (lambda (by) (set! cell::x (+ cell::x by))))))
+(define (diameter (circle Circle)) (→ I64)
+  (* 2 (● circle radius)))
 
 (define (main (out OutputPort)) (→ Unit)
-  (let ((segment (new Segment (from (new Point (x 1) (y 2))) (to (new Point (x 4) (y 6)))))
-        (counter (counter-over (new Point (x 0) (y 0)))))
-    (write-line out (show (length-squared segment)))
-    (set! segment::to::x 5)
-    (write-line out (show segment::to::x))
-    (swap-ends! segment)
-    (write-line out (show segment::from::x))
-    (counter::advance 3)
-    (counter::advance 4)
-    (write-line out (show (counter::current)))
-    ;; A top-level value is a receiver like any name.
-    (write-line out (show origin::x))
-    ;; `●` reads a receiver that is not a name.
-    (write-line out (show ((● (counter-over segment::to) current))))))
+
+  ;; ANCHOR_END: paths
+
+  (write-line out (describe (new Segment
+                              (from (new Point (x 1) (y 2)))
+                              (to (new Point (x 3) (y 4)))
+                              (label "diagonal"))))
+  (write-line out (● (new Tag (label "heavy") (weight 9)) label))
+  (write-line out (show (● (new Tag (label "heavy") (weight 9)) weight)))
+  (write-line out (labelled (new Pair (first 1) (second "t"))))
+  (write-line out (labelled (new Pair (first #t) (second "s"))))
+  ;; A lambda can use a projection as a higher-order selector.
+  (write-line out
+              (string-join (map show
+                                (map (lambda (record) (● record x))
+                                     (list (new Point (x 5) (y 0)) (new Point (x 6) (y 0)))))
+                           " "))
+  (write-line out
+              (string-join (map (lambda (record) (● record label))
+                                (list (new Tag (label "a") (weight 1))
+                                      (new Tag (label "b") (weight 2))))
+                           " "))
+  (write-line out (show (diameter (new Circle (radius 21)))))
+  ;; Instantiating a nominal record substitutes its field types.
+  (write-line out (show (● (new Pair (first 7) (second "seven")) first)))
+  (write-line out (● (new Pair (first 7) (second "seven")) second))
+  (unit))

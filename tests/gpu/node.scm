@@ -11,9 +11,9 @@
 
 (define (main (host Host) (out OutputPort)) (→ Unit)
   (let ((gpu (host-gpu host)))
-    (let ((info (gpu::request-device)))
+    (let ((info ((● gpu request-device))))
       (write-line out (string-append "format: " (texture-format-name (● info format))))
       (device-checks gpu out)
       (training-checks gpu out)
-      (gpu::work-done)))
+      ((● gpu work-done))))
   (unit))

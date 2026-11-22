@@ -1,4 +1,0 @@
-error-path-defined.sld:9:21: a name that is defined cannot hold ::, which reads a field: point::x
-error-path-defined.sld:12:10: a name that is defined cannot hold ::, which reads a field: point::x
-error-path-defined.sld:17:13: a name that is defined cannot hold ::, which reads a field: x::y
-error-path-defined.sld:20:41: unbound identifier pointt

@@ -123,18 +123,18 @@
 (define (target-of (gpu Gpu) (width I64) (height I64)) (→ Target)
   (let ((pitch (* 256 (quotient (+ (* 4 width) 255) 256))))
     (new Target
-      (texture (gpu::create-texture (new TextureDescriptor
-                                      (label "compare")
-                                      (width (i64->i32 width))
-                                      (height (i64->i32 height))
-                                      (layers 1)
-                                      (mips 1)
-                                      (format (Rgba8Unorm))
-                                      (usage (list (RenderAttachment) (TextureCopySrc))))))
-      (readback (gpu::create-buffer (new BufferDescriptor
-                                      (label "compare/readback")
-                                      (size (i64->i32 (* pitch height)))
-                                      (usage (list (MapRead) (CopyDst))))))
+      (texture ((● gpu create-texture) (new TextureDescriptor
+                                         (label "compare")
+                                         (width (i64->i32 width))
+                                         (height (i64->i32 height))
+                                         (layers 1)
+                                         (mips 1)
+                                         (format (Rgba8Unorm))
+                                         (usage (list (RenderAttachment) (TextureCopySrc))))))
+      (readback ((● gpu create-buffer) (new BufferDescriptor
+                                         (label "compare/readback")
+                                         (size (i64->i32 (* pitch height)))
+                                         (usage (list (MapRead) (CopyDst))))))
       (width width)
       (height height)
       (pitch pitch))))
@@ -142,26 +142,26 @@
 ;; The splats drawn as quads, and by the training renderer.
 
 (define (quads (gpu Gpu) (splats Splats) (camera SplatCamera) (target Target)) (→ Drawn)
-  (let* ((queries (gpu::create-query-set (new QuerySetDescriptor (label "quads") (count 4))))
-         (encoder (gpu::create-command-encoder))
-         (compute (gpu::begin-timed-compute-pass encoder (writes queries 0))))
+  (let* ((queries ((● gpu create-query-set) (new QuerySetDescriptor (label "quads") (count 4))))
+         (encoder ((● gpu create-command-encoder)))
+         (compute ((● gpu begin-timed-compute-pass) encoder (writes queries 0))))
     (sort-splats gpu compute splats camera)
-    (gpu::end-compute-pass compute)
-    (let ((pass (gpu::begin-timed-render-pass encoder (cleared gpu target) (writes queries 2))))
+    ((● gpu end-compute-pass) compute)
+    (let ((pass ((● gpu begin-timed-render-pass) encoder (cleared gpu target) (writes queries 2))))
       (draw-splats gpu pass splats)
-      (gpu::end-pass pass))
+      ((● gpu end-pass) pass))
     (timed-frame gpu encoder queries target)))
 
 (define (tiles (gpu Gpu) (view SplatView) (camera SplatCamera) (target Target)) (→ Drawn)
-  (let* ((queries (gpu::create-query-set (new QuerySetDescriptor (label "tiles") (count 4))))
-         (encoder (gpu::create-command-encoder))
-         (compute (gpu::begin-timed-compute-pass encoder (writes queries 0))))
+  (let* ((queries ((● gpu create-query-set) (new QuerySetDescriptor (label "tiles") (count 4))))
+         (encoder ((● gpu create-command-encoder)))
+         (compute ((● gpu begin-timed-compute-pass) encoder (writes queries 0))))
     (write-view-camera gpu view camera)
     (encode-splat-view gpu compute view)
-    (gpu::end-compute-pass compute)
-    (let ((pass (gpu::begin-timed-render-pass encoder (cleared gpu target) (writes queries 2))))
+    ((● gpu end-compute-pass) compute)
+    (let ((pass ((● gpu begin-timed-render-pass) encoder (cleared gpu target) (writes queries 2))))
       (present-splat-view gpu pass view)
-      (gpu::end-pass pass))
+      ((● gpu end-pass) pass))
     (timed-frame gpu encoder queries target)))
 
 (define (writes (queries GpuQuerySet) (k I32)) (→ TimestampWrites)
@@ -179,21 +179,21 @@
 ;; the image read.
 (define (timed-frame (gpu Gpu) (encoder GpuCommandEncoder) (queries GpuQuerySet) (target Target))
   (→ Drawn)
-  (gpu::copy-texture-to-buffer encoder
-                               (whole-texture (● target texture))
-                               (● target readback)
-                               0
-                               (i64->i32 (● target pitch))
-                               (i64->i32 (● target width))
-                               (i64->i32 (● target height)))
+  ((● gpu copy-texture-to-buffer) encoder
+   (whole-texture (● target texture))
+   (● target readback)
+   0
+   (i64->i32 (● target pitch))
+   (i64->i32 (● target width))
+   (i64->i32 (● target height)))
   (let ((times (submit-timed gpu encoder queries 4)))
-    (gpu::destroy (QuerySetObject queries))
+    ((● gpu destroy) (QuerySetObject queries))
     (new Drawn
       (compute (elapsed-seconds times 0 1))
       (draw (elapsed-seconds times 2 3))
-      (pixels (gpu::read-buffer (● target readback)
-                                0
-                                (i64->i32 (* (● target pitch) (● target height))))))))
+      (pixels ((● gpu read-buffer) (● target readback)
+               0
+               (i64->i32 (* (● target pitch) (● target height))))))))
 
 ;; ---- Agreement ----
 
@@ -231,23 +231,26 @@
 
 ;; A photograph decoded and read back as the target's image is.
 (define (photograph (fs Fs) (gpu Gpu) (path String) (target Target)) (→ Bytes)
-  (match (gpu::decode-image (read-bytes fs path))
+  (match ((● gpu decode-image) (read-bytes fs path))
     ((Some image)
      (unless (and (= (i32->i64 (● image width)) (● target width))
                   (= (i32->i64 (● image height)) (● target height)))
        (panic (string-append "compare: " path " is not " (show (● target width)) "x"
                              (show (● target height)))))
-     (let ((encoder (gpu::create-command-encoder)))
-       (gpu::copy-texture-to-buffer encoder
-                                    (whole-texture (● image texture))
-                                    (● target readback)
-                                    0
-                                    (i64->i32 (● target pitch))
-                                    (● image width)
-                                    (● image height))
-       (gpu::submit (list (gpu::finish encoder)))
-       (gpu::destroy (TextureObject (● image texture)))
-       (gpu::read-buffer (● target readback) 0 (i64->i32 (* (● target pitch) (● target height))))))
+     (let ((encoder ((● gpu create-command-encoder))))
+       ((● gpu copy-texture-to-buffer) encoder
+        (whole-texture (● image texture))
+        (● target readback)
+        0
+        (i64->i32 (● target pitch))
+        (● image width)
+        (● image height))
+       ((● gpu submit) (list ((● gpu finish) encoder)))
+       ((● gpu destroy) (TextureObject (● image texture)))
+       ((● gpu read-buffer)
+        (● target readback)
+        0
+        (i64->i32 (* (● target pitch) (● target height))))))
     ((None) (panic (string-append "compare: " path " is no image")))))
 
 (define (milliseconds (seconds F64)) (→ String)
@@ -400,7 +403,7 @@
 
 (define (main (arguments Arguments) (fs Fs) (out OutputPort) (host Host)) (→ Unit)
   (let ((gpu (host-gpu host)))
-    (gpu::request-device)
+    ((● gpu request-device))
     (let* ((cloud (told "cloud" (read-ply (read-bytes fs (required arguments "cloud")) 0)))
            (scene (required arguments "scene"))
            (width (number arguments "width" 1237))

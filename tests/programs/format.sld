@@ -33,20 +33,20 @@
 
 (define (main (out OutputPort)) (→ Unit)
   (define broken (format-source (long) 40))
-  (out::write-string (format-source (source) format-width))
-  (out::write-string broken)
+  ((● out write-string) (format-source (source) format-width))
+  ((● out write-string) broken)
   ;; Formatting what formatting made changes nothing.
   (write-line out (if (string=? broken (format-source broken 40))
                       "idempotent"
                       "not idempotent"))
   ;; Reindenting only the second line leaves the third as it was.
-  (out::write-string (indent-lines "(foo bar\nbaz\n  qux)\n" 1 1))
-  (out::write-string (format-source (result-bindings) format-width))
-  (out::write-string (indent-lines (result-bindings) 1 1))
+  ((● out write-string) (indent-lines "(foo bar\nbaz\n  qux)\n" 1 1))
+  ((● out write-string) (format-source (result-bindings) format-width))
+  ((● out write-string) (indent-lines (result-bindings) 1 1))
   ;; The editor's line indentation uses the naming convention too, without
   ;; knowing these macros. Names that only contain `let` remain ordinary calls.
   (for-each (lambda (name)
-              (out::write-string (indent-lines (string-append "(" name " ((x 1))\n(x))\n") 1 1)))
+              ((● out write-string) (indent-lines (string-append "(" name " ((x 1))\n(x))\n") 1 1)))
             (list "let" "let*" "retry-let" "custom-let*" "def-let" "outlet" "custom-let-later"))
-  (out::write-string (indent-lines "(retry-let loop ((x 1))\n(loop x))\n" 1 1))
+  ((● out write-string) (indent-lines "(retry-let loop ((x 1))\n(loop x))\n" 1 1))
   (unit))

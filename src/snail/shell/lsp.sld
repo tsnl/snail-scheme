@@ -110,7 +110,7 @@
       (let loop ((left length) (chars (Nil)))
         (if (<= left 0)
             (list->string (reverse chars))
-            (match (in::read-char)
+            (match ((● in read-char))
               ((Some char) (loop (- left (utf8-length char)) (Cons char chars)))
               ((None) (list->string (reverse chars)))))))
 
@@ -123,10 +123,10 @@
 
     (define (write-message (out OutputPort) (json Json)) (→ Unit)
       (let ((text (json->string json)))
-        (out::write-string (string-append "Content-Length: "
-                                          (show (array-length (string->utf8 text)))
-                                          "\r\n\r\n"
-                                          text))))
+        ((● out write-string) (string-append "Content-Length: "
+                                             (show (array-length (string->utf8 text)))
+                                             "\r\n\r\n"
+                                             text))))
 
     (define (respond (out OutputPort) (id Json) (result Json)) (→ Unit)
       (write-message out (object (list (field "jsonrpc" (JsonString "2.0"))
@@ -443,18 +443,15 @@
 
     ;; The use whose name starts at or runs through `index` in `text`. The
     ;; text there must still spell it: an open text edited since the check
-    ;; may have moved another token to the point the use was at. A path is
-    ;; a use of the name it starts with: `gpu::create-buffer` uses `gpu`.
+    ;; may have moved another token to the point the use was at.
 
     (define (use-at (names Index) (path String) (text String) (index I64)) (→ (Option Use))
       (let* ((chars (string->array text)) (start (name-start chars index)))
         (match (table-ref (● names uses) (loc-key (index->loc chars path start)))
           ((Some use)
-           (let ((written (string->array (source-name (● use name)))))
-             (if (or (written-at? chars start written)
-                     (spelled-at? chars start (array-append written (string->array "::"))))
-                 (Some use)
-                 (None))))
+           (if (written-at? chars start (string->array (source-name (● use name))))
+               (Some use)
+               (None)))
           ((None) (None)))))
 
     (define (name-start (chars (Array Char)) (index I64)) (→ I64)
@@ -837,15 +834,9 @@
 
     (define (written-at? (chars (Array Char)) (start I64) (written (Array Char))) (→ Bool)
       (let ((end (+ start (array-length written))))
-        (and (spelled-at? chars start written)
-             (or (= end (array-length chars)) (delimiter? (array-ref chars end))))))
-
-    ;; Whether a token starts at `start` and begins with `written`.
-
-    (define (spelled-at? (chars (Array Char)) (start I64) (written (Array Char))) (→ Bool)
-      (let ((end (+ start (array-length written))))
         (and (<= end (array-length chars))
              (or (= start 0) (delimiter? (array-ref chars (- start 1))))
+             (or (= end (array-length chars)) (delimiter? (array-ref chars end)))
              (every? (lambda (offset)
                        (char=? (array-ref chars (+ start offset)) (array-ref written offset)))
                      (iota (array-length written))))))

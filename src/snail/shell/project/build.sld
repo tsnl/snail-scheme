@@ -122,7 +122,7 @@
     (define (from-working-directory (environment ProcessEnvironment) (path String)) (→ String)
       (if (and (> (string-length path) 0) (char=? (string-ref path 0) #\/))
           path
-          (string-append (match (environment::directory)
+          (string-append (match ((● environment directory))
                            ((Some directory) directory)
                            ((None) (panic "there is no working directory")))
                          "/"
@@ -389,7 +389,7 @@
 
     (define (fresh-scratch (fs Fs) (clock Clock) (scratch String)) (→ String)
       (expect-done (make-directories fs scratch) (string-append "cannot make " scratch))
-      (fresh-directory fs (string-append scratch "/build-") "" (clock::monotonic-nanoseconds)))
+      (fresh-directory fs (string-append scratch "/build-") "" ((● clock monotonic-nanoseconds))))
 
     ;; ---- A build ----
 
@@ -747,7 +747,7 @@
 
     (define (run-command (processes Processes) (command Command) (name String))
       (→ Unit)
-      (match (processes::run command #u8())
+      (match ((● processes run) command #u8())
         ((Err error) (fail-build (string-append "cannot run " name ": " (● error code))))
         ((Ok captured)
          (match (● captured exit)
@@ -1077,7 +1077,7 @@
         (check-output fs output name)
         (let ((directory (fresh-directory fs (string-append beside "/.snail-")
                                           (string-append "-" (base-name name))
-                                          (clock::monotonic-nanoseconds))))
+                                          ((● clock monotonic-nanoseconds)))))
           (write-file fs (string-append directory "/.snail-target") name)
           directory)))
 

@@ -10,7 +10,7 @@
 ;; no task waits, and a signal ends the program as it always has; with
 ;; `busy`, it does so while the task after "ready" computes without end.
 (define (observe (signals Signals) (out OutputPort)) (→ Unit)
-  (match (signals::termination)
+  (match ((● signals termination))
     ((Terminate) (write-line out "observed Terminate"))
     ((Interrupt) (write-line out "observed Interrupt"))
     ((Kill) (panic "SIGKILL cannot be observed"))))

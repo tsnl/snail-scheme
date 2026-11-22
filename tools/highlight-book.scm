@@ -224,7 +224,7 @@
        (panic (string-append "the book's highlighter supports the html renderer, not " renderer))))
     ((Cons _ (Nil))
      (match (string->json (read-input in (Nil)))
-       ((Some input) (out::write-string (json->string (highlight-book input))))
+       ((Some input) ((● out write-string) (json->string (highlight-book input))))
        ((None) (panic "the book's highlighter expected JSON on its standard input"))))
     (_ (panic "usage: highlight-book [supports RENDERER]")))
   (unit))

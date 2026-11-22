@@ -18,23 +18,24 @@ here depends on an engine extension.
 ## WebGPU through a capability
 
 The `Gpu` of `(snail shell gpu)` mirrors WebGPU's own operations and
-descriptors, each a field of the `Gpu`, so code using it reads like WebGPU:
+descriptors, each a field of the `Gpu`:
 
 ```scheme
-(let* ((encoder (gpu::create-command-encoder))
-       (frame (gpu::current-texture))
-       (pass (gpu::begin-render-pass encoder
-               (new RenderPassDescriptor
-                 (colors (list (new ColorAttachment
-                                 (view (view-of gpu frame::texture 1))
-                                 (load (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))))
-                                 (store #t))))
-                 (depth (None))))))
-  (gpu::set-pipeline pass pipeline)
-  (gpu::set-bind-group pass 0 group)
-  (gpu::draw pass 3 1 0 0)
-  (gpu::end-pass pass)
-  (gpu::submit (list (gpu::finish encoder))))
+(let* ((encoder ((● gpu create-command-encoder)))
+       (frame ((● gpu current-texture)))
+       (pass ((● gpu begin-render-pass)
+              encoder
+              (new RenderPassDescriptor
+                (colors (list (new ColorAttachment
+                                (view (view-of gpu (● frame texture) 1))
+                                (load (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))))
+                                (store #t))))
+                (depth (None))))))
+  ((● gpu set-pipeline) pass pipeline)
+  ((● gpu set-bind-group) pass 0 group)
+  ((● gpu draw) pass 3 1 0 0)
+  ((● gpu end-pass) pass)
+  ((● gpu submit) (list ((● gpu finish) encoder))))
 ```
 
 Its operations make buffers, textures, views, samplers, shader modules,
@@ -428,10 +429,10 @@ program on Node makes the `Gpu` itself, as `tests/gpu/node.scm` does:
 
 ```scheme
 (define (main (host Host) (out OutputPort)) (→ Unit)
-  (let* ((gpu (host-gpu host)) (info (gpu::request-device)))
-    (write-line out (string-append "format: " (texture-format-name info::format)))
+  (let* ((gpu (host-gpu host)) (info ((● gpu request-device))))
+    (write-line out (string-append "format: " (texture-format-name (● info format))))
     (device-checks gpu out)
-    (gpu::work-done)))
+    ((● gpu work-done))))
 ```
 
 Node has no screen: there `current-texture` fails, so a program draws into

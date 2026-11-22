@@ -84,9 +84,9 @@
     (define (send-argument (wasm Wasm) (text String)) (→ Unit)
       (let loop ((index 0))
         (when (< index (string-length text))
-          (wasm::argument-character (string-ref text index))
+          ((● wasm argument-character) (string-ref text index))
           (loop (+ index 1))))
-      (wasm::argument-end))
+      ((● wasm argument-end)))
 
     ;; ---- Errors ----
 
@@ -116,8 +116,8 @@
     (define (module-export (wasm Wasm) (module Module) (name String))
       (→ (Result Funcref LoadError))
       (send-argument wasm name)
-      (if (wasm::exports-function? (● module handle))
-          (begin (send-argument wasm name) (Ok (wasm::export-function (● module handle))))
+      (if ((● wasm exports-function?) (● module handle))
+          (begin (send-argument wasm name) (Ok ((● wasm export-function) (● module handle))))
           (Err (MissingExport name))))
 
     ;; ---- Linking by hand ----
@@ -131,7 +131,7 @@
     ;; The module `bytes` hold, or none when they are not one.
 
     (define (compile-bytes (wasm Wasm) (bytes Bytes)) (→ (Option Compiled))
-      (let ((handle (wasm::compile bytes)))
+      (let ((handle ((● wasm compile) bytes)))
         (if (< handle 0) (None) (Some (new Compiled (handle handle))))))
 
     (enum ImportKind
@@ -148,10 +148,10 @@
 
     (define (module-imports (wasm Wasm) (compiled Compiled)) (→ (List Import))
       (map (lambda (index) (import-of wasm (● compiled handle) (i64->i32 index)))
-           (iota (i32->i64 (wasm::import-count (● compiled handle))))))
+           (iota (i32->i64 ((● wasm import-count) (● compiled handle))))))
 
     (define (import-of (wasm Wasm) (module I32) (index I32)) (→ Import)
-      (let ((kind (wasm::import-at module index)))
+      (let ((kind ((● wasm import-at) module index)))
         (new Import (from (held-string wasm 0)) (name (held-string wasm 1)) (kind (kind-of kind)))))
 
     (define (kind-of (code I32)) (→ ImportKind)
@@ -164,8 +164,8 @@
     ;; A name the host holds, a character at a time.
 
     (define (held-string (wasm Wasm) (which I32)) (→ String)
-      (string-generate (i32->i64 (wasm::held-length which))
-                       (lambda (index) (wasm::held-char which (i64->i32 index)))))
+      (string-generate (i32->i64 ((● wasm held-length) which))
+                       (lambda (index) ((● wasm held-char) which (i64->i32 index)))))
 
     ;; What provides an import: an export of an instance, the host's own
     ;; function of the import's module and field, that function when the
@@ -199,27 +199,27 @@
 
     (define (link-module (wasm Wasm) (name String) (compiled Compiled) (providers (List Provider)))
       (→ (Result Module LoadError))
-      (wasm::prepare-link (● compiled handle))
+      ((● wasm prepare-link) (● compiled handle))
       (for-each (lambda (provider) (provide wasm provider)) providers)
-      (let ((handle (wasm::link-prepared)))
+      (let ((handle ((● wasm link-prepared))))
         (if (< handle 0) (Err (LinkFailed name)) (Ok (new Module (handle handle))))))
 
     (define (provide (wasm Wasm) (provider Provider)) (→ Unit)
       (match provider
         ((ExportOf instance export)
          (send-argument wasm export)
-         (wasm::provide-export (● instance handle))
+         ((● wasm provide-export) (● instance handle))
          (unit))
-        ((HostProvided) (wasm::provide-host) (unit))
-        ((HostIfProvided) (unless (wasm::provide-host) (wasm::provide-missing)))
-        ((ConstantOf value) (wasm::provide-constant value))
-        ((Unprovided) (wasm::provide-missing))))
+        ((HostProvided) ((● wasm provide-host)) (unit))
+        ((HostIfProvided) (unless ((● wasm provide-host)) ((● wasm provide-missing))))
+        ((ConstantOf value) ((● wasm provide-constant) value))
+        ((Unprovided) ((● wasm provide-missing)))))
 
     ;; Bind the program's runtime for staging bytes and reporting errors.
     ;; Handle zero continues to identify the loader, whose own runtime stays
     ;; separate from the program it runs.
     (define (bind-runtime (wasm Wasm) (runtime Module)) (→ Unit)
-      (wasm::runtime-instance (● runtime handle)))
+      ((● wasm runtime-instance) (● runtime handle)))
 
     ;; Calls the function the instance exports as `name`, of no argument or
     ;; one I64, such as its `main` or a scheduler's `tasks:turn`, with
@@ -228,8 +228,8 @@
     (define (run-export (wasm Wasm) (instance Module) (name String) (argument I64))
       (→ (Result I64 LoadError))
       (send-argument wasm name)
-      (if (wasm::exports-function? (● instance handle))
-          (begin (send-argument wasm name) (Ok (wasm::call-export (● instance handle) argument)))
+      (if ((● wasm exports-function?) (● instance handle))
+          (begin (send-argument wasm name) (Ok ((● wasm call-export) (● instance handle) argument)))
           (Err (MissingExport name))))
 
     ))

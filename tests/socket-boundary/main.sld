@@ -71,7 +71,7 @@
     ((Err error) (panic (● error code)))))
 
 (define (open (tcp Tcp)) (→ (Result Listener SocketError))
-  (tcp::listen (require (endpoint "127.0.0.1" 0))))
+  ((● tcp listen) (require (endpoint "127.0.0.1" 0))))
 
 (define (listener (answer Any)) (→ Listener)
   (require (fixture-convert answer (Result Listener SocketError))))
@@ -79,18 +79,18 @@
 (define (port (listener Listener)) (→ I32) (● listener port))
 
 (define (dial (tcp Tcp) (port I32)) (→ (Result Connection SocketError))
-  (tcp::connect (require (endpoint "127.0.0.1" port))))
+  ((● tcp connect) (require (endpoint "127.0.0.1" port))))
 
 (define (take (tcp Tcp) (listener Listener))
   (→ (Result Connection SocketError))
-  (tcp::accept listener))
+  ((● tcp accept) listener))
 
 (define (connection (answer Any)) (→ Connection)
   (require (fixture-convert answer (Result Connection SocketError))))
 
 (define (receive (tcp Tcp) (connection Connection) (count I32))
   (→ (Result (Option Bytes) SocketError))
-  (tcp::read connection count))
+  ((● tcp read) connection count))
 
 (define (read-count (answer Any)) (→ I32)
   (match (require (fixture-convert answer (Result (Option Bytes) SocketError)))
@@ -109,27 +109,27 @@
 
 (define (send (tcp Tcp) (connection Connection))
   (→ (Result I32 SocketError))
-  (tcp::write connection #u8(0 255 128 1)))
+  ((● tcp write) connection #u8(0 255 128 1)))
 
 (define (written (answer Any)) (→ I32)
   (require (fixture-convert answer (Result I32 SocketError))))
 
 (define (overwrite (tcp Tcp)) (→ Bool)
-  (match (tcp::write (new Connection (token (Any (ann 1 I32)))) #u8(9 8 7))
+  (match ((● tcp write) (new Connection (token (Any (ann 1 I32)))) #u8(9 8 7))
     ((Err error) (string=? (● error code) "EBADF"))
     ((Ok _) #f)))
 
 (define (stop-listener (tcp Tcp) (listener Listener))
   (→ Unit)
-  (require (tcp::close-listener listener)))
+  (require ((● tcp close-listener) listener)))
 
 (define (stop-connection (tcp Tcp) (connection Connection))
   (→ Unit)
-  (require (tcp::close-connection connection)))
+  (require ((● tcp close-connection) connection)))
 
 (define (finish (tcp Tcp) (connection Connection) (grace I32))
   (→ (Result Unit SocketError))
-  (tcp::finish-connection connection grace))
+  ((● tcp finish-connection) connection grace))
 
 (define (finished? (answer Any)) (→ Bool)
   (match (fixture-convert answer (Result Unit SocketError))
@@ -211,7 +211,7 @@
 
 (define (open-udp (udp Udp))
   (→ UdpSocket)
-  (require (udp::bind (require (endpoint "127.0.0.1" 0)))))
+  (require ((● udp bind) (require (endpoint "127.0.0.1" 0)))))
 
 (define (udp-socket (answer Any)) (→ UdpSocket)
   (fixture-convert answer UdpSocket))
@@ -220,11 +220,11 @@
 
 (define (send-udp (udp Udp) (socket UdpSocket) (port I32))
   (→ (Result I32 SocketError))
-  (udp::send socket (require (endpoint "127.0.0.1" port)) #u8(0 255 128 1)))
+  ((● udp send) socket (require (endpoint "127.0.0.1" port)) #u8(0 255 128 1)))
 
 (define (receive-udp (udp Udp) (socket UdpSocket) (count I32))
   (→ (Result Datagram SocketError))
-  (udp::receive socket count))
+  ((● udp receive) socket count))
 
 (define (datagram (answer Any)) (→ Datagram)
   (require (fixture-convert answer (Result Datagram SocketError))))
@@ -236,7 +236,7 @@
 (define (packet-byte (answer Any) (index I32)) (→ I32)
   (u8->i32 (array-ref (● (datagram answer) bytes) (i32->i64 index))))
 
-(define (stop-udp (udp Udp) (socket UdpSocket)) (→ Unit) (require (udp::close-udp socket)))
+(define (stop-udp (udp Udp) (socket UdpSocket)) (→ Unit) (require ((● udp close-udp) socket)))
 
 (define (begin-open-udp (tcp Tcp) (udp Udp) (scheduler Scheduler) (requests Requests))
   (→ I64)

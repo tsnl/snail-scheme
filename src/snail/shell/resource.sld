@@ -77,6 +77,6 @@
 
     (define (read-resources (resources Resources) (linked (List Resource)))
       (→ (List Bytes))
-      (resources::resource-bytes (map (lambda (file) ((● file handle))) linked)))
+      ((● resources resource-bytes) (map (lambda (file) ((● file handle))) linked)))
 
     ))

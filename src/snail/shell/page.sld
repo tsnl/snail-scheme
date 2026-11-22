@@ -74,12 +74,12 @@
                                     host-finish-store)))))
 
     (define (load-save (storage PageStorage)) (→ (Option Bytes))
-      (let ((count (storage::load-count)))
+      (let ((count ((● storage load-count))))
         (if (< count 0)
             (None)
             (Some
              (array-generate (i32->i64 count)
-                             (lambda (index) (storage::loaded-byte (i64->i32 index))))))))
+                             (lambda (index) ((● storage loaded-byte) (i64->i32 index))))))))
 
     ;; ---- Running a page ----
 
@@ -99,7 +99,7 @@
       (let ((booted (match (load-save storage)
                       ((Some bytes) (new Pair (first (decode bytes)) (second 1)))
                       ((None) (new Pair (first (initialize)) (second 2))))))
-        (events::report-boot (● booted second))
-        (run (● booted first) (lambda (state) (storage::store-save (encode state))))))
+        ((● events report-boot) (● booted second))
+        (run (● booted first) (lambda (state) ((● storage store-save) (encode state))))))
 
     ))

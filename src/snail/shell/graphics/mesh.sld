@@ -356,27 +356,27 @@
                                            (● batch draws)))))))
 
     (define (release-batch (gpu Gpu) (batch MeshBatch)) (→ Unit)
-      (gpu::destroy (BufferObject (● batch instances)))
-      (gpu::destroy (BufferObject (● batch draws))))
+      ((● gpu destroy) (BufferObject (● batch instances)))
+      ((● gpu destroy) (BufferObject (● batch draws))))
 
     ;; The batch's draws in `pass`, whose pipeline is set.
     (define (draw-meshes (gpu Gpu) (pass GpuRenderPass) (geometry MeshGeometry) (batch MeshBatch))
       (→ Unit)
       (unless (null? (● batch offsets))
-        (gpu::set-vertex-buffer pass 0 (● geometry vertices) 0)
-        (gpu::set-vertex-buffer pass 1 (● batch instances) 0)
-        (gpu::set-index-buffer pass (● geometry indices) (Uint32Index) 0)
-        (for-each (lambda (offset) (gpu::draw-indexed-indirect pass (● batch draws) offset))
+        ((● gpu set-vertex-buffer) pass 0 (● geometry vertices) 0)
+        ((● gpu set-vertex-buffer) pass 1 (● batch instances) 0)
+        ((● gpu set-index-buffer) pass (● geometry indices) (Uint32Index) 0)
+        (for-each (lambda (offset) ((● gpu draw-indexed-indirect) pass (● batch draws) offset))
                   (● batch offsets))))
 
     ;; A buffer holding `bytes`, at least a word.
     (define (filled (gpu Gpu) (label String) (bytes Bytes) (usage BufferUsage))
       (→ GpuBuffer)
-      (let ((buffer (gpu::create-buffer (new BufferDescriptor
-                                          (label label)
-                                          (size (i64->i32 (max 4 (array-length bytes))))
-                                          (usage (list usage (CopyDst)))))))
-        (gpu::write-buffer buffer 0 bytes)
+      (let ((buffer ((● gpu create-buffer) (new BufferDescriptor
+                                             (label label)
+                                             (size (i64->i32 (max 4 (array-length bytes))))
+                                             (usage (list usage (CopyDst)))))))
+        ((● gpu write-buffer) buffer 0 bytes)
         buffer))
 
     ))

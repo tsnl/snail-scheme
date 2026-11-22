@@ -64,7 +64,7 @@
   (let loop ((shown shown) (fly fly) (timing (new Pair (first 0) (second 0))))
     (match (next-event events)
       ((FrameEvent elapsed)
-       (let* ((canvas (gpu::current-texture))
+       (let* ((canvas ((● gpu current-texture)))
               (shown (fitted gpu (turning gpu shown elapsed) canvas (● info format)))
               (fly (flown fly elapsed))
               (timing (counted timing elapsed))
@@ -72,16 +72,16 @@
          (if due
              (reported out gpu shown canvas fly timing info)
              (submit-frame gpu shown canvas fly))
-         (gpu::work-done)
-         (events::report-ready)
+         ((● gpu work-done))
+         ((● events report-ready))
          (loop shown fly (if due (new Pair (first 0) (second 0)) timing))))
       ((InputEvent (KeyDown 111 _))
-       (picker::open-picker (SomeFiles))
+       ((● picker open-picker) (SomeFiles))
        (loop shown fly timing))
       ((InputEvent (KeyDown 116 _)) (loop (Shown-tiled-set shown (not (● shown tiled))) fly timing))
       ((InputEvent input) (loop shown (steered fly input) timing))
       ((FilesEvent _)
-       (match (opened dom fetch out gpu info shown fly (picker::chosen-files))
+       (match (opened dom fetch out gpu info shown fly ((● picker chosen-files)))
          ((Pair shown fly) (loop shown fly timing))))
       (_ (loop shown fly timing)))))
 
@@ -128,30 +128,30 @@
                                fly-fov
                                (● canvas width)
                                (● canvas height)))
-         (encoder (gpu::create-command-encoder))
+         (encoder ((● gpu create-command-encoder)))
          (compute (compute-pass gpu encoder queries)))
     (match (● shown view)
       ((Some view) (write-view-camera gpu view camera) (encode-splat-view gpu compute view))
       ((None) (sort-splats gpu compute (● shown splats) camera)))
-    (gpu::end-compute-pass compute)
+    ((● gpu end-compute-pass) compute)
     (let ((pass (canvas-pass gpu encoder canvas queries)))
       (match (● shown view)
         ((Some view) (present-splat-view gpu pass view))
         ((None) (draw-splats gpu pass (● shown splats))))
-      (gpu::end-pass pass))
+      ((● gpu end-pass) pass))
     encoder))
 
 (define (submit-frame (gpu Gpu) (shown Shown) (canvas Image) (fly Fly)) (→ Unit)
-  (gpu::submit (list (gpu::finish (frame gpu shown canvas fly (None))))))
+  ((● gpu submit) (list ((● gpu finish) (frame gpu shown canvas fly (None))))))
 
 (define (compute-pass (gpu Gpu) (encoder GpuCommandEncoder) (queries (Option GpuQuerySet)))
   (→ GpuComputePass)
   (match queries
     ((Some q)
-     (gpu::begin-timed-compute-pass
+     ((● gpu begin-timed-compute-pass)
       encoder
       (new TimestampWrites (query-set q) (beginning 0) (end 1))))
-    ((None) (gpu::begin-compute-pass encoder))))
+    ((None) ((● gpu begin-compute-pass) encoder))))
 
 ;; The canvas, cleared to the background.
 (define (canvas-pass (gpu Gpu)
@@ -171,10 +171,10 @@
                       (depth (None)))))
     (match queries
       ((Some q)
-       (gpu::begin-timed-render-pass encoder
-                                     descriptor
-                                     (new TimestampWrites (query-set q) (beginning 2) (end 3))))
-      ((None) (gpu::begin-render-pass encoder descriptor)))))
+       ((● gpu begin-timed-render-pass) encoder
+        descriptor
+        (new TimestampWrites (query-set q) (beginning 2) (end 3))))
+      ((None) ((● gpu begin-render-pass) encoder descriptor)))))
 
 ;; Frames and milliseconds since the last report.
 (define (counted (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32))
@@ -194,9 +194,10 @@
   (let ((line
          (string-append "frames: " (show (● timing first)) " in " (show (● timing second)) " ms")))
     (if (member? "timestamp-query" (● info features))
-        (let* ((queries (gpu::create-query-set (new QuerySetDescriptor (label "frame") (count 4))))
+        (let* ((queries
+                ((● gpu create-query-set) (new QuerySetDescriptor (label "frame") (count 4))))
                (times (submit-timed gpu (frame gpu shown canvas fly (Some queries)) queries 4)))
-          (gpu::destroy (QuerySetObject queries))
+          ((● gpu destroy) (QuerySetObject queries))
           (write-line out (string-append line
                                          "; on the device "
                                          (milliseconds (elapsed-seconds times 0 1))
@@ -238,7 +239,7 @@
                 (fly Fly)
                 (files (List Chosen)))
   (→ (Pair Shown Fly))
-  (dom::set-text (dom::document-root) "Loading…")
+  ((● dom set-text) ((● dom document-root)) "Loading…")
   (match (attempt-reading (lambda () (chosen fetch files)))
     ((Ok scene)
      (match (● shown view)
@@ -262,7 +263,7 @@
 
 ;; What the page says beside the view, and the console with it.
 (define (say (dom Dom) (out OutputPort) (message String)) (→ Unit)
-  (dom::set-text (dom::document-root) message)
+  ((● dom set-text) ((● dom document-root)) message)
   (write-line out message))
 
 ;; The scene among the files: its cloud, the first .ply, and its poses,
@@ -298,7 +299,7 @@
          (match reply
            ((Ok bytes) bytes)
            ((Err why) (unreadable why))))
-       (fetch::fetch-all-bytes addresses)))
+       ((● fetch fetch-all-bytes) addresses)))
 
 (define (suffix? (text String) (suffix String)) (→ Bool)
   (and (>= (string-length text) (string-length suffix))
@@ -377,14 +378,14 @@
               (out OutputPort)
               (gpu Gpu))
   (→ Unit)
-  (let* ((info (gpu::request-device))
+  (let* ((info ((● gpu request-device)))
          (rings (new Shown
                   (splats (standing gpu (rings) 3 (● info format)))
                   (turned (Some 0.0))
                   (tiled #f)
                   (view (None))))
          (over-rings (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5))))
-    (match (match (query-files (fetch::page-address))
+    (match (match (query-files ((● fetch page-address)))
              ((Nil) (new Pair (first rings) (second over-rings)))
              (files (opened dom fetch out gpu info rings over-rings files)))
       ((Pair shown fly) (view-loop events dom picker fetch out gpu info shown fly))))

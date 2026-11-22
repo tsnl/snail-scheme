@@ -23,8 +23,9 @@
 
 (define (main (gpu Gpu) (fetch Fetch) (events Events) (clock Clock) (out OutputPort))
   (→ Unit)
-  (events::report-ready)
-  (let ((settings (settings-of (fetch::page-address))) (format (● (gpu::request-device) format)))
+  ((● events report-ready))
+  (let ((settings (settings-of ((● fetch page-address))))
+        (format (● ((● gpu request-device)) format)))
     (let ((photographs (new Photographs
                          (photograph (lambda (image)
                                        (dataset-photograph gpu

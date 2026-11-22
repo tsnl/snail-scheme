@@ -24,7 +24,7 @@
 ;; every photograph is, is read while the other tasks run; a larger one,
 ;; as the dataset's list of images may be, at once.
 (define (read (files Files) (fs Fs) (path String)) (→ Bytes)
-  (match (files::read-file path 16777216)
+  (match ((● files read-file) path 16777216)
     ((Ok bytes) bytes)
     ((Err (TooLarge)) (read-bytes fs path))
     ((Err _) (panic (string-append "cannot read " path)))))
@@ -38,7 +38,7 @@
          (out OutputPort))
   (→ Unit)
   (let ((gpu (host-gpu host)))
-    (gpu::request-device)
+    ((● gpu request-device))
     (let* ((address (string-append "?" (string-join (list-tail (command-line arguments) 1) "&")))
            (settings (settings-of address))
            (cloud (setting address "cloud")))
