@@ -46,7 +46,7 @@
     ;; has the host read each file, an object of the program's store, the
     ;; first time a task asks for it, and the task waits until it has;
     ;; another `Resources` can serve them otherwise.
-    (capability Resources
+    (record Resources
       ((resource-bytes (Fn (List I32) → (List Bytes)))))
 
     (define (host-resources (host Host)) (→ Resources)
@@ -77,6 +77,6 @@
 
     (define (read-resources (resources Resources) (linked (List Resource)))
       (→ (List Bytes))
-      (resource-bytes resources (map (lambda (file) ((● file handle))) linked)))
+      ((● resources resource-bytes) (map (lambda (file) ((● file handle))) linked)))
 
     ))

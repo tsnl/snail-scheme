@@ -323,8 +323,7 @@
         (("dynamic-wind") (Some (Special 3)))
         (("scheme-define" "declare") (Some (Definition)))
         (("syntax-rules") (Some (Definition)))
-        (("new" "record" "capability" "enum" "typeclass" "instance" "match" "guard")
-         (Some (Special 1)))
+        (("new" "record" "enum" "typeclass" "instance" "match" "guard") (Some (Special 1)))
         (else (None))))
 
     ;; A binding macro advertises its layout in its name. A name without a
@@ -690,8 +689,8 @@
         ((None) breaks)))
 
     ;; Declaration breaks, in order: before each import
-    ;; specification, a record's or a capability's field list and its fields
-    ;; after the first, and a record type's fields. An import that does not end stops the
+    ;; specification, a record's field list and its fields after the first,
+    ;; and a record type's fields. An import that does not end stops the
     ;; search, since everything after it is part of it.
 
     (define (declaration-breaks (tokens (Array Placed))) (→ (List Placed))
@@ -705,8 +704,6 @@
                   (loop (or-else (expression-end tokens index) (array-length tokens)) found))
                  ((Found found #f) (reverse found))))
               ((Some "record") (loop (+ index 2) (break-record-declaration tokens index breaks)))
-              ((Some "capability")
-               (loop (+ index 2) (break-record-declaration tokens index breaks)))
               ((Some "define-record-type") (loop (+ index 2) (break-record tokens index breaks)))
               (_ (loop (+ index 1) breaks))))))
 

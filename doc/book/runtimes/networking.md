@@ -13,7 +13,7 @@ remaining work.
 
 ## `snail-scheme` API
 
-Import `(snail shell socket)` and hand a `Tcp` or `Udp` to the code using it: every operation takes one first.
+Import `(snail shell socket)` and hand a `Tcp` or `Udp` to the code using it: every operation is a field of one, called as `((● tcp listen) endpoint)`.
 Every operation returns `Result` with a `SocketError` whose `code` is a string
 such as `"EBADF"`, `"EINVAL"` or a native network error code. Nothing
 cancels a waiting task: it resumes when its operation settles. When the run
@@ -303,7 +303,7 @@ program and report failures as `spawn` does
 ### Termination
 
 `Signals`, also in `(snail shell process)`, has one operation,
-`(termination signals)`, which waits for SIGINT or SIGTERM and returns
+`((● signals termination))`, which waits for SIGINT or SIGTERM and returns
 `(Interrupt)` or `(Terminate)`. A program opts in by waiting: a signal that
 arrives while tasks wait in `termination` is the result of every such wait,
 and one that arrives while none waits ends the program, as it always has.
@@ -313,9 +313,9 @@ order, here by terminating a child and waiting for it:
 ```scheme
 (dispatch
  (lambda ()
-   (termination)
-   (send-signal child (Terminate))
-   (wait-exit child)))
+   ((● signals termination))
+   ((● processes send-signal) child (Terminate))
+   ((● processes wait-exit) child)))
 ```
 
 A wait ends with its signal, so a second Ctrl-C during that shutdown ends

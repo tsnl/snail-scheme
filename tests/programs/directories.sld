@@ -126,8 +126,8 @@
   (report out "remove the tree again" (answer done (remove-tree fs (root))))
   ;; ---- Clock ----
 
-  (let* ((first (monotonic-nanoseconds clock)) (second (monotonic-nanoseconds clock)))
+  (let* ((first ((● clock monotonic-nanoseconds))) (second ((● clock monotonic-nanoseconds))))
     (report out "clock never runs back" (show (>= second first))))
   (report out "a clock of the program's own"
-          (show (monotonic-nanoseconds (new Clock (monotonic-nanoseconds (lambda () 42))))))
+          (show ((● (new Clock (monotonic-nanoseconds (lambda () 42))) monotonic-nanoseconds))))
   (unit))

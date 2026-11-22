@@ -14,7 +14,7 @@
   (import
    (snail core base)
    (snail shell wire)
-   (only (snail core io) Clock monotonic-nanoseconds)
+   (only (snail core io) Clock)
    (only (snail shell gpu) Gpu)
    (snail shell app)
    (snail shell graphics pod)
@@ -131,7 +131,7 @@
                         (drawing Drawing)
                         (art (Fn String → (Option Source))))
       (→ Drawing)
-      (let ((time (quotient (monotonic-nanoseconds clock) 1000000)))
+      (let ((time (quotient ((● clock monotonic-nanoseconds)) 1000000)))
         (match (● shell screen)
           ((Rumors screen)
            (draw-quads-frame gpu drawing

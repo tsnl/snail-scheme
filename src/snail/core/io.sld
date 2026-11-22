@@ -14,9 +14,7 @@
    OutputPort
    standard-input
    standard-output
-   read-char
    write-char
-   write-string
    newline
    write-line
    display
@@ -64,14 +62,11 @@
    make-hard-link
    Clock
    host-clock
-   monotonic-nanoseconds
    Arguments
    host-arguments
    command-line
    ProcessEnvironment
-   host-environment
-   environment-variable
-   working-directory)
+   host-environment)
   (import
    (snail core base))
   (begin
@@ -97,10 +92,10 @@
     ;; A port is the one function that reads or writes it, so a program
     ;; makes its own with `new`: one that keeps what is written, or writes
     ;; it to two ports.
-    (capability InputPort
+    (record InputPort
       ((read-char (Fn → (Option Char)))))
 
-    (capability OutputPort
+    (record OutputPort
       ((write-string (Fn String → Unit))))
 
     ;; Standard input and output.
@@ -128,7 +123,7 @@
 
     (define (read-line (in InputPort)) (→ (Option String))
       (let loop ((chars (Nil)))
-        (match (read-char in)
+        (match ((● in read-char))
           ((None) (if (null? chars) (None) (Some (list->string (reverse chars)))))
           ((Some char)
            (if (= char #\newline)
@@ -138,19 +133,19 @@
     ;; ---- Text output ----
 
     (define (write-char (out OutputPort) (char Char)) (→ Unit)
-      (write-string out (make-string 1 char)))
+      ((● out write-string) (make-string 1 char)))
 
     (define (newline (out OutputPort)) (→ Unit)
-      (write-string out "\n"))
+      ((● out write-string) "\n"))
 
     (define (write-line (out OutputPort) (text String)) (→ Unit)
-      (write-string out (string-append text "\n")))
+      ((● out write-string) (string-append text "\n")))
 
     (define (display (out OutputPort) (value T)) (→ Unit) (∀ (T)) (⊨ (Show T))
-      (write-string out (show value)))
+      ((● out write-string) (show value)))
 
     (define (write (out OutputPort) (value T)) (→ Unit) (∀ (T)) (⊨ (Repr T))
-      (write-string out (repr value)))
+      ((● out write-string) (repr value)))
 
     ;; ---- Files ----
 
@@ -597,7 +592,7 @@
     ;; Nanoseconds since an origin the clock chooses, which only ever grow:
     ;; the difference between two readings is the time between them. A
     ;; program makes its own to fix the time a test sees.
-    (capability Clock
+    (record Clock
       ((monotonic-nanoseconds (Fn → I64))))
 
     (define (host-clock (host Host)) (→ Clock)
@@ -647,14 +642,12 @@
     ;; with no filesystem, such as a page, has none. It never changes
     ;; while the program runs. A record of the two functions that read it,
     ;; so a test makes its own.
-    (capability ProcessEnvironment
-      ((environment-variable (Fn String → (Option String)))
-       (working-directory (Fn → (Option String)))))
+    (record ProcessEnvironment
+      ((variable (Fn String → (Option String)))
+       (directory (Fn → (Option String)))))
 
     (define (host-environment (host Host)) (→ ProcessEnvironment)
-      (new ProcessEnvironment
-        (environment-variable host-variable)
-        (working-directory host-directory)))
+      (new ProcessEnvironment (variable host-variable) (directory host-directory)))
 
     (extern variable-length
             "snail.core.support"
