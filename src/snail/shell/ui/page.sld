@@ -51,7 +51,7 @@
                 (● interface save)
                 (● interface restore)
                 (lambda (model save)
-                  (present-interface dom fetch events storage interface model save))))
+                  (present-interface dom fetch events interface model save))))
 
     ;; The loop runs a command as a thunk, so each of the update's commands
     ;; is handed the document and fetch here, where the loop has them.
@@ -60,7 +60,6 @@
              (dom Dom)
              (fetch Fetch)
              (events Events)
-             (storage PageStorage)
              (interface (InterfaceHandler Model Message))
              (model Model)
              (save (Fn Model → Unit)))

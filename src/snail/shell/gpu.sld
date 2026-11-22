@@ -1336,7 +1336,7 @@
     ;; (host/native/gpu.mjs); it has no screen, so there `current-texture`
     ;; fails, and it decodes images as a page does.
     ;;
-    ;;   (provide-gpu (lambda () (let ((info (request-device))) ...)))
+    ;;   (let* ((gpu (host-gpu host)) (info (request-device gpu))) ...)
 
     (define (host-gpu (host Host)) (→ Gpu)
       (new Gpu

@@ -5,7 +5,7 @@
 ;; answers views of the same values, computed by fewer nodes, for
 ;; `lower` to lower as it lowers any graph.
 ;;
-;;   (lower "step" (fuse (list loss)) (fuse-updates updates))
+;;   (lower gpu "step" (fuse (list loss)) (fuse-updates updates))
 ;;
 ;; A producer is inlined into each map that reads it, through that map's
 ;; view of its port: its loads are seen through the view, which must keep

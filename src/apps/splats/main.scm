@@ -48,56 +48,42 @@
    (tiled Bool)
    (view (Option SplatView))))
 
+;; The page's events, each answered with the next view. The view, the fly
+;; and the frame count are what change from one event to the next; what
+;; the loop reaches the page through, it is handed once.
 (define (view-loop (events Events)
                    (dom Dom)
                    (picker FilePicker)
                    (fetch Fetch)
                    (out OutputPort)
                    (gpu Gpu)
+                   (info DeviceInfo)
                    (shown Shown)
-                   (fly Fly)
-                   (timing (Pair I32 I32))
-                   (info DeviceInfo))
+                   (fly Fly))
   (→ Unit)
-  (match (next-event events)
-    ((FrameEvent elapsed)
-     (let* ((canvas (current-texture gpu))
-            (shown (fitted gpu (turning gpu shown elapsed) canvas (● info format)))
-            (fly (flown fly elapsed))
-            (timing (counted timing elapsed))
-            (due (>= (● timing second) 2000)))
-       (if due (reported out gpu shown canvas fly timing info) (submit-frame gpu shown canvas fly))
-       (work-done gpu)
-       (report-ready events)
-       (view-loop events
-                  dom
-                  picker
-                  fetch
-                  out
-                  gpu
-                  shown
-                  fly
-                  (if due (new Pair (first 0) (second 0)) timing)
-                  info)))
-    ((InputEvent (KeyDown 111 _))
-     (open-picker picker (SomeFiles))
-     (view-loop events dom picker fetch out gpu shown fly timing info))
-    ((InputEvent (KeyDown 116 _))
-     (view-loop events
-                dom
-                picker
-                fetch
-                out
-                gpu
-                (Shown-tiled-set shown (not (● shown tiled)))
-                fly
-                timing
-                info))
-    ((InputEvent input)
-     (view-loop events dom picker fetch out gpu shown (steered fly input) timing info))
-    ((FilesEvent _)
-     (opened events dom picker fetch out gpu shown fly timing info (chosen-files picker)))
-    (_ (view-loop events dom picker fetch out gpu shown fly timing info))))
+  (let loop ((shown shown) (fly fly) (timing (new Pair (first 0) (second 0))))
+    (match (next-event events)
+      ((FrameEvent elapsed)
+       (let* ((canvas (current-texture gpu))
+              (shown (fitted gpu (turning gpu shown elapsed) canvas (● info format)))
+              (fly (flown fly elapsed))
+              (timing (counted timing elapsed))
+              (due (>= (● timing second) 2000)))
+         (if due
+             (reported out gpu shown canvas fly timing info)
+             (submit-frame gpu shown canvas fly))
+         (work-done gpu)
+         (report-ready events)
+         (loop shown fly (if due (new Pair (first 0) (second 0)) timing))))
+      ((InputEvent (KeyDown 111 _))
+       (open-picker picker (SomeFiles))
+       (loop shown fly timing))
+      ((InputEvent (KeyDown 116 _)) (loop (Shown-tiled-set shown (not (● shown tiled))) fly timing))
+      ((InputEvent input) (loop shown (steered fly input) timing))
+      ((FilesEvent _)
+       (match (opened dom fetch out gpu info shown fly (chosen-files picker))
+         ((Pair shown fly) (loop shown fly timing))))
+      (_ (loop shown fly timing)))))
 
 ;; The rings posed where `elapsed` more milliseconds turn them.
 (define (turning (gpu Gpu) (shown Shown) (elapsed I32)) (→ Shown)
@@ -243,18 +229,15 @@
 ;; or the view as it was, and why, when they cannot be shown. Everything
 ;; is read before the device is touched, so files refused leave nothing
 ;; on it, and the splats shown are let go only once theirs can follow.
-(define (opened (events Events)
-                (dom Dom)
-                (picker FilePicker)
+(define (opened (dom Dom)
                 (fetch Fetch)
                 (out OutputPort)
                 (gpu Gpu)
+                (info DeviceInfo)
                 (shown Shown)
                 (fly Fly)
-                (timing (Pair I32 I32))
-                (info DeviceInfo)
                 (files (List Chosen)))
-  (→ Unit)
+  (→ (Pair Shown Fly))
   (set-text dom (document-root dom) "Loading…")
   (match (attempt-reading (lambda () (chosen fetch files)))
     ((Ok scene)
@@ -266,19 +249,16 @@
      (let ((turn (upright (poses-up (● scene poses))))
            (splats (standing gpu (● scene cloud) 1 (● info format))))
        (write-transforms gpu splats (list (pose turn 0.0 0.0 0.0)))
-       (view-loop events
-                  dom
-                  picker
-                  fetch
-                  out
-                  gpu
-                  (new Shown (splats splats) (turned (None)) (tiled (● shown tiled)) (view (None)))
-                  (start-of scene turn)
-                  timing
-                  info)))
+       (new Pair
+         (first (new Shown
+                  (splats splats)
+                  (turned (None))
+                  (tiled (● shown tiled))
+                  (view (None))))
+         (second (start-of scene turn)))))
     ((Err why)
      (say dom out why)
-     (view-loop events dom picker fetch out gpu shown fly timing info))))
+     (new Pair (first shown) (second fly)))))
 
 ;; What the page says beside the view, and the console with it.
 (define (say (dom Dom) (out OutputPort) (message String)) (→ Unit)
@@ -398,14 +378,14 @@
               (gpu Gpu))
   (→ Unit)
   (let* ((info (request-device gpu))
-         (shown (new Shown
+         (rings (new Shown
                   (splats (standing gpu (rings) 3 (● info format)))
                   (turned (Some 0.0))
                   (tiled #f)
                   (view (None))))
-         (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
-         (timing (new Pair (first 0) (second 0))))
-    (match (query-files (page-address fetch))
-      ((Nil) (view-loop events dom picker fetch out gpu shown fly timing info))
-      (files (opened events dom picker fetch out gpu shown fly timing info files))))
+         (over-rings (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5))))
+    (match (match (query-files (page-address fetch))
+             ((Nil) (new Pair (first rings) (second over-rings)))
+             (files (opened dom fetch out gpu info rings over-rings files)))
+      ((Pair shown fly) (view-loop events dom picker fetch out gpu info shown fly))))
   (unit))

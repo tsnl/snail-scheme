@@ -281,7 +281,6 @@
     ;; device clears then.
     (define (profile (photographs Photographs)
                      (gpu Gpu)
-                     (clock Clock)
                      (out OutputPort)
                      (p Programs)
                      (scene Scene))
@@ -466,7 +465,7 @@
       (let* ((capacity (min (● options gaussians) (max 1048576 (* 2 (length (● scene points))))))
              (p (programs-for gpu scene capacity (* 4 capacity))))
         (start-cloud gpu p scene)
-        (when (● options profile) (profile photographs gpu clock out p scene))
+        (when (● options profile) (profile photographs gpu out p scene))
         (write-line out (string-append "training "
                                        (show (length (● scene training)))
                                        " photographs of "

@@ -7,10 +7,10 @@
 ;; own, or lets `run-program` do that in a pass by itself, as often as it
 ;; likes, with nothing built again; and releases the program when done.
 ;;
-;;   (let ((program (lower "fit" (list loss) (list (new Pair (first w) (second w')))))) ...)
-;;   (write-param program "x" bytes)   ; a param's elements, 32-bit words
-;;   (run-program program)             ; every sink computed, then w := w'
-;;   (read-sink program 0)             ; the loss's bytes
+;;   (let ((program (lower gpu "fit" (list loss) (list (new Pair (first w) (second w')))))) ...)
+;;   (write-param gpu program "x" bytes)   ; a param's elements, 32-bit words
+;;   (run-program gpu program)             ; every sink computed, then w := w'
+;;   (read-sink gpu program 0)             ; the loss's bytes
 ;;
 ;; A program has sinks, views it computes for reading back, and updates,
 ;; pairs of a param and the value it takes once everything else ran, so a

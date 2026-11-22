@@ -1061,12 +1061,11 @@
     ;; canvas's size, then the scene's loop, which never returns, over the
     ;; page's document.
 
-    (define (run-scene (gpu Gpu)
-                       (dom Dom)
-                       (events Events)
-                       (storage PageStorage)
-                       (clock Clock)
-                       (scene (SceneHandler S D)))
+    (define (run-scene
+             (dom Dom)
+             (events Events)
+             (storage PageStorage)
+             (scene (SceneHandler S D)))
       (→ Unit)
       (∀ (S D))
       (run-page events storage (lambda ()
@@ -1077,99 +1076,67 @@
                 (● scene save)
                 (● scene restore)
                 (lambda (state save)
-                  (scene-loop gpu dom events storage clock scene
+                  (scene-loop dom events scene
                               save
                               state
                               ((● scene start))
-                              (new Hud (shown (Nil)) (hovered (None)))
-                              0))))
+                              (new Hud (shown (Nil)) (hovered (None)))))))
 
     ;; Each event's state is drawn: a frame draws the scene and, at most ten
     ;; times a second, the HUD; an input shows its HUD. Saves share the
     ;; same queue, independently of display frames. A HUD listener that
     ;; fired gives its input; one the HUD has since dropped gives none.
 
-    (define (scene-loop (gpu Gpu)
-                        (dom Dom)
+    (define (scene-loop (dom Dom)
                         (events Events)
-                        (storage PageStorage)
-                        (clock Clock)
                         (scene (SceneHandler S D))
                         (save (Fn S → Unit))
                         (state S)
                         (drawing D)
-                        (hud Hud)
-                        (since-hud I32))
+                        (hud Hud))
       (→ Unit)
       (∀ (S D))
-      (match (next-event events)
-        ((FrameEvent elapsed)
-         (let* ((next ((● scene update) state (Elapsed elapsed)))
-                (drawn ((● scene draw) next drawing))
-                (show-hud? (>= (+ since-hud elapsed) 100))
-                (shown (if show-hud?
-                           (show-hud dom scene next drawn hud)
-                           (new Pair (first next) (second hud)))))
-           (report-ready events)
-           (scene-loop gpu dom events storage clock scene
-                       save
-                       (● shown first)
-                       drawn
-                       (● shown second)
-                       (if show-hud? 0 (+ since-hud elapsed)))))
-        ((InputEvent input)
-         (scene-input gpu dom events storage clock scene save state drawing hud input))
-        ((HudEvent listener)
-         (match (table-ref (ui:listener-table (● hud shown)) (show listener))
-           ((Some message)
-            (let ((input (message no-event)))
-              (scene-input gpu
-                           dom
-                           events
-                           storage
-                           clock
-                           scene
-                           save
-                           state
-                           drawing
-                           (hovering hud listener input)
-                           input)))
-           ((None)
-            (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
-        ((Hidden)
-         (save state)
-         (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
-        ((SaveRequested)
-         (save state)
-         (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
-        ((FilesEvent _)
-         (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
+      (let loop ((state state) (drawing drawing) (hud hud) (since-hud 0))
+        (match (next-event events)
+          ((FrameEvent elapsed)
+           (let* ((next ((● scene update) state (Elapsed elapsed)))
+                  (drawn ((● scene draw) next drawing))
+                  (show-hud? (>= (+ since-hud elapsed) 100))
+                  (shown (if show-hud?
+                             (show-hud dom scene next drawn hud)
+                             (new Pair (first next) (second hud)))))
+             (report-ready events)
+             (loop (● shown first)
+                   drawn
+                   (● shown second)
+                   (if show-hud? 0 (+ since-hud elapsed)))))
+          ((InputEvent input)
+           (match (scene-input dom scene state drawing hud input)
+             ((Pair state hud) (loop state drawing hud 0))))
+          ((HudEvent listener)
+           (match (table-ref (ui:listener-table (● hud shown)) (show listener))
+             ((Some message)
+              (let ((input (message no-event)))
+                (match (scene-input dom scene state drawing (hovering hud listener input) input)
+                  ((Pair state hud) (loop state drawing hud 0)))))
+             ((None) (loop state drawing hud since-hud))))
+          ((Hidden)
+           (save state)
+           (loop state drawing hud since-hud))
+          ((SaveRequested)
+           (save state)
+           (loop state drawing hud since-hud))
+          ((FilesEvent _) (loop state drawing hud since-hud)))))
 
-    (define (scene-input (gpu Gpu)
-                         (dom Dom)
-                         (events Events)
-                         (storage PageStorage)
-                         (clock Clock)
+    (define (scene-input (dom Dom)
                          (scene (SceneHandler S D))
-                         (save (Fn S → Unit))
                          (state S)
                          (drawing D)
                          (hud Hud)
                          (input Input))
-      (→ Unit)
+      (→ (Pair S Hud))
       (∀ (S D))
-      (let ((shown (show-hud dom scene ((● scene update) state input) drawing hud)))
-        (scene-loop gpu
-                    dom
-                    events
-                    storage
-                    clock
-                    scene
-                    save
-                    (● shown first)
-                    drawing
-                    (● shown second)
-                    0)))
+      (show-hud dom scene ((● scene update) state input) drawing hud))
 
     ;; ---- Showing the HUD ----
 

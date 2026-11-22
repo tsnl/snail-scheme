@@ -99,46 +99,40 @@
    (environment Environment)
    (tracer Tracer)))
 
+;; The page's events, each answered with the next view. The view, the fly
+;; and the frame count are what change from one event to the next; what
+;; the loop reaches the page through, it is handed once.
 (define (view-loop (gpu Gpu)
                    (dom Dom)
                    (picker FilePicker)
                    (events Events)
                    (fetch Fetch)
                    (out OutputPort)
+                   (format TextureFormat)
                    (view (Option View))
-                   (fly Fly)
-                   (timing (Pair I32 I32))
-                   (format TextureFormat))
+                   (fly Fly))
   (→ Unit)
-  (match (next-event events)
-    ((FrameEvent elapsed)
-     (match view
-       ((Some shown)
-        (let ((fly (flown fly elapsed)))
-          (let ((shown (View-tracer-set shown (drawn gpu (● shown tracer) fly))))
+  (let loop ((view view) (fly fly) (timing (new Pair (first 0) (second 0))))
+    (match (next-event events)
+      ((FrameEvent elapsed)
+       (match view
+         ((Some shown)
+          (let* ((fly (flown fly elapsed))
+                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly))))
             (work-done gpu)
             (report-ready events)
-            (view-loop gpu
-                       dom
-                       picker
-                       events
-                       fetch
-                       out
-                       (Some shown)
-                       fly
-                       (timed out timing elapsed)
-                       format))))
-       ((None)
-        (report-ready events)
-        (view-loop gpu dom picker events fetch out view fly timing format))))
-    ((InputEvent (KeyDown 111 shift))
-     (open-picker picker (if shift (Folder) (SomeFiles)))
-     (view-loop gpu dom picker events fetch out view fly timing format))
-    ((InputEvent input)
-     (view-loop gpu dom picker events fetch out view (steered fly input) timing format))
-    ((FilesEvent _)
-     (opened gpu dom picker events fetch out view fly timing format (chosen-files picker) (None)))
-    (_ (view-loop gpu dom picker events fetch out view fly timing format))))
+            (loop (Some shown) fly (timed out timing elapsed))))
+         ((None)
+          (report-ready events)
+          (loop view fly timing))))
+      ((InputEvent (KeyDown 111 shift))
+       (open-picker picker (if shift (Folder) (SomeFiles)))
+       (loop view fly timing))
+      ((InputEvent input) (loop view (steered fly input) timing))
+      ((FilesEvent _)
+       (match (opened gpu dom fetch out format view fly (chosen-files picker) (None))
+         ((Pair view fly) (loop view fly timing))))
+      (_ (loop view fly timing)))))
 
 ;; A frame drawn into the canvas, from where the fly is.
 (define (drawn (gpu Gpu) (tracer Tracer) (fly Fly)) (→ Tracer)
@@ -169,41 +163,31 @@
 ;; and one that arrives meanwhile is read next.
 (define (opened (gpu Gpu)
                 (dom Dom)
-                (picker FilePicker)
-                (events Events)
                 (fetch Fetch)
                 (out OutputPort)
+                (format TextureFormat)
                 (view (Option View))
                 (fly Fly)
-                (timing (Pair I32 I32))
-                (format TextureFormat)
                 (files (List Chosen))
                 (eye (Option (List F64))))
-  (→ Unit)
+  (→ (Pair (Option View) Fly))
   (set-text dom (document-root dom) "Loading…")
   (match (attempt-reading (lambda () (chosen gpu fetch out view files)))
     ((Ok replacing)
      (set-text dom (document-root dom) "")
-     (view-loop gpu
-                dom
-                picker
-                events
-                fetch
-                out
-                (Some (shown gpu view (● replacing first) (● replacing second) format))
-                (match (● replacing first)
-                  ((Some scene)
-                   (let ((over (Fly-stops-set (fly-over (● scene low) (● scene high))
-                                              (● fly stops))))
-                     (match eye
-                       ((Some eye) (fly-at over eye))
-                       ((None) over))))
-                  ((None) fly))
-                timing
-                format))
+     (new Pair
+       (first (Some (shown gpu view (● replacing first) (● replacing second) format)))
+       (second (match (● replacing first)
+                 ((Some scene)
+                  (let ((over (Fly-stops-set (fly-over (● scene low) (● scene high))
+                                             (● fly stops))))
+                    (match eye
+                      ((Some eye) (fly-at over eye))
+                      ((None) over))))
+                 ((None) fly)))))
     ((Err why)
      (say dom out why)
-     (view-loop gpu dom picker events fetch out view fly timing format))))
+     (new Pair (first view) (second fly)))))
 
 ;; What the page says under the view, and the console with it.
 (define (say (dom Dom) (out OutputPort) (message String)) (→ Unit)
@@ -376,20 +360,9 @@
               (out OutputPort))
   (→ Unit)
   (let ((format (● (request-device gpu) format))
-        (fly (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
-        (timing (new Pair (first 0) (second 0)))
+        (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
         (address (page-address fetch)))
-    (match (query-files address)
-      ((Nil) (view-loop gpu dom picker events fetch out (None) fly timing format))
-      (files (opened gpu
-                     dom
-                     picker
-                     events
-                     fetch
-                     out
-                     (None)
-                     fly
-                     timing
-                     format
-                     files
-                     (query-eye address))))))
+    (match (match (query-files address)
+             ((Nil) (new Pair (first (None)) (second outside)))
+             (files (opened gpu dom fetch out format (None) outside files (query-eye address))))
+      ((Pair view fly) (view-loop gpu dom picker events fetch out format view fly)))))

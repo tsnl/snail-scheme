@@ -2306,12 +2306,13 @@
                                           (second (catcher m delimiter))))))))
 
     ;; What a `with-prompt` does with the yield that has reached it; its
-    ;; call site and `resume` both end here. A yield aimed at another
-    ;; prompt leaves it: the `with-prompt` saves itself as one frame, if
-    ;; anything may resume the yield, and its result stays inactive. One
-    ;; aimed at `$prompt` is caught: the record is cleared, the yield's
-    ;; frames become a continuation, and the handler runs with the recorded
-    ;; value and a `resume` holding the continuation. Its call is a tail
+    ;; call site and `resume` both end here. A yield nothing resumes, aimed
+    ;; at another prompt, passes with nothing saved. Otherwise the yield's
+    ;; frames become a continuation. A yield aimed at another prompt leaves
+    ;; with that continuation as its one frame, and the result stays
+    ;; inactive. One aimed at `$prompt` is caught: the record is cleared,
+    ;; and the handler runs with the recorded value and a `resume` holding
+    ;; the continuation. Its call is a tail
     ;; call, so a handler that resumes in tail position runs in constant
     ;; stack however many times its body suspends.
 
@@ -2322,23 +2323,25 @@
              (record (wat "local.get" (Word "$record"))))
         (template-helper! m "catch" (delimiter-key delimiter)
                           "(func {id} (param $prompt (ref null {prompt})) (param $handler (ref null {handler})) (result {result})
-  (local $record (ref null {yield})) (local $continuation (ref null {continuation}))
+  (local $record (ref null {yield})) (local $continuation (ref null {continuation})) (local $own i32)
   (local.set $record (global.get {record}))
-  (if (i32.eqz (ref.eq (struct.get {yield} 0 (local.get $record)) (local.get $prompt)))
+  (local.set $own (ref.eq (struct.get {yield} 0 (local.get $record)) (local.get $prompt)))
+  (if (i32.eqz (i32.or (local.get $own) (struct.get {yield} 1 (local.get $record))))
+    (then (return {inactive})))
+  (local.set $continuation
+    (struct.new {continuation} (ref.func {handled}) (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $prompt) (local.get $handler) (i32.const 0)))
+  (if (i32.eqz (local.get $own))
     (then
-      (if (struct.get {yield} 1 (local.get $record))
-        (then (call {enclose} (local.get $prompt) (local.get $handler) (ref.func {handled}))))
+      (struct.set {yield} 3 (local.get $record) (struct.new {frames} (local.get $continuation) (ref.null {frames})))
       (return {inactive})))
   (global.set {record} (ref.null {yield}))
-  (local.set $continuation
-    (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $prompt) (local.get $handler) (i32.const 0)))
   (return_call_ref {code} (local.get $handler) {value}
     (struct.new {resume} (ref.func {resume-code}) (local.get $continuation))
     (struct.get {handler} 0 (local.get $handler))))"
                           (append (delimiter-bindings m delimiter)
                                   (list (new Pair (first "record") (second (yielding m)))
                                         (new Pair (first "yield") (second (yield-type m)))
-                                        (new Pair (first "enclose") (second (enclose-helper m)))
+                                        (new Pair (first "frames") (second (frames-type m)))
                                         (new Pair
                                           (first "handled")
                                           (second (handled-code m delimiter)))
@@ -2367,8 +2370,9 @@
     ;; resumed. The `with-prompt` is deep: resumed, the frames run under it
     ;; again, so a yield aimed at its prompt runs the handler again, in tail
     ;; position, as the call site would, even after that call has returned.
-    ;; A `with-prompt` that any other yield leaves, at its site or resumed,
-    ;; becomes one frame holding the continuation inside it, so resuming the
+    ;; A continuation is itself a frame, whose code is the `with-prompt`
+    ;; again: a `with-prompt` that any other yield leaves, at its site or
+    ;; resumed, is that one frame among the yield's, so resuming the
     ;; computation around it enters it again too. A continuation runs at
     ;; most once. A `resume` that is never called leaves its frames to the
     ;; collector, and nothing finishes them.
@@ -2377,14 +2381,17 @@
       (match (known-type m "continuation")
         ((Some type) type)
         ((None)
-         (let ((frames (frames-type m)) (prompt (prompt-type m)))
+         (let ((frame (frame-type m)) (frames (frames-type m)) (prompt (prompt-type m)))
            (register-type! m "continuation" "$continuation"
                            (wat "type" (id "$continuation")
-                                (wat "struct"
-                                     (wat "field" (wat "mut" (ref-wat frames)))
-                                     (wat "field" (ref-wat prompt))
-                                     (wat "field" (Word "anyref"))
-                                     (wat "field" (wat "mut" (Word "i32"))))))))))
+                                (wat "sub" (Word "final") (id frame)
+                                     (wat* "struct"
+                                           (append
+                                            (closure-fields m frame)
+                                            (list (wat "field" (wat "mut" (ref-wat frames)))
+                                                  (wat "field" (ref-wat prompt))
+                                                  (wat "field" (Word "anyref"))
+                                                  (wat "field" (wat "mut" (Word "i32")))))))))))))
 
     ;; `resume`, a closure of the prompt's answer to the `with-prompt`'s
     ;; result, holding the continuation.
@@ -2408,9 +2415,9 @@
                      "(func {id} (type {code}) (param $closure (ref null {base})) (param $answer {answer}) (result {result})
   (local $continuation (ref null {continuation}))
   (local.set $continuation (struct.get {resume} 1 (ref.cast (ref null {resume}) (local.get $closure))))
-  (if (struct.get {continuation} 3 (local.get $continuation))
+  (if (struct.get {continuation} 4 (local.get $continuation))
     (then (call {panic} {message}) (unreachable)))
-  (struct.set {continuation} 3 (local.get $continuation) (i32.const 1))
+  (struct.set {continuation} 4 (local.get $continuation) (i32.const 1))
   (return_call {rehandle} (local.get $continuation) {boxed}))"
                      (append (delimiter-bindings m delimiter)
                              (list (new Pair (first "id") (second function-id))
@@ -2444,13 +2451,13 @@
       (template-helper! m "rehandle" (delimiter-key delimiter)
                         "(func {id} (param $continuation (ref null {continuation})) (param $value anyref) (result {result})
   (local $prompt (ref null {prompt}))
-  (local.set $prompt (struct.get {continuation} 1 (local.get $continuation)))
+  (local.set $prompt (struct.get {continuation} 2 (local.get $continuation)))
   {enter}
   (local.set $value (call {continue} (local.get $continuation) (local.get $value)))
   {leave}
   (if {yielding}
     (then (return_call {catch} (local.get $prompt)
-      (ref.cast (ref null {handler}) (struct.get {continuation} 2 (local.get $continuation))))))
+      (ref.cast (ref null {handler}) (struct.get {continuation} 3 (local.get $continuation))))))
   {unboxed})"
                         (append (delimiter-bindings m delimiter)
                                 (list (new Pair (first "continue") (second (continue-helper m)))
@@ -2463,17 +2470,13 @@
                                                               (wat "local.get"
                                                                    (Word "$value"))))))))))
 
-    ;; A `with-prompt` that a yield leaves, saved as a frame: the frames
-    ;; saved inside its body, as a continuation. Run, it is the
-    ;; `with-prompt` again, and it boxes the result.
-
-    (define (handled-type (m Module)) (→ String)
-      (capture-type m (frame-type m) (list (Reference (continuation-type m)))))
+    ;; A continuation's code as a frame: run, it is the `with-prompt`
+    ;; again, and it boxes the result.
 
     (define (handled-code (m Module) (delimiter Delimiter)) (→ String)
       (helper! m "handled" (delimiter-key delimiter)
                (lambda (function-id)
-                 (let ((frame (frame-type m)) (handled (handled-type m)))
+                 (let ((frame (frame-type m)) (continuation (continuation-type m)))
                    (push! (● m declared) function-id)
                    (Word
                     (fill
@@ -2490,36 +2493,10 @@
                                           (● delimiter result)
                                           (wat "call"
                                                (id (rehandler m delimiter))
-                                               (wat "struct.get"
-                                                    (id handled)
-                                                    (int 1)
-                                                    (wat "ref.cast"
-                                                         (ref-wat handled)
-                                                         (wat "local.get" (Word "$frame"))))
+                                               (wat "ref.cast"
+                                                    (ref-wat continuation)
+                                                    (wat "local.get" (Word "$frame")))
                                                (wat "local.get" (Word "$value"))))))))))))))
-
-    ;; Saves the `with-prompt` of `$prompt`, which a yield is leaving, as
-    ;; one frame in place of the frames saved inside its body.
-
-    (define (enclose-helper (m Module)) (→ String)
-      (template-helper! m "control" "enclose"
-                        "(func {id} (param $prompt (ref null {prompt})) (param $handler anyref) (param $code (ref null {code}))
-  (local $record (ref null {yield}))
-  (local $continuation (ref null {continuation}))
-  (local.set $record (global.get {yielding}))
-  (local.set $continuation (struct.new {continuation} (call {reverse} (struct.get {yield} 3 (local.get $record))) (local.get $prompt) (local.get $handler) (i32.const 0)))
-  (struct.set {yield} 3 (local.get $record)
-    (struct.new {frames}
-      (struct.new {handled} (local.get $code) (local.get $continuation))
-      (ref.null {frames}))))"
-                        (list (new Pair (first "prompt") (second (prompt-type m)))
-                              (new Pair (first "code") (second (code-type m (frame-type m))))
-                              (new Pair (first "yield") (second (yield-type m)))
-                              (new Pair (first "yielding") (second (yielding m)))
-                              (new Pair (first "frames") (second (frames-type m)))
-                              (new Pair (first "handled") (second (handled-type m)))
-                              (new Pair (first "continuation") (second (continuation-type m)))
-                              (new Pair (first "reverse") (second (reverse-helper m))))))
 
     ;; Runs a continuation and takes the frames out, so that neither the
     ;; continuation nor `resume` holds them while they run. Then each frame
@@ -2537,8 +2514,8 @@
                           "(func {id} (param $continuation (ref null {continuation})) (param $value anyref) (result anyref)
   (local $frames (ref null {frames}))
   (local $frame (ref null {frame}))
-  (local.set $frames (struct.get {continuation} 0 (local.get $continuation)))
-  (struct.set {continuation} 0 (local.get $continuation) (ref.null {frames}))
+  (local.set $frames (struct.get {continuation} 1 (local.get $continuation)))
+  (struct.set {continuation} 1 (local.get $continuation) (ref.null {frames}))
   (loop $next
     (if (ref.is_null (local.get $frames)) (then (return (local.get $value))))
     (local.set $frame (struct.get {frames} 0 (local.get $frames)))

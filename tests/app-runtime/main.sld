@@ -1,5 +1,5 @@
-;; A scene run by the page's host as a script is: main runs the scene under
-;; (snail target browser)'s handlers, as the scheduler's first task, beside
+;; A scene run by the page's host as a script is: main runs the scene with
+;; what (snail target browser) provides, as the scheduler's first task, beside
 ;; a sleeping child. The HUD shows the count, which tells the check what
 ;; the scene's state is, and the buttons the check clicks.
 (import
@@ -68,7 +68,7 @@
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
     (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
-(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock))
+(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage))
   (→ Unit)
   ;; A task keeps what it closed over across its waits.
   (let ((marker 17))
@@ -77,4 +77,4 @@
                 (unless (= marker 17)
                   (panic "a child lost what it closed over"))
                 (sleep 100000)))
-    (run-scene gpu dom events storage clock (counter gpu))))
+    (run-scene dom events storage (counter gpu))))

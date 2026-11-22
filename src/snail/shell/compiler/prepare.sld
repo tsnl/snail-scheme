@@ -64,19 +64,44 @@
     ;; ---- Labels ----
 
     ;; What a suspension goes to, as the analysis can name it. A prompt read
-    ;; from a top-level value is named by that value, which holds one prompt
-    ;; for the whole run. Any other prompt is known by its type alone:
-    ;; `?abort` when its answer is Never, so that nothing resumes it, and
-    ;; `?resume` otherwise.
+    ;; from a top-level value that is a prompt of its own is named by that
+    ;; value, which holds one prompt for the whole run. Any other prompt is
+    ;; known by its type alone: `?abort` when its answer is Never, so that
+    ;; nothing resumes it, and `?resume` otherwise.
 
-    (define (prompt-label (declarations Declarations) (prompt Expr)) (→ String)
+    (define (prompt-label (known Known) (prompt Expr)) (→ String)
       (match (● prompt term)
-        ((Ann inner _) (prompt-label declarations inner))
+        ((Ann inner _) (prompt-label known inner))
         ((App (Expr (Var name _ _) _ _) (Nil))
-         (if (table-contains? (● declarations types) name)
-             name
-             (unnamed-prompt (● prompt type))))
+         (if (table-contains? (● known prompts) name) name (unnamed-prompt (● prompt type))))
         (_ (unnamed-prompt (● prompt type)))))
+
+    ;; What the flows read a program through: its declarations, and the
+    ;; top-level values that are prompts of their own. Such a value's
+    ;; initializer is `(make-prompt)` and nothing else, so every read of it
+    ;; is the same prompt. A function of no arguments that answers a prompt
+    ;; may answer a different one each call, and names none.
+    (record Known
+      ((declarations Declarations)
+       (prompts (Table Bool))))
+
+    (define (known-program (declarations Declarations) (definitions (List Definition))) (→ Known)
+      (new Known
+        (declarations declarations)
+        (prompts (fold-left (lambda (found definition)
+                              (if (own-prompt? (● definition value))
+                                  (table-set found (● definition name) #t)
+                                  found))
+                            (empty-table)
+                            definitions))))
+
+    (define (own-prompt? (value Expr)) (→ Bool)
+      (match (● value term)
+        ((Ann inner _) (own-prompt? inner))
+        ((App (Expr (Var "prim:cached-thunk" _ _) _ _) (Cons thunk (Nil))) (own-prompt? thunk))
+        ((Lambda (Nil) body) (own-prompt? body))
+        ((App (Expr (Var "prim:make-prompt" _ _) _ _) (Nil)) #t)
+        (_ #f)))
 
     (define (unnamed-prompt (type Type)) (→ String)
       (if (never-answered? type) "?abort" "?resume"))
@@ -133,57 +158,57 @@
     ;; What evaluating `expr` may suspend to. Making a closure suspends
     ;; nothing; its body does when it is called.
 
-    (define (flow (declarations Declarations) (expr Expr)) (→ Flow)
+    (define (flow (known Known) (expr Expr)) (→ Flow)
       (match (● expr term)
         ((Lambda _ _) nowhere)
         ((App callee args)
-         (either (Cons (application-flow declarations callee args)
-                       (map (lambda (part) (flow declarations part)) (Cons callee args)))))
-        (_ (either (map (lambda (child) (flow declarations child)) (expr-children expr))))))
+         (either (Cons (application-flow known callee args)
+                       (map (lambda (part) (flow known part)) (Cons callee args)))))
+        (_ (either (map (lambda (child) (flow known child)) (expr-children expr))))))
 
     ;; What the call itself may suspend to, its operands aside. `suspend`
     ;; goes to its prompt. These primitives run a procedure they are given;
     ;; no other primitive calls anything.
 
-    (define (application-flow (declarations Declarations) (callee Expr) (args (List Expr)))
+    (define (application-flow (known Known) (callee Expr) (args (List Expr)))
       (→ Flow)
       (match (● callee term)
-        ((Ann inner _) (application-flow declarations inner args))
-        ((Var "prim:suspend" _ _) (To (list (prompt-label declarations (list-ref args 0)))))
-        ((Var "prim:with-prompt" _ _) (delimited-flow declarations args))
-        ((Var "prim:array-generate" _ _) (procedure-flow declarations (list-ref args 1)))
-        ((Var "prim:string-generate" _ _) (procedure-flow declarations (list-ref args 1)))
+        ((Ann inner _) (application-flow known inner args))
+        ((Var "prim:suspend" _ _) (To (list (prompt-label known (list-ref args 0)))))
+        ((Var "prim:with-prompt" _ _) (delimited-flow known args))
+        ((Var "prim:array-generate" _ _) (procedure-flow known (list-ref args 1)))
+        ((Var "prim:string-generate" _ _) (procedure-flow known (list-ref args 1)))
         ((Var name _ _)
-         (match (program-value (● declarations program) name)
+         (match (program-value (● known declarations program) name)
            ((Some (Primitive _)) nowhere)
-           (_ (procedure-flow declarations callee))))
-        (_ (procedure-flow declarations callee))))
+           (_ (procedure-flow known callee))))
+        (_ (procedure-flow known callee))))
 
     ;; A `with-prompt` catches what its body suspends to its prompt, which
     ;; the analysis knows when the prompt has a name, and runs its handler
     ;; itself, once the body has unwound to it.
 
-    (define (delimited-flow (declarations Declarations) (args (List Expr))) (→ Flow)
-      (let ((label (prompt-label declarations (list-ref args 0)))
-            (body (procedure-flow declarations (list-ref args 1))))
+    (define (delimited-flow (known Known) (args (List Expr))) (→ Flow)
+      (let ((label (prompt-label known (list-ref args 0)))
+            (body (procedure-flow known (list-ref args 1))))
         (either (list (if (named-prompt? label) (Caught body label) body)
-                      (procedure-flow declarations (list-ref args 2))))))
+                      (procedure-flow known (list-ref args 2))))))
 
     ;; What calling a procedure may suspend to: what a lambda's body may, a
     ;; definition's own suspensions, and otherwise those of any function
     ;; value of its type.
 
-    (define (procedure-flow (declarations Declarations) (procedure Expr)) (→ Flow)
+    (define (procedure-flow (known Known) (procedure Expr)) (→ Flow)
       (match (● procedure term)
-        ((Lambda _ body) (flow declarations body))
-        ((Ann inner _) (procedure-flow declarations inner))
-        ((Var name _ _) (named-flow declarations name (● procedure type)))
+        ((Lambda _ body) (flow known body))
+        ((Ann inner _) (procedure-flow known inner))
+        ((Var name _ _) (named-flow known name (● procedure type)))
         (_ (Applying (type-key (● procedure type))))))
 
-    (define (named-flow (declarations Declarations) (name String) (type Type)) (→ Flow)
-      (if (table-contains? (● declarations types) name)
+    (define (named-flow (known Known) (name String) (type Type)) (→ Flow)
+      (if (table-contains? (● known declarations types) name)
           (Calling name)
-          (match (program-value (● declarations program) name)
+          (match (program-value (● known declarations program) name)
             ((Some (Primitive _)) (primitive-flow name type))
             ((Some _) nowhere)
             ((None) (Applying (type-key type))))))
@@ -213,7 +238,7 @@
     ;; closure it is. `quiet` says the program never suspends at all, so no
     ;; question reads a body.
     (record Suspensions
-      ((declarations Declarations)
+      ((known Known)
        (reached (Table (List String)))
        (quiet Bool)))
 
@@ -230,22 +255,23 @@
 
     (define (program-suspensions (declarations Declarations) (definitions (List Definition)))
       (→ Suspensions)
-      (let ((reached (solve (concatenate (map (lambda (definition)
-                                                (definition-equations declarations definition))
-                                              definitions)))))
+      (let* ((known (known-program declarations definitions))
+             (reached (solve (concatenate (map (lambda (definition)
+                                                 (definition-equations known definition))
+                                               definitions)))))
         (new Suspensions
-          (declarations declarations)
+          (known known)
           (reached reached)
           (quiet (every? null? (table-values reached))))))
 
     ;; A definition's call suspends what its body does. A top-level value's
     ;; is its initializer's, which runs on the first read.
 
-    (define (definition-equations (declarations Declarations) (definition Definition))
+    (define (definition-equations (known Known) (definition Definition))
       (→ (List Equation))
       (let ((body (definition-body (● definition value))))
-        (Cons (new Equation (target (call-key (● definition name))) (flow (flow declarations body)))
-              (value-equations declarations body))))
+        (Cons (new Equation (target (call-key (● definition name))) (flow (flow known body)))
+              (value-equations known body))))
 
     (define (definition-body (value Expr)) (→ Expr)
       (match (● value term)
@@ -258,16 +284,16 @@
     ;; suspensions: a lambda's body, a definition or primitive read as a
     ;; value, and the `resume` a `with-prompt` hands its handler.
 
-    (define (value-equations (declarations Declarations) (expr Expr)) (→ (List Equation))
+    (define (value-equations (known Known) (expr Expr)) (→ (List Equation))
       (let ((inside (lambda (parts)
-                      (concatenate (map (lambda (part) (value-equations declarations part))
+                      (concatenate (map (lambda (part) (value-equations known part))
                                         parts)))))
         (match (● expr term)
           ((Lambda _ body)
-           (Cons (typed-equation (● expr type) (flow declarations body)) (inside (list body))))
-          ((Var name _ _) (read-equations declarations name (● expr type)))
+           (Cons (typed-equation (● expr type) (flow known body)) (inside (list body))))
+          ((Var name _ _) (read-equations known name (● expr type)))
           ((App callee args)
-           (append (resume-equations declarations expr callee args)
+           (append (resume-equations known expr callee args)
                    (inside (if (names-callee? callee) args (Cons callee args)))))
           (_ (inside (expr-children expr))))))
 
@@ -281,31 +307,48 @@
         (_ #f)))
 
     ;; A local is a value some other expression made, so reading one adds
-    ;; nothing.
+    ;; nothing. A definition or a primitive read as a value is called who
+    ;; knows where, as a function of its type.
 
-    (define (read-equations (declarations Declarations) (name String) (type Type))
+    (define (read-equations (known Known) (name String) (type Type))
       (→ (List Equation))
-      (match (named-flow declarations name type)
-        ((Applying _) (Nil))
-        (found (if (and (function-type? type) (not (nowhere? found)))
-                   (list (typed-equation type found))
-                   (Nil)))))
+      (let ((found (named-flow known name type)))
+        (if (or (local? known name) (not (function-type? type)) (nowhere? found))
+            (Nil)
+            (Cons (typed-equation type found) (resume-read-equations name type found)))))
+
+    (define (local? (known Known) (name String)) (→ Bool)
+      (and (not (table-contains? (● known declarations types) name))
+           (match (program-value (● known declarations program) name)
+             ((Some _) #f)
+             ((None) #t))))
+
+    ;; `with-prompt` read as a value hands its handler a `resume` all the
+    ;; same, which suspends what that `with-prompt` may.
+
+    (define (resume-read-equations (name String) (type Type) (flow Flow)) (→ (List Equation))
+      (if (string=? name "prim:with-prompt")
+          (match type
+            ((TFun (Cons (TCon "Prompt" (Cons _ (Cons answer (Nil)))) _) result)
+             (list (typed-equation (TFun (list answer) result) flow)))
+            (_ (panic "internal error: with-prompt takes a prompt")))
+          (Nil)))
 
     ;; `resume` runs the rest of the body under its `with-prompt` again, so
     ;; calling it suspends what the `with-prompt` itself may.
 
-    (define (resume-equations (declarations Declarations)
+    (define (resume-equations (known Known)
                               (expr Expr)
                               (callee Expr)
                               (args (List Expr)))
       (→ (List Equation))
       (match (● callee term)
-        ((Ann inner _) (resume-equations declarations expr inner args))
+        ((Ann inner _) (resume-equations known expr inner args))
         ((Var "prim:with-prompt" _ _)
          (match (● (list-ref args 0) type)
            ((TCon "Prompt" (Cons _ (Cons answer (Nil))))
             (list (typed-equation (TFun (list answer) (● expr type))
-                                  (delimited-flow declarations args))))
+                                  (delimited-flow known args))))
            (_ (panic "internal error: a prompt has the Prompt type"))))
         (_ (Nil))))
 
@@ -335,17 +378,11 @@
                 (before (reached-at reached target))
                 (after (label-union before (flow-labels reached (● equation flow)))))
            (if (= (length after) (length before))
-               (settle equations readers (keep reached target before) rest)
+               (settle equations readers reached rest)
                (settle equations
                        readers
                        (table-set reached target after)
                        (append (readers-of readers target) rest)))))))
-
-    ;; Every target has an entry, so `quiet` reads them all.
-
-    (define (keep (reached (Table (List String))) (target String) (labels (List String)))
-      (→ (Table (List String)))
-      (if (table-contains? reached target) reached (table-set reached target labels)))
 
     (define (reached-at (reached (Table (List String))) (key String)) (→ (List String))
       (match (table-ref reached key)
@@ -395,13 +432,13 @@
     (define (yields (suspensions Suspensions) (expr Expr)) (→ (List String))
       (if (● suspensions quiet)
           (Nil)
-          (flow-labels (● suspensions reached) (flow (● suspensions declarations) expr))))
+          (flow-labels (● suspensions reached) (flow (● suspensions known) expr))))
 
     ;; Whether something may resume a yield to one of `labels`. One nothing
     ;; resumes saves no frame.
 
     (define (may-resume? (suspensions Suspensions) (labels (List String))) (→ Bool)
-      (any? (lambda (label) (resumed? (● suspensions declarations) label)) labels))
+      (any? (lambda (label) (resumed? (● suspensions known declarations) label)) labels))
 
     ;; Whether no call anywhere in `expr`, lambda bodies included, may yield.
 
@@ -410,7 +447,7 @@
           (and (match (● expr term)
                  ((App callee args)
                   (null? (flow-labels (● suspensions reached)
-                                      (application-flow (● suspensions declarations)
+                                      (application-flow (● suspensions known)
                                                         callee
                                                         args))))
                  (_ #t))
@@ -732,7 +769,10 @@
 
           (define suspensions
             (new Suspensions
-              (declarations declarations)
+              (known (new Known
+                       (declarations declarations)
+                       (prompts
+                        (table-set (table-set (empty-table) "t:stopping" #t) "t:pausing" #t))))
               (reached (table-set (table-set (empty-table) "call t:f" (list "?resume"))
                                   "call t:predicate"
                                   (list "?resume")))
@@ -826,8 +866,20 @@
                      (handler (expr (Lambda (list "value.1" "resume.1") (number 0))
                                     (TFun (list i64 (TFun (list unit-type) i64))
                                           i64)))
+                     ;; A top-level value that is a prompt of its own.
+                     (own-prompt
+                      (lambda (name type)
+                        (new Definition
+                          (name name)
+                          (value (call (local "prim:cached-thunk"
+                                              (TFun (list (TFun (Nil) type)) (TFun (Nil) type)))
+                                       (list (thunk (call (local "prim:make-prompt"
+                                                                 (TFun (Nil) type))
+                                                          (Nil)))))))))
                      (definitions
-                       (list (definition "t:leaf" (Nil) (suspend pausing))
+                       (list (own-prompt "t:pausing" pausing-type)
+                             (own-prompt "t:stopping" stopping-type)
+                             (definition "t:leaf" (Nil) (suspend pausing))
                              (definition "t:even" (Nil) (call (local "t:odd" callback) (Nil)))
                              (definition "t:odd"
                                (Nil)

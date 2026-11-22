@@ -76,13 +76,11 @@ task, to run when the wait is over.
                (lambda ()
                  (work)
                  (Finished))
-               (lambda (wait resume) (waited wait (lambda () (resume (unit)))))))
+               (lambda (wait resume) (Stopped wait (lambda () (resume (unit)))))))
 
 (enum Step
   (Finished)
-  (Yielded ((next (Fn → Step))))
-  (Sleeping ((delay I64) (next (Fn → Step))))
-  (Waiting ((tickets (List I64)) (next (Fn → Step)))))
+  (Stopped ((wait Wait) (next (Fn → Step)))))
 ```
 
 The scheduler keeps every task that is not running in exactly one list:
