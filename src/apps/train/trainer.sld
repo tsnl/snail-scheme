@@ -42,6 +42,7 @@
    (only (snail shell random) Random make-random random-next random-below)
    (only (snail shell tensor) View Float Unsigned param scalar minimum mean square)
    (only (snail shell tensor eval) values->bytes bytes->values)
+   (snail shell tensor fuse)
    (snail shell tensor lower)
    (snail shell graphics pod)
    (snail shell graphics colmap)
@@ -148,15 +149,18 @@
       (let* ((cloud (splat-params capacity))
              (sensor (sensor-of scene entries))
              (training (training-step cloud sensor))
-             (step (lower "step" (● training first) (● training second)))
+             (step (lower "step" (fuse (● training first)) (fuse-updates (● training second))))
              (densified (densification cloud (stats-params capacity))))
         (new Programs
           (capacity capacity)
           (sensor sensor)
           (step step)
           (densify
-           (lower-with "densify" (list (● densified second)) (● densified first) (given-by step)))
-          (reset (lower-with "reset" (Nil) (opacity-reset cloud) (given-by step))))))
+           (lower-with "densify"
+                       (fuse (list (● densified second)))
+                       (fuse-updates (● densified first))
+                       (given-by step)))
+          (reset (lower-with "reset" (Nil) (fuse-updates (opacity-reset cloud)) (given-by step))))))
 
     (define (release-programs (p Programs)) (→ Unit) (! gpu)
       (release-program (● p reset))
@@ -209,7 +213,7 @@
     (define (initial-scales (points (Array ColmapPoint))) (→ (Array F64)) (! gpu tasks)
       (let* ((count (array-length points))
              (view (param "points" (list count 3) (Float)))
-             (program (lower "nearest" (list (nearest-distances view)) (Nil))))
+             (program (lower "nearest" (fuse (list (nearest-distances view))) (Nil))))
         (write-param program
                      "points"
                      (rows count count 3 (lambda (i) (● (array-ref points i) position))))
@@ -570,7 +574,7 @@
                                   (● sensor width)))
              (drawn (minimum (● (render cloud (camera-param) sensor (Viewing)) image) (scalar 1.0)))
              (error (mean (square (- drawn target))))
-             (program (lower-with "judge" (list error) (Nil) (given-by (● p step))))
+             (program (lower-with "judge" (fuse (list error)) (Nil) (given-by (● p step))))
              (psnrs (map (lambda (image)
                            (let ((photo (photograph image)))
                              (aim program sensor scene image photo)

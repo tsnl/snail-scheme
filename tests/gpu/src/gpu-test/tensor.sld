@@ -1,13 +1,15 @@
 ;; Tensor programs on the device, against the CPU's evaluation of the same
 ;; graph: elementwise operations through views, reductions small and in
 ;; levels, a matrix product, gathers and float scatters, sorts and scans,
-;; and a gradient through slices, and the same program profiled; params
+;; and a gradient through slices, unfused and fused, and the same program
+;; profiled; params
 ;; swapped and assigned, and one bound to the caller's buffer, in the
 ;; caller's pass. Then a line fitted by Adam, its loss read back after 300
 ;; steps of one lowered program.
 (define-library (gpu-test tensor)
   (export
    tensor-agreement
+   fused-agreement
    profiled-steps
    swapped-params
    assigned-param
@@ -36,6 +38,7 @@
            (sin tensor-sin))
    (snail shell tensor eval)
    (snail shell tensor grad)
+   (snail shell tensor fuse)
    (snail shell tensor lower)
    (snail shell tensor adam))
   (begin
@@ -99,9 +102,15 @@
     ;; Integer sinks agree exactly. Float sinks agree to a part in a thousand.
 
     (define (tensor-agreement) (→ String) (! gpu tasks)
-      (let* ((roots (sinks))
-             (program (lower "agreement" roots (Nil)))
-             (expected (evaluate roots inputs)))
+      (agreement "agreement" (sinks)))
+
+    ;; The same sinks fused, against the unfused graph's evaluation.
+    (define (fused-agreement) (→ String) (! gpu tasks)
+      (agreement "fused agreement" (fuse (sinks))))
+
+    (define (agreement (label String) (roots (List View))) (→ String) (! gpu tasks)
+      (let* ((program (lower label roots (Nil)))
+             (expected (evaluate (sinks) inputs)))
         (for-each (lambda (p)
                     (let ((name (param-label p)))
                       (write-param program
