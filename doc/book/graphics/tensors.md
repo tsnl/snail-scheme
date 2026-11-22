@@ -359,8 +359,9 @@ each point's position and color. A reader answers `(Ok records)` or why
 not, a truncated file or a camera model other than SIMPLE_PINHOLE and
 PINHOLE, whose photographs must be undistorted first. `camera-sized` is
 a camera as it took photographs of another size, as a dataset's smaller
-copies are, and `camera-values` turns a camera and a pose into the 16
-numbers of `camera-param`.
+copies are, scaled across as their width is and down as their height
+is, since the two round apart. `camera-values` turns a camera and a pose
+into the 16 numbers of `camera-param`.
 
 `(snail shell graphics splat-fit)` is the reference's training as three
 tensor graphs a host lowers for a capacity of gaussians, on one set of
