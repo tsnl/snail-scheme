@@ -11,8 +11,8 @@
 (define (invoke (function (Fn → Unit ! e))) (→ Unit) (! e) (∀ (e))
   (function))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (let* ((function (● (new Callback (run identity)) run)) (both (duplicate function)))
-    (write-line (show ((● both first) ((● both second) 42)))))
-  (invoke (lambda () (write-line "ordinary procedures")))
+    (write-line out (show ((● both first) ((● both second) 42)))))
+  (invoke (lambda () (write-line out "ordinary procedures")))
   (unit))

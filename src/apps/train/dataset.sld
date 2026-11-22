@@ -25,7 +25,7 @@
   (import
    (snail core base)
    (only (snail shell task) tasks)
-   (only (snail shell gpu) gpu Image decode-image destroy TextureObject)
+   (only (snail shell gpu) Gpu Image decode-image destroy TextureObject)
    (snail shell graphics colmap)
    (only (apps train trainer) Scene make-scene Options))
   (begin
@@ -83,18 +83,18 @@
     ;; name, every eighth held out, and its sparse points. The first
     ;; photograph is decoded for the size they share, which the camera is
     ;; scaled to.
-    (define (dataset-scene (read (Fn String → Bytes ! e)) (settings Settings))
+    (define (dataset-scene (gpu Gpu) (read (Fn String → Bytes ! e)) (settings Settings))
       (→ Scene)
-      (! gpu tasks e)
+      (! mut tasks e)
       (∀ (e))
       (let* ((sparse (lambda (file) (read (string-append (● settings scene) "sparse/0/" file))))
              (camera (list-ref (parsed (read-cameras (sparse "cameras.bin"))) 0))
              (images (list-sort (lambda (a b) (string<? (● a name) (● b name)))
                                 (parsed (read-images (sparse "images.bin")))))
              (points (parsed (read-points (sparse "points3D.bin"))))
-             (first (dataset-photograph read settings (list-ref images 0)))
+             (first (dataset-photograph gpu read settings (list-ref images 0)))
              (held? (lambda (k) (= (remainder k 8) 0))))
-        (destroy (TextureObject (● first texture)))
+        (destroy gpu (TextureObject (● first texture)))
         (make-scene (camera-sized camera (i32->i64 (● first width)) (i32->i64 (● first height)))
                     (filter-indexed (lambda (k) (not (held? k))) images)
                     (filter-indexed held? images)
@@ -110,15 +110,15 @@
            (filter (lambda (pair) (keep (● pair first))) (zip (iota (length items)) items))))
 
     ;; An image's photograph, read and decoded onto the device.
-    (define (dataset-photograph (read (Fn String → Bytes ! e))
+    (define (dataset-photograph (gpu Gpu) (read (Fn String → Bytes ! e))
                                 (settings Settings)
                                 (image ColmapImage))
       (→ Image)
-      (! gpu tasks e)
+      (! mut tasks e)
       (∀ (e))
       (let ((address
              (string-append (● settings scene) (● settings images) "/" (● image name))))
-        (match (decode-image (read address))
+        (match (decode-image gpu (read address))
           ((Some photo) photo)
           ((None) (panic (string-append address " is no image the host decodes"))))))
 

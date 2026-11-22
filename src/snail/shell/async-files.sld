@@ -2,8 +2,8 @@
 ;; The calling task waits while other tasks run.
 ;; Neither this operation nor its result promises a disk snapshot.
 (define-library (snail shell async-files)
-  (export files
-          provide-files
+  (export Files
+          host-files
           read-file
           FileError
           Unavailable
@@ -28,11 +28,15 @@
       (PermissionDenied)
       (Failed))
 
-    (effect files
-      ((read-file (Fn String I32 → (Result Bytes FileError) ! tasks))))
+    (record Files
+      ((read-file (Fn String I32 → (Result Bytes FileError) ! mut tasks))))
 
-    (define (provide-files (work (Fn → T ! files e))) (→ T) (! e) (∀ (T e))
-      (handle files ((read-file native-read)) (work)))
+    (define (read-file (files Files) (path String) (maximum I32)) (→ (Result Bytes FileError)) (! mut tasks)
+      ((● files read-file) path maximum))
+
+    (define (host-files) (→ Files)
+      (new Files
+        (read-file native-read)))
 
     ;; ---- Reading ----
 

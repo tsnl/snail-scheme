@@ -9,21 +9,21 @@
 ;; and its ordinary call; neither path may enqueue an imported body.
 (expose fixed "fixed")
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
   ;; Source and emission order do not affect dependency forcing.
-  (write-line (show (first)))
-  (write-line (show (second)))
-  (write-line (show (third)))
-  (write-line (show (round-trip 17 100)))
-  (write-line (round-trip "again" 99))
-  (write-line (show (round-trip 23 2)))
-  (write-line (show (fixed 41)))
+  (write-line out (show (first)))
+  (write-line out (show (second)))
+  (write-line out (show (third)))
+  (write-line out (show (round-trip 17 100)))
+  (write-line out (round-trip "again" 99))
+  (write-line out (show (round-trip 23 2)))
+  (write-line out (show (fixed 41)))
   ;; Generic constructors can use imported stateless templates.
   (match (ann (nested-values) (List (List I64)))
-    ((Cons values _) (write-line (show (length values))))
+    ((Cons values _) (write-line out (show (length values))))
     ((Nil) (panic "missing integer list")))
   (match (ann (nested-values) (List (List String)))
-    ((Cons values _) (write-line (show (length values))))
+    ((Cons values _) (write-line out (show (length values))))
     ((Nil) (panic "missing string list")))
   (unit))

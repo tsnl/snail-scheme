@@ -19,12 +19,12 @@
       ((log (lambda (message) (unit))))
     (action)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
-  (display (quietly (lambda () (total-cost (list 3 4 5)))))
-  (newline)
-  (display (handle Log
-               ((log (lambda (message) (write-line message))))
+  (display out (quietly (lambda () (total-cost (list 3 4 5)))))
+  (newline out)
+  (display out (handle Log
+               ((log (lambda (message) (write-line out message))))
              (total-cost (list 1 2))))
-  (newline)
+  (newline out)
   (unit))

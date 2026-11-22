@@ -16,5 +16,5 @@
 
 (b:define main
           (b:lambda ()
-                    (write-line (b:show (b:new Pair2 (left 3) (right 4))))
+                    (write-line out (b:show (b:new Pair2 (left 3) (right 4))))
                     (b:unit)))

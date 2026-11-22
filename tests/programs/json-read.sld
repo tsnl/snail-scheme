@@ -23,9 +23,9 @@
         (JsonObject (list (new Pair (first "a") (second (JsonBool #t)))
                           (new Pair (first "a") (second (JsonBool #f)))))))
 
-(define (main) (→ Unit) (! output-port)
-  (for-each (lambda (value) (write-line (read-back (json->string value)))) (written))
-  (for-each (lambda (text) (write-line (read-back text)))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (for-each (lambda (value) (write-line out (read-back (json->string value)))) (written))
+  (for-each (lambda (text) (write-line out (read-back text)))
             (list
              " { \"runtime\" : \"runtime.wasm\" ,\n \"modules\" : [ {\"name\": \"main\", \"file\": \"main.wasm\"} ] } "
              "\"\\u00e9\\ud83d\\ude00 \\ud800 \\/\\b\\f\\n\\r\\t\""
@@ -46,9 +46,9 @@
   (match (string->json "{\"a\": 1, \"b\": 2, \"a\": 3}")
     ((Some value)
      (for-each (lambda (name)
-                 (write-line (match (json-member value name)
+                 (write-line out (match (json-member value name)
                                ((Some member) (json->string member))
                                ((None) "no member"))))
                (list "a" "b" "c")))
-    ((None) (write-line "nothing")))
+    ((None) (write-line out "nothing")))
   (unit))

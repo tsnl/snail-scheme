@@ -64,39 +64,39 @@
      (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
     ((None) (list text))))
 
-(write-line (string-append "pinhole inverse within 1e-4: "
+(write-line out (string-append "pinhole inverse within 1e-4: "
                            (show (< (error-of (camera (Pinhole 0.8))) 0.0001))))
-(write-line (string-append "parallel inverse within 1e-4: "
+(write-line out (string-append "parallel inverse within 1e-4: "
                            (show (< (error-of (camera (Parallel 20.0))) 0.0001))))
 (define (instances (mesh Mesh) (x F32)) (→ Meshes)
   (meshes (list (new Pair (first mesh) (second (instance x))))))
 
-(define (frame) (→ Unit) (! gpu tasks)
-  (request-device)
-  (let* ((r (make-raster color-planes (Bgra8Unorm)))
-         (g (make-gbuffer color-planes 640 480))
-         (light (make-sunlight (Bgra8Unorm) g r))
-         (ground (make-surface r "ground" #f solid (instances (Tile) 0.0)))
-         (water (make-surface r
+(define (frame (gpu Gpu)) (→ Unit) (! mut tasks)
+  (request-device gpu)
+  (let* ((r (make-raster gpu color-planes (Bgra8Unorm)))
+         (g (make-gbuffer gpu color-planes 640 480))
+         (light (make-sunlight gpu (Bgra8Unorm) g r))
+         (ground (make-surface gpu r "ground" #f solid (instances (Tile) 0.0)))
+         (water (make-surface gpu r
                               "water"
                               #t
                               (new Style (opacity 0.5) (center-x 0.0) (center-z 0.0) (radius -1.0))
                               (instances (Box) 1.0)))
-         (canvas (view-of (● (current-texture) texture) 1))
-         (encoder (create-command-encoder)))
-    (write-raster r
+         (canvas (view-of gpu (● (current-texture gpu) texture) 1))
+         (encoder (create-command-encoder gpu)))
+    (write-raster gpu r
                   (camera (Parallel 20.0))
                   (new Sun (direction (new Vec4f (x 0.3) (y 1.0) (z 0.5) (w 0.8))) (ambient 0.3)))
-    (let ((pass (begin-gbuffer encoder g)))
-      (draw-surface pass r ground)
-      (end-pass pass))
-    (let ((pass (begin-lit encoder
+    (let ((pass (begin-gbuffer gpu encoder g)))
+      (draw-surface gpu pass r ground)
+      (end-pass gpu pass))
+    (let ((pass (begin-lit gpu encoder
                            canvas
                            (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
                            g)))
-      (draw-sun pass light)
-      (draw-surface pass r water)
-      (end-pass pass))
-    (submit (list (finish encoder)))))
+      (draw-sun gpu pass light)
+      (draw-surface gpu pass r water)
+      (end-pass gpu pass))
+    (submit gpu (list (finish gpu encoder)))))
 
-(for-each write-line (heads (● (with-recorded-gpu frame) second)))
+(for-each (lambda (text) (write-line out text)) (heads (● (with-recorded-gpu (lambda () (frame gpu))) second)))

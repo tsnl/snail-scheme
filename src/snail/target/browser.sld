@@ -25,13 +25,13 @@
    (snail core io)
    (only (snail core forms) host)
    (only (snail shell task) Scheduler tasks dispatch-in)
-   (only (snail shell resource) resource provide-resource)
-   (only (snail shell wasm) wasm provide-wasm)
-   (only (snail shell page) events storage provide-events provide-storage)
-   (only (snail shell gpu) gpu provide-gpu))
+   (only (snail shell resource) Resources provide-resource)
+   (only (snail shell wasm) Wasm provide-wasm)
+   (only (snail shell page) Events Storage provide-events provide-storage)
+   (only (snail shell gpu) Gpu provide-gpu))
   (begin
 
-    (define (provide (work (Fn → T ! output-port clock resource wasm events storage gpu e)))
+    (define (provide (work (Fn → T ! mut e)))
       (→ T)
       (! e)
       (∀ (T e))
@@ -43,7 +43,7 @@
 
     ;; What every host has.
 
-    (define (provide-shared (work (Fn → T ! output-port clock resource wasm e)))
+    (define (provide-shared (work (Fn → T ! mut e)))
       (→ T)
       (! e)
       (∀ (T e))
@@ -55,7 +55,7 @@
                    (main
                     (Fn →
                         Unit
-                        ! tasks output-port clock resource wasm events storage gpu e)))
+                        ! tasks mut e)))
       (→ Unit)
       (! mut host e)
       (∀ (e))

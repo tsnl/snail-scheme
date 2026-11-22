@@ -5,9 +5,9 @@
  (snail core base)
  (snail core io))
 
-(write-line (greeting))
+(write-line out (greeting))
 
 (define (greeting) (→ String) "hello from a script")
 
 (+ 1 2)
-(write-line "statements run in order")
+(write-line out "statements run in order")

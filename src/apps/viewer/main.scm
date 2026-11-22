@@ -18,14 +18,14 @@
  (snail shell json read)
  (only (snail shell task) tasks)
  (only (snail shell app) next-event FrameEvent InputEvent FilesEvent KeyDown)
- (only (snail shell page) events report-ready)
- (only (snail shell fetch) fetch fetch-all-bytes page-address)
- (only (snail shell dom) dom document-root set-text)
+ (only (snail shell page) Events report-ready)
+ (only (snail shell fetch) Fetch fetch-all-bytes page-address)
+ (only (snail shell dom) Dom document-root set-text)
  (only (snail shell dom page) with-page-dom)
  (snail shell files)
  (snail shell files page)
  (snail shell fetch page)
- (only (snail shell gpu) gpu request-device current-texture view-of work-done TextureFormat)
+ (only (snail shell gpu) Gpu request-device current-texture view-of work-done TextureFormat)
  (snail shell graphics pod)
  (snail shell graphics raster)
  (only (snail shell graphics gltf) uri-path reading unreadable attempt-reading)
@@ -103,45 +103,45 @@
    (environment Environment)
    (tracer Tracer)))
 
-(define (view-loop (view (Option View)) (fly Fly) (timing (Pair I32 I32)) (format TextureFormat))
+(define (view-loop (gpu Gpu) (dom Dom) (picker FilePicker) (events Events) (fetch Fetch) (out OutputPort) (view (Option View)) (fly Fly) (timing (Pair I32 I32)) (format TextureFormat))
   (→ Unit)
-  (! events gpu output-port tasks fetch files dom)
-  (match (next-event)
+  (! mut tasks)
+  (match (next-event events)
     ((FrameEvent elapsed)
      (match view
        ((Some shown)
         (let ((fly (flown fly elapsed)))
-          (let ((shown (View-tracer-set shown (drawn (● shown tracer) fly))))
-            (work-done)
-            (report-ready)
-            (view-loop (Some shown) fly (timed timing elapsed) format))))
-       ((None) (report-ready) (view-loop view fly timing format))))
+          (let ((shown (View-tracer-set shown (drawn gpu (● shown tracer) fly))))
+            (work-done gpu)
+            (report-ready events)
+            (view-loop gpu dom picker events fetch out (Some shown) fly (timed out timing elapsed) format))))
+       ((None) (report-ready events) (view-loop gpu dom picker events fetch out view fly timing format))))
     ((InputEvent (KeyDown 111 shift))
-     (open-picker (if shift (Folder) (SomeFiles)))
-     (view-loop view fly timing format))
-    ((InputEvent input) (view-loop view (steered fly input) timing format))
-    ((FilesEvent _) (opened view fly timing format (chosen-files) (None)))
-    (_ (view-loop view fly timing format))))
+     (open-picker picker (if shift (Folder) (SomeFiles)))
+     (view-loop gpu dom picker events fetch out view fly timing format))
+    ((InputEvent input) (view-loop gpu dom picker events fetch out view (steered fly input) timing format))
+    ((FilesEvent _) (opened gpu dom picker events fetch out view fly timing format (chosen-files picker) (None)))
+    (_ (view-loop gpu dom picker events fetch out view fly timing format))))
 
 ;; A frame drawn into the canvas, from where the fly is.
-(define (drawn (tracer Tracer) (fly Fly)) (→ Tracer) (! gpu)
-  (let* ((canvas (current-texture))
+(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly)) (→ Tracer) (! mut)
+  (let* ((canvas (current-texture gpu))
          (width (● canvas width))
          (height (● canvas height)))
-    (draw-traced (resize-tracer tracer width height)
-                 (view-of (● canvas texture) 1)
+    (draw-traced gpu (resize-tracer gpu tracer width height)
+                 (view-of gpu (● canvas texture) 1)
                  (fly-camera fly (/ (i32->f64 width) (i32->f64 (max 1 height))))
                  (fly-spread height)
                  (fly-exposure fly))))
 
 ;; Frames and milliseconds since the last report, which comes every two
 ;; seconds.
-(define (timed (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32)) (! output-port)
+(define (timed (out OutputPort) (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32)) (! mut)
   (let ((frames (+ 1 (● timing first))) (total (+ elapsed (● timing second))))
     (if (< total 2000)
         (new Pair (first frames) (second total))
         (begin
-          (write-line (string-append "frames: " (show frames) " in " (show total) " ms"))
+          (write-line out (string-append "frames: " (show frames) " in " (show total) " ms"))
           (new Pair (first 0) (second 0))))))
 
 ;; ---- The files chosen ----
@@ -150,19 +150,19 @@
 ;; `eye` or else from outside; or the view as it was, and why, when they
 ;; cannot be shown. The loop waits here, so one choice is read at a time,
 ;; and one that arrives meanwhile is read next.
-(define (opened (view (Option View))
+(define (opened (gpu Gpu) (dom Dom) (picker FilePicker) (events Events) (fetch Fetch) (out OutputPort) (view (Option View))
                 (fly Fly)
                 (timing (Pair I32 I32))
                 (format TextureFormat)
                 (files (List Chosen))
                 (eye (Option (List F64))))
   (→ Unit)
-  (! events gpu output-port tasks fetch files dom)
-  (set-text (document-root) "Loading…")
-  (match (attempt-reading (lambda () (chosen view files)))
+  (! mut tasks)
+  (set-text dom (document-root dom) "Loading…")
+  (match (attempt-reading (lambda () (chosen gpu fetch out view files)))
     ((Ok replacing)
-     (set-text (document-root) "")
-     (view-loop (Some (shown view (● replacing first) (● replacing second) format))
+     (set-text dom (document-root dom) "")
+     (view-loop gpu dom picker events fetch out (Some (shown gpu view (● replacing first) (● replacing second) format))
                 (match (● replacing first)
                   ((Some scene)
                    (let ((over (Fly-stops-set (fly-over (● scene low) (● scene high))
@@ -173,41 +173,41 @@
                   ((None) fly))
                 timing
                 format))
-    ((Err why) (say why) (view-loop view fly timing format))))
+    ((Err why) (say dom out why) (view-loop gpu dom picker events fetch out view fly timing format))))
 
 ;; What the page says under the view, and the console with it.
-(define (say (message String)) (→ Unit) (! dom output-port)
-  (set-text (document-root) message)
-  (write-line message))
+(define (say (dom Dom) (out OutputPort) (message String)) (→ Unit) (! mut)
+  (set-text dom (document-root dom) message)
+  (write-line out message))
 
 ;; What the files replace: the scene, by the model among them, and the
 ;; light, by the HDR file among them. Files with neither refuse, as does
 ;; a light with no view to light. The light's file is read before the
 ;; scene is loaded, and nothing after the scene refuses, so files refused
 ;; leave nothing on the device.
-(define (chosen (view (Option View)) (files (List Chosen)))
+(define (chosen (gpu Gpu) (fetch Fetch) (out OutputPort) (view (Option View)) (files (List Chosen)))
   (→ (Pair (Option Scene) (Option Environment)))
-  (! gpu output-port tasks fetch reading)
+  (! mut tasks reading)
   (let ((model (outermost (ending files (list ".glb" ".gltf"))))
         (light (outermost (ending files (list ".hdr")))))
     (when (and (none? model) (or (none? light) (none? view)))
       (unreadable (string-append "nothing to show among " (show (length files)) " files")))
     (let* ((hdr (within light
-                        (lambda (path) (radiance path (list-ref (read files path (list path)) 0)))))
+                        (lambda (path) (radiance path (list-ref (read fetch files path (list path)) 0)))))
            (scene (within model
                           (lambda (path)
-                            (loaded-scene (lambda ((paths (List String)))
+                            (loaded-scene gpu out (lambda ((paths (List String)))
                                             (→ (List Bytes))
-                                            (! fetch tasks reading)
-                                            (read files path paths))
+                                            (! mut tasks reading)
+                                            (read fetch files path paths))
                                           path)))))
-      (new Pair (first scene) (second (within hdr hdr-light))))))
+      (new Pair (first scene) (second (within hdr (lambda (hdr) (hdr-light gpu hdr))))))))
 
 ;; The bytes of the paths that the file at `top` names, fetched together.
-(define (read (files (List Chosen)) (top String) (paths (List String)))
+(define (read (fetch Fetch) (files (List Chosen)) (top String) (paths (List String)))
   (→ (List Bytes))
-  (! fetch tasks reading)
-  (fetched (map (lambda (path) (address-of files top path)) paths)))
+  (! mut tasks reading)
+  (fetched fetch (map (lambda (path) (address-of files top path)) paths)))
 
 ;; Where a path that the file at `top` names is fetched from: a file
 ;; chosen, at its address; or, when `top` is a link, the path itself,
@@ -223,12 +223,12 @@
          (unreadable (string-append path " is not among the files chosen"))))))
 
 ;; The bytes at each address, fetched together.
-(define (fetched (addresses (List String))) (→ (List Bytes)) (! fetch tasks reading)
+(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes)) (! mut tasks reading)
   (map (lambda (reply)
          (match reply
            ((Ok bytes) bytes)
            ((Err why) (unreadable why))))
-       (fetch-all-bytes addresses)))
+       (fetch-all-bytes fetch addresses)))
 
 (define (none? (option (Option A))) (→ Bool) (∀ (A))
   (match option
@@ -247,42 +247,42 @@
     ((Ok hdr) hdr)
     ((Err why) (unreadable (string-append name ": " why)))))
 
-(define (hdr-light (hdr Hdr)) (→ Environment) (! gpu) (hdr-environment hdr 4096))
+(define (hdr-light (gpu Gpu) (hdr Hdr)) (→ Environment) (! mut) (hdr-environment gpu hdr 4096))
 
 ;; The view with a new scene, a new light, or both: its tracer remade
 ;; from the old one, whose scene or light, where replaced, is let go. A
 ;; first view needs a scene, and without a light has the drawn sky's.
-(define (shown (view (Option View))
+(define (shown (gpu Gpu) (view (Option View))
                (scene (Option Scene))
                (light (Option Environment))
                (format TextureFormat))
   (→ View)
-  (! gpu)
+  (! mut)
   (match view
     ((Some old)
      (let* ((scene (match scene
-                     ((Some scene) (release-scene (● old scene)) scene)
+                     ((Some scene) (release-scene gpu (● old scene)) scene)
                      ((None) (● old scene))))
             (environment (match light
-                           ((Some light) (release-environment (● old environment)) light)
+                           ((Some light) (release-environment gpu (● old environment)) light)
                            ((None) (● old environment)))))
        (new View
          (scene scene)
          (environment environment)
-         (tracer (retrace (● old tracer) scene environment)))))
+         (tracer (retrace gpu (● old tracer) scene environment)))))
     ((None)
-     (let ((canvas (current-texture))
+     (let ((canvas (current-texture gpu))
            (scene (match scene
                     ((Some scene) scene)
                     ((None) (panic "internal error: a first view without a scene"))))
            (environment (match light
                           ((Some light) light)
-                          ((None) (sky-environment sky 4096)))))
+                          ((None) (sky-environment gpu sky 4096)))))
        (new View
          (scene scene)
          (environment environment)
          (tracer
-          (make-tracer scene environment format (● canvas width) (● canvas height) layer-size)))))))
+          (make-tracer gpu scene environment format (● canvas width) (● canvas height) layer-size)))))))
 
 
 
@@ -319,12 +319,12 @@
 
 
 ;; A scene, and a line saying how large it is.
-(define (loaded-scene (read (Fn (List String) → (List Bytes) ! reading e)) (path String))
+(define (loaded-scene (gpu Gpu) (out OutputPort) (read (Fn (List String) → (List Bytes) ! reading e)) (path String))
   (→ Scene)
-  (! gpu output-port tasks reading e)
+  (! mut tasks reading e)
   (∀ (e))
-  (let ((scene (load-scene read path layer-size)))
-    (write-line (string-append "scene: "
+  (let ((scene (load-scene gpu read path layer-size)))
+    (write-line out (string-append "scene: "
                                (show (● scene vertex-count))
                                " vertices, "
                                (show (● scene triangle-count))
@@ -338,12 +338,12 @@
  (lambda ()
    (with-page-files
     (lambda ()
-      (with-page-dom
+      (with-page-dom events
        (lambda ()
-         (let ((format (● (request-device) format))
+         (let ((format (● (request-device gpu) format))
                (fly (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
                (timing (new Pair (first 0) (second 0)))
-               (address (page-address)))
+               (address (page-address fetch)))
            (match (query-files address)
-             ((Nil) (view-loop (None) fly timing format))
-             (files (opened (None) fly timing format files (query-eye address)))))))))))
+             ((Nil) (view-loop gpu dom picker events fetch out (None) fly timing format))
+             (files (opened gpu dom picker events fetch out (None) fly timing format files (query-eye address)))))))))))

@@ -32,10 +32,10 @@
     ((Some next) (next (unit)))
     ((None) (panic "not paused"))))
 
-(define (show-step (step Step)) (→ Unit) (! host output-port)
+(define (show-step (out OutputPort) (step Step)) (→ Unit) (! host mut)
   (match step
-    ((Done value) (write-line (show value)))
-    ((More invoke) (show-step (invoke)))))
+    ((Done value) (write-line out (show value)))
+    ((More invoke) (show-step out (invoke)))))
 
-(define (main) (→ Unit) (! host mut output-port)
-  (show-step (start (new Slot (next (None))))))
+(define (main (out OutputPort)) (→ Unit) (! host mut)
+  (show-step out (start (new Slot (next (None))))))

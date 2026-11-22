@@ -20,8 +20,8 @@
                                             "\n"))
                            (iota 16384))))
 
-(define (main) (→ Unit) (! output-port)
-  (for-each (lambda (value) (write-line (json->string value)))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (for-each (lambda (value) (write-line out (json->string value)))
             (list (JsonNull)
                   (JsonBool #t)
                   (JsonBool #f)
@@ -63,11 +63,11 @@
                                     (new Pair (first "published") (second (JsonNull)))
                                     (new Pair (first "runs") (second (JsonArray (Nil))))))))
   (let ((text (json->string (JsonString (long-text)))))
-    (write-line (show (string-length text)))
-    (write-line (substring text 0 70)))
-  (write-line
+    (write-line out (show (string-length text)))
+    (write-line out (substring text 0 70)))
+  (write-line out
    (json->string (JsonObject (list (new Pair (first "a") (second (JsonInteger 1)))
                                    (new Pair (first "a") (second (JsonInteger 2)))))))
-  (write-line (json->string (JsonInteger 9223372036854775807)))
-  (write-line (json->string (JsonInteger -9223372036854775808)))
+  (write-line out (json->string (JsonInteger 9223372036854775807)))
+  (write-line out (json->string (JsonInteger -9223372036854775808)))
   (unit))

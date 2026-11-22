@@ -522,15 +522,15 @@
       (! mut)
       (set! (● state document) (operation (● state document))))
 
-    (define (with-memory-dom (script (List Cue)) (work (Fn → T ! dom e)))
+    (define (with-memory-dom (script (List Cue)) (work (Fn Dom → T ! mut e)))
       (→ (Pair T Document))
       (! mut e)
       (∀ (T e))
       (let ((state
              (new Memory (document empty-document) (cues script) (woken #f) (inputs (Nil)))))
         (let ((value
-               (handle dom
-                   ((document-root (lambda () (new Node (handle 0))))
+               (work (new Dom
+(document-root (lambda () (new Node (handle 0))))
                     (create-element
                      (lambda (tag) (change! state (lambda (document) (created document tag "")))))
                     (create-text
@@ -646,8 +646,7 @@
                                  (change! state (lambda (document) (cued document cue))))
                                 ((Nil)
                                  (alter! state (lambda (document) (traced document (list "close"))))
-                                 (Closed)))))))))
-                 (work))))
+                                 (Closed))))))))))))
           (new Pair (first value) (second (● state document))))))
 
     ;; ---- Printing ----

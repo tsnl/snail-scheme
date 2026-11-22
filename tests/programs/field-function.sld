@@ -9,7 +9,7 @@
 (define (Point-x (point Point)) (→ I64)
   (● point x))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
-  (write-line (show (Point-x (new Point (x 1)))))
+  (write-line out (show (Point-x (new Point (x 1)))))
   (unit))

@@ -5,7 +5,7 @@
 ;; the interface.
 (define-library (snail shell fetch page)
   (export
-   with-page-fetch)
+   page-fetch)
   (import
    (snail core base)
    (prefix (snail runtime browser fetch) host-)
@@ -16,19 +16,18 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-fetch (work (Fn → T ! fetch e))) (→ T) (! e) (∀ (T e))
-      (handle fetch
-          ((request page-request)
-           (fetch-all-bytes page-fetch-all-bytes)
-           (page-address (lambda () (host-page-address) (host-reply)))
-           (stream-open (lambda (url kinds)
+    (define (page-fetch) (→ Fetch)
+      (new Fetch
+        (request page-request)
+        (fetch-all-bytes page-fetch-all-bytes)
+        (page-address (lambda () (host-page-address) (host-reply)))
+        (stream-open (lambda (url kinds)
                           (new Stream
                             (id (host-stream-open (string->utf8 (string-join (Cons url kinds)
                                                                              (make-string 1
                                                                                           #\null))))))))
-           (stream-next page-stream-next)
-           (stream-close (lambda (stream) (host-stream-close (● stream id)))))
-        (work)))
+        (stream-next page-stream-next)
+        (stream-close (lambda (stream) (host-stream-close (● stream id))))))
 
     ;; A request crosses in parts, each a string as UTF-8 Bytes, and starts
     ;; once they are all there: its method, its URL, each header as its

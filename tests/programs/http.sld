@@ -79,7 +79,7 @@
     ((Ok head) (text head))
     ((Err error) (string-append "error " (kind error)))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (let* ((source
           "POST /a%2Fb?x=1&x=2 HTTP/1.1\r\nHost: example.test:8080\r\nContent-Length: 3\r\nX-Test: first\r\nx-TEST:\tsecond \t\r\n\r\n")
          (bytes (ascii source))
@@ -87,9 +87,9 @@
          (request (● head request)))
     (assert (= (● head end) (array-length bytes)))
     (assert (= (● request body-length) 3))
-    (write-line (● request method))
-    (write-line (● request target))
-    (for-each write-line (header-values (● request headers) "X-Test"))
+    (write-line out (● request method))
+    (write-line out (● request target))
+    (for-each (lambda (text) (write-line out text)) (header-values (● request headers) "X-Test"))
     (let loop ((count 0))
       (when (< count (array-length bytes))
         (assert (match (parse-request-head (subarray bytes 0 count))
@@ -131,7 +131,7 @@
                   "GET / HTTP/1.1\r\nHost: [::1]\r\n\r\n"
                   "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n"
                   "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\nExpect: 100-continue\r\n\r\n"))
-  (write-line "framing errors")
+  (write-line out "framing errors")
   (let* ((prefix "GET / HTTP/1.1\r\nHost: a\r\nX: ") (suffix "\r\n\r\n")
          (count (- (- head-limit (string-length prefix)) (string-length suffix)))
          (exact (string-append prefix (make-string count #\x) suffix)))
@@ -166,7 +166,7 @@
                   (make-string 1000 #\9)
                   "\r\n\r\n")
    "body-limit")
-  (write-line "exact limits")
+  (write-line out "exact limits")
   (check-response "GET"
                   200
                   "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 3\r\n\r\n"
@@ -187,7 +187,7 @@
                   200
                   "HTTP/1.1 200 \r\nConnection: close\r\nContent-Length: 3\r\n\r\n"
                   #u8())
-  (write-line "response framing")
+  (write-line out "response framing")
   (for-each (lambda (header) (reject-response "GET" 200 (list header) "response"))
             (list (new Header (name "X") (value "bad\r\nInjected: value"))
                   (new Header (name "X\r\nInjected") (value "bad"))
@@ -214,8 +214,8 @@
     (let ((many (map (lambda (_) (new Header (name "x") (value "")))
                      (iota (quotient (- head-limit (string-length base)) 5)))))
       (assert (<= (array-length (● (encoded "GET" 200 many #u8()) head)) head-limit))))
-  (write-line "safe output")
-  (for-each (lambda (source) (write-line (target-text source)))
+  (write-line out "safe output")
+  (for-each (lambda (source) (write-line out (target-text source)))
             (list "/"
                   "/api/file?path=src%2Fmain.sld"
                   "/api/file?path=a+b%2Bc%20d"
@@ -251,7 +251,7 @@
                   ((None) #f))))
        ((Err _) (panic "rejected a parsed target"))))
     (_ (panic "rejected test head")))
-  (write-line "request targets")
+  (write-line out "request targets")
   (assert (string=? (stream-head 200
                                  (list
                                   (new Header (name "Content-Type") (value "text/event-stream"))
@@ -267,5 +267,5 @@
   (assert
    (string=? (stream-head 200 (list (new Header (name "X") (value (make-string head-limit #\x)))))
              "error head-limit"))
-  (write-line "stream heads")
+  (write-line out "stream heads")
   (unit))

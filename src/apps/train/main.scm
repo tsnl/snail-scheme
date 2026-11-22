@@ -9,20 +9,20 @@
  (only (snail shell task) tasks)
  (only (snail shell page) report-ready)
  (only (snail shell gpu) request-device)
- (only (snail shell fetch) fetch fetch-bytes page-address)
+ (only (snail shell fetch) Fetch fetch-bytes page-address)
  (snail shell fetch page)
  (apps train dataset)
  (apps train trainer))
 
-(define (fetched (url String)) (→ Bytes) (! fetch tasks)
-  (match (fetch-bytes url)
+(define (fetched (fetch Fetch) (url String)) (→ Bytes) (! mut tasks)
+  (match (fetch-bytes fetch url)
     ((Ok bytes) bytes)
     ((Err why) (panic why))))
 
 (with-page-fetch
  (lambda ()
-   (report-ready)
-   (let ((settings (settings-of (page-address))) (format (● (request-device) format)))
+   (report-ready events)
+   (let ((settings (settings-of (page-address fetch))) (format (● (request-device gpu) format)))
      (handle photographs
-         ((photograph (lambda (image) (dataset-photograph fetched settings image))))
-       (train (dataset-scene fetched settings) (● settings options) (shown-on-canvas format))))))
+         ((photograph (lambda (image) (dataset-photograph gpu (lambda () (fetched fetch)) settings image))))
+       (train photographs gpu clock out (dataset-scene gpu (lambda () (fetched fetch)) settings) (● settings options) (shown-on-canvas gpu format))))))

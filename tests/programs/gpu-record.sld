@@ -12,15 +12,15 @@
 
 (define counting "@compute @workgroup_size(64) fn c() {}")
 
-(define (frame) (→ Unit) (! gpu tasks)
-  (request-device)
-  (let* ((buffer (create-buffer
+(define (frame (gpu Gpu)) (→ Unit) (! mut tasks)
+  (request-device gpu)
+  (let* ((buffer (create-buffer gpu
                   (new BufferDescriptor
                     (label "vertices")
                     (size 64)
                     (usage (list (Vertex) (CopyDst))))))
-         (module (create-shader-module (new ShaderModuleDescriptor (label "shader") (code shader))))
-         (pipeline (create-render-pipeline
+         (module (create-shader-module gpu (new ShaderModuleDescriptor (label "shader") (code shader))))
+         (pipeline (create-render-pipeline gpu
                     (new RenderPipelineDescriptor
                       (label "pipeline")
                       (module module)
@@ -34,18 +34,18 @@
                       (topology (TriangleList))
                       (cull (CullNone))
                       (depth (None)))))
-         (group (create-bind-group
+         (group (create-bind-group gpu
                  (new BindGroupDescriptor
                    (label "group")
                    (pipeline (RenderPipeline pipeline))
                    (group 0)
                    (entries (list (BufferEntry 0 buffer 0 0))))))
-         (encoder (create-command-encoder))
-         (pass (begin-render-pass encoder
+         (encoder (create-command-encoder gpu))
+         (pass (begin-render-pass gpu encoder
                                   (new RenderPassDescriptor
                                     (colors (list (Some (new ColorAttachment
                                                           (view
-                                                           (view-of (● (current-texture) texture)
+                                                           (view-of gpu (● (current-texture gpu) texture)
                                                                     1))
                                                           (load (Clear (new Color
                                                                          (red 0.0)
@@ -54,34 +54,34 @@
                                                                          (alpha 1.0))))
                                                           (store #t)))))
                                     (depth (None))))))
-    (write-buffer buffer 0 (make-array 64 (i32->u8 0)))
-    (set-pipeline pass pipeline)
-    (set-bind-group pass 0 group)
-    (draw pass 3 1 0 0)
-    (end-pass pass)
-    (submit (list (finish encoder)))
-    (destroy (BufferObject buffer))))
+    (write-buffer gpu buffer 0 (make-array 64 (i32->u8 0)))
+    (set-pipeline gpu pass pipeline)
+    (set-bind-group gpu pass 0 group)
+    (draw gpu pass 3 1 0 0)
+    (end-pass gpu pass)
+    (submit gpu (list (finish gpu encoder)))
+    (destroy gpu (BufferObject buffer))))
 
-(define (compute) (→ Unit) (! gpu)
+(define (compute (gpu Gpu)) (→ Unit) (! mut)
   (let* ((module
-          (create-shader-module (new ShaderModuleDescriptor (label "count") (code counting))))
-         (pipeline (create-compute-pipeline
+          (create-shader-module gpu (new ShaderModuleDescriptor (label "count") (code counting))))
+         (pipeline (create-compute-pipeline gpu
                     (new ComputePipelineDescriptor (label "count") (module module) (entry "c"))))
-         (counts (create-buffer
+         (counts (create-buffer gpu
                   (new BufferDescriptor (label "counts") (size 256) (usage (list (Storage))))))
-         (group (create-bind-group (new BindGroupDescriptor
+         (group (create-bind-group gpu (new BindGroupDescriptor
                                      (label "counts")
                                      (pipeline (ComputePipeline pipeline))
                                      (group 0)
                                      (entries (list (BufferEntry 0 counts 0 0))))))
-         (encoder (create-command-encoder))
-         (pass (begin-compute-pass encoder)))
-    (set-compute-pipeline pass pipeline)
-    (set-compute-bind-group pass 0 group)
-    (dispatch-workgroups pass 4 1 1)
-    (end-compute-pass pass)
-    (submit (list (finish encoder)))))
+         (encoder (create-command-encoder gpu))
+         (pass (begin-compute-pass gpu encoder)))
+    (set-compute-pipeline gpu pass pipeline)
+    (set-compute-bind-group gpu pass 0 group)
+    (dispatch-workgroups gpu pass 4 1 1)
+    (end-compute-pass gpu pass)
+    (submit gpu (list (finish gpu encoder)))))
 
-(for-each write-line (● (with-recorded-gpu (lambda () (frame))) second))
-(write-line "compute:")
-(for-each write-line (● (with-recorded-gpu compute) second))
+(for-each (lambda (text) (write-line out text)) (● (with-recorded-gpu (lambda () (frame gpu))) second))
+(write-line out "compute:")
+(for-each (lambda (text) (write-line out text)) (● (with-recorded-gpu (lambda () (compute gpu))) second))

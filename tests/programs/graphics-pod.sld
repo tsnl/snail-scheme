@@ -40,28 +40,28 @@
                     (● layout fields))
                " "))
 
-(write-string (declarations scene-shape))
-(write-line (string-append "scene: size "
+(write-string out (declarations scene-shape))
+(write-line out (string-append "scene: size "
                            (show (● scene-shape layout size))
                            ", align "
                            (show (● scene-shape layout align))
                            ", "
                            (layout-text (● scene-shape layout))))
-(write-line (string-append "vertex: stride "
+(write-line out (string-append "vertex: stride "
                            (show (stride vertex-shape))
                            ", "
                            (layout-text (● vertex-shape layout))))
 (for-each (lambda (attribute)
-            (write-line (string-append "  location "
+            (write-line out (string-append "  location "
                                        (show (● attribute location))
                                        " at "
                                        (show (● attribute offset)))))
           (● (vertex-layout vertex-shape (PerVertex) 0) attributes))
-(write-line (bytes-text (pack vertex-shape (list (new Vertex
+(write-line out (bytes-text (pack vertex-shape (list (new Vertex
                                                    (position (new Vec3f (x 1.0) (y 2.0) (z -1.0)))
                                                    (uv (new Vec2f (x 0.5) (y 0.25)))
                                                    (material 258))))))
-(write-line (show (array-length (pod-bytes scene-shape (new Scene
+(write-line out (show (array-length (pod-bytes scene-shape (new Scene
                                                          (count 1)
                                                          (sun (new Sun-light
                                                                 (direction (new Vec3f

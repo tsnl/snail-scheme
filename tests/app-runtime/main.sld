@@ -8,8 +8,10 @@
  (snail shell task)
  (snail shell app)
  (snail shell wire)
- (only (snail core io) clock)
- (only (snail shell gpu) gpu))
+ (only (snail core io) Clock)
+ (only (snail shell gpu) Gpu)
+ (only (snail shell page) Events)
+ (only (snail shell page) Storage))
 
 ;; A task keeps its handlers across its waits, and a child inherits them.
 (effect Marker
@@ -64,13 +66,13 @@
     (initialize (lambda (seed width height) (counting 0)))
     (update step)
     (start start-frames)
-    (draw (lambda (counter frames) (draw-frame (draw counter) frames)))
+    (draw (lambda (counter frames) (draw-frame gpu (draw counter) frames)))
     (hud panels)
     (image-url (lambda (drawing image) ""))
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
     (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
-(define (main) (→ Unit) (! mut host gpu clock events storage tasks)
+(define (main (gpu Gpu) (events Events) (storage Storage) (clock Clock)) (→ Unit) (! mut host tasks)
   (handle Marker
       ((marker (lambda () 17)))
     (dispatch (lambda ()
@@ -78,4 +80,4 @@
                 (unless (= (marker) 17)
                   (panic "a child lost its inherited handler"))
                 (sleep 100000)))
-    (run-scene (counter))))
+    (run-scene gpu events storage clock (counter))))

@@ -88,7 +88,7 @@
 (define (cell-text (cell Cell)) (→ String)
   (string-append (show (● cell x)) "." (show (● cell y))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
   (let ()
     (define start (new Played (world (new-world 3)) (journal (Nil))))
@@ -97,7 +97,7 @@
     (define played (play start 20))
     (define world (● played world))
     (define journal (reverse (● played journal)))
-    (write-line (string-append "played to tick "
+    (write-line out (string-append "played to tick "
                                (show (● world tick))
                                " with "
                                (show (length journal))
@@ -106,24 +106,24 @@
                                " buildings and "
                                (show (● (● world ledger) kills))
                                " kills"))
-    (write-line (string-append "replay matches: "
+    (write-line out (string-append "replay matches: "
                                (show (string=?
                                       (fingerprint (● (replay 3 journal (● world tick)) first))
                                       (fingerprint world)))))
     (define stray
       (Cons (new Entry (tick 0) (action (Build (Turret) (offset world 1 1) #f))) journal))
-    (write-line (string-append "replay skipping a rejected order matches: "
+    (write-line out (string-append "replay skipping a rejected order matches: "
                                (show (string=?
                                       (fingerprint (● (replay 3 stray (● world tick)) first))
                                       (fingerprint world)))))
-    (write-line (string-append "and drops it from the journal: "
+    (write-line out (string-append "and drops it from the journal: "
                                (show (= (length (● (replay 3 stray (● world tick)) second))
                                         (length journal)))))
     (define bytes (serialize journal))
     (define decoded (ann (deserialize bytes) (List Entry)))
-    (write-line (string-append "decoded journal matches: "
+    (write-line out (string-append "decoded journal matches: "
                                (show (string=?
                                       (fingerprint (● (replay 3 decoded (● world tick)) first))
                                       (fingerprint world)))))
-    (write-line (string-append "journal of " (show (array-length bytes)) " bytes")))
+    (write-line out (string-append "journal of " (show (array-length bytes)) " bytes")))
   (unit))

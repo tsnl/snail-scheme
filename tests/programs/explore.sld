@@ -42,7 +42,7 @@
     ((SmallToLarge) "pour small into large")
     ((LargeToSmall) "pour large into small")))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
   (match (explore (new Jugs (small 0) (large 0))
                   (lambda (jugs)
@@ -57,7 +57,7 @@
                     (if (= (● jugs large) 4) (Some "the large jug holds 4 litres") (None)))
                   10)
     ((Some violation)
-     (for-each (lambda (move) (write-line (describe move))) (● violation moves))
-     (write-line (● violation reason)))
-    ((None) (write-line "no state within 10 moves")))
+     (for-each (lambda (move) (write-line out (describe move))) (● violation moves))
+     (write-line out (● violation reason)))
+    ((None) (write-line out "no state within 10 moves")))
   (unit))

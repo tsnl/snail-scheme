@@ -12,8 +12,8 @@
    (label String))
   (deriving Serialize Deserialize))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line "decoding")
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (write-line out "decoding")
   (match (ann (deserialize (serialize (new Old (count 3)))) New)
-    ((New count label) (write-line label)))
+    ((New count label) (write-line out label)))
   (unit))

@@ -153,9 +153,9 @@
    (snail shell math)
    (snail shell page)
    (snail core table)
-   (only (snail shell dom) dom document-root no-event Allow)
+   (only (snail shell dom) Dom document-root no-event Allow)
    (only (snail shell dom page) with-page-dom)
-   (only (snail core io) clock)
+   (only (snail core io) Clock)
    (rename (snail shell gpu) (Image GpuImage))
    (snail shell graphics pod)
    (snail shell graphics mesh)
@@ -567,106 +567,106 @@
     ;; G-buffer, lit by the sun over the background, then translucent ones
     ;; over them, into the light, which is tone-mapped and smoothed into the
     ;; canvas. A batch's surface is made only when its version is new.
-    (define (draw-frame (frame Frame) (frames Frames)) (→ Frames) (! gpu tasks)
+    (define (draw-frame (gpu Gpu) (frame Frame) (frames Frames)) (→ Frames) (! mut tasks)
       (match (● frames drawn)
-        ((Some drawn) (drawn-frame frame drawn (current-texture)))
+        ((Some drawn) (drawn-frame gpu frame drawn (current-texture gpu)))
         ((None)
-         (let* ((format (● (request-device) format)) (canvas (current-texture)))
-           (drawn-frame frame (started format canvas) canvas)))))
+         (let* ((format (● (request-device gpu) format)) (canvas (current-texture gpu)))
+           (drawn-frame gpu frame (started gpu format canvas) canvas)))))
 
-    (define (started (format TextureFormat) (canvas GpuImage)) (→ Drawn) (! gpu)
+    (define (started (gpu Gpu) (format TextureFormat) (canvas GpuImage)) (→ Drawn) (! mut)
       (let* ((width (● canvas width))
              (height (● canvas height))
-             (r (make-raster color-planes light-format))
-             (g (make-gbuffer color-planes width height)))
+             (r (make-raster gpu color-planes light-format))
+             (g (make-gbuffer gpu color-planes width height)))
         (new Drawn
           (raster r)
           (gbuffer g)
           (width width)
           (height height)
-          (light (make-sunlight light-format g r))
-          (post (make-post format width height (Neutral)))
+          (light (make-sunlight gpu light-format g r))
+          (post (make-post gpu format width height (Neutral)))
           (surfaces (Nil)))))
 
-    (define (drawn-frame (frame Frame) (drawn Drawn) (canvas GpuImage)) (→ Frames) (! gpu)
-      (let* ((drawn (surfaced (resized drawn canvas) frame))
+    (define (drawn-frame (gpu Gpu) (frame Frame) (drawn Drawn) (canvas GpuImage)) (→ Frames) (! mut)
+      (let* ((drawn (surfaced gpu (resized gpu drawn canvas) frame))
              (drawn (Drawn-raster-set drawn
-                                      (write-raster (● drawn raster)
+                                      (write-raster gpu (● drawn raster)
                                                     (frame-camera frame
                                                                   (● canvas width)
                                                                   (● canvas height))
                                                     (frame-sun (● frame light)))))
-             (target (view-of (● canvas texture) 1))
-             (encoder (create-command-encoder)))
-        (let ((pass (begin-gbuffer encoder (● drawn gbuffer))))
-          (draw-surfaces pass drawn #f)
-          (end-pass pass))
-        (let ((pass (begin-lit encoder
+             (target (view-of gpu (● canvas texture) 1))
+             (encoder (create-command-encoder gpu)))
+        (let ((pass (begin-gbuffer gpu encoder (● drawn gbuffer))))
+          (draw-surfaces gpu pass drawn #f)
+          (end-pass gpu pass))
+        (let ((pass (begin-lit gpu encoder
                                (● drawn post targets light-view)
                                (backdrop (● frame background))
                                (● drawn gbuffer))))
-          (draw-sun pass (● drawn light))
-          (draw-surfaces pass drawn #t)
-          (end-pass pass))
-        (draw-post encoder target (● drawn post))
-        (submit (list (finish encoder)))
+          (draw-sun gpu pass (● drawn light))
+          (draw-surfaces gpu pass drawn #t)
+          (end-pass gpu pass))
+        (draw-post gpu encoder target (● drawn post))
+        (submit gpu (list (finish gpu encoder)))
         (new Frames (drawn (Some drawn)))))
 
     ;; The G-buffer and the post targets remade, and the sunlight over
     ;; them, when the canvas's size changes.
-    (define (resized (drawn Drawn) (canvas GpuImage)) (→ Drawn) (! gpu)
+    (define (resized (gpu Gpu) (drawn Drawn) (canvas GpuImage)) (→ Drawn) (! mut)
       (if (and (= (● drawn width) (● canvas width)) (= (● drawn height) (● canvas height)))
           drawn
-          (let ((g (make-gbuffer color-planes (● canvas width) (● canvas height))))
-            (release-gbuffer (● drawn gbuffer))
+          (let ((g (make-gbuffer gpu color-planes (● canvas width) (● canvas height))))
+            (release-gbuffer gpu (● drawn gbuffer))
             (new Drawn
               (raster (● drawn raster))
               (gbuffer g)
               (width (● canvas width))
               (height (● canvas height))
-              (light (relight (● drawn light) g (● drawn raster)))
-              (post (resize-post (● drawn post) (● canvas width) (● canvas height)))
+              (light (relight gpu (● drawn light) g (● drawn raster)))
+              (post (resize-post gpu (● drawn post) (● canvas width) (● canvas height)))
               (surfaces (● drawn surfaces))))))
 
     ;; A surface for each of the frame's batches; those of batches gone
     ;; from it are released.
-    (define (surfaced (drawn Drawn) (frame Frame)) (→ Drawn) (! gpu)
-      (let ((surfaces (map (lambda (batch) (batch-surface drawn batch)) (● frame batches))))
+    (define (surfaced (gpu Gpu) (drawn Drawn) (frame Frame)) (→ Drawn) (! mut)
+      (let ((surfaces (map (lambda (batch) (batch-surface gpu drawn batch)) (● frame batches))))
         (for-each (lambda (kept)
                     (unless (any? (lambda (now) (= (● now key) (● kept key))) surfaces)
-                      (release-surface (● kept surface))))
+                      (release-surface gpu (● kept surface))))
                   (● drawn surfaces))
         (Drawn-surfaces-set drawn surfaces)))
 
     ;; The batch's surface, restyled when it shows the batch's version, and
     ;; made afresh, releasing the old, when it does not.
-    (define (batch-surface (drawn Drawn) (batch Batch)) (→ Kept) (! gpu)
+    (define (batch-surface (gpu Gpu) (drawn Drawn) (batch Batch)) (→ Kept) (! mut)
       (match (find (lambda (kept) (= (● kept key) (● batch key))) (● drawn surfaces))
         ((Some kept)
          (if (and (= (● kept version) (● batch version))
                   (if (● kept surface translucent) (translucent? batch) (not (translucent? batch))))
-             (Kept-surface-set kept (restyle-surface (● kept surface) (batch-style batch)))
+             (Kept-surface-set kept (restyle-surface gpu (● kept surface) (batch-style batch)))
              (begin
-               (release-surface (● kept surface))
-               (new-surface drawn batch))))
-        ((None) (new-surface drawn batch))))
+               (release-surface gpu (● kept surface))
+               (new-surface gpu drawn batch))))
+        ((None) (new-surface gpu drawn batch))))
 
-    (define (new-surface (drawn Drawn) (batch Batch)) (→ Kept) (! gpu)
+    (define (new-surface (gpu Gpu) (drawn Drawn) (batch Batch)) (→ Kept) (! mut)
       (new Kept
         (key (● batch key))
         (version (● batch version))
-        (surface (make-surface (● drawn raster)
+        (surface (make-surface gpu (● drawn raster)
                                (batch-name batch)
                                (translucent? batch)
                                (batch-style batch)
                                (meshes (map instance-of ((● batch items))))))))
 
     ;; The kept surfaces that are translucent, or not, in order.
-    (define (draw-surfaces (pass GpuRenderPass) (drawn Drawn) (translucent Bool)) (→ Unit) (! gpu)
+    (define (draw-surfaces (gpu Gpu) (pass GpuRenderPass) (drawn Drawn) (translucent Bool)) (→ Unit) (! mut)
       (for-each (lambda (kept)
                   (let ((surface (● kept surface)))
                     (when (if translucent (● surface translucent) (not (● surface translucent)))
-                      (draw-surface pass (● drawn raster) surface))))
+                      (draw-surface gpu pass (● drawn raster) surface))))
                 (● drawn surfaces)))
 
     (define (instance-of (item Item)) (→ (Pair Mesh Instance))
@@ -1028,19 +1028,19 @@
       (Hidden)
       (SaveRequested))
 
-    (define (next-event) (→ Event) (! events tasks)
-      (match (poll-event)
-        (0 (wait-event) (next-event))
-        (11 (FrameEvent (event-field 0)))
+    (define (next-event (events Events)) (→ Event) (! mut tasks)
+      (match (poll-event events)
+        (0 (wait-event events) (next-event events))
+        (11 (FrameEvent (event-field events 0)))
         (12 (Hidden))
-        (14 (HudEvent (event-field 0)))
+        (14 (HudEvent (event-field events 0)))
         (16 (SaveRequested))
-        (17 (FilesEvent (event-field 0)))
+        (17 (FilesEvent (event-field events 0)))
         (kind (InputEvent (decode-input kind
-                                        (event-field 0)
-                                        (event-field 1)
-                                        (event-field 2)
-                                        (event-field 3))))))
+                                        (event-field events 0)
+                                        (event-field events 1)
+                                        (event-field events 2)
+                                        (event-field events 3))))))
 
     ;; ---- Running a scene ----
 
@@ -1052,7 +1052,7 @@
       ((initialize (Fn I32 I32 I32 → S))
        (update (Fn S Input → S))
        (start (Fn → D))
-       (draw (Fn S D → D ! gpu clock tasks))
+       (draw (Fn S D → D ! mut tasks))
        (hud (Fn S → (List Panel)))
        (image-url (Fn D I32 → String))
        (save (Fn S → Bytes))
@@ -1062,18 +1062,18 @@
     ;; canvas's size, then the scene's loop, which never returns, over the
     ;; page's document.
 
-    (define (run-scene (scene (SceneHandler S D)))
+    (define (run-scene (gpu Gpu) (events Events) (storage Storage) (clock Clock) (scene (SceneHandler S D)))
       (→ Unit)
-      (! gpu clock events storage tasks)
+      (! mut tasks)
       (∀ (S D))
-      (run-page (lambda ()
-                  ((● scene initialize) (random-seed) (canvas-width) (canvas-height)))
+      (run-page events storage (lambda ()
+                  ((● scene initialize) (random-seed events) (canvas-width events) (canvas-height events)))
                 (● scene save)
                 (● scene restore)
                 (lambda (state save)
-                  (with-page-dom
+                  (with-page-dom events
                    (lambda ()
-                     (scene-loop scene
+                     (scene-loop gpu dom events storage clock scene
                                  save
                                  state
                                  ((● scene start))
@@ -1085,52 +1085,52 @@
     ;; same queue, independently of display frames. A HUD listener that
     ;; fired gives its input; one the HUD has since dropped gives none.
 
-    (define (scene-loop (scene (SceneHandler S D))
-                        (save (Fn S → Unit ! events storage tasks))
+    (define (scene-loop (gpu Gpu) (dom Dom) (events Events) (storage Storage) (clock Clock) (scene (SceneHandler S D))
+                        (save (Fn S → Unit ! mut tasks))
                         (state S)
                         (drawing D)
                         (hud Hud)
                         (since-hud I32))
       (→ Unit)
-      (! gpu clock dom events storage tasks)
+      (! mut tasks)
       (∀ (S D))
-      (match (next-event)
+      (match (next-event events)
         ((FrameEvent elapsed)
          (let* ((next ((● scene update) state (Elapsed elapsed)))
                 (drawn ((● scene draw) next drawing))
                 (show-hud? (>= (+ since-hud elapsed) 100))
                 (shown (if show-hud?
-                           (show-hud scene next drawn hud)
+                           (show-hud dom scene next drawn hud)
                            (new Pair (first next) (second hud)))))
-           (report-ready)
-           (scene-loop scene
+           (report-ready events)
+           (scene-loop gpu dom events storage clock scene
                        save
                        (● shown first)
                        drawn
                        (● shown second)
                        (if show-hud? 0 (+ since-hud elapsed)))))
-        ((InputEvent input) (scene-input scene save state drawing hud input))
+        ((InputEvent input) (scene-input gpu dom events storage clock scene save state drawing hud input))
         ((HudEvent listener)
          (match (table-ref (ui:listener-table (● hud shown)) (show listener))
            ((Some message)
             (let ((input (message no-event)))
-              (scene-input scene save state drawing (hovering hud listener input) input)))
-           ((None) (scene-loop scene save state drawing hud since-hud))))
-        ((Hidden) (save state) (scene-loop scene save state drawing hud since-hud))
-        ((SaveRequested) (save state) (scene-loop scene save state drawing hud since-hud))
-        ((FilesEvent _) (scene-loop scene save state drawing hud since-hud))))
+              (scene-input gpu dom events storage clock scene save state drawing (hovering hud listener input) input)))
+           ((None) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
+        ((Hidden) (save state) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
+        ((SaveRequested) (save state) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))
+        ((FilesEvent _) (scene-loop gpu dom events storage clock scene save state drawing hud since-hud))))
 
-    (define (scene-input (scene (SceneHandler S D))
-                         (save (Fn S → Unit ! events storage tasks))
+    (define (scene-input (gpu Gpu) (dom Dom) (events Events) (storage Storage) (clock Clock) (scene (SceneHandler S D))
+                         (save (Fn S → Unit ! mut tasks))
                          (state S)
                          (drawing D)
                          (hud Hud)
                          (input Input))
       (→ Unit)
-      (! gpu clock dom events storage tasks)
+      (! mut tasks)
       (∀ (S D))
-      (let ((shown (show-hud scene ((● scene update) state input) drawing hud)))
-        (scene-loop scene save (● shown first) drawing (● shown second) 0)))
+      (let ((shown (show-hud dom scene ((● scene update) state input) drawing hud)))
+        (scene-loop gpu dom events storage clock scene save (● shown first) drawing (● shown second) 0)))
 
     ;; ---- Showing the HUD ----
 
@@ -1150,11 +1150,11 @@
     ;; while the pointer is over it never hears the pointer leave, so the
     ;; state is told, and its HUD shown.
 
-    (define (show-hud (scene (SceneHandler S D)) (state S) (drawing D) (hud Hud))
+    (define (show-hud (dom Dom) (scene (SceneHandler S D)) (state S) (drawing D) (hud Hud))
       (→ (Pair S Hud))
-      (! dom)
+      (! mut)
       (∀ (S D))
-      (let ((shown (ui:patch-children (document-root)
+      (let ((shown (ui:patch-children dom (document-root dom)
                                       (● hud shown)
                                       (hud-html ((● scene hud) state)
                                                 (lambda (image)
@@ -1162,7 +1162,7 @@
         (if (match (● hud hovered)
               ((Some listener) (not (table-contains? (ui:listener-table shown) (show listener))))
               ((None) #f))
-            (show-hud scene
+            (show-hud dom scene
                       ((● scene update) state (Hover 0 0))
                       drawing
                       (new Hud (shown shown) (hovered (None))))

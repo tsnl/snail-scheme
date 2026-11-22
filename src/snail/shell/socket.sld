@@ -8,9 +8,9 @@
 ;; and its port in range, and no host checks either again.
 (define-library (snail shell socket)
   (export
-   tcp listen connect accept read write finish-connection close-listener close-connection
-   udp bind send receive close-udp
-   provide-tcp provide-udp
+   Tcp listen connect accept read write finish-connection close-listener close-connection
+   Udp bind send receive close-udp
+   host-tcp host-udp
    Endpoint endpoint Endpoint-address Endpoint-port
    Listener
    Connection
@@ -109,46 +109,70 @@
     (record SocketError
       ((code String)))
 
-    (effect tcp
-      ((listen (Fn Endpoint → (Result Listener SocketError) ! tasks))
-       (connect (Fn Endpoint → (Result Connection SocketError) ! tasks))
-       (accept (Fn Listener → (Result Connection SocketError) ! tasks))
-       (read (Fn Connection I32 → (Result (Option Bytes) SocketError) ! tasks))
-       (write (Fn Connection Bytes → (Result I32 SocketError) ! tasks))
-       (finish-connection (Fn Connection I32 → (Result Unit SocketError) ! tasks))
-       (close-listener (Fn Listener → (Result Unit SocketError)))
-       (close-connection (Fn Connection → (Result Unit SocketError)))))
+    (record Tcp
+      ((listen (Fn Endpoint → (Result Listener SocketError) ! mut tasks))
+       (connect (Fn Endpoint → (Result Connection SocketError) ! mut tasks))
+       (accept (Fn Listener → (Result Connection SocketError) ! mut tasks))
+       (read (Fn Connection I32 → (Result (Option Bytes) SocketError) ! mut tasks))
+       (write (Fn Connection Bytes → (Result I32 SocketError) ! mut tasks))
+       (finish-connection (Fn Connection I32 → (Result Unit SocketError) ! mut tasks))
+       (close-listener (Fn Listener → (Result Unit SocketError) ! mut))
+       (close-connection (Fn Connection → (Result Unit SocketError) ! mut))))
+
+    (define (listen (tcp Tcp) (endpoint Endpoint)) (→ (Result Listener SocketError)) (! mut tasks)
+      ((● tcp listen) endpoint))
+
+    (define (connect (tcp Tcp) (endpoint Endpoint)) (→ (Result Connection SocketError)) (! mut tasks)
+      ((● tcp connect) endpoint))
+
+    (define (accept (tcp Tcp) (listener Listener)) (→ (Result Connection SocketError)) (! mut tasks)
+      ((● tcp accept) listener))
+
+    (define (read (tcp Tcp) (connection Connection) (maximum I32)) (→ (Result (Option Bytes) SocketError)) (! mut tasks)
+      ((● tcp read) connection maximum))
+
+    (define (write (tcp Tcp) (connection Connection) (bytes Bytes)) (→ (Result I32 SocketError)) (! mut tasks)
+      ((● tcp write) connection bytes))
+
+    (define (finish-connection (tcp Tcp) (connection Connection) (grace I32)) (→ (Result Unit SocketError)) (! mut tasks)
+      ((● tcp finish-connection) connection grace))
+
+    (define (close-listener (tcp Tcp) (listener Listener)) (→ (Result Unit SocketError)) (! mut)
+      ((● tcp close-listener) listener))
+
+    (define (close-connection (tcp Tcp) (connection Connection)) (→ (Result Unit SocketError)) (! mut)
+      ((● tcp close-connection) connection))
 
     ;; Node's TCP sockets.
-    (define (provide-tcp (work (Fn → T ! tcp e))) (→ T) (! e) (∀ (T e))
-      (handle tcp
-          ((listen (lambda (endpoint)
+    (define (host-tcp) (→ Tcp)
+      (new Tcp
+        (listen (lambda (endpoint)
                      (native (lambda (ticket)
                                (host-start-listen ticket
                                                   (address-number endpoint)
                                                   (Endpoint-port endpoint)
                                                   accept-backlog))
                              listening)))
-           (connect (lambda (endpoint)
+        (connect (lambda (endpoint)
                       (native (lambda (ticket)
                                 (host-start-connect ticket
                                                     (address-number endpoint)
                                                     (Endpoint-port endpoint)))
                               connected)))
-           (accept (lambda (listener)
+        (accept (lambda (listener)
                      (native (lambda (ticket) (host-start-accept ticket (listener-handle listener)))
                              connected)))
-           (read (lambda (connection maximum)
+        (read (lambda (connection maximum)
                    (if (and (>= maximum 1) (<= maximum read-limit))
                        (native (lambda (ticket)
                                  (host-start-read ticket (connection-handle connection) maximum))
                                held-read)
                        (Err (new SocketError (code "EINVAL"))))))
-           (write (lambda (connection bytes)
+        (write (lambda (connection bytes)
                     (native (lambda (ticket)
                               (host-start-write ticket (connection-handle connection) bytes))
                             count)))
-           (finish-connection
+        (finish-connection
             (lambda (connection grace)
               (if (>= grace 0)
                   (native (lambda (ticket)
@@ -157,30 +181,40 @@
                                                           grace))
                           done)
                   (Err (new SocketError (code "EINVAL"))))))
-           (close-listener (lambda (listener)
+        (close-listener (lambda (listener)
                              (answered (host-close-tcp (listener-handle listener)) done)))
-           (close-connection (lambda (connection)
-                               (answered (host-close-tcp (connection-handle connection)) done))))
-        (work)))
+        (close-connection (lambda (connection)
+                               (answered (host-close-tcp (connection-handle connection)) done)))))
 
-    (effect udp
-      ((bind (Fn Endpoint → (Result UdpSocket SocketError) ! tasks))
-       (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError) ! tasks))
-       (receive (Fn UdpSocket I32 → (Result Datagram SocketError) ! tasks))
-       (close-udp (Fn UdpSocket → (Result Unit SocketError)))))
+    (record Udp
+      ((bind (Fn Endpoint → (Result UdpSocket SocketError) ! mut tasks))
+       (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError) ! mut tasks))
+       (receive (Fn UdpSocket I32 → (Result Datagram SocketError) ! mut tasks))
+       (close-udp (Fn UdpSocket → (Result Unit SocketError) ! mut))))
+
+    (define (bind (udp Udp) (endpoint Endpoint)) (→ (Result UdpSocket SocketError)) (! mut tasks)
+      ((● udp bind) endpoint))
+
+    (define (send (udp Udp) (socket UdpSocket) (peer Endpoint) (bytes Bytes)) (→ (Result I32 SocketError)) (! mut tasks)
+      ((● udp send) socket peer bytes))
+
+    (define (receive (udp Udp) (socket UdpSocket) (maximum I32)) (→ (Result Datagram SocketError)) (! mut tasks)
+      ((● udp receive) socket maximum))
+
+    (define (close-udp (udp Udp) (socket UdpSocket)) (→ (Result Unit SocketError)) (! mut)
+      ((● udp close-udp) socket))
 
     ;; Node's UDP sockets.
-    (define (provide-udp (work (Fn → T ! udp e))) (→ T) (! e) (∀ (T e))
-      (handle udp
-          ((bind (lambda (endpoint)
+    (define (host-udp) (→ Udp)
+      (new Udp
+        (bind (lambda (endpoint)
                    (native (lambda (ticket)
                              (host-start-bind ticket
                                               (address-number endpoint)
                                               (Endpoint-port endpoint)
                                               datagram-queue))
                            bound)))
-           ;; Port 0 names no peer, though a socket may bind to it.
-           (send (lambda (socket peer bytes)
+        (send (lambda (socket peer bytes)
                    (cond ((= (Endpoint-port peer) 0) (Err (new SocketError (code "EINVAL"))))
                          ((> (array-length bytes) (i32->i64 datagram-limit))
                           (Err (new SocketError (code "EMSGSIZE"))))
@@ -191,7 +225,7 @@
                                                           (Endpoint-port peer)
                                                           bytes))
                                        count)))))
-           (receive (lambda (socket maximum)
+        (receive (lambda (socket maximum)
                       (if (and (>= maximum 0) (<= maximum datagram-limit))
                           (match (native (lambda (ticket)
                                            (host-start-receive ticket (udp-handle socket) maximum))
@@ -199,9 +233,8 @@
                             ((Ok datagram) datagram)
                             ((Err error) (Err error)))
                           (Err (new SocketError (code "EINVAL"))))))
-           (close-udp (lambda (socket)
-                        (answered (host-close-udp (udp-handle socket)) done))))
-        (work)))
+        (close-udp (lambda (socket)
+                        (answered (host-close-udp (udp-handle socket)) done)))))
 
     ;; ---- Native tokens ----
 

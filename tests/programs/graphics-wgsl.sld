@@ -43,7 +43,7 @@
     ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
     ((Err _) "requested")))
 
-(write-string (printed shader))
-(write-line (printed "(fn main (x) (return x))"))
-(write-line (printed "(struct S (x))"))
-(write-line (printed "(fn main () (return \"text\"))"))
+(write-string out (printed shader))
+(write-line out (printed "(fn main (x) (return x))"))
+(write-line out (printed "(struct S (x))"))
+(write-line out (printed "(fn main () (return \"text\"))"))

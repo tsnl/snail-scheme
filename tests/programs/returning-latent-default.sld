@@ -3,9 +3,9 @@
  (snail core io))
 
 (effect ReadValue
-  ((read-value (Fn → I64 ! fs))))
+  ((read-value (Fn → I64 ! mut))))
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
   (handle ReadValue ((read-value (lambda () 42)))
-    (display (read-value)) (newline))
+    (display out (read-value fs)) (newline out))
   (unit))

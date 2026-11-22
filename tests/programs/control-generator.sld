@@ -35,8 +35,8 @@
        (yield (* value depth))
        (+ (+ left-sum value) (walk right (+ depth 1)))))))
 
-(define (show-all (values (List I64))) (→ Unit) (! output-port)
-  (write-line (string-join (map show values) " ")))
+(define (show-all (out OutputPort) (values (List I64))) (→ Unit) (! mut)
+  (write-line out (string-join (map show values) " ")))
 
 ;; Yields inside `if`, inside a `match` clause, and in a let's value.
 (define (classify (items (List I64))) (→ I64) (! Gen)
@@ -79,28 +79,28 @@
     (body)
     (Nil)))
 
-(define (main) (→ Unit) (! output-port)
-  (show-all (collect (lambda () (walk (tree) 1))))
-  (show-all (collect (lambda () (classify (list 1 -2 3 -4 -5)))))
-  (show-all (collect (lambda () (add3 (f 1) (begin (yield 2) 200) (g 3)))))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (show-all out (collect (lambda () (walk (tree) 1))))
+  (show-all out (collect (lambda () (classify (list 1 -2 3 -4 -5)))))
+  (show-all out (collect (lambda () (add3 (f 1) (begin (yield 2) 200) (g 3)))))
   ;; A yield in the middle of a let's value, whose own frames end where the
   ;; value does; the let's body runs on what they produce. After an earlier
   ;; yield, the same shape runs again within the frame that yield saved.
-  (show-all (collect (lambda ()
+  (show-all out (collect (lambda ()
                        (let ((inner (let ((x (f 4))) (yield x) (* x 2))))
                          (yield inner)
                          (+ inner 1)))))
-  (show-all (collect (lambda ()
+  (show-all out (collect (lambda ()
                        (yield 1)
                        (let ((inner (let ((x (f 5))) (yield x) (* x 2))))
                          (yield inner)
                          (+ inner 1)))))
-  (write-line
+  (write-line out
    (show (handle Gen ((yield (lambda (value resume) (resume (unit))))) (halves (list 1 2 4)))))
-  (show-all (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
-              (let ((after (lambda () (write-line "after the yield"))))
+  (show-all out (handle Gen ((yield (lambda (value resume) (Cons value (resume (unit))))))
+              (let ((after (lambda () (write-line out "after the yield"))))
                 (yield 1)
                 (after)
                 (list 2))))
-  (show-all (until-above 20 (lambda () (walk (tree) 1))))
+  (show-all out (until-above 20 (lambda () (walk (tree) 1))))
   (unit))

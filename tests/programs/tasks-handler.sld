@@ -12,13 +12,13 @@
 (record Clock
   ((elapsed I64)))
 
-(define (logical (work (Fn → Unit ! mut output-port tasks))) (→ Unit) (! output-port mut)
+(define (logical (out OutputPort) (work (Fn → Unit ! mut tasks))) (→ Unit) (! mut)
   (let ((clock (new Clock (elapsed 0))))
     (handle tasks
         ((yield (lambda (resume) (resume (unit))))
          (sleep (lambda (delay resume)
                   (set! (● clock elapsed) (+ (● clock elapsed) delay))
-                  (write-line (string-append "at " (show (● clock elapsed))))
+                  (write-line out (string-append "at " (show (● clock elapsed))))
                   (resume (unit))))
          (await (lambda (ticket resume)
                   (panic "no ticket wakes under a logical clock")))
@@ -26,17 +26,17 @@
          (current-scheduler (lambda () (panic "the logical handler cannot dispatch work"))))
       (work))))
 
-(define (countdown (name String) (count I64)) (→ Unit) (! output-port tasks)
+(define (countdown (out OutputPort) (name String) (count I64)) (→ Unit) (! mut tasks)
   (when (> count 0)
-    (write-line (string-append name " " (show count)))
+    (write-line out (string-append name " " (show count)))
     (sleep 100)
-    (countdown name (- count 1))))
+    (countdown out name (- count 1))))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
 
   ;; The same function under the logical clock, at once, and under the
   ;; scheduler, in real time, once main returns.
-  (logical (lambda () (countdown "logical" 2)))
-  (dispatch (lambda () (countdown "real" 2)))
-  (write-line "main returns")
+  (logical out (lambda () (countdown out "logical" 2)))
+  (dispatch (lambda () (countdown out "real" 2)))
+  (write-line out "main returns")
   (unit))

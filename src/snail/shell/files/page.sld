@@ -3,7 +3,7 @@
 ;; (host/browser/files.mjs).
 (define-library (snail shell files page)
   (export
-   with-page-files)
+   page-file-picker)
   (import
    (snail core base)
    (prefix (snail runtime browser files) host-)
@@ -12,14 +12,13 @@
 
     ;; ---- Handling ----
 
-    (define (with-page-files (work (Fn → T ! files e))) (→ T) (! e) (∀ (T e))
-      (handle files
-          ((open-picker (lambda (choice)
+    (define (page-file-picker) (→ FilePicker)
+      (new FilePicker
+        (open-picker (lambda (choice)
                           (host-open-picker (match choice
                                               ((SomeFiles) 0)
                                               ((Folder) 1)))))
-           (chosen-files page-chosen))
-        (work)))
+        (chosen-files page-chosen)))
 
     ;; The listing is each file's path and address, a NUL after each,
     ;; read as fields from the last back to the first.

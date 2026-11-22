@@ -21,7 +21,7 @@
 (record Buffer
   ((bytes Bytes)))
 
-(define (main) (→ Unit) (! host mut output-port tasks)
+(define (main (out OutputPort)) (→ Unit) (! host mut tasks)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
@@ -47,20 +47,20 @@
           (close-listener (lambda (_) (Ok (unit))))
           (finish-connection (lambda (connection grace)
                                (sleep 1)
-                               (display grace)
-                               (newline)
+                               (display out grace)
+                               (newline out)
                                (set! (● (fixture-convert (● connection token) Buffer) bytes)
                                      #u8())
                                (Ok (unit))))
           (close-connection (lambda (_) (Ok (unit)))))
-       (let ((connection (require (connect (require (endpoint "192.0.2.1" 0))))))
+       (let ((connection (require (connect tcp (require (endpoint "192.0.2.1" 0))))))
          (dispatch
           (lambda ()
-            (require (write connection #u8(7 8)))
-            (match (require (read connection 2))
+            (require (write tcp connection #u8(7 8)))
+            (match (require (read tcp connection 2))
               ((Some bytes) (write-value (array->list bytes)))
               ((None) (panic "unexpected EOF")))
-            (newline)
-            (require (finish-connection connection 250))))))))
-  (write-line "main returns")
+            (newline out)
+            (require (finish-connection tcp connection 250))))))))
+  (write-line out "main returns")
   (unit))

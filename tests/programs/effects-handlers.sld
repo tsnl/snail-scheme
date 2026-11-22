@@ -49,9 +49,9 @@
 
 ;; Files from the disk, under `build/`. `read-file` performs fs, which
 ;; goes to the handlers outside this one: here, the host.
-(define (from-disk (action (Fn → A ! Files e))) (→ A) (! fs e) (∀ (A e))
+(define (from-disk (fs Fs) (action (Fn → A ! Files e))) (→ A) (! mut e) (∀ (A e))
   (handle Files
-      ((load (lambda (name) (read-file (string-append "build/" name)))))
+      ((load (lambda (name) (read-file fs (string-append "build/" name)))))
     (action)))
 
 ;; A test double: files from memory, with no file system at all.
@@ -67,37 +67,37 @@
 (effect Verbosity
   ((verbosity (Fn → I64))))
 
-(define (note (level I64) (message String)) (→ Unit) (! Verbosity output-port)
+(define (note (out OutputPort) (level I64) (message String)) (→ Unit) (! Verbosity mut)
   (when (<= level (verbosity))
-    (write-line message)))
+    (write-line out message)))
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
 
   ;; ANCHOR_END: declare
 
   ;; ANCHOR: handle
-  (write-line (show (handle Log
-                        ((log (lambda (message) (write-line message))))
+  (write-line out (show (handle Log
+                        ((log (lambda (message) (write-line out message))))
                       (total (list 3 4)))))
   ;; ANCHOR_END: quietly
 
-  (write-line (show (quiet-total (list 1 2 3))))
+  (write-line out (show (quiet-total (list 1 2 3))))
   (handle Log
-      ((log (lambda (message) (write-line message))))
+      ((log (lambda (message) (write-line out message))))
     (log "order")
     (indented (lambda ()
                 (log (string-append "total " (show (total (list 3 4))))))))
   ;; ANCHOR_END: files
 
   ;; ANCHOR: run-files
-  (write-file "build/greeting.txt" "bonjour")
-  (write-line (from-disk (lambda () (greeting "disk"))))
-  (write-line (from-memory (lambda () (greeting "memory"))))
+  (write-file fs "build/greeting.txt" "bonjour")
+  (write-line out (from-disk fs (lambda () (greeting "disk"))))
+  (write-line out (from-memory (lambda () (greeting "memory"))))
   (handle Verbosity
       ((verbosity (lambda () 1)))
-    (note 1 "shown at level 1")
-    (note 2 "hidden at level 1")
+    (note out 1 "shown at level 1")
+    (note out 2 "hidden at level 1")
     (handle Verbosity
         ((verbosity (lambda () 2)))
-      (note 2 "shown when verbose")))
+      (note out 2 "shown when verbose")))
   (unit))

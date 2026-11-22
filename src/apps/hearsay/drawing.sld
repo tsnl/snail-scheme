@@ -42,12 +42,12 @@
     (define (start-drawing) (→ Drawing) (new Drawing (drawn (None)) (portraits (empty-table))))
 
     ;; One page holds the shapes and eighteen walking pictures.
-    (define (drawn-of (drawing Drawing)) (→ Drawn) (! gpu tasks)
+    (define (drawn-of (gpu Gpu) (drawing Drawing)) (→ Drawn) (! mut tasks)
       (match (● drawing drawn)
         ((Some drawn) drawn)
         ((None)
-         (let* ((format (● (request-device) format)) (atlas (make-atlas "hearsay" 2048 2)))
-           (new Drawn (atlas atlas) (quads (make-quads "hearsay" format (● atlas texture))))))))
+         (let* ((format (● (request-device gpu) format)) (atlas (make-atlas gpu "hearsay" 2048 2)))
+           (new Drawn (atlas atlas) (quads (make-quads gpu "hearsay" format (● atlas texture))))))))
 
     ;; The portrait of picture `key`, or "" until it is read back.
     (define (drawing-url (drawing Drawing) (key I32)) (→ String)
@@ -143,37 +143,37 @@
     ;; The pictures composed, the canvas cleared to `background` and the
     ;; quads `quads` makes from the atlas drawn under `view`, at the
     ;; canvas's own pixels; then a portrait the HUD lacks, if any.
-    (define (draw-quads-frame (drawing Drawing)
+    (define (draw-quads-frame (gpu Gpu) (drawing Drawing)
                               (pictures (List Picture))
                               (background I32)
                               (view View2D)
                               (quads (Fn Atlas → (List Quad))))
       (→ Drawing)
-      (! gpu tasks)
-      (let* ((drawn (drawn-of drawing))
-             (encoder (create-command-encoder))
-             (atlas (atlas-pictures (● drawn atlas) encoder (append shapes pictures)))
-             (canvas (current-texture))
-             (pass (begin-render-pass encoder (canvas-pass canvas background)))
-             (kept (draw-quads pass
+      (! mut tasks)
+      (let* ((drawn (drawn-of gpu drawing))
+             (encoder (create-command-encoder gpu))
+             (atlas (atlas-pictures gpu (● drawn atlas) encoder (append shapes pictures)))
+             (canvas (current-texture gpu))
+             (pass (begin-render-pass gpu encoder (canvas-pass gpu canvas background)))
+             (kept (draw-quads gpu pass
                                (● drawn quads)
                                (View2D-pixels-set view
                                                   (new Vec2f
                                                     (x (i32->f32 (● canvas width)))
                                                     (y (i32->f32 (● canvas height)))))
                                (quads atlas))))
-        (end-pass pass)
-        (submit (list (finish encoder)))
-        (portrait-read (new Drawing
+        (end-pass gpu pass)
+        (submit gpu (list (finish gpu encoder)))
+        (portrait-read gpu (new Drawing
                          (drawn (Some (new Drawn (atlas atlas) (quads kept))))
                          (portraits (● drawing portraits)))
                        atlas
                        pictures)))
 
-    (define (canvas-pass (canvas Image) (background I32)) (→ RenderPassDescriptor) (! gpu)
+    (define (canvas-pass (gpu Gpu) (canvas Image) (background I32)) (→ RenderPassDescriptor) (! mut)
       (new RenderPassDescriptor
         (colors (list (Some (new ColorAttachment
-                              (view (view-of (● canvas texture) 1))
+                              (view (view-of gpu (● canvas texture) 1))
                               (load (Clear (new Color
                                              (red (f32->f64 (channel background 16)))
                                              (green (f32->f64 (channel background 8)))
@@ -183,9 +183,9 @@
         (depth (None))))
 
     ;; The first picture whose portrait is missing or shows another version.
-    (define (portrait-read (drawing Drawing) (atlas Atlas) (pictures (List Picture)))
+    (define (portrait-read (gpu Gpu) (drawing Drawing) (atlas Atlas) (pictures (List Picture)))
       (→ Drawing)
-      (! gpu tasks)
+      (! mut tasks)
       (match (find (lambda (picture) (not (portrayed? drawing picture))) pictures)
         ((Some picture)
          (Drawing-portraits-set drawing
@@ -193,7 +193,7 @@
                                            (show (● picture key))
                                            (new Pair
                                              (first (● picture version))
-                                             (second (atlas-url atlas
+                                             (second (atlas-url gpu atlas
                                                                 (● picture key)
                                                                 face-region))))))
         ((None) drawing)))

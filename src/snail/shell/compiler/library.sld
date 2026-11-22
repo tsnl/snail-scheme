@@ -44,17 +44,17 @@
 
     ;; Where a library's source is: the first search directory holding it.
 
-    (define (find-library (directories (List String)) (name (List String)))
+    (define (find-library (fs Fs) (directories (List String)) (name (List String)))
       (→ (Option String))
-      (! fs)
+      (! mut)
       (let ((relative (string-append (string-join name "/") ".sld")))
-        (find file-exists?
+        (find (lambda (path) (file-exists? fs path))
               (map (lambda (directory) (string-append directory "/" relative)) directories))))
 
-    (define (library-path (directories (List String)) (name (List String)) (loc Loc))
+    (define (library-path (fs Fs) (directories (List String)) (name (List String)) (loc Loc))
       (→ String)
-      (! fs compile)
-      (match (find-library directories name)
+      (! mut compile)
+      (match (find-library fs directories name)
         ((Some path) path)
         ((None)
          (compile-error loc (string-append "library not found: (" (string-join name " ") ")")))))

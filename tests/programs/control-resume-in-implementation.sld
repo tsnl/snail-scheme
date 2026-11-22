@@ -39,27 +39,27 @@
 (effect Runner
   ((run-step (Fn (Fn Unit → Step ! Log) → Step))))
 
-(define (show-step (step Step)) (→ Unit) (! output-port)
+(define (show-step (out OutputPort) (step Step)) (→ Unit) (! mut)
   (match step
-    ((Done) (write-line "done"))
+    ((Done) (write-line out "done"))
     ((Yielded value next)
-     (write-line (string-append "got " (show value)))
-     (show-step (handle Log ((log (lambda (line) (write-line (string-append "finishing: " line)))))
+     (write-line out (string-append "got " (show value)))
+     (show-step out (handle Log ((log (lambda (line) (write-line out (string-append "finishing: " line)))))
                   (next (unit)))))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   ;; The first step under one log, the second inside the runner's
   ;; implementation, and the rest under another.
-  (let ((first (handle Log ((log (lambda (line) (write-line (string-append "start: " line)))))
+  (let ((first (handle Log ((log (lambda (line) (write-line out (string-append "start: " line)))))
                  (start (lambda () (count-from 1 3))))))
     (match first
       ((Yielded value next)
-       (write-line (string-append "got " (show value)))
-       (show-step
-        (handle Log ((log (lambda (line) (write-line (string-append "outside the runner: " line)))))
+       (write-line out (string-append "got " (show value)))
+       (show-step out
+        (handle Log ((log (lambda (line) (write-line out (string-append "outside the runner: " line)))))
           (handle Runner ((run-step (lambda (rest) (rest (unit)))))
             (handle Log ((log (lambda (line)
-                                (write-line (string-append "where run-step is performed: " line)))))
+                                (write-line out (string-append "where run-step is performed: " line)))))
               (run-step next))))))
-      ((Done) (write-line "done"))))
+      ((Done) (write-line out "done"))))
   (unit))

@@ -27,22 +27,22 @@
   (begin
 
     ;; The kernel `entry` of `module`, labeled `label`/`entry`.
-    (define (compute-kernel (module GpuShaderModule) (label String) (entry String))
+    (define (compute-kernel (gpu Gpu) (module GpuShaderModule) (label String) (entry String))
       (→ GpuComputePipeline)
-      (! gpu)
-      (create-compute-pipeline (new ComputePipelineDescriptor
+      (! mut)
+      (create-compute-pipeline gpu (new ComputePipelineDescriptor
                                  (label (string-append label "/" entry))
                                  (module module)
                                  (entry entry))))
 
     ;; Group `index` of `kernel`, whose layout it takes.
-    (define (kernel-group (kernel GpuComputePipeline)
+    (define (kernel-group (gpu Gpu) (kernel GpuComputePipeline)
                           (index I32)
                           (label String)
                           (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
-      (! gpu)
-      (create-bind-group (new BindGroupDescriptor
+      (! mut)
+      (create-bind-group gpu (new BindGroupDescriptor
                            (label label)
                            (pipeline (ComputePipeline kernel))
                            (group index)
@@ -51,16 +51,16 @@
     ;; Workgroups of `size` for `count` items, at least one, in rows of
     ;; 65535, the most a dispatch has along an axis. Invocations past the
     ;; count run too, so a kernel returns for an index it has no item for.
-    (define (dispatch-items (pass GpuComputePass) (count I64) (size I64)) (→ Unit) (! gpu)
+    (define (dispatch-items (gpu Gpu) (pass GpuComputePass) (count I64) (size I64)) (→ Unit) (! mut)
       (let ((groups (max 1 (quotient (+ count (- size 1)) size))))
-        (dispatch-workgroups pass
+        (dispatch-workgroups gpu pass
                              (i64->i32 (min groups 65535))
                              (i64->i32 (quotient (+ groups 65534) 65535))
                              1)))
 
     ;; Workgroups of 8 by 8 for every texel of a width and a height.
-    (define (dispatch-texels (pass GpuComputePass) (width I32) (height I32)) (→ Unit) (! gpu)
-      (dispatch-workgroups pass (quotient (+ width 7) 8) (quotient (+ height 7) 8) 1))
+    (define (dispatch-texels (gpu Gpu) (pass GpuComputePass) (width I32) (height I32)) (→ Unit) (! mut)
+      (dispatch-workgroups gpu pass (quotient (+ width 7) 8) (quotient (+ height 7) 8) 1))
 
     ;; A uniform binds at a multiple of 256 bytes.
     (define slot (→ I64) 256)
@@ -77,19 +77,19 @@
     (define (slot-entry (binding I32) (buffer GpuBuffer) (index I64)) (→ BindGroupEntry)
       (BufferEntry binding buffer (i64->i32 (* slot index)) (i64->i32 slot)))
 
-    (define (uniform-buffer (label String) (bytes Bytes)) (→ GpuBuffer) (! gpu)
-      (let ((buffer (create-buffer (new BufferDescriptor
+    (define (uniform-buffer (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer) (! mut)
+      (let ((buffer (create-buffer gpu (new BufferDescriptor
                                      (label label)
                                      (size (i64->i32 (array-length bytes)))
                                      (usage (list (Uniform) (CopyDst)))))))
-        (write-buffer buffer 0 bytes)
+        (write-buffer gpu buffer 0 bytes)
         buffer))
 
     ;; At least 16 bytes, since no buffer binds empty.
-    (define (storage-buffer (label String) (size I64) (more (List BufferUsage)))
+    (define (storage-buffer (gpu Gpu) (label String) (size I64) (more (List BufferUsage)))
       (→ GpuBuffer)
-      (! gpu)
-      (create-buffer (new BufferDescriptor
+      (! mut)
+      (create-buffer gpu (new BufferDescriptor
                        (label label)
                        (size (i64->i32 (max 16 size)))
                        (usage (Cons (Storage) more)))))

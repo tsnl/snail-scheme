@@ -37,22 +37,22 @@
    (right Step)))
 
 ;; Both generators take their first step under one log.
-(define (begin-both) (→ Pair-of-steps) (! output-port)
-  (handle Log ((log (lambda (line) (write-line (string-append "first log: " line)))))
+(define (begin-both (out OutputPort)) (→ Pair-of-steps) (! mut)
+  (handle Log ((log (lambda (line) (write-line out (string-append "first log: " line)))))
     (new Pair-of-steps (left (start (lambda () (count-from "a" 1 3))))
          (right (start (lambda () (count-from "b" 10 2)))))))
 
 ;; The rest alternates between them, long after their handlers returned,
 ;; under another log: each resumed step logs to the handler in scope here.
-(define (alternate (this Step) (other Step)) (→ Unit) (! Log output-port)
+(define (alternate (out OutputPort) (this Step) (other Step)) (→ Unit) (! Log mut)
   (match this
     ((Done)
      (match other
-       ((Done) (write-line "both done"))
-       (rest (alternate rest (Done)))))
+       ((Done) (write-line out "both done"))
+       (rest (alternate out rest (Done)))))
     ((Yielded value next)
-     (write-line (string-append "got " (show value)))
-     (alternate other (next (unit))))))
+     (write-line out (string-append "got " (show value)))
+     (alternate out other (next (unit))))))
 
 ;; A control effect in the resumed part: the generator asks for a scale
 ;; with a control operation, which the handler in scope where it is
@@ -76,17 +76,17 @@
         (loop (+ index 1))))
     (Finished)))
 
-(define (drain (step Asking) (scale I64)) (→ Unit) (! output-port)
+(define (drain (out OutputPort) (step Asking) (scale I64)) (→ Unit) (! mut)
   (match step
-    ((Finished) (write-line "finished"))
+    ((Finished) (write-line out "finished"))
     ((Gave value next)
-     (write-line (string-append "gave " (show value)))
-     (drain (handle Ask ((ask (lambda (resume) (resume scale)))) (next (unit))) (* scale 10)))))
+     (write-line out (string-append "gave " (show value)))
+     (drain out (handle Ask ((ask (lambda (resume) (resume scale)))) (next (unit))) (* scale 10)))))
 
-(define (main) (→ Unit) (! output-port)
-  (match (begin-both)
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (match (begin-both out)
     ((Pair-of-steps left right)
-     (handle Log ((log (lambda (line) (write-line (string-append "second log: " line)))))
-       (alternate left right))))
-  (drain (handle Ask ((ask (lambda (resume) (resume 1)))) (scaled 3)) 2)
+     (handle Log ((log (lambda (line) (write-line out (string-append "second log: " line)))))
+       (alternate out left right))))
+  (drain out (handle Ask ((ask (lambda (resume) (resume 1)))) (scaled 3)) 2)
   (unit))

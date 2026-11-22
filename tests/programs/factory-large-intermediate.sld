@@ -7,7 +7,7 @@
 (define (small) (→ (List I64)) (iota 170))
 (define (copied) (→ (Array I64)) (array-copy (array-generate 511 (lambda (index) index))))
 
-(define (main) (→ Unit) (! output-port)
-  (write-line (show (total)))
-  (write-line (show (length (small))))
-  (write-line (show (array-ref (copied) 510))))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (write-line out (show (total)))
+  (write-line out (show (length (small))))
+  (write-line out (show (array-ref (copied) 510))))

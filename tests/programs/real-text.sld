@@ -6,8 +6,8 @@
  (snail core base)
  (snail core io))
 
-(define (main) (→ Unit) (! output-port)
-  (for-each (lambda (value) (write-line (show value)))
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (for-each (lambda (value) (write-line out (show value)))
             (list 0.0
                   (negate 0.0)
                   1.0
@@ -37,4 +37,4 @@
                   (/ 0.0 0.0)
                   (/ 1.0 0.0)
                   (/ -1.0 0.0)))
-  (write-line (show (f64->f32 0.1))))
+  (write-line out (show (f64->f32 0.1))))

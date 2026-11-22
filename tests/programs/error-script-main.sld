@@ -4,4 +4,4 @@
 
 (write-line "a statement")
 
-(define (main) (→ Unit) (! output-port) (write-line "and a main"))
+(define (main) (→ Unit) (! mut) (write-line "and a main"))

@@ -6,16 +6,16 @@
 ;; another, `output-port`, with the rest of its row polymorphic (#456). The
 ;; body may perform anything in `e` besides the clock: here it writes too,
 ;; so `e` is `console`.
-(define (logged-clock (body (Fn → I64 ! clock e))) (→ I64) (! output-port e) (∀ (e))
+(define (logged-clock (out OutputPort) (body (Fn → I64 ! mut e))) (→ I64) (! mut e) (∀ (e))
   (handle clock
-      ((monotonic-nanoseconds (lambda () (write-line "the clock was read") 21)))
+      ((monotonic-nanoseconds (lambda () (write-line out "the clock was read") 21)))
     (body)))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
-  (write-line
-   (show (logged-clock (lambda () (+ (monotonic-nanoseconds) (monotonic-nanoseconds))))))
-  (write-line (show (logged-clock (lambda ()
-                                    (write-line "the body writes")
-                                    (* 2 (monotonic-nanoseconds))))))
+  (write-line out
+   (show (logged-clock out (lambda () (+ (monotonic-nanoseconds clock) (monotonic-nanoseconds clock))))))
+  (write-line out (show (logged-clock out (lambda ()
+                                    (write-line out "the body writes")
+                                    (* 2 (monotonic-nanoseconds clock))))))
   (unit))

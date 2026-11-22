@@ -22,13 +22,13 @@
 
     ;; The work's answer and the lines it recorded, in order.
 
-    (define (with-recorded-gpu (work (Fn → T ! gpu e)))
+    (define (with-recorded-gpu (work (Fn Gpu → T ! mut e)))
       (→ (Pair T (List String)))
       (! mut e)
       (∀ (T e))
       (let ((recording (new Recording (next 1) (lines (Nil)))))
-        (let ((value (handle gpu
-                         ((request-device
+        (let ((value (work (new Gpu
+(request-device
                            (lambda ()
                              (note! recording (list "request-device"))
                              (new DeviceInfo (format (Bgra8Unorm)) (features (Nil)))))
@@ -263,8 +263,7 @@
                                (height 480))))
                           (destroy
                            (lambda (object)
-                             (note! recording (list "destroy" (show (object-id object)))))))
-                       (work))))
+                             (note! recording (list "destroy" (show (object-id object))))))))))
           (new Pair (first value) (second (reverse (● recording lines)))))))
 
     ;; ---- Objects ----

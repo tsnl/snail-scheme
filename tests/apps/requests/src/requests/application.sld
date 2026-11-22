@@ -41,14 +41,14 @@
                (result (Result String String)))))
 
     (define (update (model Model) (message Msg))
-      (→ (Pair Model (List (Fn → Msg ! fetch tasks e))))
+      (→ (Pair Model (List (Fn → Msg ! mut tasks e))))
       (∀ (e))
       (match message
         ((Load)
          (let ((request (+ (● model request) 1)))
            (new Pair
              (first (Model-request-set (Model-display-set model (Waiting)) request))
-             (second (list (lambda () (Loaded request (load-text))))))))
+             (second (list (lambda () (Loaded request (load-text fetch))))))))
         ((Cancel)
          (stay (Model-request-set (Model-display-set model (Showing "canceled"))
                                   (+ (● model request) 1))))
@@ -59,11 +59,11 @@
                                       (Showing (match result ((Ok text) text) ((Err why) why))))
                    model)))))
 
-    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! fetch tasks e)))) (∀ (e))
+    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! mut tasks e)))) (∀ (e))
       (new Pair (first model) (second (Nil))))
 
-    (define (load-text) (→ (Result String String)) (! fetch tasks)
-      (match (request "GET" "/api/text" (Nil) "")
+    (define (load-text (fetch Fetch)) (→ (Result String String)) (! mut tasks)
+      (match (request fetch "GET" "/api/text" (Nil) "")
         ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
 
@@ -108,23 +108,23 @@
 
     ;; The page runs over the save itself, so a page started again has no
     ;; request outstanding.
-    (define (run-requests) (→ Unit) (! mut host events storage tasks)
-      (run-page (lambda () (new Save (display (Showing "idle")) (clicks 0)))
+    (define (run-requests (events Events) (storage Storage)) (→ Unit) (! mut host tasks)
+      (run-page events storage (lambda () (new Save (display (Showing "idle")) (clicks 0)))
                 serialize
                 deserialize
-                present))
+                (lambda (saved checkpoint) (present events storage saved checkpoint))))
 
-    (define (present (saved Save) (checkpoint (Fn Save → Unit ! events storage tasks)))
+    (define (present (events Events) (storage Storage) (saved Save) (checkpoint (Fn Save → Unit ! mut tasks)))
       (→ Unit)
-      (! mut host events storage tasks)
-      (with-page-dom
+      (! mut host tasks)
+      (with-page-dom events
        (lambda ()
          (with-page-fetch
           (lambda ()
-            (run-ui (restore saved) (Nil)
+            (run-ui dom (restore saved) (Nil)
                     (lambda (model message) (update model message))
                     (lambda (model) (view model))
                     (lambda (model) (window model))
-                    (lambda (model) (report-ready))
+                    (lambda (model) (report-ready events))
                     (lambda (model) (checkpoint (save model))))
             (unit))))))))

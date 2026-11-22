@@ -20,7 +20,7 @@
 
     ;; ---- Interfaces ----
 
-    (type (Command M) (Fn → M ! tasks dom fetch))
+    (type (Command M) (Fn → M ! tasks mut))
 
     ;; An interface is a handler, in the style of winit's: a record of
     ;; pure model transitions and views, and the commands an update
@@ -39,36 +39,36 @@
     ;; The page's model, from its save or `initialize` with a seed, then
     ;; the interface's loop over the page's document and fetch.
 
-    (define (run-interface (interface (InterfaceHandler Model Message)))
+    (define (run-interface (events Events) (storage Storage) (interface (InterfaceHandler Model Message)))
       (→ Unit)
-      (! mut host events storage tasks)
+      (! mut host tasks)
       (∀ (Model Message))
-      (run-page (lambda () ((● interface initialize) (random-seed)))
+      (run-page events storage (lambda () ((● interface initialize) (random-seed events)))
                 (● interface save)
                 (● interface restore)
-                (lambda (model save) (present-interface interface model save))))
+                (lambda (model save) (present-interface events storage interface model save))))
 
     ;; The loop's row includes saving its model. Commands keep their
     ;; narrower contract and fit the loop as they are. The update's pair is
     ;; rebuilt because a record's type never widens; its commands widen as
     ;; they move into the new one.
 
-    (define (present-interface (interface (InterfaceHandler Model Message))
+    (define (present-interface (events Events) (storage Storage) (interface (InterfaceHandler Model Message))
                                (model Model)
-                               (save (Fn Model → Unit ! events storage tasks)))
+                               (save (Fn Model → Unit ! mut tasks)))
       (→ Unit)
-      (! mut host events storage tasks)
+      (! mut host tasks)
       (∀ (Model Message))
-      (with-page-dom
+      (with-page-dom events
        (lambda ()
          (with-page-fetch
           (lambda ()
-            (run-ui model ((● interface messages) model)
+            (run-ui dom model ((● interface messages) model)
                     (lambda (model message)
                       (match ((● interface update) model message)
                         ((Pair next commands) (new Pair (first next) (second commands)))))
                     (● interface view) (● interface window)
-                    (lambda (model) (report-ready))
+                    (lambda (model) (report-ready events))
                     save)
             (unit))))))
 

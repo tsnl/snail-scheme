@@ -68,20 +68,20 @@
        (remodulate-group GpuBindGroup)
        (parity I64)))
 
-    (define (make-svgf (inputs SvgfInputs) (light GpuTextureView) (width I32) (height I32))
+    (define (make-svgf (gpu Gpu) (inputs SvgfInputs) (light GpuTextureView) (width I32) (height I32))
       (→ Svgf)
-      (! gpu)
-      (let ((module (create-shader-module (new ShaderModuleDescriptor
+      (! mut)
+      (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
                                             (label "svgf")
                                             (code (string-append (declarations camera-shape)
                                                                  (declarations filtering-shape)
                                                                  svgf-shader))))))
-        (planned (new Kernels
-                   (temporal (compute-kernel module "svgf" "temporal"))
-                   (variance (compute-kernel module "svgf" "variance"))
-                   (atrous (compute-kernel module "svgf" "atrous"))
-                   (remodulate (compute-kernel module "svgf" "remodulate"))
-                   (filtering (uniform-buffer "svgf/filtering" (filtering-bytes #t 1.0))))
+        (planned gpu (new Kernels
+                   (temporal (compute-kernel gpu module "svgf" "temporal"))
+                   (variance (compute-kernel gpu module "svgf" "variance"))
+                   (atrous (compute-kernel gpu module "svgf" "atrous"))
+                   (remodulate (compute-kernel gpu module "svgf" "remodulate"))
+                   (filtering (uniform-buffer gpu "svgf/filtering" (filtering-bytes #t 1.0))))
                  inputs
                  light
                  width
@@ -89,65 +89,65 @@
 
     ;; New planes and groups when the inputs or the size change; the
     ;; history starts again.
-    (define (resize-svgf (svgf Svgf)
+    (define (resize-svgf (gpu Gpu) (svgf Svgf)
                          (inputs SvgfInputs)
                          (light GpuTextureView)
                          (width I32)
                          (height I32))
       (→ Svgf)
-      (! gpu)
-      (release svgf)
-      (planned (● svgf kernels) inputs light width height))
+      (! mut)
+      (release gpu svgf)
+      (planned gpu (● svgf kernels) inputs light width height))
 
-    (define (release (svgf Svgf)) (→ Unit) (! gpu)
-      (for-each (lambda (group) (destroy (BindGroupObject group)))
+    (define (release (gpu Gpu) (svgf Svgf)) (→ Unit) (! mut)
+      (for-each (lambda (group) (destroy gpu (BindGroupObject group)))
                 (Cons (● svgf remodulate-group)
                       (concatenate (list (● svgf temporal-groups)
                                          (● svgf variance-groups)
                                          (● svgf atrous-groups)))))
-      (for-each release-plane (● svgf planes)))
+      (for-each (lambda (plane) (release-plane gpu plane)) (● svgf planes)))
 
     ;; ---- A frame ----
 
     ;; `moved` when the camera moved since the last frame: a moving
     ;; camera keeps 32 frames at most and gives each at least a fifth, a
     ;; still one keeps averaging.
-    (define (filter-svgf (encoder GpuCommandEncoder) (svgf Svgf) (moved Bool) (exposure F32))
+    (define (filter-svgf (gpu Gpu) (encoder GpuCommandEncoder) (svgf Svgf) (moved Bool) (exposure F32))
       (→ Svgf)
-      (! gpu)
+      (! mut)
       (let ((kernels (● svgf kernels)) (parity (● svgf parity)))
-        (write-buffer (● kernels filtering) 0 (filtering-bytes moved exposure))
-        (let ((first (begin-compute-pass encoder)))
-          (over-screen first svgf (● kernels temporal) (list-ref (● svgf temporal-groups) parity))
-          (over-screen first svgf (● kernels variance) (list-ref (● svgf variance-groups) parity))
-          (over-screen first svgf (● kernels atrous) (list-ref (● svgf atrous-groups) 0))
-          (end-compute-pass first))
-        (copy-texture-to-texture encoder
+        (write-buffer gpu (● kernels filtering) 0 (filtering-bytes moved exposure))
+        (let ((first (begin-compute-pass gpu encoder)))
+          (over-screen gpu first svgf (● kernels temporal) (list-ref (● svgf temporal-groups) parity))
+          (over-screen gpu first svgf (● kernels variance) (list-ref (● svgf variance-groups) parity))
+          (over-screen gpu first svgf (● kernels atrous) (list-ref (● svgf atrous-groups) 0))
+          (end-compute-pass gpu first))
+        (copy-texture-to-texture gpu encoder
                                  (whole-texture (● (plane (● svgf planes) "pong") texture))
                                  (whole-texture
                                   (● (history (● svgf planes) "color" parity) texture))
                                  (● svgf width)
                                  (● svgf height))
-        (let ((rest (begin-compute-pass encoder)))
+        (let ((rest (begin-compute-pass gpu encoder)))
           (for-each (lambda (level)
-                      (over-screen rest
+                      (over-screen gpu rest
                                    svgf
                                    (● kernels atrous)
                                    (list-ref (● svgf atrous-groups) level)))
                     (list 1 2 3 4))
-          (over-screen rest svgf (● kernels remodulate) (● svgf remodulate-group))
-          (end-compute-pass rest))
+          (over-screen gpu rest svgf (● kernels remodulate) (● svgf remodulate-group))
+          (end-compute-pass gpu rest))
         (Svgf-parity-set svgf (- 1 parity))))
 
-    (define (over-screen (pass GpuComputePass)
+    (define (over-screen (gpu Gpu) (pass GpuComputePass)
                          (svgf Svgf)
                          (pipeline GpuComputePipeline)
                          (group GpuBindGroup))
       (→ Unit)
-      (! gpu)
-      (set-compute-pipeline pass pipeline)
-      (set-compute-bind-group pass 0 group)
-      (dispatch-texels pass (● svgf width) (● svgf height)))
+      (! mut)
+      (set-compute-pipeline gpu pass pipeline)
+      (set-compute-bind-group gpu pass 0 group)
+      (dispatch-texels gpu pass (● svgf width) (● svgf height)))
 
     ;; Slot 0 for the temporal filter and the light, slots 1 to 5 for the
     ;; à-trous levels' steps.
@@ -182,15 +182,15 @@
                                             -1
                                             (iota (length plane-names))))))
 
-    (define (planned (kernels Kernels)
+    (define (planned (gpu Gpu) (kernels Kernels)
                      (inputs SvgfInputs)
                      (light GpuTextureView)
                      (width I32)
                      (height I32))
       (→ Svgf)
-      (! gpu)
+      (! mut)
       (let ((planes (map (lambda (name)
-                           (make-plane (string-append "svgf/" name)
+                           (make-plane gpu (string-append "svgf/" name)
                                        width
                                        height
                                        (if (string=? name "place") (Rgba32Float) (Rgba16Float))
@@ -205,20 +205,20 @@
           (height height)
           (planes planes)
           (temporal-groups (map (lambda (index)
-                                  (group (● kernels temporal)
+                                  (group gpu (● kernels temporal)
                                          (temporal-entries planes
                                                            inputs
                                                            (● kernels filtering)
                                                            index)))
                                 (iota 2)))
           (variance-groups
-           (map (lambda (index) (group (● kernels variance) (variance-entries planes inputs index)))
+           (map (lambda (index) (group gpu (● kernels variance) (variance-entries planes inputs index)))
                 (iota 2)))
           (atrous-groups (map (lambda (level)
-                                (group (● kernels atrous)
+                                (group gpu (● kernels atrous)
                                        (atrous-entries planes inputs (● kernels filtering) level)))
                               (iota 5)))
-          (remodulate-group (group (● kernels remodulate)
+          (remodulate-group (group gpu (● kernels remodulate)
                                    (remodulate-entries planes inputs light (● kernels filtering))))
           (parity 0))))
 
@@ -226,10 +226,10 @@
 
     ;; ---- Groups ----
 
-    (define (group (pipeline GpuComputePipeline) (entries (List BindGroupEntry)))
+    (define (group (gpu Gpu) (pipeline GpuComputePipeline) (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
-      (! gpu)
-      (kernel-group pipeline 0 "svgf" entries))
+      (! mut)
+      (kernel-group gpu pipeline 0 "svgf" entries))
 
     (define (temporal-entries (planes (List Plane))
                               (inputs SvgfInputs)

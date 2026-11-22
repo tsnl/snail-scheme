@@ -10,8 +10,8 @@
 ;; display frame matters only to a scene, which matches its kind itself.
 (define-library (snail shell page)
   (export
-   events
-   provide-events
+   Events
+   host-events
    poll-event
    wait-event
    event-field
@@ -22,8 +22,8 @@
    report-ready
    hidden-kind
    save-kind
-   storage
-   provide-storage
+   Storage
+   host-storage
    load-save
    store-save
    run-page)
@@ -43,53 +43,84 @@
 
     ;; Waiting for an event, like loading and storing a save below, starts
     ;; on the host and waits by ticket ((snail shell task)'s `through-host`).
-    (effect events
-      ((poll-event (Fn → I32))
-       (wait-event (Fn → Unit ! tasks))
-       (event-field (Fn I32 → I32))
-       (random-seed (Fn → I32))
-       (canvas-width (Fn → I32))
-       (canvas-height (Fn → I32))
-       (report-boot (Fn I32 → Unit))
-       (report-ready (Fn → Unit))))
+    (record Events
+      ((poll-event (Fn → I32 ! mut))
+       (wait-event (Fn → Unit ! mut tasks))
+       (event-field (Fn I32 → I32 ! mut))
+       (random-seed (Fn → I32 ! mut))
+       (canvas-width (Fn → I32 ! mut))
+       (canvas-height (Fn → I32 ! mut))
+       (report-boot (Fn I32 → Unit ! mut))
+       (report-ready (Fn → Unit ! mut))))
+
+    (define (poll-event (events Events)) (→ I32) (! mut)
+      ((● events poll-event)))
+
+    (define (wait-event (events Events)) (→ Unit) (! mut tasks)
+      ((● events wait-event)))
+
+    (define (event-field (events Events) (n I32)) (→ I32) (! mut)
+      ((● events event-field) n))
+
+    (define (random-seed (events Events)) (→ I32) (! mut)
+      ((● events random-seed)))
+
+    (define (canvas-width (events Events)) (→ I32) (! mut)
+      ((● events canvas-width)))
+
+    (define (canvas-height (events Events)) (→ I32) (! mut)
+      ((● events canvas-height)))
+
+    (define (report-boot (events Events) (n I32)) (→ Unit) (! mut)
+      ((● events report-boot) n))
+
+    (define (report-ready (events Events)) (→ Unit) (! mut)
+      ((● events report-ready)))
 
     ;; The page's events, through the browser host.
-    (define (provide-events (work (Fn → T ! events e))) (→ T) (! e) (∀ (T e))
-      (handle events
-          ((poll-event host-poll)
-           (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
-           (event-field host-field)
-           (random-seed host-seed)
-           (canvas-width host-width)
-           (canvas-height host-height)
-           (report-boot host-boot)
-           (report-ready host-ready))
-        (work)))
+    (define (host-events) (→ Events)
+      (new Events
+        (poll-event host-poll)
+        (wait-event (lambda () (through-host host-start-wait host-finish-wait)))
+        (event-field host-field)
+        (random-seed host-seed)
+        (canvas-width host-width)
+        (canvas-height host-height)
+        (report-boot host-boot)
+        (report-ready host-ready)))
 
     ;; ---- Storage ----
 
     ;; One save, read at boot and replaced by each store.
-    (effect storage
-      ((load-count (Fn → I32 ! tasks))
-       (loaded-byte (Fn I32 → U8))
-       (store-save (Fn Bytes → Unit ! tasks))))
+    (record Storage
+      ((load-count (Fn → I32 ! mut tasks))
+       (loaded-byte (Fn I32 → U8 ! mut))
+       (store-save (Fn Bytes → Unit ! mut tasks))))
+
+    (define (load-count (storage Storage)) (→ I32) (! mut tasks)
+      ((● storage load-count)))
+
+    (define (loaded-byte (storage Storage) (n I32)) (→ U8) (! mut)
+      ((● storage loaded-byte) n))
+
+    (define (store-save (storage Storage) (bytes Bytes)) (→ Unit) (! mut tasks)
+      ((● storage store-save) bytes))
 
     ;; The page's saved state, through the browser host.
-    (define (provide-storage (work (Fn → T ! storage e))) (→ T) (! e) (∀ (T e))
-      (handle storage
-          ((load-count (lambda () (through-host host-start-load host-finish-load)))
-           (loaded-byte host-byte)
-           (store-save (lambda (bytes)
+    (define (host-storage) (→ Storage)
+      (new Storage
+        (load-count (lambda () (through-host host-start-load host-finish-load)))
+        (loaded-byte host-byte)
+        (store-save (lambda (bytes)
                          (through-host (lambda (ticket) (host-start-store ticket bytes))
-                                       host-finish-store))))
-        (work)))
+                                       host-finish-store)))))
 
-    (define (load-save) (→ (Option Bytes)) (! storage tasks)
-      (let ((count (load-count)))
+    (define (load-save (storage Storage)) (→ (Option Bytes)) (! mut tasks)
+      (let ((count (load-count storage)))
         (if (< count 0)
             (None)
             (Some
-             (array-generate (i32->i64 count) (lambda (index) (loaded-byte (i64->i32 index))))))))
+             (array-generate (i32->i64 count) (lambda (index) (loaded-byte storage (i64->i32 index))))))))
 
     ;; ---- Running a page ----
 
@@ -100,17 +131,17 @@
     ;; one, which a loop calls when the page is hidden or the host's timer
     ;; asks: five seconds after the boot or the last save.
 
-    (define (run-page (initialize (Fn → S ! events))
+    (define (run-page (events Events) (storage Storage) (initialize (Fn → S ! mut))
                       (encode (Fn S → Bytes))
                       (decode (Fn Bytes → S))
-                      (run (Fn S (Fn S → Unit ! events storage tasks) → Unit ! e)))
+                      (run (Fn S (Fn S → Unit ! mut tasks) → Unit ! e)))
       (→ Unit)
-      (! events storage tasks e)
+      (! mut tasks e)
       (∀ (S e))
-      (let ((booted (match (load-save)
+      (let ((booted (match (load-save storage)
                       ((Some bytes) (new Pair (first (decode bytes)) (second 1)))
                       ((None) (new Pair (first (initialize)) (second 2))))))
-        (report-boot (● booted second))
-        (run (● booted first) (lambda (state) (store-save (encode state))))))
+        (report-boot events (● booted second))
+        (run (● booted first) (lambda (state) (store-save storage (encode state))))))
 
     ))

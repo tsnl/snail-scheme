@@ -2,6 +2,6 @@
  (snail core base)
  (snail core io))
 
-(define (prompt) (→ (Option Char)) (! input-port)
+(define (prompt) (→ (Option Char)) (! mut)
   (write-string "> ")
   (read-char))

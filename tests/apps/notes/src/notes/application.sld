@@ -60,8 +60,8 @@
         ((Typed text) (new Pair (first (Notes-draft-set model text)) (second (Nil))))
         ((Pressed key at) (pressed model key at))
         ((Add) (added model))
-        ((Bullet) (new Pair (first model) (second (list bullet))))
-        ((Clear) (new Pair (first model) (second (list clear))))
+        ((Bullet) (new Pair (first model) (second (list (lambda () (bullet dom))))))
+        ((Clear) (new Pair (first model) (second (list (lambda () (clear dom))))))
         ((Cleared) (new Pair (first (Notes-notes-set model (Nil))) (second (Nil))))
         ((Added count) (new Pair (first (Notes-added-set model count)) (second (Nil))))
         ((Remove id)
@@ -69,7 +69,7 @@
                                            (filter (lambda (note) (not (= (● note id) id)))
                                                    (● model notes))))
               (second (Nil))))
-        ((Load) (new Pair (first model) (second (list load))))
+        ((Load) (new Pair (first model) (second (list (lambda () (load fetch))))))
         ((Loaded text)
          (new Pair
            (first (Notes-server-set model (Server-greeting-set (● model server) text)))
@@ -77,7 +77,7 @@
         ((Share)
          (new Pair
            (first model)
-           (second (list (lambda () (share (● model notes) (● model next)))))))
+           (second (list (lambda () (share fetch (● model notes) (● model next)))))))
         ((Shared text)
          (new Pair
            (first (Notes-server-set model (Server-shared-set (● model server) text)))
@@ -85,9 +85,9 @@
         ((Listen)
          (new Pair (first model)
               (second (list
-                       (lambda () (hear (stream-open "/api/events" (list "message" "note"))))))))
+                       (lambda () (hear fetch (stream-open fetch "/api/events" (list "message" "note"))))))))
         ((Heard stream text)
-         (new Pair (first (heard model text)) (second (list (lambda () (hear stream))))))
+         (new Pair (first (heard model text)) (second (list (lambda () (hear fetch stream))))))
         ((Ended) (new Pair (first (heard model "ended")) (second (Nil))))))
 
     (define (pressed (model Notes) (key String) (at I32)) (→ (Pair Notes (List (Command Message))))
@@ -95,13 +95,13 @@
             ((string=? key "Tab")
              (new Pair (first model)
                   (second (list (lambda ()
-                                  (with-draft
-                                   (lambda (node) (insert-text node at at "  ") (unit)))
+                                  (with-draft dom
+                                   (lambda (node) (insert-text dom node at at "  ") (unit)))
                                   (Pressed "" 0))))))
             (else (new Pair (first model) (second (Nil))))))
 
-    (define (clear) (→ Message) (! dom)
-      (if (confirm "Remove every note?") (Cleared) (Pressed "" 0)))
+    (define (clear (dom Dom)) (→ Message) (! mut)
+      (if (confirm dom "Remove every note?") (Cleared) (Pressed "" 0)))
 
     (define (heard (model Notes) (text String)) (→ Notes)
       (let ((server (● model server)))
@@ -110,12 +110,12 @@
 
     ;; ---- The server ----
 
-    (define (load) (→ Message) (! fetch tasks)
-      (Loaded (replied (request "GET" "/api/greeting" (Nil) ""))))
+    (define (load (fetch Fetch)) (→ Message) (! mut tasks)
+      (Loaded (replied (request fetch "GET" "/api/greeting" (Nil) ""))))
 
     ;; The notes, a line each, sent with the next id the server should expect.
-    (define (share (notes (List Note)) (next I64)) (→ Message) (! fetch tasks)
-      (Shared (replied (request "POST"
+    (define (share (fetch Fetch) (notes (List Note)) (next I64)) (→ Message) (! mut tasks)
+      (Shared (replied (request fetch "POST"
                                 "/api/notes"
                                 (list (new Header (name "Content-Type") (value "text/plain"))
                                       (new Header (name "If-Match") (value (show next))))
@@ -128,8 +128,8 @@
         ((Err why) (string-append "failed: " why))))
 
     ;; The next event, which the update that hears it waits past.
-    (define (hear (stream Stream)) (→ Message) (! fetch tasks)
-      (match (stream-next stream)
+    (define (hear (fetch Fetch) (stream Stream)) (→ Message) (! mut tasks)
+      (match (stream-next fetch stream)
         ((Some event)
          (Heard stream (string-append (● event kind) ":" (● event data))))
         ((None) (Ended))))
@@ -150,19 +150,19 @@
                        (server (● model server))))
               (second (list (lambda ()
                               (yield)
-                              (with-draft focus-node)
+                              (with-draft dom focus-node)
                               (Added count))))))))
 
     ;; Does `act` to the draft field, if the view still shows it.
-    (define (with-draft (act (Fn Node → Unit ! dom))) (→ Unit) (! dom)
-      (match (element-by-id "draft")
+    (define (with-draft (dom Dom) (act (Fn Node → Unit ! mut))) (→ Unit) (! mut)
+      (match (element-by-id dom "draft")
         ((Some node) (act node))
         ((None) (unit))))
 
     ;; The field's input event, which inserting fires, carries the new draft;
     ;; the command's own answer leaves it as it is.
-    (define (bullet) (→ Message) (! dom)
-      (with-draft (lambda (node) (insert-text node 0 0 "- ") (unit)))
+    (define (bullet (dom Dom)) (→ Message) (! mut)
+      (with-draft dom (lambda (node) (insert-text dom node 0 0 "- ") (unit)))
       (Pressed "" 0))
 
     (define (view (model Notes)) (→ (Html Message))

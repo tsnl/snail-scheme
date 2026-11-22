@@ -6,6 +6,7 @@
   (export
    ExpandedProgram
    expand-program
+   Generate
    LinkedFile
    program-links)
   (import
@@ -173,11 +174,11 @@
     ;; it as plain data: a step takes the context and hands back the one it
     ;; learned in. Its fields fall into three kinds.
     ;;
-    ;; What the build is given, which never changes: `directories` are
-    ;; searched for libraries;
-    ;; `inputs` holds what
-    ;; the build supplies in memory, producers' outputs; and `recipe`, in a producer program, is the recipe its
-    ;; printed copy stands for.
+    ;; What the build is given, which never changes: `fs` reads the
+    ;; sources and linked files; `generate` runs a producer and answers
+    ;; what it wrote; `directories` are searched for libraries; and
+    ;; `recipe`, in a producer program, is the recipe its printed copy
+    ;; stands for.
     ;;
     ;; Scope, which loading a library replaces and which the importer gets
     ;; back unchanged: `prefix` names the library being expanded, so its
@@ -199,8 +200,15 @@
     ;; each top level's definitions, by key, and `top-count` makes the next
     ;; key. `deriving` is the scope a deriving macro's name resolves in,
     ;; once one is made.
+    ;; Runs the producer program of a `generate-library`, given the
+    ;; libraries loading when it was reached, and answers the bytes of the
+    ;; syntax it writes.
+    (type Generate (Fn (List String) (List Syntax) → Bytes ! mut compile))
+
     (record Context
-      ((directories (List String))
+      ((fs Fs)
+       (generate Generate)
+       (directories (List String))
        (target (Option (List String)))
        (known (Table LinkedFile))
        (recipe (Option Recipe))
@@ -225,7 +233,9 @@
     ;; it.
 
     (define (resumed (outer Context) (inner Context)) (→ Context)
-      (new Context (directories (● outer directories))
+      (new Context (fs (● outer fs))
+           (generate (● outer generate))
+           (directories (● outer directories))
            (target (● outer target))
            (known (● outer known))
            (recipe (● outer recipe))
@@ -275,11 +285,15 @@
       ((program Program)
        (libraries (Table Expanded))))
 
-    (define (new-context (directories (List String))
+    (define (new-context (fs Fs)
+                         (generate Generate)
+                         (directories (List String))
                          (target (Option (List String)))
                          (known (List LinkedFile)))
       (→ Context)
       (new Context
+        (fs fs)
+        (generate generate)
         (directories directories)
         (target target)
         (known
@@ -398,7 +412,7 @@
 
     (define (load-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (let ((key (string-join name ".")))
         (cond ((builtin-library? key) (new Pair (first core-library) (second cx)))
               ((member? key (● cx loading))
@@ -414,32 +428,29 @@
 
     (define (read-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (! fs compile generator)
-      (let ((path (library-path (● cx directories) name loc)))
-        (expand-library-file cx name (file-library name (read-source-file path) path))))
+      (! mut compile)
+      (let ((path (library-path (● cx fs) (● cx directories) name loc)))
+        (expand-library-file cx name (file-library name (read-source-file (● cx fs) path) path))))
 
     ;; A defined library expands its sections; a generated one expands the
     ;; library its producer's output declares.
 
     (define (expand-library-file (cx Context) (name (List String)) (file LibraryFile))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (match file
         ((DefinedLibrary sections)
          (expand-sections (Context-prefix-set cx (string-join name ".")) sections))
         ((GeneratedLibrary forms loc)
          (expand-library-file cx name (output-library-file name (generated-bytes cx forms) loc)))))
 
-    ;; What a producer wrote, as the driver's handler produces it. The
-    ;; context owns only plain data;
-    ;; generator policy belongs to this invocation's handler. A request keeps
-    ;; the exact loading stack, so recursive compilation still detects cycles.
+    ;; What a producer wrote, as the driver's `generate` produces it: the
+    ;; policy is this invocation's, and the context carries it to the one
+    ;; place that asks. A request keeps the exact loading stack, so
+    ;; recursive compilation still detects cycles.
 
-    (effect generator
-      ((run-generator (Fn (List String) (List Syntax) → Bytes ! fs compile))))
-
-    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! generator fs compile)
-      (run-generator (● cx loading) forms))
+    (define (generated-bytes (cx Context) (forms (List Syntax))) (→ Bytes) (! mut compile)
+      ((● cx generate) (● cx loading) forms))
 
     ;; ---- Sources ----
 
@@ -555,7 +566,7 @@
 
     (define (bind-links (cx Context) (uses (List LinkUse)))
       (→ (Pair (List LinkedFile) Context))
-      (! fs compile)
+      (! mut compile)
       (let ((linked
              (map (lambda (use) (new Pair (first use) (second (linked-file cx use))))
                   uses)))
@@ -571,10 +582,10 @@
     ;; The file a use names, with its digest. A missing file fails the
     ;; library's expansion, naming the library and the path.
 
-    (define (linked-file (cx Context) (use LinkUse)) (→ LinkedFile) (! fs compile)
+    (define (linked-file (cx Context) (use LinkUse)) (→ LinkedFile) (! mut compile)
       (let ((path (● use path)))
-        (match (followed-status path)
-          ((Ok status) (digested (● cx known) path status))
+        (match (followed-status (● cx fs) path)
+          ((Ok status) (digested (● cx fs) (● cx known) path status))
           ((Err _)
            (compile-error (● use loc)
                           (string-append "the library " (● cx prefix) " links " (● use relative)
@@ -586,18 +597,18 @@
     ;; status is taken before the bytes are read, so a file written in
     ;; between is read again by the next build.
 
-    (define (digested (known (Table LinkedFile)) (path String) (status FileStatus)) (→ LinkedFile)
-      (! fs)
+    (define (digested (fs Fs) (known (Table LinkedFile)) (path String) (status FileStatus)) (→ LinkedFile)
+      (! mut)
       (match (table-ref known path)
         ((Some file)
          (if (and (= (● file size) (● status size)) (= (● file modified) (● status modified)))
              file
-             (read-digest path status)))
-        ((None) (read-digest path status))))
+             (read-digest fs path status)))
+        ((None) (read-digest fs path status))))
 
-    (define (read-digest (path String) (status FileStatus)) (→ LinkedFile) (! fs)
+    (define (read-digest (fs Fs) (path String) (status FileStatus)) (→ LinkedFile) (! mut)
       (new LinkedFile
-        (digest (file-digest path))
+        (digest (file-digest fs path))
         (path path)
         (size (● status size))
         (modified (● status modified))))
@@ -606,8 +617,8 @@
       (Foreign (new Import (module "snail.runtime.link") (symbol (● file digest)))
                (mono-scheme (TFun (Nil) (TCon "I32" (Nil)) empty-row))))
 
-    (define (file-digest (path String)) (→ String) (! fs)
-      (bytes->hex (sha256 (read-bytes path))))
+    (define (file-digest (fs Fs) (path String)) (→ String) (! mut)
+      (bytes->hex (sha256 (read-bytes fs path))))
 
     ;; The files a library links, as the build expanded it, in the order
     ;; its uses were reached.
@@ -629,7 +640,7 @@
 
     (define (expand-sections (cx Context) (sections (List (Pair String (List Syntax)))))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (threading cx ((env (import-env (section-items sections "import"))))
                  (let ((cx (Context-items-set (Context-links-set cx (Nil)) (Nil))))
                    (expand-recorded cx sections env))))
@@ -641,7 +652,7 @@
                                  (sections (List (Pair String (List Syntax))))
                                  (env Env))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (let* ((forms (section-items sections "begin"))
              (cx (if (primitive-library? cx)
                      (fold-left (lambda (cx form) (declare-primitive cx env form)) cx forms)
@@ -658,7 +669,7 @@
 
     (define (expand-library-run (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! fs compile generator)
+      (! mut compile)
       (let* ((cx (expand-top-level cx env forms))
              (cx (if (string=? (● cx prefix) "main") (with-entry cx) cx)))
         (Context-program-set cx
@@ -676,7 +687,7 @@
     ;; target's handlers, and an exposed function runs inside the target's
     ;; `provide`.
 
-    (define (with-entry (cx Context)) (→ Context) (! fs compile generator)
+    (define (with-entry (cx Context)) (→ Context) (! mut compile)
       (match (new Pair (first (● cx target)) (second (entry-loc cx)))
         ((Pair (Some library) (Some loc))
          (threading cx ((exports (load-library library loc)))
@@ -803,19 +814,18 @@
     ;; with `(generating ...)`, and its imports load inside the libraries
     ;; that form names, so one that leads back to them is a cycle.
 
-    (define (expand-program (directories (List String))
-                            (generate (Fn (List String) (List Syntax) → Bytes ! fs compile))
+    (define (expand-program (fs Fs)
+                            (directories (List String))
+                            (generate Generate)
                             (target (Option (List String)))
                             (known (List LinkedFile))
                             (path String))
       (→ ExpandedProgram)
-      (! fs compile)
-      (handle generator ((run-generator generate))
-        (expanded-program
-         (expand-source (new-context directories target known) path))))
+      (! mut compile)
+      (expanded-program (expand-source (new-context fs generate directories target known) path)))
 
-    (define (expand-source (cx Context) (path String)) (→ Context) (! fs compile generator)
-      (let* ((source (generating-stack (read-source-file path)))
+    (define (expand-source (cx Context) (path String)) (→ Context) (! mut compile)
+      (let* ((source (generating-stack (read-source-file (● cx fs) path)))
              (parts (program-parts (● source second)))
              (body (producer-body path (● source first) (● parts second)))
              (cx (Context-recipe-set
@@ -866,7 +876,7 @@
     (define (expand-recorded (cx Context)
                              (sections (List (Pair String (List Syntax))))
                              (env Env))
-      (→ (Pair Exports Context)) (! fs compile generator)
+      (→ (Pair Exports Context)) (! mut compile)
       (threading cx ((exports (expand-library-body sections env))
                      (links (bind-links (reverse (● cx links)))))
                  (new Pair (first exports)
@@ -884,7 +894,7 @@
 
     (define (import-env (cx Context) (specs (List Syntax)))
       (→ (Pair Env Context))
-      (! fs compile generator)
+      (! mut compile)
       (let loop ((cx cx) (specs specs) (imports (empty-table)))
         (match specs
           ((Nil) (new-top cx imports))
@@ -911,7 +921,7 @@
 
     (define (import-set (cx Context) (spec Syntax))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (match spec
         ((Form (Cons (Ident "only" _ _) (Cons inner idents)) _)
          (let ((names (ident-names idents)))
@@ -954,7 +964,7 @@
 
     (define (checked-import-set (cx Context) (spec Syntax) (idents (List Syntax)))
       (→ (Pair Exports Context))
-      (! fs compile generator)
+      (! mut compile)
       (threading cx ((entries (import-set spec)))
                  (for-each (lambda (ident)
                              (let ((identifier-name (ident-name ident)))
@@ -1261,7 +1271,7 @@
 
     (define (expand-top-level (cx Context) (env Env) (forms (List Syntax)))
       (→ Context)
-      (! fs compile generator)
+      (! mut compile)
       (threading cx ((scanned (each (lambda (cx form) (scan-top-level cx env form)) forms))
                      (pending (with-statements env (concatenate scanned))))
                  (let* ((signatures
@@ -1346,13 +1356,13 @@
         (● run first)))
 
     (define (scan-top-level (cx Context) (env Env) (form Syntax))
-      (→ (Pair (List Pending) Context)) (! fs compile generator)
+      (→ (Pair (List Pending) Context)) (! mut compile)
       (threading cx ((form (expand-head env form)))
                  (scan-top-level-form cx env form)))
 
     (define (scan-top-level-form (cx Context) (env Env) (form Syntax))
       (→ (Pair (List Pending) Context))
-      (! fs compile generator)
+      (! mut compile)
       (match (head-binding cx env form)
         ((Some (Core "begin"))
          (threading cx ((scanned (each (lambda (cx item) (scan-top-level cx env item))
@@ -1394,7 +1404,7 @@
 
     (define (scan-data (cx Context) (env Env) (form Syntax) (enum? Bool))
       (→ (Pair (List Pending) Context))
-      (! fs compile generator)
+      (! mut compile)
       (let ((cx (if enum? (scan-enum cx env form) (scan-record cx env form))))
         (threading cx ((derived (derived-instances form enum?))
                        (scanned (each (lambda (cx instance) (scan-top-level cx env instance))
@@ -2968,7 +2978,7 @@
 
     (define (derived-instances (cx Context) (form Syntax) (enum? Bool))
       (→ (Pair (List Syntax) Context))
-      (! fs compile generator)
+      (! mut compile)
       (match (derived-classes form)
         ((Nil) (new Pair (first (Nil)) (second cx)))
         (classes
@@ -3000,7 +3010,7 @@
     ;; every later one. The library notes the declaration at `loc`, so that
     ;; each expansion loads their current declarations.
 
-    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! fs compile generator)
+    (define (deriving-scope (cx Context) (loc Loc)) (→ (Pair I64 Context)) (! mut compile)
       (match (● cx deriving)
         ((Some scope) (new Pair (first scope) (second cx)))
         ((None)

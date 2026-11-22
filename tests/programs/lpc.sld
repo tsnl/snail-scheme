@@ -11,15 +11,15 @@
  (lpc catalog)
  (lpc wardrobe))
 
-(define (missing (paths (List String))) (→ (List String)) (! fs)
-  (filter (lambda (path) (not (file-exists? path))) paths))
+(define (missing (fs Fs) (paths (List String))) (→ (List String)) (! mut)
+  (filter (lambda (path) (not (file-exists? fs path))) paths))
 
-(define (report (title String) (paths (List String))) (→ Unit) (! output-port fs)
-  (write-line (string-append title
+(define (report (fs Fs) (out OutputPort) (title String) (paths (List String))) (→ Unit) (! mut)
+  (write-line out (string-append title
                              ": "
                              (show (length paths))
                              " sheets, missing "
-                             (show (length (missing paths))))))
+                             (show (length (missing fs paths))))))
 
 (define (olive) (→ Skin) (new Skin (name "olive")))
 
@@ -45,14 +45,14 @@
 (define (cell-text (cell Rect)) (→ String)
   (string-append "cell at " (show (● cell x)) "," (show (● cell y))))
 
-(define (main) (→ Unit) (! fs output-port)
+(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
 
-  (report "bodies"
+  (report fs out "bodies"
           (concatenate
            (map (lambda (build) (map (lambda (skin) (● (body-sheet build skin) path)) skins))
                 builds)))
-  (report "heads" (map (lambda (head) (● (head-sheet head (list-ref skins 0)) path)) heads))
-  (report "garments"
+  (report fs out "heads" (map (lambda (head) (● (head-sheet head (list-ref skins 0)) path)) heads))
+  (report fs out "garments"
           (concatenate (map (lambda (garment)
                               (map (lambda (build)
                                      (match (garment-sheet build
@@ -63,16 +63,16 @@
                                        ((None) "(no sheet)")))
                                    (garment-builds garment)))
                             garments)))
-  (report "hair"
+  (report fs out "hair"
           (concatenate (map (lambda (style)
                               (map (lambda (build)
                                      (● (hair-sheet build style (list-ref hair-colors 0)) path))
                                    (list (Male) (Female))))
                             hair-styles)))
-  (write-line (string-append "female: " (describe (dress (Female) (HumanFemale) (olive) (outfit)))))
-  (write-line
+  (write-line out (string-append "female: " (describe (dress (Female) (HumanFemale) (olive) (outfit)))))
+  (write-line out
    (string-append "male in navy pants: " (describe (dress (Male) (HumanMale) (olive) (outfit)))))
-  (write-line (string-append "male in green pants: "
+  (write-line out (string-append "male in green pants: "
                              (describe (dress (Male)
                                               (HumanMale)
                                               (olive)
@@ -82,7 +82,7 @@
                                                                  (garment (Pants))
                                                                  (dye (new Dye (name "green"))))))
                                                    (feet (None)))))))
-  (write-line (string-append "shoes on the torso: "
+  (write-line out (string-append "shoes on the torso: "
                              (describe (dress (Female)
                                               (HumanFemale)
                                               (olive)
@@ -95,13 +95,13 @@
   (match (dress (Female) (HumanFemale) (olive) (outfit))
     ((Some who)
      (for-each (lambda (sheet)
-                 (write-line (string-append "  "
+                 (write-line out (string-append "  "
                                             (substring (● sheet path)
                                                        8
                                                        (string-length (● sheet path)))
                                             " swaps " (show (length (● sheet swaps))))))
                (● who sheets))
-     (write-line (string-append "same character, same fingerprint: "
+     (write-line out (string-append "same character, same fingerprint: "
                                 (if (same-fingerprint? (Some who)
                                                        (dress (Female)
                                                               (HumanFemale)
@@ -109,7 +109,7 @@
                                                               (outfit)))
                                     "yes"
                                     "no")))
-     (write-line (string-append "another skin, another fingerprint: "
+     (write-line out (string-append "another skin, another fingerprint: "
                                 (if (same-fingerprint? (Some who)
                                                        (dress (Female)
                                                               (HumanFemale)
@@ -117,9 +117,9 @@
                                                               (outfit)))
                                     "no"
                                     "yes"))))
-    ((None) (write-line "refused")))
+    ((None) (write-line out "refused")))
   ;; Down the screen faces the viewer, +x their right.
-  (write-line (string-append "headings: "
+  (write-line out (string-append "headings: "
                              (string-join (map (lambda (facing)
                                                  (show
                                                   (heading 4 (● facing first) (● facing second))))
@@ -129,10 +129,10 @@
                                                      (new Pair (first -1.0) (second 0.0))
                                                      (new Pair (first 0.7) (second -0.8))))
                                           " ")))
-  (write-line (string-append "standing toward the viewer: "
+  (write-line out (string-append "standing toward the viewer: "
                              (cell-text (cell-at (walk-book 7) (Stand) 0 5000))))
-  (write-line (string-append "strolling to the right, 200 ms in: "
+  (write-line out (string-append "strolling to the right, 200 ms in: "
                              (cell-text (cell-at (walk-book 7) (Stroll) 1 200))))
-  (write-line (string-append "slashing away, a full cycle in: "
+  (write-line out (string-append "slashing away, a full cycle in: "
                              (cell-text (cell-at (universal-book 7) (Slash) 2 480))))
   (unit))

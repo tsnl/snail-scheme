@@ -7,11 +7,11 @@
  (apps siegework view)
  (apps siegework hud))
 
-(run-scene (new SceneHandler
+(run-scene gpu events storage clock (new SceneHandler
              (initialize new-game)
              (update update-game)
              (start start-frames)
-             (draw (lambda (game frames) (draw-frame (view-game game) frames)))
+             (draw (lambda (game frames) (draw-frame gpu (view-game game) frames)))
              (hud game-hud)
              (image-url (lambda (drawing image) ""))
              (save (lambda (game) (serialize (game-save game))))

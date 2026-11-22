@@ -1,4 +1,4 @@
 (import
  (requests application))
 
-(run-requests)
+(run-requests events storage)

@@ -27,8 +27,8 @@
     ((Lost) "lost")
     ((Resigned) "resigned")))
 
-(define (report (name String) (world World)) (→ Unit) (! output-port)
-  (write-line (string-append name
+(define (report (out OutputPort) (name String) (world World)) (→ Unit) (! mut)
+  (write-line out (string-append name
                              ": tick "
                              (show (● world tick))
                              ", buildings "
@@ -111,11 +111,11 @@
        ((None) "nothing")))
     ((None) "gone")))
 
-(define (watch (world World) (ticks I64)) (→ Unit) (! output-port)
+(define (watch (out OutputPort) (world World) (ticks I64)) (→ Unit) (! mut)
   (if (> ticks 0)
       (let ((next (advance world)))
         (for-each (lambda (shot)
-                    (write-line (string-append "tick "
+                    (write-line out (string-append "tick "
                                                (show (● next tick))
                                                ": the turret at x "
                                                (show (● (● shot from) x))
@@ -123,13 +123,13 @@
                                                (aggro-text next))))
                   (filter (lambda (shot) (= (● shot tick) (● next tick)))
                           (● next shots)))
-        (watch next (- ticks 1)))
+        (watch out next (- ticks 1)))
       (begin
-        (write-line (string-append "at tick "
+        (write-line out (string-append "at tick "
                                    (show (● world tick))
                                    " the enemy has turned on "
                                    (aggro-text world)))
-        (write-line (string-append "the guns stay on each turret's last shot: "
+        (write-line out (string-append "the guns stay on each turret's last shot: "
                                    (string-join (map aim-text (● world buildings)) ", "))))))
 
 (define (aim-text (b Building)) (→ String)
@@ -139,10 +139,10 @@
                     (string-append "aims at " (show (● cell x)) "," (show (● cell y))))
                    ((None) "has not fired"))))
 
-(define (main) (→ Unit) (! output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
   (define lost (run (started (new-world 1)) 6000))
   (define defended (defend (started (new-world 1)) 1000))
-  (write-line
+  (write-line out
    (string-append "attacks: " (string-join (map attack-text (let loop ((tick 0) (found (Nil)))
                                                               (if (= (length found) 12)
                                                                   (reverse found)
@@ -151,14 +151,14 @@
                                                                     (loop next
                                                                           (Cons next found))))))
                                            ", ")))
-  (write-line
+  (write-line out
    (string-append "next attack after tick 5000: " (attack-text (next-attack-tick 5000))))
-  (report "undefended" lost)
-  (write-line (string-append "the lost colony's whole map is uncovered: "
+  (report out "undefended" lost)
+  (write-line out (string-append "the lost colony's whole map is uncovered: "
                              (show (array-fold (lambda (all seen) (and all seen))
                                                #t
                                                (● lost explored)))))
-  (report "defended" defended)
-  (report "defended" (defend defended 2000))
-  (watch (flanked (started (new-world 1))) 40)
+  (report out "defended" defended)
+  (report out "defended" (defend defended 2000))
+  (watch out (flanked (started (new-world 1))) 40)
   (unit))

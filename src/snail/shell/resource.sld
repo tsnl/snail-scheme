@@ -13,8 +13,8 @@
   (export
    Resource
    link-file
-   resource
-   provide-resource
+   Resources
+   host-resources
    read-resource
    read-resources)
   (import
@@ -45,11 +45,15 @@
     ;; `provide-resource` the host reads each file, an object of the
     ;; program's store, the first time a task asks for it, and the task
     ;; waits until it has; a handler can serve them otherwise.
-    (effect resource
-      ((resource-bytes (Fn (List I32) → (List Bytes) ! tasks))))
+    (record Resources
+      ((resource-bytes (Fn (List I32) → (List Bytes) ! mut tasks))))
 
-    (define (provide-resource (work (Fn → T ! resource e))) (→ T) (! e) (∀ (T e))
-      (handle resource ((resource-bytes host-bytes)) (work)))
+    (define (resource-bytes (resources Resources) (handles (List I32))) (→ (List Bytes)) (! mut tasks)
+      ((● resources resource-bytes) handles))
+
+    (define (host-resources) (→ Resources)
+      (new Resources
+        (resource-bytes host-bytes)))
 
     ;; Every read starts, under a ticket of its own, before the task waits,
     ;; so the host reads the files together; the task waits once, for all
@@ -68,12 +72,12 @@
 
     ;; The file's bytes, as they were when the host first read them.
 
-    (define (read-resource (linked Resource)) (→ Bytes) (! resource tasks)
-      (list-ref (read-resources (list linked)) 0))
+    (define (read-resource (resources Resources) (linked Resource)) (→ Bytes) (! mut tasks)
+      (list-ref (read-resources resources (list linked)) 0))
 
     ;; Each file's bytes, in the order given, the files read together.
 
-    (define (read-resources (linked (List Resource))) (→ (List Bytes)) (! resource tasks)
-      (resource-bytes (map (lambda (file) ((● file handle))) linked)))
+    (define (read-resources (resources Resources) (linked (List Resource))) (→ (List Bytes)) (! mut tasks)
+      (resource-bytes resources (map (lambda (file) ((● file handle))) linked)))
 
     ))

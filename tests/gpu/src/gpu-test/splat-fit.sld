@@ -10,7 +10,7 @@
   (import
    (snail core base)
    (only (snail shell task) tasks)
-   (only (snail shell gpu) gpu)
+   (only (snail shell gpu) Gpu)
    (only (snail shell math) log)
    (rename (snail shell tensor)
            (log tensor-log))
@@ -39,12 +39,12 @@
        (scales (Array F64))
        (count F64)))
 
-    (define (densified-in (capacity I64)) (→ Densified) (! gpu tasks)
+    (define (densified-in (gpu Gpu) (capacity I64)) (→ Densified) (! mut tasks)
       (let* ((cloud (splat-params capacity))
              (densified (densification cloud (stats-params capacity)))
-             (program (compile-program "densify" (list (● densified second)) (● densified first)))
+             (program (compile-program gpu "densify" (list (● densified second)) (● densified first)))
              (padded (lambda (each width) (rows capacity each width))))
-        (for-each (lambda (pair) (write-param program (● pair first) (floats (● pair second))))
+        (for-each (lambda (pair) (write-param gpu program (● pair first) (floats (● pair second))))
                   (list (new Pair
                           (first "means")
                           (second (padded (list (list 1.0 0.0 0.0)
@@ -77,14 +77,14 @@
                           (second (padded (map (lambda (_) (list 1.0)) (iota 4)) 1)))
                         (new Pair (first "extent") (second (list 1.0)))
                         (new Pair (first "prune-big") (second (list 0.0)))))
-        (write-param program "seed" (values->bytes (list->array (list 12345.0)) (Unsigned)))
-        (run-program program)
+        (write-param gpu program "seed" (values->bytes (list->array (list 12345.0)) (Unsigned)))
+        (run-program gpu program)
         (let ((d (new Densified
-                   (live (array->list (bytes->values (read-param program "live") (Float))))
-                   (means (bytes->values (read-param program "means") (Float)))
-                   (scales (bytes->values (read-param program "scales") (Float)))
-                   (count (array-ref (bytes->values (read-sink program 0) (Float)) 0)))))
-          (release-program program)
+                   (live (array->list (bytes->values (read-param gpu program "live") (Float))))
+                   (means (bytes->values (read-param gpu program "means") (Float)))
+                   (scales (bytes->values (read-param gpu program "scales") (Float)))
+                   (count (array-ref (bytes->values (read-sink gpu program 0) (Float)) 0)))))
+          (release-program gpu program)
           d)))
 
     (define (mean-at (d Densified) (slot I64)) (→ (List F64))
@@ -97,8 +97,8 @@
                      (show (f64->i64 (● d count)))
                      ")"))
 
-    (define (splat-densify-check) (→ String) (! gpu tasks)
-      (let* ((d (densified-in 8))
+    (define (splat-densify-check (gpu Gpu)) (→ String) (! mut tasks)
+      (let* ((d (densified-in gpu 8))
              (mean (lambda (slot) (mean-at d slot)))
              (near (lambda (slot)
                      (every? (lambda (k)
@@ -119,8 +119,8 @@
 
     ;; Three stay, so a cloud of 4 has room for one more row: the clone's,
     ;; whose row comes first. The large one is kept, unsplit.
-    (define (splat-room-check) (→ String) (! gpu tasks)
-      (let ((d (densified-in 4)))
+    (define (splat-room-check (gpu Gpu)) (→ String) (! mut tasks)
+      (let ((d (densified-in gpu 4)))
         (string-append (live-text d)
                        (if (and (equal-means? (mean-at d 0) (list 1.0 0.0 0.0))
                                 (equal-means? (mean-at d 1) (list 0.0 2.0 0.0))

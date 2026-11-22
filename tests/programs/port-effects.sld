@@ -8,7 +8,7 @@
 (record Output
   ((reversed (List String))))
 
-(define (from-text (text String) (action (Fn → A ! input-port e)))
+(define (from-text (text String) (action (Fn → A ! mut e)))
   (→ A) (! mut e) (∀ (A e))
   (let ((position (new Cursor (index 0))))
     (handle input-port
@@ -20,7 +20,7 @@
                                    (Some (string-ref text index))))))))
       (action))))
 
-(define (capture (action (Fn → Unit ! output-port e)))
+(define (capture (action (Fn → Unit ! mut e)))
   (→ String) (! mut e) (∀ (e))
   (let ((chunks (new Output (reversed (Nil)))))
     (handle output-port
@@ -28,9 +28,9 @@
       (action))
     (string-concatenate (reverse (● chunks reversed)))))
 
-(define (line (value T)) (→ Unit) (! output-port) (∀ (T)) (⊨ (Repr T))
-  (write value)
-  (newline))
+(define (line (out OutputPort) (value T)) (→ Unit) (! mut) (∀ (T)) (⊨ (Repr T))
+  (write out value)
+  (newline out))
 
 ;; Both operations can be handled without any remaining I/O effect.
 (define (silent-eof) (→ (Option Char))
@@ -38,41 +38,41 @@
       ((read-char (lambda () (None))))
     (handle output-port
         ((write-string (lambda (text) (unit))))
-      (write "discarded")
-      (read-char))))
+      (write out "discarded")
+      (read-char in))))
 
-(define (main) (→ Unit) (! mut output-port)
+(define (main (out OutputPort)) (→ Unit) (! mut)
 
   (from-text "aλ😀\n\nlast"
              (lambda ()
-               (line (read-char))
-               (line (read-line))
-               (line (read-line))
-               (line (read-line))
-               (line (read-char))
-               (line (read-char))))
+               (line out (read-char in))
+               (line out (read-line in))
+               (line out (read-line in))
+               (line out (read-line in))
+               (line out (read-char in))
+               (line out (read-char in))))
   ;; Input handlers restore the outer cursor and do not intercept output.
   (from-text "ab"
              (lambda ()
-               (line (read-char))
-               (from-text "inner" (lambda () (line (read-line))))
-               (line (read-char))))
+               (line out (read-char in))
+               (from-text "inner" (lambda () (line out (read-line in))))
+               (line out (read-char in))))
   ;; Capturing output leaves the current input available to the computation.
   (from-text "my string input\n"
-             (lambda () (write-line (capture (lambda () (write (read-line)))))))
+             (lambda () (write-line out (capture (lambda () (write out (read-line in)))))))
   ;; Nested output goes to its own destination, then the outer one is restored.
-  (write-line
+  (write-line out
    (capture (lambda ()
-              (write-string "before:")
-              (let ((inner (capture (lambda () (write (Some "inner"))))))
-                (write-string inner))
-              (write-char #\:)
-              (display "after"))))
+              (write-string out "before:")
+              (let ((inner (capture (lambda () (write out (Some "inner"))))))
+                (write-string out inner))
+              (write-char out #\:)
+              (display out "after"))))
   ;; Calling the operation inside its implementation forwards to the outer port.
-  (write-line
+  (write-line out
    (capture (lambda ()
               (handle output-port
-                  ((write-string (lambda (text) (write-string (string-append "[" text "]")))))
-                (write "forwarded")))))
-  (line (silent-eof))
+                  ((write-string (lambda (text) (write-string out (string-append "[" text "]")))))
+                (write out "forwarded")))))
+  (line out (silent-eof))
   (unit))

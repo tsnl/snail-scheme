@@ -10,8 +10,8 @@
  (gpu-test device))
 
 (provide-gpu (lambda ()
-               (let ((info (request-device)))
-                 (write-line (string-append "format: " (texture-format-name (● info format))))
-                 (device-checks)
-                 (training-checks)
-                 (work-done))))
+               (let ((info (request-device gpu)))
+                 (write-line out (string-append "format: " (texture-format-name (● info format))))
+                 (device-checks gpu out)
+                 (training-checks gpu out)
+                 (work-done gpu))))

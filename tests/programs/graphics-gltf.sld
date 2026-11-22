@@ -95,22 +95,22 @@
 
 (match (read (string->utf8 scene))
   ((Ok gltf)
-   (write-line (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))
-   (write-line (string-append "images: " (sources (● gltf images))))
+   (write-line out (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))
+   (write-line out (string-append "images: " (sources (● gltf images))))
    (for-each (lambda (placed)
                (let ((primitive (● placed primitive)))
-                 (write-line (string-append "positions: " (attribute-text (● primitive positions))))
+                 (write-line out (string-append "positions: " (attribute-text (● primitive positions))))
                  (match (● primitive uvs)
-                   ((Some uvs) (write-line (string-append "uvs: " (attribute-text uvs))))
-                   ((None) (write-line "uvs: none")))
+                   ((Some uvs) (write-line out (string-append "uvs: " (attribute-text uvs))))
+                   ((None) (write-line out "uvs: none")))
                  (match (● primitive indices)
                    ((Some indices)
-                    (write-line (string-append "indices: " (attribute-text indices))))
-                   ((None) (write-line "indices: none")))
-                 (write-line (string-append "matrix: " (numbers (● placed matrix))))))
+                    (write-line out (string-append "indices: " (attribute-text indices))))
+                   ((None) (write-line out "indices: none")))
+                 (write-line out (string-append "matrix: " (numbers (● placed matrix))))))
              (● gltf placed))
    (for-each (lambda (material)
-               (write-line (string-append "material: " (numbers (● material base-color))
+               (write-line out (string-append "material: " (numbers (● material base-color))
                                           " texture " (show (● material base-texture))
                                           " metallic " (show (● material metallic))
                                           " alpha " (show (● material alpha))
@@ -118,9 +118,9 @@
                                           " emissive " (numbers (● material emissive)))))
              (● gltf materials))
    (let ((bounds (gltf-bounds gltf)))
-     (write-line
+     (write-line out
       (string-append "bounds: " (numbers (● bounds first)) " to " (numbers (● bounds second))))))
-  ((Err reason) (write-line reason)))
+  ((Err reason) (write-line out reason)))
 
 (define two-buffers
   (→ Bytes)
@@ -129,14 +129,14 @@
    (list->array (map i32->u8 (list 9 8 7 6)))))
 
 (match (read two-buffers)
-  ((Ok gltf) (write-line (string-append "glb buffers: " (buffers gltf))))
-  ((Err reason) (write-line reason)))
+  ((Ok gltf) (write-line out (string-append "glb buffers: " (buffers gltf))))
+  ((Err reason) (write-line out reason)))
 
 ;; Each scene that cannot be read, and why.
 (for-each (lambda (file)
             (match (read file)
-              ((Ok _) (write-line "read"))
-              ((Err reason) (write-line reason))))
+              ((Ok _) (write-line out "read"))
+              ((Err reason) (write-line out reason))))
           (list (string->utf8 "glTF, but not JSON")
                 (subarray two-buffers 0 40)
                 (string->utf8

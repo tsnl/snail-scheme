@@ -18,38 +18,38 @@
   (fold-left (lambda (total c) (+ (* total 10) (digit c))) 0 (string->list text)))
 
 ;; The handler's answer is a default, after reporting the message.
-(define (parse-or (text String) (default I64)) (→ I64) (! output-port)
-  (handle Raise ((raise (lambda (message resume) (write-line message) default)))
+(define (parse-or (out OutputPort) (text String) (default I64)) (→ I64) (! mut)
+  (handle Raise ((raise (lambda (message resume) (write-line out message) default)))
     (number text)))
 
-(define (main) (→ Unit) (! output-port)
-  (display (parse-or "123" 0))
-  (newline)
-  (display (parse-or "1x3" 0))
-  (newline)
+(define (main (out OutputPort)) (→ Unit) (! mut)
+  (display out (parse-or out "123" 0))
+  (newline out)
+  (display out (parse-or out "1x3" 0))
+  (newline out)
   ;; ANCHOR_END: parse-or
 
   ;; Of two handlers of one effect, the inner one catches; its
   ;; implementation runs in the outer context, so raising there reaches the
   ;; outer handler, which answers for everything inside it.
-  (display
+  (display out
    (handle Raise ((raise (lambda (message resume)
-                           (write-line (string-append "outer: " message))
+                           (write-line out (string-append "outer: " message))
                            0)))
      (+ 100
         (handle Raise ((raise
                         (lambda (message resume)
-                          (write-line (string-append "inner: " message))
+                          (write-line out (string-append "inner: " message))
                           1)))
           (raise "boom")))))
-  (newline)
-  (display
+  (newline out)
+  (display out
    (handle Raise ((raise (lambda (message resume)
-                           (write-line (string-append "outer: " message))
+                           (write-line out (string-append "outer: " message))
                            0)))
      (+ 100
         (handle Raise ((raise (lambda (message resume)
                                 (raise (string-append "again " message)))))
           (raise "boom")))))
-  (newline)
+  (newline out)
   (unit))

@@ -5,9 +5,9 @@
 ;; host/chez/snail/stage0/process.sls, has the same name; Chez never sees src/.
 (define-library (snail shell process)
   (export
-   process spawn read-output write-input close-input send-signal wait-exit close-process run exec
-   signals termination
-   provide-process provide-signals
+   Processes spawn read-output write-input close-input send-signal wait-exit close-process run exec
+   Signals termination
+   host-processes host-signals
    Command
    Process
    Stream Stdout Stderr
@@ -79,28 +79,54 @@
     ;; command, as execve does: the command takes over this process and its
     ;; standard streams, and nothing of the program runs after. It returns
     ;; only when it cannot, with why.
-    (effect process
-      ((spawn (Fn Command → (Result Process ProcessError) ! tasks))
-       (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! tasks))
-       (write-input (Fn Process Bytes → (Result I32 ProcessError) ! tasks))
-       (close-input (Fn Process → (Result Unit ProcessError)))
-       (send-signal (Fn Process Signal → (Result Unit ProcessError)))
-       (wait-exit (Fn Process → (Result Exit ProcessError) ! tasks))
-       (close-process (Fn Process → (Result Unit ProcessError)))
-       (run (Fn Command Bytes → (Result Captured ProcessError)))
-       (exec (Fn Command → ProcessError))))
+    (record Processes
+      ((spawn (Fn Command → (Result Process ProcessError) ! mut tasks))
+       (read-output (Fn Process Stream I32 → (Result (Option Bytes) ProcessError) ! mut tasks))
+       (write-input (Fn Process Bytes → (Result I32 ProcessError) ! mut tasks))
+       (close-input (Fn Process → (Result Unit ProcessError) ! mut))
+       (send-signal (Fn Process Signal → (Result Unit ProcessError) ! mut))
+       (wait-exit (Fn Process → (Result Exit ProcessError) ! mut tasks))
+       (close-process (Fn Process → (Result Unit ProcessError) ! mut))
+       (run (Fn Command Bytes → (Result Captured ProcessError) ! mut))
+       (exec (Fn Command → ProcessError ! mut))))
+
+    (define (spawn (processes Processes) (command Command)) (→ (Result Process ProcessError)) (! mut tasks)
+      ((● processes spawn) command))
+
+    (define (read-output (processes Processes) (child Process) (stream Stream) (maximum I32)) (→ (Result (Option Bytes) ProcessError)) (! mut tasks)
+      ((● processes read-output) child stream maximum))
+
+    (define (write-input (processes Processes) (child Process) (bytes Bytes)) (→ (Result I32 ProcessError)) (! mut tasks)
+      ((● processes write-input) child bytes))
+
+    (define (close-input (processes Processes) (child Process)) (→ (Result Unit ProcessError)) (! mut)
+      ((● processes close-input) child))
+
+    (define (send-signal (processes Processes) (child Process) (signal Signal)) (→ (Result Unit ProcessError)) (! mut)
+      ((● processes send-signal) child signal))
+
+    (define (wait-exit (processes Processes) (child Process)) (→ (Result Exit ProcessError)) (! mut tasks)
+      ((● processes wait-exit) child))
+
+    (define (close-process (processes Processes) (child Process)) (→ (Result Unit ProcessError)) (! mut)
+      ((● processes close-process) child))
+
+    (define (run (processes Processes) (command Command) (input Bytes)) (→ (Result Captured ProcessError)) (! mut)
+      ((● processes run) command input))
+
+    (define (exec (processes Processes) (command Command)) (→ ProcessError) (! mut)
+      ((● processes exec) command))
 
     ;; Node's child processes.
-    (define (provide-process (work (Fn → T ! process e))) (→ T) (! e) (∀ (T e))
-      (handle process
-          ((spawn (lambda (command)
+    (define (host-processes) (→ Processes)
+      (new Processes
+        (spawn (lambda (command)
                     (match (located command)
                       ((Ok path)
                        (send-command command path)
                        (native host-start-spawn spawned))
                       ((Err error) (Err error)))))
-           ;; A read takes 1 to 65,536 bytes, which the host takes as given.
-           (read-output (lambda (child stream maximum)
+        (read-output (lambda (child stream maximum)
                           (if (and (>= maximum 1) (<= maximum 65536))
                               (native (lambda (ticket)
                                         (host-start-read-output ticket
@@ -109,35 +135,34 @@
                                                                 maximum))
                                       held-read)
                               (Err (new ProcessError (code "EINVAL"))))))
-           (write-input (lambda (child bytes)
+        (write-input (lambda (child bytes)
                           (native (lambda (ticket)
                                     (host-start-write-input ticket (process-handle child) bytes))
                                   count)))
-           (close-input (lambda (child)
+        (close-input (lambda (child)
                           (answered (host-close-input (process-handle child)) done)))
-           (send-signal (lambda (child signal)
+        (send-signal (lambda (child signal)
                           (answered (host-send-signal (process-handle child) (signal-number signal))
                                     done)))
-           (wait-exit (lambda (child)
+        (wait-exit (lambda (child)
                         (native
                          (lambda (ticket) (host-start-wait-exit ticket (process-handle child)))
                          held-exit)))
-           (close-process (lambda (child)
+        (close-process (lambda (child)
                             (answered (host-close-process (process-handle child)) done)))
-           (run (lambda (command input)
+        (run (lambda (command input)
                   (match (located command)
                     ((Ok path)
                      (send-command command path)
                      (answered (host-run input) captured))
                     ((Err error) (Err error)))))
-           (exec (lambda (command)
+        (exec (lambda (command)
                    (match (located command)
                      ((Ok path)
                       (send-command command path)
                       (host-exec)
                       (new ProcessError (code (held-text 0))))
-                     ((Err error) error)))))
-        (work)))
+                     ((Err error) error))))))
 
     ;; ---- Termination ----
 
@@ -148,15 +173,17 @@
     ;; as it always has. A wait ends with its signal, so a second signal
     ;; during an orderly shutdown still ends the program at once, unless a
     ;; task waits again.
-    (effect signals
-      ((termination (Fn → Signal ! tasks))))
+    (record Signals
+      ((termination (Fn → Signal ! mut tasks))))
+
+    (define (termination (signals Signals)) (→ Signal) (! mut tasks)
+      ((● signals termination)))
 
     ;; Node's termination signals.
-    (define (provide-signals (work (Fn → T ! signals e))) (→ T) (! e) (∀ (T e))
-      (handle signals
-          ((termination (lambda ()
-                          (received-signal (through-host host-start-termination host-finish)))))
-        (work)))
+    (define (host-signals) (→ Signals)
+      (new Signals
+        (termination (lambda ()
+                          (received-signal (through-host host-start-termination host-finish))))))
 
     ;; Only SIGINT (2) and SIGTERM (15) are delivered to `termination`.
 

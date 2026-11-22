@@ -70,7 +70,7 @@
 (match (read-cameras cameras)
   ((Ok read)
    (for-each (lambda (c)
-               (write-line (string-append "camera "
+               (write-line out (string-append "camera "
                                           (show (● c id))
                                           ": "
                                           (show (● c width))
@@ -79,38 +79,38 @@
                                           " "
                                           (numbers (list (● c fx) (● c fy) (● c cx) (● c cy))))))
              read))
-  ((Err why) (write-line why)))
+  ((Err why) (write-line out why)))
 
 (match (read-images images)
   ((Ok read)
    (for-each (lambda (i)
-               (write-line (string-append "image "
+               (write-line out (string-append "image "
                                           (show (● i id))
                                           " "
                                           (● i name)
                                           " on camera "
                                           (show (● i camera))))
-               (write-line (string-append "rotation " (numbers (image-rotation i))))
-               (write-line (string-append "center " (numbers (image-center i))))
-               (write-line (string-append "up " (numbers (poses-up (list i)))))
+               (write-line out (string-append "rotation " (numbers (image-rotation i))))
+               (write-line out (string-append "center " (numbers (image-center i))))
+               (write-line out (string-append "up " (numbers (poses-up (list i)))))
                (match (read-cameras cameras)
                  ((Ok (Cons camera _))
-                  (write-line (string-append "camera param at half size "
+                  (write-line out (string-append "camera param at half size "
                                              (numbers
                                               (camera-values (camera-sized camera 2473 1643) i)))))
                  (_ (unit))))
              read))
-  ((Err why) (write-line why)))
+  ((Err why) (write-line out why)))
 
 (match (read-points points)
   ((Ok read)
    (for-each (lambda (p)
-               (write-line (string-append "point "
+               (write-line out (string-append "point "
                                           (numbers (● p position))
                                           " color "
                                           (numbers (● p color)))))
              read))
-  ((Err why) (write-line why)))
+  ((Err why) (write-line out why)))
 
 ;; ---- Refusals ----
 
@@ -119,15 +119,15 @@
     ((Ok _) "read")
     ((Err why) why)))
 
-(write-line (refusal (read-cameras (subarray cameras 0 40))))
-(write-line (refusal (read-cameras (file (list (integer-bytes 1 8)
+(write-line out (refusal (read-cameras (subarray cameras 0 40))))
+(write-line out (refusal (read-cameras (file (list (integer-bytes 1 8)
                                                (integer-bytes 1 4)
                                                (integer-bytes 4 4)
                                                (integer-bytes 8 8)
                                                (integer-bytes 8 8))))))
-(write-line (match (read-images (subarray images 0 70))
+(write-line out (match (read-images (subarray images 0 70))
               ((Ok _) "read")
               ((Err why) why)))
-(write-line (match (read-points (subarray points 0 60))
+(write-line out (match (read-points (subarray points 0 60))
               ((Ok _) "read")
               ((Err why) why)))

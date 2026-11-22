@@ -6,16 +6,16 @@
 ;; Files through the host, with a path whose scalars are not all ASCII.
 (define (path) (→ String) "build/tests/files-λ😀.txt")
 
-(define (main) (→ Unit) (! fs output-port)
-  (write-file (path) "first line\nsecond λ line\n")
-  (display (file-exists? (path)))
-  (newline)
-  (write-string (read-file (path)))
-  (write-line (string-foldcase "Straße ΣΑΣ"))
+(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
+  (write-file fs (path) "first line\nsecond λ line\n")
+  (display out (file-exists? fs (path)))
+  (newline out)
+  (write-string out (read-file fs (path)))
+  (write-line out (string-foldcase "Straße ΣΑΣ"))
   ;; A handler receives each whole path, so it can decide by name alone, and
   ;; can list a directory from memory: three scalars with a NUL between two
   ;; names.
-  (write-line
+  (write-line out
    (show (handle fs
              ((path-exists (lambda (name) (if (string=? name "λ/😀 name") 1 0)))
               (open-input (lambda (name) 0))
@@ -41,11 +41,11 @@
               (status-modified (lambda () 0))
               (path-read-text (lambda (limit name) -1))
               (path-write-text (lambda (mode names) -1)))
-           (and (file-exists? "λ/😀 name") (not (file-exists? "elsewhere"))
-                (match (list-directory "λ")
+           (and (file-exists? fs "λ/😀 name") (not (file-exists? fs "elsewhere"))
+                (match (list-directory fs "λ")
                   ((Ok names) (string=? (string-join names ",") "x,y"))
                   ((Err _) #f))
-                (match (list-directory "elsewhere")
+                (match (list-directory fs "elsewhere")
                   ((Ok _) #f)
                   ((Err error) (string=? (show error) "no such file or directory")))))))
   (unit))

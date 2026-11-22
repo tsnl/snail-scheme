@@ -7,7 +7,7 @@
 
 (with-recorded-gpu
  (lambda ()
-   (compile-program "update"
+   (compile-program gpu "update"
                     (Nil)
                     (list
                      (new Pair (first (param "counter" (Nil) (Signed))) (second (scalar 1.0)))))

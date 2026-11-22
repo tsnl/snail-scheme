@@ -25,26 +25,16 @@
    (snail core io)
    (only (snail core forms) host)
    (only (snail shell task) Scheduler tasks dispatch-in)
-   (only (snail shell async-files) files provide-files)
-   (only (snail shell resource) resource provide-resource)
-   (only (snail shell wasm) wasm provide-wasm)
-   (only (snail shell process) process signals provide-process provide-signals)
-   (only (snail shell socket) tcp udp provide-tcp provide-udp))
+   (only (snail shell async-files) Files provide-files)
+   (only (snail shell resource) Resources provide-resource)
+   (only (snail shell wasm) Wasm provide-wasm)
+   (only (snail shell process) Processes Signals provide-process provide-signals)
+   (only (snail shell socket) Tcp Udp provide-tcp provide-udp))
   (begin
 
     (define (provide (work (Fn → T
                                !
-                               output-port
-                               clock
-                               resource
-                               wasm
-                               input-port
-                               fs
-                               files
-                               process
-                               signals
-                               tcp
-                               udp
+                               mut
                                e)))
       (→ T)
       (! e)
@@ -59,7 +49,7 @@
 
     ;; What every host has.
 
-    (define (provide-shared (work (Fn → T ! output-port clock resource wasm e)))
+    (define (provide-shared (work (Fn → T ! mut e)))
       (→ T)
       (! e)
       (∀ (T e))
@@ -69,24 +59,14 @@
 
     ;; The local machine's input and files.
 
-    (define (provide-local (work (Fn → T ! input-port fs files e))) (→ T) (! e) (∀ (T e))
+    (define (provide-local (work (Fn → T ! mut e))) (→ T) (! e) (∀ (T e))
       (provide-input-port (lambda () (provide-fs (lambda () (provide-files work))))))
 
     (define (start (scheduler Scheduler)
                    (main (Fn → Unit
                              !
                              tasks
-                             output-port
-                             clock
-                             resource
-                             wasm
-                             input-port
-                             fs
-                             files
-                             process
-                             signals
-                             tcp
-                             udp
+                             mut
                              e)))
       (→ Unit)
       (! mut host e)
