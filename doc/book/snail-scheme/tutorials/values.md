@@ -5,7 +5,7 @@ all fields are mutable. The [field-path example](../types.md#data) shows
 nominal selection through nested records.
 
 Select an enum case with `match`. Put mutable payload in a record, then use
-`●` and `set!` to read or change its fields:
+a path, `record::field`, and `set!` to read or change its fields:
 
 ```scheme
 {{#include ../../../../tests/programs/enum-mutation.sld}}

@@ -82,10 +82,7 @@ those bytes as a byte literal in its generated library.
 | `(define-syntax name (syntax-rules (literal ...) (pattern template) ...))` | Hygienic macro. |
 
 `(snail core base)` adds `let*`, `letrec`, `cond`, `case`, `when`, `unless`, `and`,
-`or`, `do`, `list`, `string` and a variadic `string-append` as macros. So is
-`(capability Name ((operation (Fn A ... → B)) ...))`, which declares the
-record `Name` and, for each field, the function `(operation name a ...)`
-that calls the record's own ([capabilities](capabilities.md#a-capability-is-a-value)).
+`or`, `do`, `list`, `string` and a variadic `string-append` as macros.
 
 ### Bodies and scope
 
@@ -219,9 +216,16 @@ separating the result. Named functions use typed parameter pairs and
 inline result, generic and constraint clauses. Definitions continue to use
 `define`.
 
-Direct field selection is `(● receiver label ...)`: each nominal record type
-supplies its stored fields, and paths follow heap references.
-`(set! (● receiver label ...) value)` writes the path's final field; `set!`
+A field is read by a path from a name: `segment::from::x` is the field `x`
+of the field `from` of `segment`. Each nominal record type supplies its
+stored fields, and paths follow heap references. A path is used as any
+name is, so `(gpu::create-buffer descriptor)` calls the function a field
+holds. No name that is defined holds a `::`, whether a parameter, a local,
+a definition, a field or an import, so a name that does is always a path:
+wherever a record is in scope by a name, so is each of its fields.
+`(● receiver label ...)` is the same read of a receiver that is not a
+name, such as a call's result.
+`(set! segment::from::x value)` writes the path's final field; `set!`
 is a form, so it takes a field path where it is written and is not a
 value to pass.
 Every field is mutable. Computed getters are ordinary functions.
@@ -345,7 +349,7 @@ The reader-created form must have a defined hygienic binding; a local
 variable must not accidentally change what punctuation means.
 
 The translation should preserve the existing nominal projection semantics:
-read `(● object field ...)`, or use that projection in `set!`.
+read `object::field`, or use that path in `set!`.
 Each step follows one object reference. Field lookup is resolved during
 checking, and every stored field is mutable. Computed getters are ordinary
 functions and do not become writable by punctuation.

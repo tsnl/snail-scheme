@@ -38,22 +38,15 @@
          GpuComputePass
          GpuRenderPass
          TextureFormat
-         create-shader-module
          ShaderModuleDescriptor
-         create-render-pipeline
          RenderPipelineDescriptor
          FragmentState
          ColorTarget
          TriangleList
          CullNone
-         create-bind-group
          BindGroupDescriptor
          RenderPipeline
          BufferEntry
-         set-pipeline
-         set-bind-group
-         draw
-         destroy
          BindGroupObject
          PipelineObject
          ModuleObject)
@@ -232,42 +225,42 @@
         (height (● sensor height))
         (present-module module)
         (present-pipeline pipeline)
-        (present-group (create-bind-group gpu
-                                          (new BindGroupDescriptor
-                                            (label "splat/present")
-                                            (pipeline (RenderPipeline pipeline))
-                                            (group 0)
-                                            (entries (list (BufferEntry 0
-                                                                        (sink-buffer program 0)
-                                                                        0
-                                                                        0))))))))
+        (present-group (gpu::create-bind-group
+                        (new BindGroupDescriptor
+                          (label "splat/present")
+                          (pipeline (RenderPipeline pipeline))
+                          (group 0)
+                          (entries (list (BufferEntry 0
+                                                      (sink-buffer program 0)
+                                                      0
+                                                      0))))))))
 
     (define (present-module-of (gpu Gpu) (width I64)) (→ GpuShaderModule)
-      (create-shader-module gpu
-                            (new ShaderModuleDescriptor
-                              (label "splat/present")
-                              (code (string-append "const WIDTH = "
-                                                   (show width)
-                                                   "u;\n"
-                                                   splat-present-shader)))))
+      (gpu::create-shader-module
+       (new ShaderModuleDescriptor
+         (label "splat/present")
+         (code (string-append "const WIDTH = "
+                              (show width)
+                              "u;\n"
+                              splat-present-shader)))))
 
     (define (present-pipeline-of (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
       (→ GpuRenderPipeline)
-      (create-render-pipeline gpu
-                              (new RenderPipelineDescriptor
-                                (label "splat/present")
-                                (module module)
-                                (vertex-entry "present_vertex")
-                                (buffers (Nil))
-                                (fragment (Some (new FragmentState
-                                                  (entry "present_fragment")
-                                                  (targets
-                                                   (list (Some (new ColorTarget
-                                                                 (format format)
-                                                                 (blend (None)))))))))
-                                (topology (TriangleList))
-                                (cull (CullNone))
-                                (depth (None)))))
+      (gpu::create-render-pipeline
+       (new RenderPipelineDescriptor
+         (label "splat/present")
+         (module module)
+         (vertex-entry "present_vertex")
+         (buffers (Nil))
+         (fragment (Some (new FragmentState
+                           (entry "present_fragment")
+                           (targets
+                            (list (Some (new ColorTarget
+                                          (format format)
+                                          (blend (None)))))))))
+         (topology (TriangleList))
+         (cull (CullNone))
+         (depth (None)))))
 
     ;; ---- A frame ----
 
@@ -286,14 +279,14 @@
 
     ;; The image blended, covering the caller's render pass's target.
     (define (present-splat-view (gpu Gpu) (pass GpuRenderPass) (view SplatView)) (→ Unit)
-      (set-pipeline gpu pass (● view present-pipeline))
-      (set-bind-group gpu pass 0 (● view present-group))
-      (draw gpu pass 3 1 0 0))
+      (gpu::set-pipeline pass (● view present-pipeline))
+      (gpu::set-bind-group pass 0 (● view present-group))
+      (gpu::draw pass 3 1 0 0))
 
     ;; What the view made goes at the next submit; the splats' buffers stay.
     (define (release-splat-view (gpu Gpu) (view SplatView)) (→ Unit)
       (release-program gpu (● view program))
-      (for-each (lambda (object) (destroy gpu object))
+      (for-each (lambda (object) (gpu::destroy object))
                 (list (BindGroupObject (● view present-group))
                       (PipelineObject (● view present-pipeline))
                       (ModuleObject (● view present-module)))))

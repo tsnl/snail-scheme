@@ -271,19 +271,19 @@
                         (format TextureFormat)
                         (usage (List TextureUsage)))
       (→ Plane)
-      (let ((texture (create-texture gpu (new TextureDescriptor
-                                           (label label)
-                                           (width (max 1 width))
-                                           (height (max 1 height))
-                                           (layers 1)
-                                           (mips 1)
-                                           (format format)
-                                           (usage usage)))))
+      (let ((texture (gpu::create-texture (new TextureDescriptor
+                                            (label label)
+                                            (width (max 1 width))
+                                            (height (max 1 height))
+                                            (layers 1)
+                                            (mips 1)
+                                            (format format)
+                                            (usage usage)))))
         (new Plane (texture texture) (view (view-of gpu texture 1)))))
 
     (define (release-plane (gpu Gpu) (plane Plane)) (→ Unit)
-      (destroy gpu (ViewObject (● plane view)))
-      (destroy gpu (TextureObject (● plane texture))))
+      (gpu::destroy (ViewObject (● plane view)))
+      (gpu::destroy (TextureObject (● plane texture))))
 
     (record GBuffer
       ((albedo Plane)
@@ -345,44 +345,49 @@
         ((None) (None))))
 
     (define (texel-word (gpu Gpu) (texture GpuTexture) (x I32) (y I32)) (→ I32)
-      (let ((readback (create-buffer gpu (new BufferDescriptor
-                                           (label "gbuffer/read-id")
-                                           (size 4)
-                                           (usage (list (MapRead) (CopyDst))))))
-            (encoder (create-command-encoder gpu)))
-        (copy-texture-to-buffer gpu encoder
-                                (new TextureCopy (texture texture) (mip 0) (x x) (y y) (layer 0))
-                                readback 0 256 1 1)
-        (submit gpu (list (finish gpu encoder)))
-        (let ((bytes (read-buffer gpu readback 0 4)))
-          (destroy gpu (BufferObject readback))
+      (let ((readback (gpu::create-buffer (new BufferDescriptor
+                                            (label "gbuffer/read-id")
+                                            (size 4)
+                                            (usage (list (MapRead) (CopyDst))))))
+            (encoder (gpu::create-command-encoder)))
+        (gpu::copy-texture-to-buffer encoder
+                                     (new TextureCopy
+                                       (texture texture)
+                                       (mip 0)
+                                       (x x)
+                                       (y y)
+                                       (layer 0))
+                                     readback 0 256 1 1)
+        (gpu::submit (list (gpu::finish encoder)))
+        (let ((bytes (gpu::read-buffer readback 0 4)))
+          (gpu::destroy (BufferObject readback))
           (fold-right (lambda (byte word) (+ (u8->i32 byte) (* word 256))) 0 (array->list bytes)))))
 
     (define (begin-gbuffer (gpu Gpu) (encoder GpuCommandEncoder) (g GBuffer))
       (→ GpuRenderPass)
-      (begin-render-pass gpu encoder
-                         (new RenderPassDescriptor
-                           (colors (map (lambda (plane)
-                                          (match plane
-                                            ((Some plane)
-                                             (Some (new ColorAttachment
-                                                     (view (● plane view))
-                                                     (load (Clear (new Color
-                                                                    (red 0.0)
-                                                                    (green 0.0)
-                                                                    (blue 0.0)
-                                                                    (alpha 0.0))))
-                                                     (store #t))))
-                                            ((None) (None))))
-                                        (list (Some (● g albedo))
-                                              (Some (● g normal))
-                                              (Some (● g material))
-                                              (● g motion)
-                                              (● g ids))))
-                           (depth (Some (new DepthAttachment
-                                          (view (● g depth view))
-                                          (load (ClearDepth 1.0))
-                                          (store #t)))))))
+      (gpu::begin-render-pass encoder
+                              (new RenderPassDescriptor
+                                (colors (map (lambda (plane)
+                                               (match plane
+                                                 ((Some plane)
+                                                  (Some (new ColorAttachment
+                                                          (view (● plane view))
+                                                          (load (Clear (new Color
+                                                                         (red 0.0)
+                                                                         (green 0.0)
+                                                                         (blue 0.0)
+                                                                         (alpha 0.0))))
+                                                          (store #t))))
+                                                 ((None) (None))))
+                                             (list (Some (● g albedo))
+                                                   (Some (● g normal))
+                                                   (Some (● g material))
+                                                   (● g motion)
+                                                   (● g ids))))
+                                (depth (Some (new DepthAttachment
+                                               (view (● g depth view))
+                                               (load (ClearDepth 1.0))
+                                               (store #t)))))))
 
     ;; A pass over `canvas`, cleared to `background`, that reads the
     ;; G-buffer's depth without writing it: the sun lights the G-buffer
@@ -393,16 +398,16 @@
                        (background Color)
                        (g GBuffer))
       (→ GpuRenderPass)
-      (begin-render-pass gpu encoder
-                         (new RenderPassDescriptor
-                           (colors (list (Some (new ColorAttachment
-                                                 (view canvas)
-                                                 (load (Clear background))
-                                                 (store #t)))))
-                           (depth (Some (new DepthAttachment
-                                          (view (● g depth view))
-                                          (load (ReadOnlyDepth))
-                                          (store #f)))))))
+      (gpu::begin-render-pass encoder
+                              (new RenderPassDescriptor
+                                (colors (list (Some (new ColorAttachment
+                                                      (view canvas)
+                                                      (load (Clear background))
+                                                      (store #t)))))
+                                (depth (Some (new DepthAttachment
+                                               (view (● g depth view))
+                                               (load (ReadOnlyDepth))
+                                               (store #f)))))))
 
     ;; ---- Pipelines and uniforms ----
 
@@ -423,10 +428,10 @@
        (last (Option Camera3D))))
 
     (define (make-raster (gpu Gpu) (planes Planes) (format TextureFormat)) (→ Raster)
-      (let* ((module (create-shader-module gpu
-                                           (new ShaderModuleDescriptor
-                                             (label "raster")
-                                             (code raster-code))))
+      (let* ((module (gpu::create-shader-module
+                      (new ShaderModuleDescriptor
+                        (label "raster")
+                        (code raster-code))))
              (gbuffer-pipeline (surface-pipeline gpu module
                                                  "gbuffer_fragment"
                                                  (gbuffer-targets planes)
@@ -462,8 +467,8 @@
                          (● last forward w))
                         (horizontal-direction (● last forward))))
                       ((None) camera))))
-        (write-buffer gpu (● r camera) 0 (pod-bytes camera-shape camera))
-        (write-buffer gpu (● r sun) 0 (pod-bytes sun-shape sun))
+        (gpu::write-buffer (● r camera) 0 (pod-bytes camera-shape camera))
+        (gpu::write-buffer (● r sun) 0 (pod-bytes sun-shape sun))
         (Raster-last-set r (Some camera))))
 
     (define (surface-pipeline (gpu Gpu) (module GpuShaderModule)
@@ -471,27 +476,27 @@
                               (targets (List (Option ColorTarget)))
                               (write? Bool))
       (→ GpuRenderPipeline)
-      (create-render-pipeline gpu
-                              (new RenderPipelineDescriptor
-                                (label (string-append "raster/" entry))
-                                (module module)
-                                (vertex-entry "surface_vertex")
-                                (buffers mesh-buffers)
-                                (fragment
-                                 (Some (new FragmentState (entry entry) (targets targets))))
-                                (topology (TriangleList))
-                                (cull (CullNone))
-                                (depth
-                                 (Some (new DepthState
-                                         (format (Depth24Plus))
-                                         (write write?)
-                                         (compare (CompareLess))))))))
+      (gpu::create-render-pipeline
+       (new RenderPipelineDescriptor
+         (label (string-append "raster/" entry))
+         (module module)
+         (vertex-entry "surface_vertex")
+         (buffers mesh-buffers)
+         (fragment
+          (Some (new FragmentState (entry entry) (targets targets))))
+         (topology (TriangleList))
+         (cull (CullNone))
+         (depth
+          (Some (new DepthState
+                  (format (Depth24Plus))
+                  (write write?)
+                  (compare (CompareLess))))))))
 
     (define (uniform (gpu Gpu) (label String) (size I64)) (→ GpuBuffer)
-      (create-buffer gpu (new BufferDescriptor
-                           (label label)
-                           (size (i64->i32 size))
-                           (usage (list (Uniform) (CopyDst))))))
+      (gpu::create-buffer (new BufferDescriptor
+                            (label label)
+                            (size (i64->i32 size))
+                            (usage (list (Uniform) (CopyDst))))))
 
     (define (group (gpu Gpu)
                    (label String)
@@ -499,11 +504,11 @@
                    (index I32)
                    (buffer GpuBuffer))
       (→ GpuBindGroup)
-      (create-bind-group gpu (new BindGroupDescriptor
-                               (label label)
-                               (pipeline (RenderPipeline pipeline))
-                               (group index)
-                               (entries (list (BufferEntry 0 buffer 0 0))))))
+      (gpu::create-bind-group (new BindGroupDescriptor
+                                (label label)
+                                (pipeline (RenderPipeline pipeline))
+                                (group index)
+                                (entries (list (BufferEntry 0 buffer 0 0))))))
 
     ;; ---- Surfaces ----
 
@@ -525,7 +530,7 @@
                           (batch Meshes))
       (→ Surface)
       (let ((buffer (uniform gpu (string-append "raster/" label) (stride style-shape))))
-        (write-buffer gpu buffer 0 (pod-bytes style-shape style))
+        (gpu::write-buffer buffer 0 (pod-bytes style-shape style))
         (new Surface
           (translucent translucent)
           (style style)
@@ -540,7 +545,7 @@
       (if (same-style? style (● surface style))
           surface
           (begin
-            (write-buffer gpu (● surface uniform) 0 (pod-bytes style-shape style))
+            (gpu::write-buffer (● surface uniform) 0 (pod-bytes style-shape style))
             (Surface-style-set surface style))))
 
     (define (same-style? (a Style) (b Style)) (→ Bool)
@@ -550,21 +555,21 @@
            (= (● a radius) (● b radius))))
 
     (define (release-surface (gpu Gpu) (surface Surface)) (→ Unit)
-      (destroy gpu (BindGroupObject (● surface group)))
-      (destroy gpu (BufferObject (● surface uniform)))
+      (gpu::destroy (BindGroupObject (● surface group)))
+      (gpu::destroy (BufferObject (● surface uniform)))
       (release-batch gpu (● surface batch)))
 
     (define (draw-surface (gpu Gpu) (pass GpuRenderPass) (r Raster) (surface Surface))
       (→ Unit)
       (if (● surface translucent)
           (begin
-            (set-pipeline gpu pass (● r forward-pipeline))
-            (set-bind-group gpu pass 0 (● r forward-camera))
-            (set-bind-group gpu pass 2 (● r forward-sun)))
+            (gpu::set-pipeline pass (● r forward-pipeline))
+            (gpu::set-bind-group pass 0 (● r forward-camera))
+            (gpu::set-bind-group pass 2 (● r forward-sun)))
           (begin
-            (set-pipeline gpu pass (● r gbuffer-pipeline))
-            (set-bind-group gpu pass 0 (● r gbuffer-camera))))
-      (set-bind-group gpu pass 1 (● surface group))
+            (gpu::set-pipeline pass (● r gbuffer-pipeline))
+            (gpu::set-bind-group pass 0 (● r gbuffer-camera))))
+      (gpu::set-bind-group pass 1 (● surface group))
       (draw-meshes gpu pass (● r geometry) (● surface batch)))
 
     ))

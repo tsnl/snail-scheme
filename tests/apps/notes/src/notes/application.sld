@@ -86,7 +86,8 @@
          (new Pair (first model)
               (second (list
                        (lambda (dom fetch)
-                         (hear fetch (stream-open fetch "/api/events" (list "message" "note"))))))))
+                         (hear fetch
+                               (fetch::stream-open "/api/events" (list "message" "note"))))))))
         ((Heard stream text)
          (new Pair
            (first (heard model text))
@@ -100,13 +101,13 @@
                   (second (list (lambda (dom fetch)
                                   (with-draft dom
                                               (lambda (node)
-                                                (insert-text dom node at at "  ")
+                                                (dom::insert-text node at at "  ")
                                                 (unit)))
                                   (Pressed "" 0))))))
             (else (new Pair (first model) (second (Nil))))))
 
     (define (clear (dom Dom)) (→ Message)
-      (if (confirm dom "Remove every note?") (Cleared) (Pressed "" 0)))
+      (if (dom::confirm "Remove every note?") (Cleared) (Pressed "" 0)))
 
     (define (heard (model Notes) (text String)) (→ Notes)
       (let ((server (● model server)))
@@ -116,16 +117,16 @@
     ;; ---- The server ----
 
     (define (load (fetch Fetch)) (→ Message)
-      (Loaded (replied (request fetch "GET" "/api/greeting" (Nil) ""))))
+      (Loaded (replied (fetch::request "GET" "/api/greeting" (Nil) ""))))
 
     ;; The notes, a line each, sent with the next id the server should expect.
     (define (share (fetch Fetch) (notes (List Note)) (next I64)) (→ Message)
-      (Shared (replied (request fetch "POST"
-                                "/api/notes"
-                                (list (new Header (name "Content-Type") (value "text/plain"))
-                                      (new Header (name "If-Match") (value (show next))))
-                                (string-join (map (lambda (record) (● record text)) notes)
-                                             (make-string 1 #\newline))))))
+      (Shared (replied (fetch::request "POST"
+                                       "/api/notes"
+                                       (list (new Header (name "Content-Type") (value "text/plain"))
+                                             (new Header (name "If-Match") (value (show next))))
+                                       (string-join (map (lambda (record) (● record text)) notes)
+                                                    (make-string 1 #\newline))))))
 
     (define (replied (result (Result Reply String))) (→ String)
       (match result
@@ -134,7 +135,7 @@
 
     ;; The next event, which the update that hears it waits past.
     (define (hear (fetch Fetch) (stream Stream)) (→ Message)
-      (match (stream-next fetch stream)
+      (match (fetch::stream-next stream)
         ((Some event)
          (Heard stream (string-append (● event kind) ":" (● event data))))
         ((None) (Ended))))
@@ -155,19 +156,19 @@
                        (server (● model server))))
               (second (list (lambda (dom fetch)
                               (yield)
-                              (with-draft dom (lambda (node) (focus-node dom node)))
+                              (with-draft dom (lambda (node) (dom::focus-node node)))
                               (Added count))))))))
 
     ;; Does `act` to the draft field, if the view still shows it.
     (define (with-draft (dom Dom) (act (Fn Node → Unit))) (→ Unit)
-      (match (element-by-id dom "draft")
+      (match (dom::element-by-id "draft")
         ((Some node) (act node))
         ((None) (unit))))
 
     ;; The field's input event, which inserting fires, carries the new draft;
     ;; the command's own answer leaves it as it is.
     (define (bullet (dom Dom)) (→ Message)
-      (with-draft dom (lambda (node) (insert-text dom node 0 0 "- ") (unit)))
+      (with-draft dom (lambda (node) (dom::insert-text node 0 0 "- ") (unit)))
       (Pressed "" 0))
 
     (define (view (model Notes)) (→ (Html Message))

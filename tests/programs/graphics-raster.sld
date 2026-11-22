@@ -75,7 +75,7 @@
   (meshes (list (new Pair (first mesh) (second (instance x))))))
 
 (define (frame (gpu Gpu)) (→ Unit)
-  (request-device gpu)
+  (gpu::request-device)
   (let* ((r (make-raster gpu color-planes (Bgra8Unorm)))
          (g (make-gbuffer gpu color-planes 640 480))
          (light (make-sunlight gpu (Bgra8Unorm) g r))
@@ -85,20 +85,20 @@
                               #t
                               (new Style (opacity 0.5) (center-x 0.0) (center-z 0.0) (radius -1.0))
                               (instances (Box) 1.0)))
-         (canvas (view-of gpu (● (current-texture gpu) texture) 1))
-         (encoder (create-command-encoder gpu)))
+         (canvas (view-of gpu (● (gpu::current-texture) texture) 1))
+         (encoder (gpu::create-command-encoder)))
     (write-raster gpu r
                   (camera (Parallel 20.0))
                   (new Sun (direction (new Vec4f (x 0.3) (y 1.0) (z 0.5) (w 0.8))) (ambient 0.3)))
     (let ((pass (begin-gbuffer gpu encoder g)))
       (draw-surface gpu pass r ground)
-      (end-pass gpu pass))
+      (gpu::end-pass pass))
     (let ((pass (begin-lit gpu encoder
                            canvas
                            (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
                            g)))
       (draw-sun gpu pass light)
       (draw-surface gpu pass r water)
-      (end-pass gpu pass))
-    (submit gpu (list (finish gpu encoder)))))
+      (gpu::end-pass pass))
+    (gpu::submit (list (gpu::finish encoder)))))
 

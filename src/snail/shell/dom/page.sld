@@ -107,10 +107,10 @@
     ;; interface has no use for.
 
     (define (page-delivery (events Events)) (→ Delivery)
-      (let ((kind (poll-event events)))
-        (cond ((= kind 0) (wait-event events) (page-delivery events))
+      (let ((kind (events::poll-event)))
+        (cond ((= kind 0) (events::wait-event) (page-delivery events))
               ((= kind fired-kind)
-               (Fired (new Listener (id (event-field events 0))) (fired-event events)))
+               (Fired (new Listener (id (events::event-field 0))) (fired-event events)))
               ((= kind woken-kind) (Woken))
               ((= kind hidden-kind) (Hidden))
               ((= kind save-kind) (SaveRequested))
@@ -119,15 +119,15 @@
     (define (fired-event (events Events)) (→ Event)
       (new Event (value (host-reply (host-event-text 0)))
            (key (host-reply (host-event-text 1)))
-           (modifiers (event-field events 1))
+           (modifiers (events::event-field 1))
            (x (host-event-number 0))
            (y (host-event-number 1))
-           (buttons (event-field events 2))
+           (buttons (events::event-field 2))
            (scroll-top (host-event-number 2))
            (scroll-left (host-event-number 3))
-           (selection-start (event-field events 3))
-           (selection-end (event-field events 4))
-           (checked (= (event-field events 5) 1))))
+           (selection-start (events::event-field 3))
+           (selection-end (events::event-field 4))
+           (checked (= (events::event-field 5) 1))))
 
     ;; ---- The browser host ----
 

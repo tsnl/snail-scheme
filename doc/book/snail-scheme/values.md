@@ -19,7 +19,7 @@ that record, including writes through another enclosing record.
   ((value I64)))
 
 (define (increment! (counter Counter)) (→ Unit)
-  (set! (● counter value) (+ (● counter value) 1)))
+  (set! counter::value (+ counter::value 1)))
 ```
 
 Whoever holds a record may select and update its fields: nothing in a
@@ -30,7 +30,7 @@ then `set!` the new one.
 
 `Name-field-set` is a pure replacement operation: it returns another record
 with that field replaced, sharing the values of the others. Use `set!` on a
-`●` path for mutation. There are no generated mutable setters.
+path for mutation. There are no generated mutable setters.
 
 ## Sharing
 

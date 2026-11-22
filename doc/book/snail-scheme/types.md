@@ -182,9 +182,10 @@ Record patterns remain positional: `(match point ((Point x y) ...))`.
 Function arguments remain positional; `new` does not add keyword arguments
 to `Fn` or change its calling convention.
 
-Read record fields by path: `(● segment from x)`. Each step follows an
-ordinary object reference. Reads are pure. `(set! (● segment from x) 3)`
+Read record fields by path: `segment::from::x`. Each step follows an
+ordinary object reference. Reads are pure. `(set! segment::from::x 3)`
 writes the resolved slot, evaluating the receiver and incoming value once.
+A receiver that is not a name is read with `(● (f x) from x)`.
 There are no field typeclasses, computed property overloads,
 or borrowed receiver types.
 

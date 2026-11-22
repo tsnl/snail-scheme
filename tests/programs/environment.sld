@@ -6,7 +6,7 @@
 ;; `ProcessEnvironment` main asks for. The suite runs with PATH set; the host's
 ;; own channel for the working directory is hidden.
 (define (set? (environment ProcessEnvironment) (name String)) (→ String)
-  (match (environment-variable environment name)
+  (match (environment::variable name)
     ((Some value) (if (string=? value "") "set, empty" "set"))
     ((None) "unset")))
 
@@ -16,7 +16,7 @@
   (write-line out
               (string-append "an unset variable: " (set? environment "SNAIL_TEST_SURELY_UNSET")))
   ;; A relative path resolves against the working directory.
-  (match (working-directory environment)
+  (match (environment::directory)
     ((Some directory)
      (write-line out (if (char=? (string-ref directory 0) #\/) "absolute" "relative"))
      (make-directories fs "build/tests")
