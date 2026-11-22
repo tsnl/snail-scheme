@@ -1,0 +1,147 @@
+#!/bin/sh
+# Sets up the reference trainers the bench runs, in
+# build/benches/splat-training:
+#
+#   benches/splat-training/setup [DATASET]
+#
+# - src/gsplat and src/gaussian-splatting: gsplat and the INRIA code, each
+#   at its latest commit, with the submodules it builds. gsplat's latest
+#   release, 1.5.3, never resets opacity, which its main branch has since
+#   fixed (#776), so it would not train the paper's schedule;
+# - venv-gsplat and venv-inria: a virtual environment for each, with the
+#   Python packages its instructions name, at the versions
+#   requirements-*.txt pins, and its CUDA kernels, compiled for this GPU
+#   (TORCH_CUDA_ARCH_LIST, 12.0 for the RTX 5090);
+# - scene: the scene as every trainer reads it.
+#
+# DATASET is a Mip-NeRF 360 scene's folder, by default
+# build/datasets/bicycle, which scripts/fetch-mipnerf360 makes. gsplat
+# trains on bicubic downscales of the full photographs that it makes
+# itself, 1236 by 822 for bicycle, where the INRIA code and the train app
+# read the dataset's own quarter-size photographs, images_4, 1237 by 822.
+# So the scene folder links the dataset's files and holds images_4 again
+# as PNG, under the name gsplat looks for, and all three trainers train
+# and are judged on the same pixels.
+#
+# It enters the bench's environment (default.nix) and does only what is
+# not yet done. Compiling the CUDA kernels takes most of its time.
+set -eu
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -z "${SPLAT_BENCH:-}" ]; then
+  env=$(nix-build --no-out-link "$here/default.nix")
+  exec "$env/bin/splat-bench" "$0" "$@"
+fi
+root=$(CDPATH= cd -- "$here/../.." && pwd)
+dataset=$(CDPATH= cd -- "${1:-$root/build/datasets/bicycle}" && pwd -P)
+work=$root/build/benches/splat-training
+export MAX_JOBS=${MAX_JOBS:-8}
+
+# ---- Sources ----
+
+# src/NAME: the repository at URL, checked out at commit REV, with the
+# submodules named after it, or all of them. What a checkout holds is
+# the commit's, so the patches below apply to the commit alone.
+fetch() {
+  name=$1 url=$2 rev=$3
+  shift 3
+  dir=$work/src/$name
+  [ -d "$dir/.git" ] || git clone --quiet "$url" "$dir"
+  git -C "$dir" cat-file -e "$rev^{commit}" 2>/dev/null || git -C "$dir" fetch --quiet origin
+  git -C "$dir" checkout --quiet --force "$rev"
+  git -C "$dir" submodule update --quiet --init --recursive --force "$@"
+}
+
+# ---- Patches ----
+
+# Each changes a line and can be applied again.
+
+# gsplat writes its evaluation's renders cut to 8 bits, where the INRIA
+# code's, written by torchvision, are rounded: scored alike, gsplat's
+# would lose PSNR to that, the more the darker they are. It rounds here
+# too; this changes only the images it writes.
+patch_gsplat() {
+  trainer=$work/src/gsplat/examples/simple_trainer.py
+  grep -q 'canvas \* 255 + 0.5' "$trainer" ||
+    sed -i 's|canvas = (canvas \* 255).astype(np.uint8)|canvas = (canvas * 255 + 0.5).astype(np.uint8)|' "$trainer"
+}
+
+# The INRIA rasterizer's header uses fixed-width integers without
+# including <cstdint>, which GCC's standard headers stopped including
+# along the way in GCC 13.
+patch_inria() {
+  header=$work/src/gaussian-splatting/submodules/diff-gaussian-rasterization/cuda_rasterizer/rasterizer_impl.h
+  grep -q '#include <cstdint>' "$header" ||
+    sed -i 's|#include <iostream>|#include <cstdint>\n#include <iostream>|' "$header"
+}
+
+# ---- Environments ----
+
+# venv-NAME, with requirements-NAME.txt installed, then each package
+# given, which compiles CUDA kernels: those import PyTorch to build, so
+# they build in the environment rather than an isolated one, once each.
+environment() {
+  name=$1
+  shift
+  venv=$work/venv-$name
+  [ -x "$venv/bin/python" ] || python3.12 -m venv "$venv"
+  pip="$venv/bin/pip --disable-pip-version-check --quiet"
+  $pip install --requirement "$here/requirements-$name.txt"
+  for package in "$@"; do
+    stamp=$venv/built-$(printf %s "$package" | tr -c 'A-Za-z0-9' _)
+    if [ ! -f "$stamp" ]; then
+      echo "building $package"
+      # A checkout builds in its own tree, where a failed build can have
+      # left objects of another configuration: it starts clean.
+      if [ -e "$package/.git" ]; then git -C "$package" clean -fdxq; fi
+      $pip install --no-build-isolation --no-deps "$package"
+      touch "$stamp"
+    fi
+  done
+}
+
+# ---- The scene ----
+
+# scene/: the dataset's photographs and sparse reconstruction, linked, a
+# file at a time for the reconstruction, where the INRIA code writes its
+# points as a .ply; and images_4 again as PNG, in images_4_png.
+scene() {
+  out=$work/scene
+  mkdir -p "$out/sparse/0" "$out/images_4_png"
+  for entry in images images_4; do
+    ln -sfn "$dataset/$entry" "$out/$entry"
+  done
+  for file in "$dataset"/sparse/0/*.bin; do
+    ln -sfn "$file" "$out/sparse/0/"
+  done
+  "$work/venv-inria/bin/python" - "$dataset/images_4" "$out/images_4_png" <<'EOF'
+import os, sys
+from PIL import Image
+
+source, target = sys.argv[1:]
+for name in sorted(os.listdir(source)):
+    path = os.path.join(target, os.path.splitext(name)[0] + ".png")
+    if not os.path.exists(path):
+        Image.open(os.path.join(source, name)).convert("RGB").save(path)
+EOF
+}
+
+# ---- Setting up ----
+
+mkdir -p "$work/src"
+fetch gsplat https://github.com/nerfstudio-project/gsplat.git \
+  512d366b67073d77ca099ede742683c165dfc23b
+fetch gaussian-splatting https://github.com/graphdeco-inria/gaussian-splatting.git \
+  54c035f7834b564019656c3e3fcc3646292f727d \
+  submodules/diff-gaussian-rasterization submodules/simple-knn submodules/fused-ssim
+patch_gsplat
+patch_inria
+environment gsplat \
+  "$work/src/gsplat" \
+  git+https://github.com/rahul-goel/fused-ssim@a7c48d6dd7ac6dc39a7958c7c4452e0b10418f38 \
+  git+https://github.com/harry7557558/fused-bilagrid@49f0ef06c9f81810fb9b5dd9027cf1844950cc16 \
+  git+https://github.com/nv-tlabs/ppisp@df33809f7b3b20ac06de088dfc871b144b8fb54d
+inria=$work/src/gaussian-splatting/submodules
+environment inria \
+  "$inria/diff-gaussian-rasterization" "$inria/simple-knn" "$inria/fused-ssim"
+scene
+echo "set up in $work"

@@ -1,0 +1,116 @@
+#!/bin/sh
+# Judges every run's held-out photographs alike, in
+# build/benches/splat-training/scores:
+#
+#   benches/splat-training/score
+#
+# Each trainer renders the held-out views, every eighth photograph in
+# order of name as each holds them out, the way its project does: gsplat
+# by its evaluation from the last checkpoint, which writes each view
+# beside its photograph, and the INRIA code by its render.py. The train
+# app writes no images, so its cloud, a .ply of the INRIA code's format,
+# is rendered by render.py too. Then the INRIA code's metrics.py scores
+# all of them at once, PSNR, SSIM and LPIPS with VGG, against the
+# photographs as its loader decodes them, into scores/results.json, and
+# report.py prints the table, also kept in report.md.
+#
+# A run's renders are made once; the scores, every time. It enters the
+# bench's environment (default.nix).
+set -eu
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -z "${SPLAT_BENCH:-}" ]; then
+  env=$(nix-build --no-out-link "$here/default.nix")
+  exec "$env/bin/splat-bench" "$0" "$@"
+fi
+root=$(CDPATH= cd -- "$here/../.." && pwd)
+work=$root/build/benches/splat-training
+inria=$work/src/gaussian-splatting
+python=$work/venv-inria/bin/python
+scores=$work/scores
+
+# ---- The photographs ----
+
+# scores/gt: the held-out photographs as PNG, numbered as render.py
+# numbers its views. PIL decodes them, as the INRIA code's loader does.
+truth() {
+  "$python" - "$work/scene/images_4" "$scores/gt" <<'EOF'
+import os, sys
+from PIL import Image
+
+source, target = sys.argv[1:]
+os.makedirs(target, exist_ok=True)
+for k, name in enumerate(sorted(os.listdir(source))[::8]):
+    path = os.path.join(target, f"{k:05d}.png")
+    if not os.path.exists(path):
+        Image.open(os.path.join(source, name)).convert("RGB").save(path)
+EOF
+}
+
+# ---- Each trainer's renders ----
+
+# The cloud at RUN/point_cloud.ply, as a model of the INRIA code's: the
+# arguments its training would have kept, then its renders.
+ours() {
+  model=$1/model
+  mkdir -p "$model/point_cloud/iteration_$2"
+  ln -sfn "$1/point_cloud.ply" "$model/point_cloud/iteration_$2/point_cloud.ply"
+  (cd "$inria" && "$python" - "$work/scene" "$model" > "$model/cfg_args") <<'EOF'
+import sys
+from argparse import ArgumentParser, Namespace
+from arguments import ModelParams
+
+parser = ArgumentParser()
+params = ModelParams(parser)
+scene, model = sys.argv[1:]
+args = parser.parse_args(["-s", scene, "-m", model, "-i", "images_4", "--eval"])
+print(Namespace(**vars(params.extract(args))), end="")
+EOF
+  inria "$1" "$2"
+}
+
+inria() {
+  (cd "$inria" && "$python" render.py -m "$1/model" --iteration "$2" --skip_train --quiet)
+  ln -sfn "$1/model/test/ours_$2/renders" "$1/renders"
+}
+
+# gsplat writes each view as one image, the photograph on the left and
+# its render on the right; the right halves are the renders.
+gsplat() {
+  (cd "$work/src/gsplat/examples" && "$work/venv-gsplat/bin/python" simple_trainer.py default \
+    --disable_viewer --disable_video --data_factor 4 --data_dir "$work/scene" --result_dir "$1" \
+    --ckpt "$1/ckpts/ckpt_$(($2 - 1))_rank0.pt" --lpips_net vgg)
+  "$python" - "$1/renders" "$1/halves" <<'EOF'
+import glob, os, sys
+import numpy as np
+from PIL import Image
+
+source, target = sys.argv[1:]
+os.makedirs(target, exist_ok=True)
+for k, path in enumerate(sorted(glob.glob(os.path.join(source, "val_step*_*.png")))):
+    both = np.asarray(Image.open(path))
+    Image.fromarray(both[:, both.shape[1] // 2 :]).save(os.path.join(target, f"{k:05d}.png"))
+EOF
+}
+
+# ---- Scoring ----
+
+truth
+for run in "$work"/runs/*/; do
+  run=${run%/}
+  name=$(basename "$run")
+  trainer=$(cat "$run/trainer")
+  steps=$(cat "$run/steps")
+  case $trainer in
+    gsplat) renders=$run/halves ;;
+    *) renders=$run/renders ;;
+  esac
+  if [ ! -e "$renders" ]; then
+    echo "rendering $name"
+    "$trainer" "$run" "$steps" > "$run/render-log" 2>&1
+  fi
+  mkdir -p "$scores/test/$name"
+  ln -sfn "$renders" "$scores/test/$name/renders"
+  ln -sfn "$scores/gt" "$scores/test/$name/gt"
+done
+(cd "$inria" && "$python" metrics.py -m "$scores")
+python3.12 "$here/report.py" "$work" | tee "$work/report.md"
