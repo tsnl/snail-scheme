@@ -81,7 +81,7 @@
 
     ;; Integer sinks agree exactly. Float sinks agree to a part in a thousand.
 
-    (define (tensor-agreement (gpu Gpu)) (→ String) (! mut)
+    (define (tensor-agreement (gpu Gpu)) (→ String)
       (let* ((roots (sinks))
              (program (compile-program gpu "agreement" roots (Nil)))
              (expected (evaluate roots inputs)))
@@ -116,7 +116,6 @@
                           (expected (List (Array F64)))
                           (k I64))
       (→ String)
-      (! mut)
       (match (new Pair (first roots) (second expected))
         ((Pair (Cons root more) (Cons want rest))
          (let* ((got (bytes->values (read-sink gpu program k) (etype-of root)))
@@ -141,7 +140,7 @@
                    " "))
 
     ;; A takes B transposed, B takes A, and the sink keeps A before the swap.
-    (define (swapped-params (gpu Gpu)) (→ String) (! mut)
+    (define (swapped-params (gpu Gpu)) (→ String)
       (let* ((a (param "a" (list 2 2) (Signed)))
              (b (param "b" (list 2 2) (Signed)))
              (program (compile-program gpu "swap" (list a)
@@ -158,7 +157,7 @@
           report)))
 
     ;; An assignment can be the only reference to the destination.
-    (define (assigned-param (gpu Gpu)) (→ String) (! mut)
+    (define (assigned-param (gpu Gpu)) (→ String)
       (let* ((a (param "a" (Nil) (Signed)))
              (program (compile-program gpu "assign" (Nil)
                                        (list
@@ -172,7 +171,7 @@
 
     ;; y = 2 x0 - 3 x1 + 0.5 x2 + 1 over 256 points, fitted from zeros.
 
-    (define (fitted-line (gpu Gpu)) (→ String) (! mut)
+    (define (fitted-line (gpu Gpu)) (→ String)
       (let* ((x (param "points" (list 256 3) (Float)))
              (y (param "targets" (list 256 1) (Float)))
              (w (param "w" (list 3 1) (Float)))

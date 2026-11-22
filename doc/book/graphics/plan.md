@@ -381,8 +381,8 @@ CI is, the checks run on lavapipe. `host/native/gpu.mjs` hands Dawn to the same
 program on Node makes the `Gpu` itself, as `tests/gpu/node.scm` does:
 
 ```scheme
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (let* ((gpu (host-gpu)) (info (request-device gpu)))
+(define (main (host Host) (out OutputPort)) (→ Unit)
+  (let* ((gpu (host-gpu host)) (info (request-device gpu)))
     (write-line out (string-append "format: " (texture-format-name (● info format))))
     (device-checks gpu out)
     (work-done gpu)))
@@ -452,7 +452,7 @@ heaps start uncompressed; a later `reset` may choose BC.
 - Images are decoded by the host behind `decode-image`, a host operation
   that waits, rather than in `snail-scheme`. It answers nothing for bytes
   the host does not decode.
-- `update` stays total: prefetching happens from `draw`.
+- `update` only computes: prefetching happens from `draw`.
 - Shader sources are S-expression files printed by `generate-library`
   recipes, since a quoted form is a literal only. A shader's structs come
   from `Pod` at run time: `(string-append (declarations shape) shader)`.

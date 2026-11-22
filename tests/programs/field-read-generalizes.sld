@@ -12,6 +12,6 @@
     (match b
       ((Box _) (● b value)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show (contents (new Box (value 1)))))
   (write-line out (contents (new Box (value "two")))))

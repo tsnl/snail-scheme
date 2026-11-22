@@ -10,7 +10,7 @@ borrows, and the compiler inserts no ownership operations.
 ## Mutable records
 
 Record fields are mutable by default. A field declaration is `(name Type)`;
-there is no per-field `mut` annotation and no separate `Ref` cell type. Local
+there is no per-field mutability annotation and no separate `Ref` cell type. Local
 bindings themselves are not reassigned. Aliases of a record observe writes to
 that record, including writes through another enclosing record.
 
@@ -18,13 +18,13 @@ that record, including writes through another enclosing record.
 (record Counter
   ((value I64)))
 
-(define (increment (counter Counter)) (→ Unit) (! mut)
-  (set! (● counter value) (+ (● counter value) 1)))
+(define (increment (mut Mut) (counter Counter)) (→ Unit)
+  (set! mut (● counter value) (+ (● counter value) 1)))
 ```
 
-Selecting a field is pure. Updating a field requires `mut`, even when its
-receiver was allocated locally. The compiler does not infer a mutation
-exemption from allocation locality. To exchange a field's value, read it,
+Selecting a field needs nothing. Updating a field takes a `Mut`
+([capabilities](capabilities.md#mut)), even when its receiver was allocated
+locally: the compiler infers no exemption from allocation locality. To exchange a field's value, read it,
 then `set!` the new one.
 
 `Name-field-set` is a pure replacement operation: it returns another record
@@ -43,7 +43,7 @@ by every reader.
 
 ## Closures
 
-`(Fn A → B ! e)` is the built-in callable type former. A closure may capture
+`(Fn A → B)` is the built-in callable type former. A closure may capture
 any value, and may be called any number of times. A named top-level function
 has no capture environment. The backend represents any closure without
 captures as an immutable global. There is no separate code pointer type,

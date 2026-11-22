@@ -136,19 +136,11 @@
 
     ;; ---- Copying ----
 
-    ;; A copy is of ground types with no rows: what a function performs
-    ;; decides nothing once it is checked, so one copy serves every row its
-    ;; definition is used at.
+    ;; A copy is of ground types: its definition's, with the copy's types
+    ;; for its variables.
 
     (define (ground (inst Instantiation) (type Type)) (→ Type)
-      (erase-rows (substitute (● inst vars) type)))
-
-    (define (erase-rows (type Type)) (→ Type)
-      (match type
-        ((TCon name args) (TCon name (map erase-rows args)))
-        ((TFun params result _) (TFun (map erase-rows params) (erase-rows result) empty-row))
-        ((TRow _ _) empty-row)
-        (_ type)))
+      (substitute (● inst vars) type))
 
     ;; A specialization's name keys its types, as `type-key` does.
 
@@ -209,7 +201,7 @@
                                           clauses)))
                     (new Pair (first (Match scrutinee clauses)) (second state))))
         ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
-        ((FieldWrite _ _ _ _) (panic "internal error: field selection survived checking"))
+        ((FieldWrite _ _ _ _ _) (panic "internal error: field selection survived checking"))
         ((New _ _) (panic "internal error: named construction survived checking"))
         ((Ann inner type)
          (threading state
@@ -312,22 +304,9 @@
     (import
      (snail stage0 testing))
     (begin
-      (define test-specialize
-        (lambda () (test-erased-rows)
-                (test-spec-keys)))
-
-      ;; Grounding drops every row, wherever it sits.
-      (define test-erased-rows
-        (lambda ()
-          (let ((row (TRow (list "mut") (Some (TRigid "e")))))
-            (expect (erase-rows row) empty-row)
-            (expect (erase-rows (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) row))
-                    (TFun (list (TCon "I64" (Nil))) (TCon "Unit" (Nil)) empty-row)))))
-
       ;; A name is what `type-key` gives.
-      (define test-spec-keys
-        (lambda () (let ((pure (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)) empty-row)))
-                     (expect (spec-key pure) (type-key pure))
-                     (expect (spec-key (TCon "List" (list pure)))
-                             (type-key (TCon "List" (list pure))))
-                     (expect (spec-key empty-row) "row"))))))))
+      (define test-specialize
+        (lambda () (let ((function (TFun (list (TCon "I64" (Nil))) (TCon "I64" (Nil)))))
+                     (expect (spec-key function) (type-key function))
+                     (expect (spec-key (TCon "List" (list function)))
+                             (type-key (TCon "List" (list function)))))))))))

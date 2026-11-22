@@ -50,12 +50,12 @@
     ((Dialog dismiss) "dialog")
     ((Banner) "banner")))
 
-(define (show-pictures (out OutputPort) (shell Shell)) (→ Unit) (! mut)
+(define (show-pictures (out OutputPort) (shell Shell)) (→ Unit)
   (write-line out
               (string-append "pictures: "
                              (show (length (shell-pictures shell (lambda (path) (None))))))))
 
-(define (show-panel (out OutputPort) (panel Panel)) (→ Unit) (! mut)
+(define (show-panel (out OutputPort) (panel Panel)) (→ Unit)
   (match panel
     ((Panel key place widgets)
      (write-line out (string-append "-- " key ", " (place-name place)))
@@ -69,14 +69,13 @@
 
 (define (step (out OutputPort) (shell Shell) (title String) (presses (List (Pair I32 I32))))
   (→ Shell)
-  (! mut)
   (let ((shell (click shell presses)))
     (write-line out (string-append "==== " title))
     (show-pictures out shell)
     (for-each (lambda (panel) (show-panel out panel)) (shell-hud shell))
     shell))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   ;; The ledger is the second prototype opened, so seed 5 deals it seed 7.
   ;; Buttons: 9000 with argument i opens rumor-mill scenario i, 9100 opens the

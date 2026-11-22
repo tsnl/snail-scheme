@@ -93,7 +93,7 @@
                     (● gltf buffers))
                ", "))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (match (read (string->utf8 scene))
     ((Ok gltf)
      (write-line out (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))

@@ -49,7 +49,6 @@
 
     (define (read-chunk (tcp Tcp) (connection Connection) (maximum I64))
       (→ (Result (Option Bytes) (ExchangeError E)))
-      (! mut)
       (∀ (E))
       (match (read tcp connection (i64->i32 maximum))
         ((Err error) (Err (TransportFailure error)))
@@ -86,7 +85,6 @@
 
     (define (read-head (tcp Tcp) (connection Connection))
       (→ (Result RequestPrefix (ExchangeError E)))
-      (! mut)
       (∀ (E))
       (let loop ((chunks (ann (Nil) (List Bytes))) (total 0) (state (ann 0 I32)))
         (if (= total head-limit)
@@ -105,7 +103,6 @@
 
     (define (read-body (tcp Tcp) (connection Connection) (prefix RequestPrefix))
       (→ (Result Request (ExchangeError E)))
-      (! mut)
       (∀ (E))
       (let* ((head (● prefix head)) (expected (● head body-length))
              (initial (● prefix prefix)) (count (min expected (array-length initial))))
@@ -120,7 +117,6 @@
 
     (define (read-request (tcp Tcp) (connection Connection))
       (→ (Result Request (ExchangeError E)))
-      (! mut)
       (∀ (E))
       (match (read-head tcp connection)
         ((Err error) (Err error))
@@ -130,7 +126,6 @@
 
     (define (write-bytes (tcp Tcp) (connection Connection) (bytes Bytes))
       (→ (Result Unit (ExchangeError E)))
-      (! mut)
       (∀ (E))
       ;; Slice sizes follow actual progress: at most 65536 + twice the sent
       ;; bytes are copied, even when a replacement `Tcp` accepts tiny writes.
@@ -148,7 +143,6 @@
 
     (define (write-response (tcp Tcp) (connection Connection) (grace I32) (parts ResponseParts))
       (→ (Result Unit (ExchangeError E)))
-      (! mut)
       (∀ (E))
       (match (write-bytes tcp connection (● parts head))
         ((Err error) (Err error))
@@ -171,7 +165,6 @@
                      (method (Option String))
                      (response Response))
       (→ (Result Unit (ExchangeError E)))
-      (! mut)
       (∀ (E))
       (match (encode-response (match method ((Some name) name) ((None) "GET"))
                               (● response status)
@@ -182,10 +175,9 @@
 
     (define (exchange (tcp Tcp) (connection Connection)
                       (grace I32)
-                      (handler (Fn Request → (Result Response E) ! e)))
+                      (handler (Fn Request → (Result Response E))))
       (→ (Result Unit (ExchangeError E)))
-      (! mut e)
-      (∀ (E e))
+      (∀ (E))
       (match (read-request tcp connection)
         ((Err error) (Err error))
         ((Ok request)
@@ -198,16 +190,15 @@
                      response))))))
 
     ;; Exclusive use is a calling convention the checker does not enforce.
-    ;; Returned failures close here. A trap in an unrelated handler effect
-    ;; cannot unwind through this code; runtime shutdown closes the remaining
+    ;; Returned failures close here. A trap elsewhere cannot unwind through
+    ;; this code; runtime shutdown closes the remaining
     ;; native resources. Aborting active native I/O closes its socket.
 
     (define (serve-one (tcp Tcp) (connection Connection)
                        (grace I32)
-                       (handler (Fn Request → (Result Response E) ! e)))
+                       (handler (Fn Request → (Result Response E))))
       (→ (Result Unit (ExchangeError E)))
-      (! mut e)
-      (∀ (E e))
+      (∀ (E))
       (let ((result (exchange tcp connection grace handler)))
         (match result
           ((Err _) (close-connection tcp connection) result)

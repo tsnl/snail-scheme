@@ -11,10 +11,10 @@
  (snail shell json)
  (snail shell compiler sha256))
 
-(define (digest (out OutputPort) (bytes Bytes)) (→ Unit) (! mut)
+(define (digest (out OutputPort) (bytes Bytes)) (→ Unit)
   (write-line out (string-append (show (array-length bytes)) " " (bytes->hex (sha256 bytes)))))
 
-(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
+(define (main (fs Fs) (out OutputPort)) (→ Unit)
   (digest out (string->utf8 ""))
   (digest out (string->utf8 "abc"))
   (digest out (string->utf8 "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"))

@@ -11,12 +11,12 @@
 ;; So does the list library, however long the list.
 (define (make-numbers) (→ (List I64)) (iota 1000000))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
 
   (let ((counter (new Counter (value 0))) (text (make-text)) (numbers (make-numbers)))
     (let loop ((index 0))
       (when (< index 3000000)
-        (set! (● counter value) (+ (● counter value) 1))
+        (set! mut (● counter value) (+ (● counter value) 1))
         (loop (+ index 1))))
     (display out (● counter value))
     (newline out)

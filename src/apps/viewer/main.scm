@@ -20,10 +20,7 @@
  (only (snail shell page) Events report-ready)
  (only (snail shell fetch) Fetch fetch-all-bytes page-address)
  (only (snail shell dom) Dom document-root set-text)
- (only (snail shell dom page) page-dom)
  (snail shell files)
- (snail shell files page)
- (snail shell fetch page)
  (only (snail shell gpu) Gpu request-device current-texture view-of work-done TextureFormat)
  (snail shell graphics pod)
  (snail shell graphics raster)
@@ -113,7 +110,6 @@
                    (timing (Pair I32 I32))
                    (format TextureFormat))
   (→ Unit)
-  (! mut)
   (match (next-event events)
     ((FrameEvent elapsed)
      (match view
@@ -145,7 +141,7 @@
     (_ (view-loop gpu dom picker events fetch out view fly timing format))))
 
 ;; A frame drawn into the canvas, from where the fly is.
-(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly)) (→ Tracer) (! mut)
+(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly)) (→ Tracer)
   (let* ((canvas (current-texture gpu))
          (width (● canvas width))
          (height (● canvas height)))
@@ -157,7 +153,7 @@
 
 ;; Frames and milliseconds since the last report, which comes every two
 ;; seconds.
-(define (timed (out OutputPort) (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32)) (! mut)
+(define (timed (out OutputPort) (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32))
   (let ((frames (+ 1 (● timing first))) (total (+ elapsed (● timing second))))
     (if (< total 2000)
         (new Pair (first frames) (second total))
@@ -184,7 +180,6 @@
                 (files (List Chosen))
                 (eye (Option (List F64))))
   (→ Unit)
-  (! mut)
   (set-text dom (document-root dom) "Loading…")
   (match (attempt-reading (lambda () (chosen gpu fetch out view files)))
     ((Ok replacing)
@@ -211,7 +206,7 @@
      (view-loop gpu dom picker events fetch out view fly timing format))))
 
 ;; What the page says under the view, and the console with it.
-(define (say (dom Dom) (out OutputPort) (message String)) (→ Unit) (! mut)
+(define (say (dom Dom) (out OutputPort) (message String)) (→ Unit)
   (set-text dom (document-root dom) message)
   (write-line out message))
 
@@ -222,7 +217,6 @@
 ;; leave nothing on the device.
 (define (chosen (gpu Gpu) (fetch Fetch) (out OutputPort) (view (Option View)) (files (List Chosen)))
   (→ (Pair (Option Scene) (Option Environment)))
-  (! mut)
   (let ((model (outermost (ending files (list ".glb" ".gltf"))))
         (light (outermost (ending files (list ".hdr")))))
     (when (and (none? model) (or (none? light) (none? view)))
@@ -234,7 +228,6 @@
                           (lambda (path)
                             (loaded-scene gpu out (lambda ((paths (List String)))
                                                     (→ (List Bytes))
-                                                    (! mut)
                                                     (read fetch files path paths))
                                           path)))))
       (new Pair (first scene) (second (within hdr (lambda (hdr) (hdr-light gpu hdr))))))))
@@ -242,7 +235,6 @@
 ;; The bytes of the paths that the file at `top` names, fetched together.
 (define (read (fetch Fetch) (files (List Chosen)) (top String) (paths (List String)))
   (→ (List Bytes))
-  (! mut)
   (fetched fetch (map (lambda (path) (address-of files top path)) paths)))
 
 ;; Where a path that the file at `top` names is fetched from: a file
@@ -259,7 +251,7 @@
          (unreadable (string-append path " is not among the files chosen"))))))
 
 ;; The bytes at each address, fetched together.
-(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes)) (! mut)
+(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes))
   (map (lambda (reply)
          (match reply
            ((Ok bytes) bytes)
@@ -272,7 +264,7 @@
     ((None) #t)))
 
 ;; `f` of what an option holds.
-(define (within (option (Option A)) (f (Fn A → B ! e))) (→ (Option B)) (! e) (∀ (A B e))
+(define (within (option (Option A)) (f (Fn A → B))) (→ (Option B)) (∀ (A B))
   (match option
     ((Some value) (Some (f value)))
     ((None) (None))))
@@ -283,7 +275,7 @@
     ((Ok hdr) hdr)
     ((Err why) (unreadable (string-append name ": " why)))))
 
-(define (hdr-light (gpu Gpu) (hdr Hdr)) (→ Environment) (! mut) (hdr-environment gpu hdr 4096))
+(define (hdr-light (gpu Gpu) (hdr Hdr)) (→ Environment) (hdr-environment gpu hdr 4096))
 
 ;; The view with a new scene, a new light, or both: its tracer remade
 ;; from the old one, whose scene or light, where replaced, is let go. A
@@ -293,7 +285,6 @@
                (light (Option Environment))
                (format TextureFormat))
   (→ View)
-  (! mut)
   (match view
     ((Some old)
      (let* ((scene (match scene
@@ -363,11 +354,9 @@
 ;; A scene, and a line saying how large it is.
 (define (loaded-scene (gpu Gpu)
                       (out OutputPort)
-                      (read (Fn (List String) → (List Bytes) ! e))
+                      (read (Fn (List String) → (List Bytes)))
                       (path String))
   (→ Scene)
-  (! mut e)
-  (∀ (e))
   (let ((scene (load-scene gpu read path layer-size)))
     (write-line out (string-append "scene: "
                                    (show (● scene vertex-count))
@@ -379,25 +368,28 @@
 
 ;; ---- The page ----
 
-(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut)
-  (let ((fetch (page-fetch)))
-    (let ((picker (page-file-picker)))
-      (let ((dom (page-dom events)))
-        (let ((format (● (request-device gpu) format))
-              (fly (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
-              (timing (new Pair (first 0) (second 0)))
-              (address (page-address fetch)))
-          (match (query-files address)
-            ((Nil) (view-loop gpu dom picker events fetch out (None) fly timing format))
-            (files (opened gpu
-                           dom
-                           picker
-                           events
-                           fetch
-                           out
-                           (None)
-                           fly
-                           timing
-                           format
-                           files
-                           (query-eye address)))))))))
+(define (main (gpu Gpu)
+              (dom Dom)
+              (fetch Fetch)
+              (picker FilePicker)
+              (events Events)
+              (out OutputPort))
+  (→ Unit)
+  (let ((format (● (request-device gpu) format))
+        (fly (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
+        (timing (new Pair (first 0) (second 0)))
+        (address (page-address fetch)))
+    (match (query-files address)
+      ((Nil) (view-loop gpu dom picker events fetch out (None) fly timing format))
+      (files (opened gpu
+                     dom
+                     picker
+                     events
+                     fetch
+                     out
+                     (None)
+                     fly
+                     timing
+                     format
+                     files
+                     (query-eye address))))))

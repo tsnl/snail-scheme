@@ -20,7 +20,7 @@
                  (resume (* n 2)))))
 
 ;; Every line the body tells `outer`, then its value.
-(define (told (out OutputPort) (body (Fn → I64))) (→ I64) (! mut)
+(define (told (out OutputPort) (body (Fn → I64))) (→ I64)
   (with-prompt outer
                body
                (lambda (line resume)
@@ -31,7 +31,7 @@
 
 ;; Of two `with-prompt`s of one prompt, the inner one catches, and a
 ;; suspension its handler makes goes to the outer one.
-(define (twice-told (out OutputPort)) (→ I64) (! mut)
+(define (twice-told (out OutputPort)) (→ I64)
   (told out
         (lambda ()
           (with-prompt outer
@@ -42,7 +42,7 @@
                          (suspend outer (string-append "inner heard: " line))
                          (+ 10 (resume (unit))))))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   ;; ANCHOR: run-nested
   (display out
            (told out

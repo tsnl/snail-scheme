@@ -79,7 +79,6 @@
                          (count I64)
                          (key-bits I64))
       (→ Sorter)
-      (! mut)
       (unless (and (any? (lambda (bits) (= bits key-bits)) (list 8 16 24 32)) (> count 0))
         (panic "radix-sort: a sorter sorts 8, 16, 24 or 32 bits of at least one key"))
       (let* ((module (create-shader-module gpu
@@ -113,19 +112,18 @@
 
     (define (sort-pipeline (gpu Gpu) (module GpuShaderModule) (entry String))
       (→ GpuComputePipeline)
-      (! mut)
       (create-compute-pipeline gpu (new ComputePipelineDescriptor
                                      (label (string-append "radix-sort/" entry))
                                      (module module)
                                      (entry entry))))
 
-    (define (u32-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer) (! mut)
+    (define (u32-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer)
       (create-buffer gpu (new BufferDescriptor
                            (label label)
                            (size (i64->i32 (* 4 count)))
                            (usage (list (Storage) (CopySrc) (CopyDst))))))
 
-    (define (pass-uniform (gpu Gpu) (label String) (shift I64) (count I64)) (→ GpuBuffer) (! mut)
+    (define (pass-uniform (gpu Gpu) (label String) (shift I64) (count I64)) (→ GpuBuffer)
       (let ((uniform (create-buffer gpu (new BufferDescriptor
                                           (label (string-append label "/pass"))
                                           (size 16)
@@ -148,7 +146,6 @@
                   (from Lane)
                   (to Lane))
       (→ Step)
-      (! mut)
       (new Step
         (uniform uniform)
         (count-group (sort-group gpu label
@@ -169,7 +166,6 @@
                         (pipeline GpuComputePipeline)
                         (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
-      (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
                                (label (string-append "radix-sort/" label))
                                (pipeline (ComputePipeline pipeline))
@@ -180,7 +176,7 @@
 
     ;; Each pass: count, scan the counts, scatter.
 
-    (define (dispatch-sort (gpu Gpu) (pass GpuComputePass) (sorter Sorter)) (→ Unit) (! mut)
+    (define (dispatch-sort (gpu Gpu) (pass GpuComputePass) (sorter Sorter)) (→ Unit)
       (for-each (lambda (step)
                   (dispatch-blocks gpu pass (● sorter count-pipeline) (● step count-group) sorter)
                   (dispatch-scan gpu pass (● sorter scan))
@@ -196,14 +192,13 @@
                              (group GpuBindGroup)
                              (sorter Sorter))
       (→ Unit)
-      (! mut)
       (set-compute-pipeline gpu pass pipeline)
       (set-compute-bind-group gpu pass 0 group)
       (dispatch-rows gpu pass (● sorter blocks)))
 
     ;; Everything the sorter made, and its scan, goes at the next submit;
     ;; the lane it was given stays.
-    (define (release-sorter (gpu Gpu) (sorter Sorter)) (→ Unit) (! mut)
+    (define (release-sorter (gpu Gpu) (sorter Sorter)) (→ Unit)
       (release-scan gpu (● sorter scan))
       (for-each (lambda (step)
                   (destroy gpu (BufferObject (● step uniform)))

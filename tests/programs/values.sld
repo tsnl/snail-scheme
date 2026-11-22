@@ -35,9 +35,9 @@
 
 ;; A record whose field is an effectful function, with the row as a parameter.
 (record (Task e)
-  ((step (Fn I64 → I64 ! e))))
+  ((step (Fn I64 → I64))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out ((make-counter) 25))
   (newline out)
   (write out (map Some (list 1 2)))

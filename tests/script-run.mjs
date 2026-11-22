@@ -12,8 +12,8 @@ const execute = promisify(execFile), root = process.argv[2];
 const project = await mkdtemp(join(tmpdir(), 'snail-run-workspace-'));
 const caller = await mkdtemp(join(tmpdir(), 'snail-run-caller-'));
 const source = finish => `(import (snail core base) (snail core io))
-  (define (main (in InputPort) (out OutputPort) (fs Fs)) (→ Unit) (! mut)
-    (for-each (lambda (argument) (write-line out argument)) (command-line))
+  (define (main (arguments Arguments) (in InputPort) (out OutputPort) (fs Fs)) (→ Unit)
+    (for-each (lambda (argument) (write-line out argument)) (command-line arguments))
   (write-line out (match (read-line in) ((Some line) line) ((None) "EOF")))
   (write-file fs "run-cwd.txt" "caller")
   ${finish})`;
@@ -44,7 +44,7 @@ try {
 
   // A character read flushes an unterminated prompt, then shares stdin with lines.
   await writeFile(join(project, 'main.scm'), `(import (snail core base) (snail core io))
-    (define (main (in InputPort) (out OutputPort)) (→ Unit) (! mut)
+    (define (main (in InputPort) (out OutputPort)) (→ Unit)
       (write-string out "prompt> ")
     (write out (read-char in)) (newline out)
     (write out (read-line in)) (newline out)
@@ -64,7 +64,7 @@ try {
   assert.equal(await realpath(join(project, 'build/main')), beforeFailure, 'failed rebuild never runs the preceding output');
 
   // The original CLI PID is now the application; no signal forwarding exists.
-  await writeFile(join(project, 'main.scm'), '(import (snail core base) (snail core io)) (define (main (in InputPort) (out OutputPort)) (→ Unit) (! mut) (write-line out "ready") (read-line in) (unit))');
+  await writeFile(join(project, 'main.scm'), '(import (snail core base) (snail core io)) (define (main (in InputPort) (out OutputPort)) (→ Unit) (write-line out "ready") (read-line in) (unit))');
   for (const signal of ['SIGINT', 'SIGTERM']) {
     const waiting = run(), stopped = assert.rejects(waiting, {signal});
     await ready(waiting.child);

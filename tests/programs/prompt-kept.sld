@@ -14,11 +14,11 @@
 
 (define attempts (→ Count) (new Count (value 0)))
 
-;; The counter is the test's own, changed where no row may say so.
+;; The counter is the test's own, so `attempt!` makes the `Mut` it counts
+;; with.
 (define (attempt!) (→ I64)
-  (unsafe-total (lambda ()
-                  (set! (● attempts value) (+ (● attempts value) 1))
-                  (● attempts value))))
+  (set! (unsafe-mut) (● attempts value) (+ (● attempts value) 1))
+  (● attempts value))
 
 ;; A value that fails the first time it is read.
 (define fragile
@@ -26,13 +26,13 @@
   (let ((attempt (attempt!)))
     (if (< attempt 2) (absurd (suspend failing "not yet")) (* attempt 21))))
 
-(define (read-fragile (out OutputPort)) (→ Unit) (! mut)
+(define (read-fragile (out OutputPort)) (→ Unit)
   (write-line out
               (with-prompt failing
                            (lambda () (show fragile))
                            (lambda (why resume) (string-append "failed: " why)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (read-fragile out)
   (read-fragile out)
   (read-fragile out)
@@ -46,9 +46,4 @@
                                    (lambda (n resume)
                                      (write-line out (string-append "asked " (show n)))
                                      (resume (* n 10)))))))
-  ;; `unsafe-total` hides a row, not a suspension.
-  (write-line out
-              (show (with-prompt asking
-                                 (lambda () (unsafe-total (lambda () (+ 1 (suspend asking 5)))))
-                                 (lambda (n resume) (resume (* n 2))))))
   (unit))

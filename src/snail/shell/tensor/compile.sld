@@ -155,7 +155,6 @@
                              (sinks (List View))
                              (updates (List (Pair View View))))
       (→ Program)
-      (! mut)
       (compiled gpu label sinks updates (empty-table) (empty-table)))
 
     ;; A program whose params share the buffers of `other`'s of the same
@@ -170,7 +169,6 @@
                                      (updates (List (Pair View View)))
                                      (other Program))
       (→ Program)
-      (! mut)
       (compiled gpu label sinks updates (● other params) (● other scratch)))
 
     (define (compiled (gpu Gpu) (label String)
@@ -179,7 +177,6 @@
                       (shared (Table Binding))
                       (scratch (Table (List GpuBuffer))))
       (→ Program)
-      (! mut)
       (let* ((targets (map (lambda (u) (● u first)) updates))
              (written (pinned-keys targets))
              (assignments (map (lambda (u) (prepare-update u written)) updates))
@@ -252,7 +249,6 @@
                         (last (Table I64))
                         (pinned (Table Bool)))
       (→ Build)
-      (! mut)
       ;; Only a custom kernel reads a Fill through a buffer. Sinks and
       ;; assignments, like generated kernels, can copy its literal directly.
       (if (match (● n kind)
@@ -304,14 +300,14 @@
 
     (define (bytes-of (port Port)) (→ I64) (max 4 (* 4 (product (● port shape)))))
 
-    (define (new-buffer (gpu Gpu) (label String) (size I64)) (→ GpuBuffer) (! mut)
+    (define (new-buffer (gpu Gpu) (label String) (size I64)) (→ GpuBuffer)
       (create-buffer gpu (new BufferDescriptor
                            (label label)
                            (size (i64->i32 size))
                            (usage (list (Storage) (CopySrc) (CopyDst))))))
 
     ;; A buffer of `size` bytes: a free one from the pool, or a new one.
-    (define (taken (gpu Gpu) (b Build) (label String) (size I64)) (→ (Pair Build GpuBuffer)) (! mut)
+    (define (taken (gpu Gpu) (b Build) (label String) (size I64)) (→ (Pair Build GpuBuffer))
       (match (table-ref (● b pool) (show size))
         ((Some (Cons buffer rest))
          (new Pair
@@ -343,7 +339,7 @@
 
     ;; A port's buffer: a param's its own, by name; a constant's written
     ;; with its data; any other from the pool.
-    (define (port-given (gpu Gpu) (b Build) (n Node) (port Port)) (→ Build) (! mut)
+    (define (port-given (gpu Gpu) (b Build) (n Node) (port Port)) (→ Build)
       (let ((key (port-key n (● port name))))
         (match (● n kind)
           ((Param name)
@@ -363,7 +359,6 @@
     ;; A param's buffer: the shared one of its name and size, or its own.
     (define (param-buffer-for (gpu Gpu) (b Build) (name String) (port Port))
       (→ (Pair Build GpuBuffer))
-      (! mut)
       (match (table-ref (● b shared) name)
         ((Some binding)
          (if (= (bytes-of (● binding port)) (bytes-of port))
@@ -401,7 +396,6 @@
                         (entries (List (Pair I64 GpuBuffer)))
                         (workgroups I64))
       (→ Build)
-      (! mut)
       (if (= workgroups 0)
           b
           (let* ((with (pipeline-for gpu b code entry))
@@ -430,7 +424,6 @@
 
     (define (pipeline-for (gpu Gpu) (b Build) (code String) (entry String))
       (→ (Pair Build GpuComputePipeline))
-      (! mut)
       (let ((key (string-append entry "#" code)))
         (match (table-ref (● b pipelines) key)
           ((Some pipeline) (new Pair (first b) (second pipeline)))
@@ -457,7 +450,6 @@
     ;; bindings, its ports after them.
     (define (generated (gpu Gpu) (b Build) (n Node) (code String) (workgroups I64))
       (→ Build)
-      (! mut)
       (dispatched gpu b code "main" (kernel-entries b n) workgroups))
 
     (define (kernel-entries (b Build) (n Node)) (→ (List (Pair I64 GpuBuffer)))
@@ -476,7 +468,7 @@
                      (zip (iota (length (● n ports))) (● n ports))))))
 
     ;; Every word of a buffer set to zero.
-    (define (zeroed (gpu Gpu) (b Build) (buffer GpuBuffer) (size I64)) (→ Build) (! mut)
+    (define (zeroed (gpu Gpu) (b Build) (buffer GpuBuffer) (size I64)) (→ Build)
       (dispatched gpu b
                   zero-code
                   "main"
@@ -487,7 +479,7 @@
 
     ;; Each kind's dispatches, its ports already given buffers.
 
-    (define (node-steps (gpu Gpu) (b Build) (n Node)) (→ Build) (! mut)
+    (define (node-steps (gpu Gpu) (b Build) (n Node)) (→ Build)
       (let ((out (lambda () (port-of n default-port))) (arg (lambda (k) (list-ref (● n args) k))))
         (match (● n kind)
           ((Param _) b)
@@ -509,7 +501,7 @@
           (_ (generated gpu b n (thread-code n) (tiles (product (● (out) shape)) 256))))))
 
     ;; The keys and values copied into the ports, then sorted there.
-    (define (sort-steps (gpu Gpu) (b Build) (n Node) (bits I64)) (→ Build) (! mut)
+    (define (sort-steps (gpu Gpu) (b Build) (n Node) (bits I64)) (→ Build)
       (let* ((keys (buffer-of b n "keys"))
              (values (buffer-of b n "values"))
              (count (element-count (list-ref (● n args) 0)))
@@ -519,7 +511,7 @@
              (sorter (make-sorter gpu (string-append (● b label) "/sort") keys values count bits)))
         (step-added copied (Sorting sorter))))
 
-    (define (scan-steps (gpu Gpu) (b Build) (n Node)) (→ Build) (! mut)
+    (define (scan-steps (gpu Gpu) (b Build) (n Node)) (→ Build)
       (let* ((out (buffer-of b n default-port))
              (scan (make-scan gpu (string-append (● b label) "/scan")
                               out
@@ -527,7 +519,7 @@
         (step-added (copied-into gpu b (list-ref (● n args) 0) out) (Scanning scan))))
 
     ;; A view's elements written densely into `buffer`.
-    (define (copied-into (gpu Gpu) (b Build) (view View) (buffer GpuBuffer)) (→ Build) (! mut)
+    (define (copied-into (gpu Gpu) (b Build) (view View) (buffer GpuBuffer)) (→ Build)
       (if (fill? view)
           (dispatched gpu b
                       (copy-code view)
@@ -543,7 +535,7 @@
 
     ;; Every port zeroed, then each kernel over the bindings it uses: the
     ;; arguments first, then the ports.
-    (define (custom-steps (gpu Gpu) (b Build) (n Node) (c Custom)) (→ Build) (! mut)
+    (define (custom-steps (gpu Gpu) (b Build) (n Node) (c Custom)) (→ Build)
       (let ((buffers (append (map (lambda (a) (view-buffer b a)) (● n args))
                              (map (lambda (port) (buffer-of b n (● port name))) (● n ports)))))
         (fold-left (lambda (b kernel)
@@ -565,7 +557,6 @@
     ;; reduced the same way, level by level, until one part is left.
     (define (reduce-steps (gpu Gpu) (b Build) (n Node) (op Reduction) (axes (List I64)))
       (→ Build)
-      (! mut)
       (let* ((a (list-ref (● n args) 0))
              (span (product (map (lambda (k) (list-ref (shape-of a) k)) axes)))
              (outputs (product (● (port-of n default-port) shape))))
@@ -580,7 +571,6 @@
                            (span I64)
                            (from (Option GpuBuffer)))
       (→ Build)
-      (! mut)
       (let* ((parts (tiles span 4096))
              (a (list-ref (● n args) 0))
              (code (level-code n op outputs span parts (some? from)))
@@ -618,7 +608,6 @@
     ;; copy otherwise; and a buffer to read it back through.
     (define (sink-built (gpu Gpu) (state (Pair Build (List Sink))) (view View))
       (→ (Pair Build (List Sink)))
-      (! mut)
       (let* ((b (● state first))
              (size (max 4 (* 4 (element-count view))))
              (direct (and (identity? view)
@@ -661,7 +650,7 @@
 
     ;; ---- Running ----
 
-    (define (write-param (gpu Gpu) (program Program) (name String) (data Bytes)) (→ Unit) (! mut)
+    (define (write-param (gpu Gpu) (program Program) (name String) (data Bytes)) (→ Unit)
       (match (table-ref (● program params) name)
         ((Some binding)
          (unless (= (array-length data) (* 4 (product (● binding port shape))))
@@ -684,16 +673,16 @@
     ;; Each param of `to` that `from` has by name copied over, as much as
     ;; both hold from the start: a cloud's rows, when a program compiled
     ;; for a larger capacity takes over from one for a smaller.
-    (define (run-program (gpu Gpu) (program Program)) (→ Unit) (! mut)
+    (define (run-program (gpu Gpu) (program Program)) (→ Unit)
       (run-steps gpu (● program steps)))
 
-    (define (run-steps (gpu Gpu) (steps (List Step))) (→ Unit) (! mut)
+    (define (run-steps (gpu Gpu) (steps (List Step))) (→ Unit)
       (let* ((encoder (create-command-encoder gpu)) (pass (begin-compute-pass gpu encoder)))
         (for-each (lambda (step) (run-step gpu pass step)) steps)
         (end-compute-pass gpu pass)
         (submit gpu (list (finish gpu encoder)))))
 
-    (define (run-step (gpu Gpu) (pass GpuComputePass) (step Step)) (→ Unit) (! mut)
+    (define (run-step (gpu Gpu) (pass GpuComputePass) (step Step)) (→ Unit)
       (match step
         ((Dispatch pipeline group x y _ _)
          (set-compute-pipeline gpu pass pipeline)
@@ -703,7 +692,7 @@
         ((Scanning scan) (dispatch-scan gpu pass scan))))
 
     ;; Sink `k`'s bytes as the last run left them.
-    (define (read-sink (gpu Gpu) (program Program) (k I64)) (→ Bytes) (! mut)
+    (define (read-sink (gpu Gpu) (program Program) (k I64)) (→ Bytes)
       (let ((sink (list-ref (● program sinks) k)) (encoder (create-command-encoder gpu)))
         (copy-buffer-to-buffer gpu encoder
                                (● sink buffer)
@@ -715,7 +704,7 @@
         (read-buffer gpu (● sink readback) 0 (i64->i32 (● sink size)))))
 
     ;; A param's bytes, through a buffer made for the reading.
-    (define (read-param (gpu Gpu) (program Program) (name String)) (→ Bytes) (! mut)
+    (define (read-param (gpu Gpu) (program Program) (name String)) (→ Bytes)
       (match (table-ref (● program params) name)
         ((Some binding)
          (let* ((size (bytes-of (● binding port)))
@@ -732,7 +721,7 @@
              data)))
         ((None) (panic (string-append "tensor: the program has no param " name)))))
 
-    (define (release-program (gpu Gpu) (program Program)) (→ Unit) (! mut)
+    (define (release-program (gpu Gpu) (program Program)) (→ Unit)
       (for-each (lambda (step)
                   (match step
                     ((Sorting sorter) (release-sorter gpu sorter))
@@ -749,7 +738,7 @@
     (record Stash
       ((params (Table Binding))))
 
-    (define (stash-params (gpu Gpu) (program Program)) (→ Stash) (! mut)
+    (define (stash-params (gpu Gpu) (program Program)) (→ Stash)
       (let* ((encoder (create-command-encoder gpu))
              (copies (map (lambda (name)
                             (match (table-ref (● program params) name)
@@ -775,7 +764,7 @@
 
     ;; Each stashed param copied into the program's of the same name, as
     ;; much of it as both hold, and the stash destroyed.
-    (define (unstash-params (gpu Gpu) (stash Stash) (program Program)) (→ Unit) (! mut)
+    (define (unstash-params (gpu Gpu) (stash Stash) (program Program)) (→ Unit)
       (let ((encoder (create-command-encoder gpu)))
         (for-each (lambda (name)
                     (match (new Pair
@@ -806,7 +795,6 @@
     ;; a round trip to the device, but it shows where a program's time goes.
     (define (profile-program (gpu Gpu) (clock Clock) (program Program))
       (→ (List (Pair String F64)))
-      (! mut)
       (map (lambda (step)
              (let ((start (monotonic-nanoseconds clock)))
                (run-steps gpu (list step))

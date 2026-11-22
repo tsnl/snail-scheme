@@ -14,7 +14,7 @@
 
 (define (add5) (→ (Fn I64 → I64)) (adder 5))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out ((add5) 10))
   (newline out)
   (display out ((compose (add5) (adder 100)) 1))

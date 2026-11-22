@@ -27,7 +27,7 @@
     ((Lost) "lost")
     ((Resigned) "resigned")))
 
-(define (report (out OutputPort) (name String) (world World)) (→ Unit) (! mut)
+(define (report (out OutputPort) (name String) (world World)) (→ Unit)
   (write-line out (string-append name
                                  ": tick "
                                  (show (● world tick))
@@ -111,7 +111,7 @@
        ((None) "nothing")))
     ((None) "gone")))
 
-(define (watch (out OutputPort) (world World) (ticks I64)) (→ Unit) (! mut)
+(define (watch (out OutputPort) (world World) (ticks I64)) (→ Unit)
   (if (> ticks 0)
       (let ((next (advance world)))
         (for-each (lambda (shot)
@@ -139,7 +139,7 @@
                     (string-append "aims at " (show (● cell x)) "," (show (● cell y))))
                    ((None) "has not fired"))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (define lost (run (started (new-world 1)) 6000))
   (define defended (defend (started (new-world 1)) 1000))
   (write-line out

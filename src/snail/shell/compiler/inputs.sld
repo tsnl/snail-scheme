@@ -61,7 +61,6 @@
                               (loading (List String))
                               (forms (List Syntax)))
       (→ Bytes)
-      (! mut)
       (let* ((key (producer-key (producer-text directories forms)))
              (output (string-append directory "/" key ".syntax")))
         (if (file-exists? fs output)
@@ -74,7 +73,6 @@
 
     (define (print-producer (fs Fs) (path String) (loading (List String)) (forms (List Syntax)))
       (→ Unit)
-      (! mut)
       (write-file fs path (string-append (generating-line loading) "\n" (program-text forms))))
 
     (define (generating-line (loading (List String))) (→ String)
@@ -90,7 +88,7 @@
     ;; diagnostic about the file as a whole, so a resident caller reports
     ;; it and builds again once the file is back.
 
-    (define (read-source-file (fs Fs) (path String)) (→ (List Syntax)) (! mut)
+    (define (read-source-file (fs Fs) (path String)) (→ (List Syntax))
       (if (file-exists? fs path)
           (read-text (read-file fs path) path)
           (compile-error (new Loc (file path) (line 0) (column 0)) "no such file or directory")))
@@ -146,7 +144,8 @@
       (define test-missing-source
         (lambda ()
           (expect
-           (compile-failure (lambda () (read-source-file (host-fs) "build/tests/missing/main.sld")))
+           (compile-failure
+            (lambda () (read-source-file (host-fs (unsafe-host)) "build/tests/missing/main.sld")))
            "build/tests/missing/main.sld: no such file or directory")))
 
       ;; A printed producer reads back as the text its key hashes, and the

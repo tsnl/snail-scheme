@@ -35,7 +35,7 @@
   (Done ((what String))))
 
 (type (Command M)
-      (Fn → M ! mut))
+      (Fn → M))
 
 (define (update (dom Dom) (model Model) (message Msg)) (→ (Pair Model (List (Command Msg))))
   (match message
@@ -52,7 +52,7 @@
 (define (logged (model Model) (what String)) (→ Model)
   (Model-log-set model (append (● model log) (list what))))
 
-(define (indent (dom Dom)) (→ Msg) (! mut)
+(define (indent (dom Dom)) (→ Msg)
   (match (element-by-id dom "text")
     ((Some node)
      (let ((took (insert-text dom node 0 0 "  ")))
@@ -68,7 +68,7 @@
                             (show (● (measure dom node) line-height))))))
     ((None) (Done "no field"))))
 
-(define (late (dom Dom)) (→ Msg) (! mut)
+(define (late (dom Dom)) (→ Msg)
   (match (element-by-id dom "text")
     ((Some node)
      (yield)
@@ -80,10 +80,10 @@
                             (show (string-length (string-property dom node "value")))))))
     ((None) (Done "no field"))))
 
-(define (ask (dom Dom)) (→ Msg) (! mut)
+(define (ask (dom Dom)) (→ Msg)
   (if (confirm dom "Hide the field?") (Hide) (Done "kept")))
 
-(define (missing (dom Dom)) (→ Msg) (! mut)
+(define (missing (dom Dom)) (→ Msg)
   (match (element-by-id dom "text")
     ((Some node) (Done "still there"))
     ((None) (Done "field gone"))))
@@ -132,27 +132,27 @@
 (define (clicked (target String)) (→ Cue)
   (Fire target "click" no-event))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
      (let ((result
-            (with-memory-dom
-             (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
-                   (clicked "indent")
-                   (FireWindow "keydown"
-                               (Event-modifiers-set (Event-key-set no-event "s")
-                                                    control-key))
-                   (clicked "late")
-                   (clicked "hide")
-                   (FireWindow "online" no-event))
-             (lambda (dom)
-               (run-ui dom (new Model (text "") (shown #t) (log (Nil)))
-                       (list (Begin))
-                       (lambda (model message) (update dom model message))
-                       view
-                       window
-                       (lambda (model) (unit))
-                       (lambda (model) (unit)))))))
+            (with-memory-dom mut
+                             (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
+                                   (clicked "indent")
+                                   (FireWindow "keydown"
+                                               (Event-modifiers-set (Event-key-set no-event "s")
+                                                                    control-key))
+                                   (clicked "late")
+                                   (clicked "hide")
+                                   (FireWindow "online" no-event))
+                             (lambda (dom)
+                               (run-ui mut dom (new Model (text "") (shown #t) (log (Nil)))
+                                       (list (Begin))
+                                       (lambda (model message) (update dom model message))
+                                       view
+                                       window
+                                       (lambda (model) (unit))
+                                       (lambda (model) (unit)))))))
        (write-line out (string-append "text: " (● (● result first) text)))
        (for-each (lambda (text) (write-line out text)) (● (● result first) log))
        (write-line out (document->html (● result second)))

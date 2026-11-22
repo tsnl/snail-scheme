@@ -63,7 +63,7 @@
 
     ;; ---- Making ----
 
-    (define (make-scan (gpu Gpu) (label String) (data GpuBuffer) (count I64)) (→ Scan) (! mut)
+    (define (make-scan (gpu Gpu) (label String) (data GpuBuffer) (count I64)) (→ Scan)
       (let* ((module (create-shader-module gpu
                                            (new ShaderModuleDescriptor
                                              (label "scan")
@@ -77,7 +77,6 @@
 
     (define (step-pipeline (gpu Gpu) (module GpuShaderModule) (entry String))
       (→ GpuComputePipeline)
-      (! mut)
       (create-compute-pipeline gpu
                                (new ComputePipelineDescriptor
                                  (label (string-append "scan/" entry))
@@ -89,7 +88,6 @@
 
     (define (levels (gpu Gpu) (label String) (scan Scan) (data GpuBuffer) (count I64))
       (→ (List Level))
-      (! mut)
       (let ((level (level-of gpu label scan data count)))
         (if (<= count 512)
             (list level)
@@ -97,7 +95,6 @@
 
     (define (level-of (gpu Gpu) (label String) (scan Scan) (data GpuBuffer) (count I64))
       (→ Level)
-      (! mut)
       (let ((uniform (level-uniform gpu label count))
             (sums (u32-buffer gpu (string-append label "/sums") (tiles count 512))))
         (new Level
@@ -107,13 +104,13 @@
           (scan-group (level-group gpu label (● scan scan-pipeline) uniform data sums))
           (add-group (level-group gpu label (● scan add-pipeline) uniform data sums)))))
 
-    (define (u32-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer) (! mut)
+    (define (u32-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer)
       (create-buffer gpu (new BufferDescriptor
                            (label label)
                            (size (i64->i32 (* 4 count)))
                            (usage (list (Storage) (CopySrc) (CopyDst))))))
 
-    (define (level-uniform (gpu Gpu) (label String) (count I64)) (→ GpuBuffer) (! mut)
+    (define (level-uniform (gpu Gpu) (label String) (count I64)) (→ GpuBuffer)
       (let ((uniform (create-buffer gpu (new BufferDescriptor
                                           (label (string-append label "/level"))
                                           (size 16)
@@ -130,7 +127,6 @@
                          (data GpuBuffer)
                          (sums GpuBuffer))
       (→ GpuBindGroup)
-      (! mut)
       (create-bind-group gpu (new BindGroupDescriptor
                                (label (string-append "scan/" label))
                                (pipeline (ComputePipeline pipeline))
@@ -145,7 +141,7 @@
     ;; to the level below, from the top down. Dispatches in a pass see the
     ;; writes of those before them.
 
-    (define (dispatch-scan (gpu Gpu) (pass GpuComputePass) (scan Scan)) (→ Unit) (! mut)
+    (define (dispatch-scan (gpu Gpu) (pass GpuComputePass) (scan Scan)) (→ Unit)
       (set-compute-pipeline gpu pass (● scan scan-pipeline))
       (for-each (lambda (level) (dispatch-level gpu pass (● level scan-group) (● level count)))
                 (● scan levels))
@@ -155,12 +151,11 @@
 
     (define (dispatch-level (gpu Gpu) (pass GpuComputePass) (group GpuBindGroup) (count I64))
       (→ Unit)
-      (! mut)
       (set-compute-bind-group gpu pass 0 group)
       (dispatch-rows gpu pass (tiles count 512)))
 
     ;; `count` workgroups in rows of at most 65535.
-    (define (dispatch-rows (gpu Gpu) (pass GpuComputePass) (count I64)) (→ Unit) (! mut)
+    (define (dispatch-rows (gpu Gpu) (pass GpuComputePass) (count I64)) (→ Unit)
       (let ((x (min count 65535)))
         (dispatch-workgroups gpu pass (i64->i32 x) (i64->i32 (tiles count x)) 1)))
 
@@ -171,7 +166,7 @@
 
     ;; Everything the scan made goes at the next submit; the buffer it
     ;; scans stays.
-    (define (release-scan (gpu Gpu) (scan Scan)) (→ Unit) (! mut)
+    (define (release-scan (gpu Gpu) (scan Scan)) (→ Unit)
       (for-each (lambda (level)
                   (for-each (lambda (object) (destroy gpu object))
                             (list (BufferObject (● level uniform))

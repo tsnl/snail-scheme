@@ -11,24 +11,24 @@
   (Done)
   (Yielded
    ((value I64)
-    (next (Fn Unit → Step ! mut)))))
+    (next (Fn Unit → Step)))))
 
-(define (start (body (Fn → Unit ! mut))) (→ Step) (! mut)
+(define (start (body (Fn → Unit))) (→ Step)
   (with-prompt yielding
                (lambda ()
                  (body)
                  (Done))
                (lambda (value resume) (Yielded value resume))))
 
-(define (drain (out OutputPort) (name String) (step Step)) (→ Unit) (! mut)
+(define (drain (out OutputPort) (name String) (step Step)) (→ Unit)
   (match step
     ((Done) (write-line out (string-append name ": done")))
     ((Yielded value next)
      (write-line out (string-append name ": " (show value)))
      (drain out name (next (unit))))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (let ((box (ann (make-mailbox) (Mailbox Step))))
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
+  (let ((box (ann (make-mailbox mut) (Mailbox Step))))
     (dispatch (lambda () (drain out "second task" (mailbox-receive box))))
     (match (start (lambda ()
                     (suspend yielding 1)

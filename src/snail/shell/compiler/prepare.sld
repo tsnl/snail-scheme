@@ -95,7 +95,7 @@
       (cond ((string=? label "?abort") #f)
             ((string=? label "?resume") #t)
             (else (match (table-ref (● declarations types) label)
-                    ((Some (TFun _ prompt _)) (not (never-answered? prompt)))
+                    ((Some (TFun _ prompt)) (not (never-answered? prompt)))
                     (_ #t)))))
 
     ;; ---- Flows ----
@@ -151,7 +151,6 @@
         ((Ann inner _) (application-flow declarations inner args))
         ((Var "prim:suspend" _ _) (To (list (prompt-label declarations (list-ref args 0)))))
         ((Var "prim:with-prompt" _ _) (delimited-flow declarations args))
-        ((Var "prim:unsafe-total" _ _) (procedure-flow declarations (list-ref args 0)))
         ((Var "prim:array-generate" _ _) (procedure-flow declarations (list-ref args 1)))
         ((Var "prim:string-generate" _ _) (procedure-flow declarations (list-ref args 1)))
         ((Var name _ _)
@@ -195,7 +194,7 @@
 
     (define (primitive-flow (name String) (type Type)) (→ Flow)
       (match type
-        ((TFun params _ _)
+        ((TFun params _)
          (if (string=? name "prim:suspend")
              (To (list (unnamed-prompt (list-ref params 0))))
              (either (map (lambda (param) (Applying (type-key param)))
@@ -204,7 +203,7 @@
 
     (define (function-type? (type Type)) (→ Bool)
       (match type
-        ((TFun _ _ _) #t)
+        ((TFun _ _) #t)
         (_ #f)))
 
     ;; ---- Suspensions ----
@@ -305,7 +304,7 @@
         ((Var "prim:with-prompt" _ _)
          (match (● (list-ref args 0) type)
            ((TCon "Prompt" (Cons _ (Cons answer (Nil))))
-            (list (typed-equation (TFun (list answer) (● expr type) empty-row)
+            (list (typed-equation (TFun (list answer) (● expr type))
                                   (delimited-flow declarations args))))
            (_ (panic "internal error: a prompt has the Prompt type"))))
         (_ (Nil))))
@@ -438,7 +437,7 @@
         ((Var name _ _)
          (when (member? name (list "prim:cache" "prim:lru-cache"))
            (match (● expr type)
-             ((TFun _ (TFun params _ _) _)
+             ((TFun _ (TFun params _))
               (for-each (lambda (type) (check-cache-key type (● expr loc))) params))
              (_ (panic "internal error: checking refuses a cache of an unknown signature")))))
         (_ (unit)))
@@ -501,7 +500,7 @@
                              scrutinee
                              (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
-          ((FieldWrite _ _ _ _) (panic "internal error: field selection survived checking"))
+          ((FieldWrite _ _ _ _ _) (panic "internal error: field selection survived checking"))
           ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner type)
            (threading count ((inner (normal suspensions inner)))
@@ -670,45 +669,44 @@
 
           (define number (lambda (n) (expr (Lit (DInt n)) i64)))
 
-          (define function-result (lambda (type) (match type ((TFun _ result _) result) (_ i64))))
+          (define function-result (lambda (type) (match type ((TFun _ result) result) (_ i64))))
 
           (define call
             (lambda (callee args) (expr (App callee args) (function-result (● callee type)))))
 
           (define thunk
-            (lambda (body) (expr (Lambda (Nil) body) (TFun (Nil) (● body type) empty-row))))
+            (lambda (body) (expr (Lambda (Nil) body) (TFun (Nil) (● body type)))))
 
           ;; `t:f` and `t:predicate` suspend, to a prompt something resumes;
           ;; `t:g` and `t:add` never do.
-          (define f (local "t:f" (TFun (list i64) i64 empty-row)))
+          (define f (local "t:f" (TFun (list i64) i64)))
 
-          (define g (local "t:g" (TFun (list i64) i64 empty-row)))
+          (define g (local "t:g" (TFun (list i64) i64)))
 
-          (define predicate (local "t:predicate" (TFun (list) bool empty-row)))
+          (define predicate (local "t:predicate" (TFun (list) bool)))
 
-          (define add (local "t:add" (TFun (list i64 i64) i64 empty-row)))
+          (define add (local "t:add" (TFun (list i64 i64) i64)))
 
           ;; A prompt a top-level value holds, and reads of it.
           (define stopping-type (TCon "Prompt" (list i64 never)))
 
           (define pausing-type (TCon "Prompt" (list i64 unit-type)))
 
-          (define stopping (call (local "t:stopping" (TFun (Nil) stopping-type empty-row)) (Nil)))
+          (define stopping (call (local "t:stopping" (TFun (Nil) stopping-type)) (Nil)))
 
-          (define pausing (call (local "t:pausing" (TFun (Nil) pausing-type empty-row)) (Nil)))
+          (define pausing (call (local "t:pausing" (TFun (Nil) pausing-type)) (Nil)))
 
           (define suspend
             (lambda (prompt)
               (call (local "prim:suspend"
                            (TFun (list (● prompt type) i64)
                                  (match (● prompt type)
-                                   ((TCon _ (Cons _ (Cons answer (Nil)))) answer))
-                                 empty-row))
+                                   ((TCon _ (Cons _ (Cons answer (Nil)))) answer))))
                     (list prompt (number 1)))))
 
           (define with-prompt
             (lambda (prompt body handler)
-              (expr (App (local "prim:with-prompt" (TFun (Nil) i64 empty-row))
+              (expr (App (local "prim:with-prompt" (TFun (Nil) i64))
                          (list prompt body handler))
                     i64)))
 
@@ -717,16 +715,16 @@
               (program (program-with-value
                         (program-with-value empty-program
                                             "prim:suspend"
-                                            (Primitive (mono-scheme (TFun (Nil) i64 empty-row))))
+                                            (Primitive (mono-scheme (TFun (Nil) i64))))
                         "prim:with-prompt"
-                        (Primitive (mono-scheme (TFun (Nil) i64 empty-row)))))
+                        (Primitive (mono-scheme (TFun (Nil) i64)))))
               (types (fold-left (lambda (types entry)
                                   (table-set types (● entry first) (● (● entry second) type)))
                                 (table-set (table-set (empty-table)
                                                       "t:stopping"
-                                                      (TFun (Nil) stopping-type empty-row))
+                                                      (TFun (Nil) stopping-type))
                                            "t:pausing"
-                                           (TFun (Nil) pausing-type empty-row))
+                                           (TFun (Nil) pausing-type))
                                 (list (new Pair (first "t:f") (second f))
                                       (new Pair (first "t:g") (second g))
                                       (new Pair (first "t:predicate") (second predicate))
@@ -784,9 +782,8 @@
           (define test-delimited
             (lambda ()
               (let ((handler (expr (Lambda (list "value.1" "resume.1") (number 0))
-                                   (TFun (list i64 (TFun (list never) i64 empty-row))
-                                         i64
-                                         empty-row))))
+                                   (TFun (list i64 (TFun (list never) i64))
+                                         i64))))
                 (expect
                  (yields suspensions (with-prompt stopping (thunk (suspend stopping)) handler))
                  (Nil))
@@ -824,13 +821,11 @@
                            (name name)
                            (value (expr (Lambda params body)
                                         (TFun (map (lambda (param) i64) params)
-                                              (● body type)
-                                              empty-row))))))
-                     (callback (TFun (Nil) i64 empty-row))
+                                              (● body type)))))))
+                     (callback (TFun (Nil) i64))
                      (handler (expr (Lambda (list "value.1" "resume.1") (number 0))
-                                    (TFun (list i64 (TFun (list unit-type) i64 empty-row))
-                                          i64
-                                          empty-row)))
+                                    (TFun (list i64 (TFun (list unit-type) i64))
+                                          i64)))
                      (definitions
                        (list (definition "t:leaf" (Nil) (suspend pausing))
                              (definition "t:even" (Nil) (call (local "t:odd" callback) (Nil)))

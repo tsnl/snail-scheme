@@ -11,10 +11,10 @@
  (lpc catalog)
  (lpc wardrobe))
 
-(define (missing (fs Fs) (paths (List String))) (→ (List String)) (! mut)
+(define (missing (fs Fs) (paths (List String))) (→ (List String))
   (filter (lambda (path) (not (file-exists? fs path))) paths))
 
-(define (report (fs Fs) (out OutputPort) (title String) (paths (List String))) (→ Unit) (! mut)
+(define (report (fs Fs) (out OutputPort) (title String) (paths (List String))) (→ Unit)
   (write-line out (string-append title
                                  ": "
                                  (show (length paths))
@@ -45,7 +45,7 @@
 (define (cell-text (cell Rect)) (→ String)
   (string-append "cell at " (show (● cell x)) "," (show (● cell y))))
 
-(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
+(define (main (fs Fs) (out OutputPort)) (→ Unit)
 
   (report fs out "bodies"
           (concatenate

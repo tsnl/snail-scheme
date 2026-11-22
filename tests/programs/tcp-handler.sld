@@ -20,7 +20,7 @@
 (record Buffer
   ((bytes Bytes)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
@@ -42,14 +42,15 @@
                             (● (fixture-convert (● connection token) Buffer) bytes)))))
                   (write (lambda (connection bytes)
                            (sleep 1)
-                           (set! (● (fixture-convert (● connection token) Buffer) bytes) bytes)
+                           (set! mut (● (fixture-convert (● connection token) Buffer) bytes) bytes)
                            (Ok (i64->i32 (array-length bytes)))))
                   (close-listener (lambda (_) (Ok (unit))))
                   (finish-connection (lambda (connection grace)
                                        (sleep 1)
                                        (display out grace)
                                        (newline out)
-                                       (set! (● (fixture-convert (● connection token) Buffer) bytes)
+                                       (set! mut
+                                             (● (fixture-convert (● connection token) Buffer) bytes)
                                              #u8())
                                        (Ok (unit))))
                   (close-connection (lambda (_) (Ok (unit)))))))

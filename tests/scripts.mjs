@@ -16,9 +16,9 @@ const write = async (name, text) => {
   await writeFile(join(workspace, name), text);
 };
 const script = `(import (snail core base) (snail core io) (tools greeting))
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (arguments Arguments) (out OutputPort)) (→ Unit)
   (write-line out (greeting))
-  (match (command-line)
+  (match (command-line arguments)
     ((Cons _ rest) (for-each (lambda (argument) (write-line out argument)) rest))
     ((Nil) (unit))))
 `;
@@ -53,7 +53,7 @@ try {
     assert.deepEqual(started, packaged, 'as it does through npm');
   } finally { await rm(elsewhere, {recursive: true, force: true}); }
 
-  await write('apps/drawing/main.scm', '(import (snail core base) (snail core io) (snail shell gpu)) (define (main (out OutputPort)) (→ Unit) (! mut) (write-line out "no device asked for"))');
+  await write('apps/drawing/main.scm', '(import (snail core base) (snail core io) (snail shell gpu)) (define (main (out OutputPort)) (→ Unit) (write-line out "no device asked for"))');
   const drawing = join(workspace, 'build/apps/drawing/main');
   await command('build', '--target', 'node', 'apps/drawing/main.scm');
   const pinned = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).dependencies;

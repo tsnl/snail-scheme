@@ -131,7 +131,6 @@
                         (drawing Drawing)
                         (art (Fn String → (Option Source))))
       (→ Drawing)
-      (! mut)
       (let ((time (quotient (monotonic-nanoseconds clock) 1000000)))
         (match (● shell screen)
           ((Rumors screen)

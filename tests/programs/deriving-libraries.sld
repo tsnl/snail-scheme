@@ -18,7 +18,7 @@
 
 (define (copy) (→ Route) (ann (deserialize (serialize (route))) Route))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (stop)
               (display out (● stop label))
               (display out " ")

@@ -24,14 +24,14 @@
    "(foo alpha beta gamma delta epsilon) ; fits: the comment does not count\n"
    "(foo alpha beta gamma delta epsilon zeta) ; stays on the last line\n"
    "(define message \"a string much longer than forty columns cannot break\")\n"
-   "(define (run (config Config) (args (List String))) (→ Status) (! fs output-port) (status config args))\n"
+   "(define (run (config Config) (args (List String))) (→ Status) (status config args))\n"
    "(bytes #u8(1 2 3 4 5 6 7 8 9 10 11 12 13 14))\n"
    "(display \"one\") (display \"two\") (display \"three\")\n"))
 
 ;; Binding bodies dedent both on format and when the editor indents one line.
 (define (result-bindings) (→ String) "(result-let* ((a (Ok 1)))\n(Ok a))\n")
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (define broken (format-source (long) 40))
   (write-string out (format-source (source) format-width))
   (write-string out broken)

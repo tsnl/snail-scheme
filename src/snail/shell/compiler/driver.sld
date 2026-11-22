@@ -25,11 +25,11 @@
     ;; libraries are found. A program that reaches a generated library
     ;; needs a build, which runs producers ((snail shell project build)).
 
-    (define (compile-arguments (fs Fs) (arguments (List String))) (→ Unit) (! mut)
+    (define (compile-arguments (mut Mut) (fs Fs) (arguments (List String))) (→ Unit)
       (match arguments
         ((Cons target (Cons source (Cons output directories)))
          (match (compiling (lambda ()
-                             (source->wat fs directories
+                             (source->wat mut fs directories
                                           source
                                           (lambda (loading forms) (needs-a-build))
                                           (Some (list "snail" "target" target))

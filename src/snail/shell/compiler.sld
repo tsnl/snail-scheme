@@ -41,7 +41,6 @@
                              (target (Option (List String)))
                              (known (List LinkedFile)))
       (→ Checked)
-      (! mut)
       (let ((expanded (expand-program fs directories generate target known source)))
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
@@ -53,19 +52,18 @@
        (libraries (List String))
        (links (List LinkedFile))))
 
-    (define (source->wat (fs Fs) (directories (List String))
+    (define (source->wat (mut Mut) (fs Fs) (directories (List String))
                          (source String)
                          (generate Generate)
                          (target (Option (List String)))
                          (known (List LinkedFile)))
       (→ WholeProgram)
-      (! mut)
-      (checked->wat (source->checked fs directories source generate target known)))
+      (checked->wat mut (source->checked fs directories source generate target known)))
 
-    (define (checked->wat (checked Checked)) (→ WholeProgram) (! mut)
+    (define (checked->wat (mut Mut) (checked Checked)) (→ WholeProgram)
       (let ((expanded (● checked expanded)))
         (new WholeProgram
-          (text (wat->string (emit-module (prepare-program (● checked typed)))))
+          (text (wat->string (emit-module mut (prepare-program (● checked typed)))))
           (libraries (map (lambda (library) (● library first)) (● (● expanded program) libraries)))
           (links (program-links expanded)))))
 

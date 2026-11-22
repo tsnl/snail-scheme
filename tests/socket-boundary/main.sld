@@ -29,15 +29,15 @@
 (define (requests) (→ Requests) (new Requests (slots (Nil))))
 (expose requests "requests")
 
-(define (request (tcp Tcp)
+(define (request (mut Mut) (tcp Tcp)
                  (udp Udp)
                  (scheduler Scheduler)
                  (requests Requests)
-                 (work (Fn → Any ! mut)))
-  (→ I64) (! mut)
+                 (work (Fn → Any)))
+  (→ I64)
   (let* ((slot (new Slot (value (None))))
-         (id (dispatch-in scheduler (lambda () (set! (● slot value) (Some (work)))))))
-    (set! (● requests slots) (Cons (new Pair (first id) (second slot)) (● requests slots)))
+         (id (dispatch-in scheduler (lambda () (set! mut (● slot value) (Some (work)))))))
+    (set! mut (● requests slots) (Cons (new Pair (first id) (second slot)) (● requests slots)))
     id))
 
 (define (slot (requests Requests) (id I64)) (→ Slot)
@@ -50,11 +50,11 @@
     ((Some _) #t)
     ((None) #f)))
 
-(define (answer (requests Requests) (id I64)) (→ Any) (! mut)
+(define (answer (mut Mut) (requests Requests) (id I64)) (→ Any)
   (match (● (slot requests id) value)
     ((Some result)
-     (set! (● requests slots) (filter (lambda (entry) (not (= (● entry first) id)))
-                                      (● requests slots)))
+     (set! mut (● requests slots) (filter (lambda (entry) (not (= (● entry first) id)))
+                                          (● requests slots)))
      result)
     ((None) (panic "the request has not answered"))))
 
@@ -72,7 +72,7 @@
     ((Ok value) value)
     ((Err error) (panic (● error code)))))
 
-(define (open (tcp Tcp)) (→ (Result Listener SocketError)) (! mut)
+(define (open (tcp Tcp)) (→ (Result Listener SocketError))
   (listen tcp (require (endpoint "127.0.0.1" 0))))
 
 (define (listener (answer Any)) (→ Listener)
@@ -80,12 +80,11 @@
 
 (define (port (listener Listener)) (→ I32) (● listener port))
 
-(define (dial (tcp Tcp) (port I32)) (→ (Result Connection SocketError)) (! mut)
+(define (dial (tcp Tcp) (port I32)) (→ (Result Connection SocketError))
   (connect tcp (require (endpoint "127.0.0.1" port))))
 
 (define (take (tcp Tcp) (listener Listener))
   (→ (Result Connection SocketError))
-  (! mut)
   (accept tcp listener))
 
 (define (connection (answer Any)) (→ Connection)
@@ -93,7 +92,6 @@
 
 (define (receive (tcp Tcp) (connection Connection) (count I32))
   (→ (Result (Option Bytes) SocketError))
-  (! mut)
   (read tcp connection count))
 
 (define (read-count (answer Any)) (→ I32)
@@ -113,30 +111,26 @@
 
 (define (send (tcp Tcp) (connection Connection))
   (→ (Result I32 SocketError))
-  (! mut)
   (write tcp connection #u8(0 255 128 1)))
 
 (define (written (answer Any)) (→ I32)
   (require (fixture-convert answer (Result I32 SocketError))))
 
-(define (overwrite (tcp Tcp)) (→ Bool) (! mut)
+(define (overwrite (tcp Tcp)) (→ Bool)
   (match (write tcp (new Connection (token (Any (ann 1 I32)))) #u8(9 8 7))
     ((Err error) (string=? (● error code) "EBADF"))
     ((Ok _) #f)))
 
 (define (stop-listener (tcp Tcp) (listener Listener))
   (→ Unit)
-  (! mut)
   (require (close-listener tcp listener)))
 
 (define (stop-connection (tcp Tcp) (connection Connection))
   (→ Unit)
-  (! mut)
   (require (close-connection tcp connection)))
 
 (define (finish (tcp Tcp) (connection Connection) (grace I32))
   (→ (Result Unit SocketError))
-  (! mut)
   (finish-connection tcp connection grace))
 
 (define (finished? (answer Any)) (→ Bool)
@@ -149,56 +143,54 @@
     ((Err error) (string=? (● error code) "ETIMEDOUT"))
     ((Ok _) #f)))
 
-(define (begin-open (tcp Tcp) (udp Udp) (scheduler Scheduler) (requests Requests))
+(define (begin-open (mut Mut) (tcp Tcp) (udp Udp) (scheduler Scheduler) (requests Requests))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (open tcp)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (open tcp)))))
 
-(define (begin-dial (tcp Tcp) (udp Udp) (scheduler Scheduler) (requests Requests) (port I32))
+(define (begin-dial (mut Mut)
+                    (tcp Tcp)
+                    (udp Udp)
+                    (scheduler Scheduler)
+                    (requests Requests)
+                    (port I32))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (dial tcp port)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (dial tcp port)))))
 
-(define (begin-take (tcp Tcp)
+(define (begin-take (mut Mut) (tcp Tcp)
                     (udp Udp)
                     (scheduler Scheduler)
                     (requests Requests)
                     (listener Listener))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (take tcp listener)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (take tcp listener)))))
 
-(define (begin-receive (tcp Tcp) (udp Udp) (scheduler Scheduler)
+(define (begin-receive (mut Mut) (tcp Tcp) (udp Udp) (scheduler Scheduler)
                        (requests Requests)
                        (connection Connection)
                        (count I32))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (receive tcp connection count)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (receive tcp connection count)))))
 
-(define (begin-send (tcp Tcp)
+(define (begin-send (mut Mut) (tcp Tcp)
                     (udp Udp)
                     (scheduler Scheduler)
                     (requests Requests)
                     (connection Connection))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (send tcp connection)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (send tcp connection)))))
 
-(define (begin-overwrite (tcp Tcp) (udp Udp) (scheduler Scheduler) (requests Requests))
+(define (begin-overwrite (mut Mut) (tcp Tcp) (udp Udp) (scheduler Scheduler) (requests Requests))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (overwrite tcp)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (overwrite tcp)))))
 
-(define (begin-finish (tcp Tcp)
+(define (begin-finish (mut Mut) (tcp Tcp)
                       (udp Udp)
                       (scheduler Scheduler)
                       (requests Requests)
                       (connection Connection)
                       (grace I32))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (finish tcp connection grace)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (finish tcp connection grace)))))
 
 (expose begin-open "begin-open")
 (expose listener "listener")
@@ -221,7 +213,6 @@
 
 (define (open-udp (udp Udp))
   (→ UdpSocket)
-  (! mut)
   (require (bind udp (require (endpoint "127.0.0.1" 0)))))
 
 (define (udp-socket (answer Any)) (→ UdpSocket)
@@ -231,12 +222,10 @@
 
 (define (send-udp (udp Udp) (socket UdpSocket) (port I32))
   (→ (Result I32 SocketError))
-  (! mut)
   (udp-send udp socket (require (endpoint "127.0.0.1" port)) #u8(0 255 128 1)))
 
 (define (receive-udp (udp Udp) (socket UdpSocket) (count I32))
   (→ (Result Datagram SocketError))
-  (! mut)
   (udp-receive udp socket count))
 
 (define (datagram (answer Any)) (→ Datagram)
@@ -249,32 +238,29 @@
 (define (packet-byte (answer Any) (index I32)) (→ I32)
   (u8->i32 (array-ref (● (datagram answer) bytes) (i32->i64 index))))
 
-(define (stop-udp (udp Udp) (socket UdpSocket)) (→ Unit) (! mut) (require (close-udp udp socket)))
+(define (stop-udp (udp Udp) (socket UdpSocket)) (→ Unit) (require (close-udp udp socket)))
 
-(define (begin-open-udp (tcp Tcp) (udp Udp) (scheduler Scheduler) (requests Requests))
+(define (begin-open-udp (mut Mut) (tcp Tcp) (udp Udp) (scheduler Scheduler) (requests Requests))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (open-udp udp)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (open-udp udp)))))
 
-(define (begin-send-udp (tcp Tcp)
+(define (begin-send-udp (mut Mut) (tcp Tcp)
                         (udp Udp)
                         (scheduler Scheduler)
                         (requests Requests)
                         (socket UdpSocket)
                         (port I32))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (send-udp udp socket port)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (send-udp udp socket port)))))
 
-(define (begin-receive-udp (tcp Tcp)
+(define (begin-receive-udp (mut Mut) (tcp Tcp)
                            (udp Udp)
                            (scheduler Scheduler)
                            (requests Requests)
                            (socket UdpSocket)
                            (count I32))
   (→ I64)
-  (! mut)
-  (request tcp udp scheduler requests (lambda () (Any (receive-udp udp socket count)))))
+  (request mut tcp udp scheduler requests (lambda () (Any (receive-udp udp socket count)))))
 
 (expose begin-open-udp "begin-open-udp")
 (expose udp-socket "udp-socket")

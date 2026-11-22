@@ -31,7 +31,7 @@
 ;; replacement expression can inspect the record's fields.
 (record Job
   ((at Point)
-   (work (Fn → Unit ! mut))))
+   (work (Fn → Unit))))
 
 (define (flip (job Job)) (→ Job)
   (Job-at-set job (new Point (x (● (● job at) y)) (y (● (● job at) x)))))
@@ -71,7 +71,7 @@
 (define (build) (→ Segment)
   (new Segment (from (new Point (x (ask)) (y 0))) (to (new Point (x 0) (y (ask)))) (label "asked")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
 
   ;; Nested construction, a chain of accessors, and a nested pattern.
   (let ((segment (new Segment
@@ -117,15 +117,15 @@
     (_ (panic "expected dot")))
   (let ((cursor
          (new Cursor (home (new Point (x 0) (y 0))) (clicks 0) (last (new Point (x 1) (y 1))))))
-    (set! (● cursor clicks) (+ (● cursor clicks) 1))
-    (set! (● cursor last) (new Point (x 2) (y 2)))
+    (set! mut (● cursor clicks) (+ (● cursor clicks) 1))
+    (set! mut (● cursor last) (new Point (x 2) (y 2)))
     (write-line out (string-append (show (● cursor clicks))
                                    " "
                                    (show-point (● cursor home))
                                    " "
                                    (show-point (● cursor last))))
     (write-line out (show-point (● cursor last)))
-    (set! (● cursor last) (new Point (x 3) (y 3)))
+    (set! mut (● cursor last) (new Point (x 3) (y 3)))
     (write-line out (show-point (● cursor last))))
   ;; Accessors are functions too, and an Any holds a Point as itself.
   (write-line out

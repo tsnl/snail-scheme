@@ -43,7 +43,7 @@
     ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
     ((Err _) "requested")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-string out (printed shader))
   (write-line out (printed "(fn main (x) (return x))"))
   (write-line out (printed "(struct S (x))"))

@@ -44,7 +44,6 @@
     ;; other path. The paths' files are read now, as bytes.
     (define (embed-library (fs Fs) (name (List String)) (first-key I32) (paths (List String)))
       (→ Syntax)
-      (! mut)
       (library-syntax name
                       (list "art")
                       (list (list "snail" "core" "base") (list "snail" "shell" "graphics" "atlas"))
@@ -74,7 +73,7 @@
 
     ;; An image is a thunk of its bytes, so they are copied out of their
     ;; data segment only when the host asks for them.
-    (define (image-definitions (fs Fs) (index I64) (path String)) (→ (List Syntax)) (! mut)
+    (define (image-definitions (fs Fs) (index I64) (path String)) (→ (List Syntax))
       (list (form "define"
                   (list (ListSyntax (list (image-name index)))
                         (form "→" (list (SymbolSyntax "Bytes")))

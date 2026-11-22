@@ -13,7 +13,7 @@ in `snail-scheme`:
 | `(tasks-wake! scheduler ticket)` | Cross the ticket off the task waiting on it, readying the task once none is left; a stale ticket does nothing. |
 | `(tasks-close! scheduler)` | Forget every queued, sleeping and waiting task; none runs again. |
 | `(through-host start finish)` | Wait on a host operation by ticket ([below](#waiting-on-the-host)). |
-| `(make-mailbox)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. |
+| `(make-mailbox mut)` | A new, empty `(Mailbox T)`: a queue of messages between tasks. It keeps the `Mut` it is made with, so posting and receiving take none. |
 | `(mailbox-post mailbox message)` | Add a message at the back. Posting never waits. |
 | `(mailbox-receive mailbox)` | Take the message at the front, waiting until one is posted. |
 | `(mailbox-try-receive mailbox)` | Take the message at the front, or answer `None` at once when there is none. |
@@ -24,7 +24,7 @@ in `snail-scheme`:
  (snail core io)
  (snail shell task))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
      (yield)
@@ -71,7 +71,7 @@ task, to run when the wait is over.
 
 (define waiting (→ (Prompt Wait Unit)) (make-prompt))
 
-(define (start-task (work (Fn → Unit ! mut))) (→ Step) (! mut)
+(define (start-task (work (Fn → Unit))) (→ Step)
   (with-prompt waiting
                (lambda ()
                  (work)
@@ -80,9 +80,9 @@ task, to run when the wait is over.
 
 (enum Step
   (Finished)
-  (Yielded ((next (Fn → Step ! mut))))
-  (Sleeping ((delay I64) (next (Fn → Step ! mut))))
-  (Waiting ((tickets (List I64)) (next (Fn → Step ! mut)))))
+  (Yielded ((next (Fn → Step))))
+  (Sleeping ((delay I64) (next (Fn → Step))))
+  (Waiting ((tickets (List I64)) (next (Fn → Step)))))
 ```
 
 The scheduler keeps every task that is not running in exactly one list:
@@ -135,7 +135,7 @@ the rest of the turn's tasks, and a late wake finds nothing.
 
 ## Locality
 
-Dispatched work is an `(Fn → Unit ! mut)`: what it may change is what it
+Dispatched work is an `(Fn → Unit)`: what it may change is what it
 closed over. It may suspend to any prompt whose `with-prompt` runs inside
 it; a suspension to a `with-prompt` around the `dispatch` finds none
 running when the task runs later, and panics there
@@ -162,13 +162,13 @@ asynchronous reads.
 ## Native asynchronous file reads
 
 `(snail shell async-files)` exports the capability `Files`. Its
-`read-file : Files String I32 -> Result<Bytes, FileError> ! mut` reads
+`read-file : Files String I32 -> Result<Bytes, FileError>` reads
 an entire file up to the supplied byte limit. It suspends the calling task
 while other tasks run. A task that has other work meanwhile dispatches the
 read and receives its result through a [mailbox](#mailboxes):
 
 ```scheme
-(let ((results (make-mailbox)))
+(let ((results (make-mailbox mut)))
   (dispatch (lambda ()
               (mailbox-post results (file-read-file files "notes.txt" 1048576))))
   ;; Other work can happen here; dispatch did not wait.
@@ -224,13 +224,13 @@ not `receive`, because `(snail shell socket)` exports UDP's `receive`, and a
 program importing both libraries would have conflicting imports.
 
 ```scheme
-(let ((mailbox (make-mailbox)))
+(let ((mailbox (make-mailbox mut)))
   (dispatch (lambda () (write-line out (mailbox-receive mailbox))))
   (dispatch (lambda () (mailbox-post mailbox "hello"))))
 ```
 
 A receiver that finds the queue empty takes a ticket, keeps in the
-mailbox a waker, `(Fn → Unit ! mut)`, closed over its scheduler and that
+mailbox a waker, `(Fn → Unit)`, closed over its scheduler and that
 ticket, and awaits the ticket. A waker only moves its task to the ready
 list, so any code may call it: another task, or code between turns. A
 call after the task was woken, or once its scheduler has closed, wakes

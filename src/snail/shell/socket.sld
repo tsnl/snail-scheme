@@ -20,6 +20,7 @@
    SocketError)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (prefix (snail runtime native socket) host-)
    (only (snail shell task) through-host))
   (begin
@@ -111,51 +112,46 @@
       ((code String)))
 
     (record Tcp
-      ((listen (Fn Endpoint → (Result Listener SocketError) ! mut))
-       (connect (Fn Endpoint → (Result Connection SocketError) ! mut))
-       (accept (Fn Listener → (Result Connection SocketError) ! mut))
-       (read (Fn Connection I32 → (Result (Option Bytes) SocketError) ! mut))
-       (write (Fn Connection Bytes → (Result I32 SocketError) ! mut))
-       (finish-connection (Fn Connection I32 → (Result Unit SocketError) ! mut))
-       (close-listener (Fn Listener → (Result Unit SocketError) ! mut))
-       (close-connection (Fn Connection → (Result Unit SocketError) ! mut))))
+      ((listen (Fn Endpoint → (Result Listener SocketError)))
+       (connect (Fn Endpoint → (Result Connection SocketError)))
+       (accept (Fn Listener → (Result Connection SocketError)))
+       (read (Fn Connection I32 → (Result (Option Bytes) SocketError)))
+       (write (Fn Connection Bytes → (Result I32 SocketError)))
+       (finish-connection (Fn Connection I32 → (Result Unit SocketError)))
+       (close-listener (Fn Listener → (Result Unit SocketError)))
+       (close-connection (Fn Connection → (Result Unit SocketError)))))
 
-    (define (listen (tcp Tcp) (endpoint Endpoint)) (→ (Result Listener SocketError)) (! mut)
+    (define (listen (tcp Tcp) (endpoint Endpoint)) (→ (Result Listener SocketError))
       ((● tcp listen) endpoint))
 
     (define (connect (tcp Tcp) (endpoint Endpoint))
       (→ (Result Connection SocketError))
-      (! mut)
       ((● tcp connect) endpoint))
 
-    (define (accept (tcp Tcp) (listener Listener)) (→ (Result Connection SocketError)) (! mut)
+    (define (accept (tcp Tcp) (listener Listener)) (→ (Result Connection SocketError))
       ((● tcp accept) listener))
 
     (define (read (tcp Tcp) (connection Connection) (maximum I32))
       (→ (Result (Option Bytes) SocketError))
-      (! mut)
       ((● tcp read) connection maximum))
 
     (define (write (tcp Tcp) (connection Connection) (bytes Bytes))
       (→ (Result I32 SocketError))
-      (! mut)
       ((● tcp write) connection bytes))
 
     (define (finish-connection (tcp Tcp) (connection Connection) (grace I32))
       (→ (Result Unit SocketError))
-      (! mut)
       ((● tcp finish-connection) connection grace))
 
-    (define (close-listener (tcp Tcp) (listener Listener)) (→ (Result Unit SocketError)) (! mut)
+    (define (close-listener (tcp Tcp) (listener Listener)) (→ (Result Unit SocketError))
       ((● tcp close-listener) listener))
 
     (define (close-connection (tcp Tcp) (connection Connection))
       (→ (Result Unit SocketError))
-      (! mut)
       ((● tcp close-connection) connection))
 
     ;; Node's TCP sockets.
-    (define (host-tcp) (→ Tcp)
+    (define (host-tcp (host Host)) (→ Tcp)
       (new Tcp
         (listen (lambda (endpoint)
                   (native (lambda (ticket)
@@ -198,29 +194,27 @@
                             (answered (host-close-tcp (connection-handle connection)) done)))))
 
     (record Udp
-      ((bind (Fn Endpoint → (Result UdpSocket SocketError) ! mut))
-       (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError) ! mut))
-       (receive (Fn UdpSocket I32 → (Result Datagram SocketError) ! mut))
-       (close-udp (Fn UdpSocket → (Result Unit SocketError) ! mut))))
+      ((bind (Fn Endpoint → (Result UdpSocket SocketError)))
+       (send (Fn UdpSocket Endpoint Bytes → (Result I32 SocketError)))
+       (receive (Fn UdpSocket I32 → (Result Datagram SocketError)))
+       (close-udp (Fn UdpSocket → (Result Unit SocketError)))))
 
-    (define (bind (udp Udp) (endpoint Endpoint)) (→ (Result UdpSocket SocketError)) (! mut)
+    (define (bind (udp Udp) (endpoint Endpoint)) (→ (Result UdpSocket SocketError))
       ((● udp bind) endpoint))
 
     (define (send (udp Udp) (socket UdpSocket) (peer Endpoint) (bytes Bytes))
       (→ (Result I32 SocketError))
-      (! mut)
       ((● udp send) socket peer bytes))
 
     (define (receive (udp Udp) (socket UdpSocket) (maximum I32))
       (→ (Result Datagram SocketError))
-      (! mut)
       ((● udp receive) socket maximum))
 
-    (define (close-udp (udp Udp) (socket UdpSocket)) (→ (Result Unit SocketError)) (! mut)
+    (define (close-udp (udp Udp) (socket UdpSocket)) (→ (Result Unit SocketError))
       ((● udp close-udp) socket))
 
     ;; Node's UDP sockets.
-    (define (host-udp) (→ Udp)
+    (define (host-udp (host Host)) (→ Udp)
       (new Udp
         (bind (lambda (endpoint)
                 (native (lambda (ticket)
@@ -294,7 +288,7 @@
     ;; ticket, and `success` reads its answer when it did not fail.
 
     (define (native (start (Fn I64 → Unit)) (success (Fn I32 → T)))
-      (→ (Result T SocketError)) (! mut)
+      (→ (Result T SocketError))
       (∀ (T))
       (through-host start (lambda (ticket) (answered (host-finish ticket) success))))
 

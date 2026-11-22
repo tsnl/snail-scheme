@@ -6,13 +6,14 @@
    page-file-picker)
   (import
    (snail core base)
+   (only (snail core io) Host)
    (prefix (snail runtime browser files) host-)
    (snail shell files))
   (begin
 
     ;; ---- Handling ----
 
-    (define (page-file-picker) (→ FilePicker)
+    (define (page-file-picker (host Host)) (→ FilePicker)
       (new FilePicker
         (open-picker (lambda (choice)
                        (host-open-picker (match choice

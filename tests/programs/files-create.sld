@@ -4,10 +4,10 @@
 
 (define (root) (→ String) "build/tests/files-create")
 
-(define (report (out OutputPort) (result (Result Unit FileError))) (→ Unit) (! mut)
+(define (report (out OutputPort) (result (Result Unit FileError))) (→ Unit)
   (write-line out (match result ((Ok _) "created") ((Err (AlreadyExists)) "exists") (_ "failed"))))
 
-(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
+(define (main (fs Fs) (out OutputPort)) (→ Unit)
   (remove-tree fs (root))
   (make-directories fs (root))
   (report out (write-text-file fs (string-append (root) "/new.txt") "" (CreateNew)))

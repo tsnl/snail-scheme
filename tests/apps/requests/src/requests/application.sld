@@ -12,8 +12,6 @@
    (snail shell fetch)
    (snail shell ui)
    (snail shell page)
-   (snail shell dom page)
-   (snail shell fetch page)
    (snail shell wire))
   (begin
 
@@ -40,8 +38,7 @@
                (result (Result String String)))))
 
     (define (update (fetch Fetch) (model Model) (message Msg))
-      (→ (Pair Model (List (Fn → Msg ! mut e))))
-      (∀ (e))
+      (→ (Pair Model (List (Fn → Msg))))
       (match message
         ((Load)
          (let ((request (+ (● model request) 1)))
@@ -58,10 +55,10 @@
                                       (Showing (match result ((Ok text) text) ((Err why) why))))
                    model)))))
 
-    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg ! mut e)))) (∀ (e))
+    (define (stay (model Model)) (→ (Pair Model (List (Fn → Msg))))
       (new Pair (first model) (second (Nil))))
 
-    (define (load-text (fetch Fetch)) (→ (Result String String)) (! mut)
+    (define (load-text (fetch Fetch)) (→ (Result String String))
       (match (request fetch "GET" "/api/text" (Nil) "")
         ((Ok reply) (Ok (● reply body)))
         ((Err why) (Err why))))
@@ -107,24 +104,26 @@
 
     ;; The page runs over the save itself, so a page started again has no
     ;; request outstanding.
-    (define (run-requests (events Events) (storage PageStorage)) (→ Unit) (! mut)
+    (define (run-requests (mut Mut) (dom Dom) (fetch Fetch) (events Events) (storage PageStorage))
+      (→ Unit)
       (run-page events storage (lambda () (new Save (display (Showing "idle")) (clicks 0)))
                 serialize
                 deserialize
-                (lambda (saved checkpoint) (present events storage saved checkpoint))))
+                (lambda (saved checkpoint)
+                  (present mut dom fetch events storage saved checkpoint))))
 
-    (define (present (events Events)
+    (define (present (mut Mut)
+                     (dom Dom)
+                     (fetch Fetch)
+                     (events Events)
                      (storage PageStorage)
                      (saved Save)
-                     (checkpoint (Fn Save → Unit ! mut)))
+                     (checkpoint (Fn Save → Unit)))
       (→ Unit)
-      (! mut)
-      (let ((dom (page-dom events)))
-        (let ((fetch (page-fetch)))
-          (run-ui dom (restore saved) (Nil)
-                  (lambda (model message) (update fetch model message))
-                  (lambda (model) (view model))
-                  (lambda (model) (window model))
-                  (lambda (model) (report-ready events))
-                  (lambda (model) (checkpoint (save model))))
-          (unit))))))
+      (run-ui mut dom (restore saved) (Nil)
+              (lambda (model message) (update fetch model message))
+              (lambda (model) (view model))
+              (lambda (model) (window model))
+              (lambda (model) (report-ready events))
+              (lambda (model) (checkpoint (save model))))
+      (unit))))

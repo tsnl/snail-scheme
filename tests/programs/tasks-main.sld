@@ -3,7 +3,7 @@
  (snail core io)
  (snail shell task))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   ;; A program's statements run as its first task, so they may yield, sleep
   ;; and wait like any task's: a child dispatched first runs when the body
   ;; yields, and the body resumes after it.

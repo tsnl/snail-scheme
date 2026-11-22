@@ -17,7 +17,7 @@
         ;; Its code: local.get 0, local.get 1, i64.add.
         10 9 1 7 0 32 0 32 1 124 11))
 
-(define (use-adder (wasm Wasm) (out OutputPort) (module Module)) (→ Unit) (! mut)
+(define (use-adder (wasm Wasm) (out OutputPort) (module Module)) (→ Unit)
   (match (module-export wasm module "add")
     ((Ok function)
      (let ((add (ann (unsafe-cast function) (Fn I64 I64 → I64))))
@@ -35,7 +35,7 @@
         2 29 1 18 115 110 97 105 108 46 99 111 114 101 46 115 117 112 112 111 114 116
         6 109 101 109 111 114 121 0 0))
 
-(define (main (wasm Wasm) (out OutputPort)) (→ Unit) (! mut)
+(define (main (wasm Wasm) (out OutputPort)) (→ Unit)
   (let ((adder (compiled wasm (adder))) (mislinked (compiled wasm (mislinked))))
     (match (link-module wasm "adder" adder (Nil))
       ((Ok module)
@@ -49,7 +49,7 @@
       ((Err error) (write-line out (load-error-message error)))))
   (unit))
 
-(define (compiled (wasm Wasm) (bytes (List I32))) (→ Compiled) (! mut)
+(define (compiled (wasm Wasm) (bytes (List I32))) (→ Compiled)
   (match (compile-bytes wasm (list->array (map i32->u8 bytes)))
     ((Some module) module)
     ((None) (panic "invalid fixture binary"))))

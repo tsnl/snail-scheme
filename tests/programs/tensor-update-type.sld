@@ -5,12 +5,14 @@
  (snail shell tensor)
  (snail shell tensor compile))
 
-(define (main) (→ Unit) (! mut)
-  (with-recorded-gpu
-   (lambda (gpu)
-     (compile-program gpu "update"
-                      (Nil)
-                      (list
-                       (new Pair (first (param "counter" (Nil) (Signed))) (second (scalar 1.0)))))
-     (unit)))
+(define (main (mut Mut)) (→ Unit)
+  (with-recorded-gpu mut
+                     (lambda (gpu)
+                       (compile-program gpu "update"
+                                        (Nil)
+                                        (list
+                                         (new Pair
+                                           (first (param "counter" (Nil) (Signed)))
+                                           (second (scalar 1.0)))))
+                       (unit)))
   (unit))

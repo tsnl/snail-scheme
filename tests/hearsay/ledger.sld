@@ -9,7 +9,7 @@
 
 ;; ---- Printing ----
 
-(define (show-lines (out OutputPort) (title String) (lines (List String))) (→ Unit) (! mut)
+(define (show-lines (out OutputPort) (title String) (lines (List String))) (→ Unit)
   (write-line out title)
   (for-each (lambda (line) (write-line out (string-append "  " line)))
             (if (null? lines) (list "none") lines)))
@@ -20,7 +20,7 @@
 ;; Each fixer's standing and holdings; while the game is on, every choice
 ;; and the promises owed you, and once it is over, the result; then what
 ;; the last end of round did.
-(define (show-board (out OutputPort) (ledger Ledger)) (→ Unit) (! mut)
+(define (show-board (out OutputPort) (ledger Ledger)) (→ Unit)
   (write-line out (ledger-header ledger))
   (for-each (lambda (who)
               (show-lines out (string-append (fixer-name who) ": " (fixer-stats ledger who))
@@ -44,7 +44,7 @@
   (Run ((text String) (command Command)))
   (Board))
 
-(define (run-step (out OutputPort) (ledger Ledger) (step Step)) (→ Ledger) (! mut)
+(define (run-step (out OutputPort) (ledger Ledger) (step Step)) (→ Ledger)
   (match step
     ((Run text command)
      (write-line out (string-append "> " text))
@@ -57,7 +57,7 @@
 
 (define (end) (→ Step) (Run "end" (EndRound)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (let ((ledger (new-ledger 7)))
     (show-board out ledger)

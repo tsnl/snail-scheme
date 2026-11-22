@@ -7,6 +7,6 @@
 (record Point
   ((x I64)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (show (Point-x (new Point (x 1)))))
   (unit))

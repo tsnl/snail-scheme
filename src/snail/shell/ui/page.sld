@@ -12,9 +12,7 @@
    (snail shell task)
    (snail shell page)
    (snail shell dom)
-   (snail shell dom page)
    (snail shell fetch)
-   (snail shell fetch page)
    (snail shell ui))
   (begin
 
@@ -22,7 +20,7 @@
 
     ;; What an update starts: it acts on the page's document and fetch,
     ;; which the loop gives it, and answers a message.
-    (type (Command M) (Fn Dom Fetch → M ! mut))
+    (type (Command M) (Fn Dom Fetch → M))
 
     ;; An interface is a handler, in the style of winit's: a record of
     ;; pure model transitions and views, and the commands an update
@@ -41,45 +39,47 @@
     ;; The page's model, from its save or `initialize` with a seed, then
     ;; the interface's loop over the page's document and fetch.
 
-    (define (run-interface (events Events)
+    (define (run-interface (mut Mut)
+                           (dom Dom)
+                           (fetch Fetch)
+                           (events Events)
                            (storage PageStorage)
                            (interface (InterfaceHandler Model Message)))
       (→ Unit)
-      (! mut)
       (∀ (Model Message))
       (run-page events storage (lambda () ((● interface initialize) (random-seed events)))
                 (● interface save)
                 (● interface restore)
-                (lambda (model save) (present-interface events storage interface model save))))
+                (lambda (model save)
+                  (present-interface mut dom fetch events storage interface model save))))
 
-    ;; The loop's row includes saving its model. Commands keep their
-    ;; narrower contract and fit the loop as they are. The update's pair is
-    ;; rebuilt because a record's type never widens; its commands widen as
-    ;; they move into the new one.
+    ;; The loop runs a command as a thunk, so each of the update's commands
+    ;; is handed the document and fetch here, where the loop has them.
 
-    (define (present-interface (events Events)
+    (define (present-interface (mut Mut)
+                               (dom Dom)
+                               (fetch Fetch)
+                               (events Events)
                                (storage PageStorage)
                                (interface (InterfaceHandler Model Message))
                                (model Model)
-                               (save (Fn Model → Unit ! mut)))
+                               (save (Fn Model → Unit)))
       (→ Unit)
-      (! mut)
       (∀ (Model Message))
-      (let ((dom (page-dom events)) (fetch (page-fetch)))
-        (run-ui dom
-                model
-                ((● interface messages) model)
-                (lambda (model message)
-                  (match ((● interface update) model message)
-                    ((Pair next commands)
-                     (new Pair
-                       (first next)
-                       (second (map (lambda (command) (lambda () (command dom fetch)))
-                                    commands))))))
-                (● interface view)
-                (● interface window)
-                (lambda (model) (report-ready events))
-                save)
-        (unit)))
+      (run-ui mut dom
+              model
+              ((● interface messages) model)
+              (lambda (model message)
+                (match ((● interface update) model message)
+                  ((Pair next commands)
+                   (new Pair
+                     (first next)
+                     (second (map (lambda (command) (lambda () (command dom fetch)))
+                                  commands))))))
+              (● interface view)
+              (● interface window)
+              (lambda (model) (report-ready events))
+              save)
+      (unit))
 
     ))

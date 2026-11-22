@@ -9,8 +9,8 @@
  (snail shell gpu)
  (gpu-test device))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (let ((gpu (host-gpu)))
+(define (main (host Host) (out OutputPort)) (→ Unit)
+  (let ((gpu (host-gpu host)))
     (let ((info (request-device gpu)))
       (write-line out (string-append "format: " (texture-format-name (● info format))))
       (device-checks gpu out)

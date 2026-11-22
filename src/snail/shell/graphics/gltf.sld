@@ -123,7 +123,7 @@
     (define (unreadable (why String)) (→ A) (∀ (A))
       (absurd (suspend unreading why)))
 
-    (define (attempt-reading (work (Fn → T ! e))) (→ (Result T String)) (! e) (∀ (T e))
+    (define (attempt-reading (work (Fn → T))) (→ (Result T String)) (∀ (T))
       (with-prompt unreading (lambda () (Ok (work))) (lambda (why resume) (Err why))))
 
     ;; The scene in `file`, a .gltf or a .glb file, whose URIs are relative

@@ -5,7 +5,7 @@
 - [`snail-scheme`](snail-scheme/index.md)
   - [Terms](snail-scheme/terms.md)
   - [Types](snail-scheme/types.md)
-  - [Capabilities and rows](snail-scheme/effects.md)
+  - [Capabilities](snail-scheme/capabilities.md)
   - [Suspension](snail-scheme/suspension.md)
   - [Values](snail-scheme/values.md)
   - [Macros and generated libraries](snail-scheme/macros.md)

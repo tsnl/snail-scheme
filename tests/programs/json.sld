@@ -20,7 +20,7 @@
                                             "\n"))
                            (iota 16384))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (for-each (lambda (value) (write-line out (json->string value)))
             (list (JsonNull)
                   (JsonBool #t)

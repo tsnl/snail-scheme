@@ -45,14 +45,12 @@
 
     (define (find-library (fs Fs) (directories (List String)) (name (List String)))
       (→ (Option String))
-      (! mut)
       (let ((relative (string-append (string-join name "/") ".sld")))
         (find (lambda (path) (file-exists? fs path))
               (map (lambda (directory) (string-append directory "/" relative)) directories))))
 
     (define (library-path (fs Fs) (directories (List String)) (name (List String)) (loc Loc))
       (→ String)
-      (! mut)
       (match (find-library fs directories name)
         ((Some path) path)
         ((None)
@@ -105,10 +103,11 @@
     ;; `(snail shell syntax)` Syntax, which it computes in a task. A recipe
     ;; that needs capabilities is a `lambda` over them, and the producer's
     ;; main asks its target for each, besides the file system it writes
-    ;; its library through:
+    ;; its library through and the arguments that name the file:
     ;;
-    ;;   (define (main (producer-fs Fs) parameter ...) (→ Unit) (! mut)
-    ;;     (write-generated-library producer-fs (lambda () body ...)))
+    ;;   (define (main (producer-fs Fs) (producer-arguments Arguments) parameter ...)
+    ;;     (→ Unit)
+    ;;     (write-generated-library producer-fs producer-arguments (lambda () body ...)))
 
     (define (producer (recipe String) (imports (List Syntax)) (expression Syntax) (loc Loc))
       (→ (List Syntax))
@@ -122,16 +121,19 @@
                           (append imports
                                   (list (only (list "snail" "shell" "syntax")
                                               (list "write-generated-library"))
-                                        (only (list "snail" "core" "io") (list "Fs"))))))
+                                        (only (list "snail" "core" "io")
+                                              (list "Fs" "Arguments"))))))
               (form (list (ident "recipe") (Atom (DString recipe) loc)))
               (form (list (ident "define")
                           (form (Cons (ident "main")
                                       (Cons (form (list (ident "producer-fs") (ident "Fs")))
-                                            (● recipe-parts first))))
+                                            (Cons (form (list (ident "producer-arguments")
+                                                              (ident "Arguments")))
+                                                  (● recipe-parts first)))))
                           (form (list (ident "→") (ident "Unit")))
-                          (form (list (ident "!") (ident "mut")))
                           (form (list (ident "write-generated-library")
                                       (ident "producer-fs")
+                                      (ident "producer-arguments")
                                       (form (Cons (ident "lambda")
                                                   (Cons (form (Nil))
                                                         (● recipe-parts second)))))))))))

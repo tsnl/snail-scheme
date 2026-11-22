@@ -8,21 +8,20 @@
 ;; before its yield and its second after, so the messages arrive in the
 ;; order the producers ran, and the consumer receives them in that order:
 ;; one by waking from a park, the others already waiting in the queue.
-(define (produce (mailbox (Mailbox String)) (name String)) (→ Unit) (! mut)
+(define (produce (mailbox (Mailbox String)) (name String)) (→ Unit)
   (mailbox-post mailbox (string-append name " 1"))
   (yield)
   (mailbox-post mailbox (string-append name " 2")))
 
 (define (consume (out OutputPort) (mailbox (Mailbox String)) (count I64))
   (→ Unit)
-  (! mut)
   (when (> count 0)
     (write-line out (string-append "received " (mailbox-receive mailbox)))
     (consume out mailbox (- count 1))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
 
-  (let ((mailbox (make-mailbox)))
+  (let ((mailbox (make-mailbox mut)))
     (dispatch (lambda () (consume out mailbox 4)))
     (dispatch (lambda () (produce mailbox "first")))
     (dispatch (lambda () (produce mailbox "second")))

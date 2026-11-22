@@ -19,10 +19,7 @@
  (only (snail shell page) Events report-ready)
  (only (snail shell fetch) Fetch fetch-all-bytes page-address)
  (only (snail shell dom) Dom document-root set-text)
- (only (snail shell dom page) page-dom)
  (snail shell files)
- (snail shell files page)
- (snail shell fetch page)
  (snail shell gpu)
  (snail shell graphics pod)
  (only (snail shell graphics gltf) uri-path unreadable attempt-reading)
@@ -52,7 +49,6 @@
                    (timing (Pair I32 I32))
                    (format TextureFormat))
   (→ Unit)
-  (! mut)
   (match (next-event events)
     ((FrameEvent elapsed)
      (let ((shown (turning gpu shown elapsed)) (fly (flown fly elapsed)))
@@ -70,7 +66,7 @@
     (_ (view-loop gpu dom picker events fetch out shown fly timing format))))
 
 ;; The rings posed where `elapsed` more milliseconds turn them.
-(define (turning (gpu Gpu) (shown Shown) (elapsed I32)) (→ Shown) (! mut)
+(define (turning (gpu Gpu) (shown Shown) (elapsed I32)) (→ Shown)
   (match (● shown turned)
     ((Some seconds)
      (let ((now (+ seconds (/ (i32->f64 elapsed) 1000.0))))
@@ -79,7 +75,7 @@
     ((None) shown)))
 
 ;; The splats sorted from where the fly is, and drawn into the canvas.
-(define (frame (gpu Gpu) (splats Splats) (fly Fly)) (→ Unit) (! mut)
+(define (frame (gpu Gpu) (splats Splats) (fly Fly)) (→ Unit)
   (let* ((canvas (current-texture gpu)) (encoder (create-command-encoder gpu)))
     (sort-splats gpu encoder
                  splats
@@ -106,7 +102,7 @@
 
 ;; Frames and milliseconds since the last report, which comes every two
 ;; seconds.
-(define (timed (out OutputPort) (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32)) (! mut)
+(define (timed (out OutputPort) (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32))
   (let ((frames (+ 1 (● timing first))) (total (+ elapsed (● timing second))))
     (if (< total 2000)
         (new Pair (first frames) (second total))
@@ -115,7 +111,7 @@
           (new Pair (first 0) (second 0))))))
 
 ;; A cloud on the device, with `rows` rows of transforms to pose it by.
-(define (standing (gpu Gpu) (cloud Cloud) (rows I64) (format TextureFormat)) (→ Splats) (! mut)
+(define (standing (gpu Gpu) (cloud Cloud) (rows I64) (format TextureFormat)) (→ Splats)
   (let ((splats (make-splats gpu "cloud" format (● cloud count) rows)))
     (write-cloud gpu splats 0 cloud)
     splats))
@@ -144,7 +140,6 @@
                 (format TextureFormat)
                 (files (List Chosen)))
   (→ Unit)
-  (! mut)
   (set-text dom (document-root dom) "Loading…")
   (match (attempt-reading (lambda () (chosen fetch files)))
     ((Ok scene)
@@ -168,13 +163,13 @@
      (view-loop gpu dom picker events fetch out shown fly timing format))))
 
 ;; What the page says beside the view, and the console with it.
-(define (say (dom Dom) (out OutputPort) (message String)) (→ Unit) (! mut)
+(define (say (dom Dom) (out OutputPort) (message String)) (→ Unit)
   (set-text dom (document-root dom) message)
   (write-line out message))
 
 ;; The scene among the files: its cloud, the first .ply, and its poses,
 ;; an `images.bin` if there is one. Only those two are fetched, together.
-(define (chosen (fetch Fetch) (files (List Chosen))) (→ Scene) (! mut)
+(define (chosen (fetch Fetch) (files (List Chosen))) (→ Scene)
   (let ((ending (lambda (suffix) (find (lambda (file) (suffix? (● file path) suffix)) files))))
     (match (ending ".ply")
       ((Some cloud)
@@ -200,7 +195,7 @@
     ((Err why) (unreadable (string-append path ": " why)))))
 
 ;; The bytes at each address, fetched together.
-(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes)) (! mut)
+(define (fetched (fetch Fetch) (addresses (List String))) (→ (List Bytes))
   (map (lambda (reply)
          (match reply
            ((Ok bytes) bytes)
@@ -277,15 +272,18 @@
                         ((None) (Nil))))
                     (list "cloud" "poses"))))
 
-(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut)
-  (let ((fetch (page-fetch)))
-    (let ((picker (page-file-picker)))
-      (let ((dom (page-dom events)))
-        (let* ((format (● (request-device gpu) format))
-               (shown (new Shown (splats (standing gpu (rings) 3 format)) (turned (Some 0.0))))
-               (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
-               (timing (new Pair (first 0) (second 0))))
-          (match (query-files (page-address fetch))
-            ((Nil) (view-loop gpu dom picker events fetch out shown fly timing format))
-            (files (opened gpu dom picker events fetch out shown fly timing format files)))))))
+(define (main (gpu Gpu)
+              (dom Dom)
+              (fetch Fetch)
+              (picker FilePicker)
+              (events Events)
+              (out OutputPort))
+  (→ Unit)
+  (let* ((format (● (request-device gpu) format))
+         (shown (new Shown (splats (standing gpu (rings) 3 format)) (turned (Some 0.0))))
+         (fly (fly-over (list -2.5 -1.0 -2.5) (list 2.5 1.0 2.5)))
+         (timing (new Pair (first 0) (second 0))))
+    (match (query-files (page-address fetch))
+      ((Nil) (view-loop gpu dom picker events fetch out shown fly timing format))
+      (files (opened gpu dom picker events fetch out shown fly timing format files))))
   (unit))

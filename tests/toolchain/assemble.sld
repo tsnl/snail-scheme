@@ -17,9 +17,9 @@
           ((string=? (substring text start (+ start (string-length part))) part) #t)
           (else (loop (+ start 1))))))
 
-(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
+(define (main (arguments Arguments) (fs Fs) (out OutputPort)) (→ Unit)
 
-  (match (command-line)
+  (match (command-line arguments)
     ((Cons _ (Cons text (Cons module (Cons runtime (Cons linked (Nil))))))
      (let ((text (read-file fs text)))
        (match (assemble text)

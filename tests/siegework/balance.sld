@@ -74,7 +74,7 @@
   (let ((world (defend (started seed) 3000)))
     (and (playing? world) (= (● world tick) 3000))))
 
-(define (check (out OutputPort) (claim String) (holds? (Fn I64 → Bool))) (→ Unit) (! mut)
+(define (check (out OutputPort) (claim String) (holds? (Fn I64 → Bool))) (→ Unit)
   (let ((broken (filter (lambda (seed) (not (holds? seed))) (seeds))))
     (write-line out (string-append claim
                                    ": "
@@ -83,7 +83,7 @@
                                        (string-append "broken on seeds "
                                                       (string-join (map show broken) " ")))))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (check out "an extractor and a turret are ready before the first attack" ready-for-first-attack?)
   (check out "an undefended hub falls before tick 1000" undefended-falls?)

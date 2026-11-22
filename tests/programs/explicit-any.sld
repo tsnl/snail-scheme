@@ -12,11 +12,11 @@
 (define (assert (value Bool)) (→ Unit)
   (unless value (panic "Any assertion failed")))
 
-(define (input (trace Trace) (label String) (value Any)) (→ Any) (! mut)
-  (set! (● trace text) (string-append (● trace text) label))
+(define (input (mut Mut) (trace Trace) (label String) (value Any)) (→ Any)
+  (set! mut (● trace text) (string-append (● trace text) label))
   value)
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (assert (match (downcast I64 (Any 42)) ((Some 42) #t) (_ #f)))
   (assert (match (downcast I64 (Any "42")) ((None) #t) (_ #f)))
   ;; Equal Wasm layouts do not make distinct nominal types interchangeable.
@@ -29,8 +29,8 @@
   (assert (match (downcast Any (Any 7)) ((None) #t) (_ #f)))
   ;; Both operands run once, left to right, even when the first cast fails.
   (let ((trace (new Trace (text ""))))
-    (match (new Pair (first (downcast I64 (input trace "L" (Any #f))))
-                (second (downcast String (input trace "R" (Any "right")))))
+    (match (new Pair (first (downcast I64 (input mut trace "L" (Any #f))))
+                (second (downcast String (input mut trace "R" (Any "right")))))
       ((Pair (None) (Some "right")) (unit))
       (_ (panic "downcast result")))
     (assert (string=? (● trace text) "LR")))

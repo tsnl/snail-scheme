@@ -71,7 +71,6 @@
                             (name (List String))
                             (shaders (List (Pair String Resource))))
       (→ Syntax)
-      (! mut)
       (library-syntax name
                       (map (lambda (shader) (● shader first)) shaders)
                       (list (list "snail" "core" "base"))

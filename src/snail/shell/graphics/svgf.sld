@@ -74,7 +74,6 @@
                        (width I32)
                        (height I32))
       (→ Svgf)
-      (! mut)
       (let ((module (create-shader-module gpu (new ShaderModuleDescriptor
                                                 (label "svgf")
                                                 (code (string-append (declarations camera-shape)
@@ -99,11 +98,10 @@
                          (width I32)
                          (height I32))
       (→ Svgf)
-      (! mut)
       (release gpu svgf)
       (planned gpu (● svgf kernels) inputs light width height))
 
-    (define (release (gpu Gpu) (svgf Svgf)) (→ Unit) (! mut)
+    (define (release (gpu Gpu) (svgf Svgf)) (→ Unit)
       (for-each (lambda (group) (destroy gpu (BindGroupObject group)))
                 (Cons (● svgf remodulate-group)
                       (concatenate (list (● svgf temporal-groups)
@@ -122,7 +120,6 @@
                          (moved Bool)
                          (exposure F32))
       (→ Svgf)
-      (! mut)
       (let ((kernels (● svgf kernels)) (parity (● svgf parity)))
         (write-buffer gpu (● kernels filtering) 0 (filtering-bytes moved exposure))
         (let ((first (begin-compute-pass gpu encoder)))
@@ -160,7 +157,6 @@
                          (pipeline GpuComputePipeline)
                          (group GpuBindGroup))
       (→ Unit)
-      (! mut)
       (set-compute-pipeline gpu pass pipeline)
       (set-compute-bind-group gpu pass 0 group)
       (dispatch-texels gpu pass (● svgf width) (● svgf height)))
@@ -204,7 +200,6 @@
                      (width I32)
                      (height I32))
       (→ Svgf)
-      (! mut)
       (let ((planes (map (lambda (name)
                            (make-plane gpu (string-append "svgf/" name)
                                        width
@@ -245,7 +240,6 @@
 
     (define (group (gpu Gpu) (pipeline GpuComputePipeline) (entries (List BindGroupEntry)))
       (→ GpuBindGroup)
-      (! mut)
       (kernel-group gpu pipeline 0 "svgf" entries))
 
     (define (temporal-entries (planes (List Plane))

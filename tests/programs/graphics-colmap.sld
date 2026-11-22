@@ -67,7 +67,7 @@
 
 (define (numbers (values (List F64))) (→ String) (string-join (map f64->string values) " "))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (match (read-cameras cameras)
     ((Ok read)
      (for-each (lambda (c)

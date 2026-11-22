@@ -6,11 +6,12 @@ Macros are hygienic `syntax-rules` transformers, defined with
 So is what a `deriving` clause expands to, a use of a macro in its class's
 library: a macro can expand into an `instance`, as into any declaration.
 They expand before checking, so generated expressions obey the same type
-and row rules as handwritten code.
+rules as handwritten code.
 
-A macro can generate a typed definition, including its `(→ Result)`, `!`,
-`∀`, `⊨` and documentation clauses. It cannot hand code a capability it was
-not given, or introduce a top-level initializer that performs `mut`.
+A macro can generate a typed definition, including its `(→ Result)`, `∀`,
+`⊨` and documentation clauses. It cannot hand code a capability or a `Mut`
+it was not given: a template's own names are resolved where the macro is
+defined, so a macro that writes takes the `Mut` as an argument.
 Generated identifiers retain their lexical context; field labels select
 stored slots of the receiver's nominal type.
 

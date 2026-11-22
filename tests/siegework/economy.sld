@@ -19,7 +19,7 @@
     ((Ok world) world)
     ((Err rejection) (panic (rejection-text rejection)))))
 
-(define (report (out OutputPort) (world World)) (→ Unit) (! mut)
+(define (report (out OutputPort) (world World)) (→ Unit)
   (let ((ledger (● world ledger)))
     (write-line out (string-join (list (string-append "tick " (show (● world tick)))
                                        (string-append "energy " (show (● world energy)))
@@ -37,7 +37,7 @@
     ((Some crystal) (● crystal reserve))
     ((None) 0)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (let ()
     (define world (new-world 3))

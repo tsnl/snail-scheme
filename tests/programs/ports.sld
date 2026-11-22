@@ -12,7 +12,7 @@
 
 ;; ANCHOR: ports
 ;; A port that reads `text`, a character at a time.
-(define (from-text (text String)) (→ InputPort)
+(define (from-text (mut Mut) (text String)) (→ InputPort)
   (let ((position (new Cursor (index 0))))
     (new InputPort
       (read-char (lambda ()
@@ -20,32 +20,32 @@
                      (if (= index (string-length text))
                          (None)
                          (begin
-                           (set! (● position index) (+ index 1))
+                           (set! mut (● position index) (+ index 1))
                            (Some (string-ref text index))))))))))
 
 ;; What `action` writes to the port it is given.
-(define (capture (action (Fn OutputPort → Unit ! mut e))) (→ String) (! mut e) (∀ (e))
+(define (capture (mut Mut) (action (Fn OutputPort → Unit))) (→ String)
   (let ((chunks (new Output (reversed (Nil)))))
     (action (new OutputPort
               (write-string
-               (lambda (text) (set! (● chunks reversed) (Cons text (● chunks reversed)))))))
+               (lambda (text) (set! mut (● chunks reversed) (Cons text (● chunks reversed)))))))
     (string-concatenate (reverse (● chunks reversed)))))
 
 ;; ANCHOR_END: ports
 
-(define (line (out OutputPort) (value T)) (→ Unit) (! mut) (∀ (T)) (⊨ (Repr T))
+(define (line (out OutputPort) (value T)) (→ Unit) (∀ (T)) (⊨ (Repr T))
   (write out value)
   (newline out))
 
 ;; Ports that read nothing and keep nothing touch no stream at all.
-(define (silent-eof) (→ (Option Char)) (! mut)
+(define (silent-eof) (→ (Option Char))
   (let ((in (new InputPort (read-char (lambda () (None)))))
         (out (new OutputPort (write-string (lambda (text) (unit))))))
     (write out "discarded")
     (read-char in)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (let ((in (from-text "aλ😀\n\nlast")))
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
+  (let ((in (from-text mut "aλ😀\n\nlast")))
     (line out (read-char in))
     (line out (read-line in))
     (line out (read-line in))
@@ -53,28 +53,29 @@
     (line out (read-char in))
     (line out (read-char in)))
   ;; Each port keeps its own cursor, and reading one writes nothing.
-  (let ((in (from-text "ab")))
+  (let ((in (from-text mut "ab")))
     (line out (read-char in))
-    (line out (read-line (from-text "inner")))
+    (line out (read-line (from-text mut "inner")))
     (line out (read-char in)))
   ;; Capturing output leaves the input available to the computation.
-  (let ((in (from-text "my string input\n")))
-    (write-line out (capture (lambda (captured) (write captured (read-line in))))))
+  (let ((in (from-text mut "my string input\n")))
+    (write-line out (capture mut (lambda (captured) (write captured (read-line in))))))
   ;; Nested output goes to its own port, and the outer one is still there.
   (write-line out
-              (capture (lambda (outer)
-                         (write-string outer "before:")
-                         (let ((inner (capture (lambda (inner) (write inner (Some "inner"))))))
-                           (write-string outer inner))
-                         (write-char outer #\:)
-                         (display outer "after"))))
+              (capture mut (lambda (outer)
+                             (write-string outer "before:")
+                             (let ((inner
+                                    (capture mut (lambda (inner) (write inner (Some "inner"))))))
+                               (write-string outer inner))
+                             (write-char outer #\:)
+                             (display outer "after"))))
   ;; A port made from another one writes through it.
   (write-line out
-              (capture (lambda (outer)
-                         (write (new OutputPort
-                                  (write-string
-                                   (lambda (text)
-                                     (write-string outer (string-append "[" text "]")))))
-                                "forwarded"))))
+              (capture mut (lambda (outer)
+                             (write (new OutputPort
+                                      (write-string
+                                       (lambda (text)
+                                         (write-string outer (string-append "[" text "]")))))
+                                    "forwarded"))))
   (line out (silent-eof))
   (unit))

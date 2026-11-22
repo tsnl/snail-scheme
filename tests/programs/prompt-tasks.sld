@@ -8,14 +8,14 @@
 ;; wait and the task says so in its type.
 (define yielding (→ (Prompt I64 Unit)) (make-prompt))
 
-(define (collect (body (Fn → Unit ! mut))) (→ (List I64)) (! mut)
+(define (collect (body (Fn → Unit))) (→ (List I64))
   (with-prompt yielding
                (lambda ()
                  (body)
                  (Nil))
                (lambda (value resume) (Cons value (resume (unit))))))
 
-(define (worker (out OutputPort) (name String) (items (List I64))) (→ Unit) (! mut)
+(define (worker (out OutputPort) (name String) (items (List I64))) (→ Unit)
   ;; `for-each` knows nothing of tasks, and its callback sleeps.
   (for-each (lambda (item)
               (sleep item)
@@ -31,7 +31,7 @@
                                               (yield)
                                               (suspend yielding 2)))))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (dispatch (lambda () (worker out "first" (list 1 200))))
   (dispatch (lambda () (worker out "second" (list 20 40))))
   (write-line out "main returns")

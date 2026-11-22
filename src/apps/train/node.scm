@@ -12,7 +12,7 @@
 ;; threads, so the next steps' photographs come while a step trains.
 (import
  (snail core base)
- (only (snail core io) Fs command-line read-bytes write-bytes write-line OutputPort)
+ (only (snail core io) Host Arguments Fs command-line read-bytes write-bytes write-line OutputPort)
  (only (snail shell gpu) host-gpu request-device)
  (only (snail shell async-files) Files read-file TooLarge)
  (only (snail shell graphics ply) write-ply)
@@ -23,16 +23,23 @@
 ;; A file of the dataset. One within the 16 MiB a waiting read allows, as
 ;; every photograph is, is read while the other tasks run; a larger one,
 ;; as the dataset's list of images may be, at once.
-(define (read (files Files) (fs Fs) (path String)) (→ Bytes) (! mut)
+(define (read (files Files) (fs Fs) (path String)) (→ Bytes)
   (match (read-file files path 16777216)
     ((Ok bytes) bytes)
     ((Err (TooLarge)) (read-bytes fs path))
     ((Err _) (panic (string-append "cannot read " path)))))
 
-(define (main (files Files) (fs Fs) (clock Clock) (out OutputPort)) (→ Unit) (! mut)
-  (let ((gpu (host-gpu)))
+(define (main (mut Mut)
+              (host Host)
+              (arguments Arguments)
+              (files Files)
+              (fs Fs)
+              (clock Clock)
+              (out OutputPort))
+  (→ Unit)
+  (let ((gpu (host-gpu host)))
     (request-device gpu)
-    (let* ((address (string-append "?" (string-join (list-tail (command-line) 1) "&")))
+    (let* ((address (string-append "?" (string-join (list-tail (command-line arguments) 1) "&")))
            (settings (settings-of address))
            (cloud (setting address "cloud")))
       (match cloud
@@ -45,7 +52,7 @@
                                                                               (read files fs path))
                                                                             settings
                                                                             image))))))
-                       (train photographs
+                       (train mut photographs
                               gpu
                               clock
                               out

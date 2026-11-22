@@ -88,7 +88,7 @@
 (define (cell-text (cell Cell)) (→ String)
   (string-append (show (● cell x)) "." (show (● cell y))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (let ()
     (define start (new Played (world (new-world 3)) (journal (Nil))))

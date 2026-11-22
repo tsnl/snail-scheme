@@ -8,20 +8,21 @@
  (apps hearsay drawing)
  (apps hearsay art)
  (only (snail shell gpu) Gpu)
+ (only (snail shell dom) Dom)
  (only (snail shell page) Events)
  (only (snail shell page) PageStorage)
  (only (snail core io) Clock))
 
-(define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock)) (→ Unit) (! mut)
-  (run-scene gpu events storage clock (new SceneHandler
-                                        (initialize new-shell)
-                                        (update update-shell)
-                                        (start start-drawing)
-                                        (draw (lambda (shell drawing)
-                                                (draw-shell gpu clock shell drawing art)))
-                                        (hud shell-hud)
-                                        (image-url drawing-url)
-                                        (save (lambda (shell) (serialize (shell-save shell))))
-                                        (restore
-                                         (lambda (bytes) (shell-restore (deserialize bytes))))))
+(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock)) (→ Unit)
+  (run-scene gpu dom events storage clock (new SceneHandler
+                                            (initialize new-shell)
+                                            (update update-shell)
+                                            (start start-drawing)
+                                            (draw (lambda (shell drawing)
+                                                    (draw-shell gpu clock shell drawing art)))
+                                            (hud shell-hud)
+                                            (image-url drawing-url)
+                                            (save (lambda (shell) (serialize (shell-save shell))))
+                                            (restore
+                                             (lambda (bytes) (shell-restore (deserialize bytes))))))
   (unit))

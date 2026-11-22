@@ -98,7 +98,7 @@
                      (program Program)
                      (values (List (Pair String (Array F64))))
                      (live (List F64)))
-      (→ Unit) (! mut)
+      (→ Unit)
       (for-each
        (lambda (pair)
          (write-param gpu program (● pair first) (values->bytes (● pair second) (Float))))
@@ -107,7 +107,7 @@
       (write-param gpu program "degrees" (values->bytes (list->array (list 1.0 1.0 1.0)) (Float)))
       (write-param gpu program "camera" (values->bytes camera-values (Float))))
 
-    (define (scalar-sink (gpu Gpu) (program Program)) (→ F64) (! mut)
+    (define (scalar-sink (gpu Gpu) (program Program)) (→ F64)
       (array-ref (bytes->values (read-sink gpu program 0) (Float)) 0))
 
     ;; ---- Forward ----
@@ -116,7 +116,7 @@
     ;; opacity 1/2, color 0.5 + C0 (1, 0, -1), seen from pixel (31, 23),
     ;; half a pixel from its center on each axis.
 
-    (define (splat-forward-check (gpu Gpu)) (→ String) (! mut)
+    (define (splat-forward-check (gpu Gpu)) (→ String)
       (let* ((cloud (splat-params 1))
              (image (● (render cloud (camera-param) sensor) image))
              (program (compile-program gpu "forward" (list image) (Nil))))
@@ -150,7 +150,7 @@
     ;; an image's SSIM with itself is 1, so the sum is 4. Its contrast term
     ;; divides the difference of two nearly equal sums by C2 = 9e-4, which
     ;; magnifies their rounding: lavapipe gives 3.9997.
-    (define (shared-fill (gpu Gpu)) (→ Bool) (! mut)
+    (define (shared-fill (gpu Gpu)) (→ Bool)
       (let* ((v (fill 3.0 (list 11 11 1) (Float)))
              (center (narrow (narrow (+ v (ssim v v)) 0 5 1) 1 5 1))
              (program (compile-program gpu "shared fill" (list center) (Nil))))
@@ -161,7 +161,7 @@
 
     ;; Four splats touch one tile each, in depth order 0, 65536, 0, 65535.
     ;; Read the rasterizer's ranges input so the large image needs no buffer.
-    (define (splat-tile-ranges (gpu Gpu)) (→ String) (! mut)
+    (define (splat-tile-ranges (gpu Gpu)) (→ String)
       (let* ((sensor (new Sensor (width 4096) (height 4112) (capacity 8)))
              (image (● (render (splat-params 4) (camera-param) sensor) image))
              (ranges (list-ref (● image node args) 1))
@@ -189,7 +189,7 @@
                         (param "target" (list 48 64 3) (Float))
                         0.2))
 
-    (define (splat-gradient-check (gpu Gpu)) (→ String) (! mut)
+    (define (splat-gradient-check (gpu Gpu)) (→ String)
       (let* ((cloud (splat-params 3))
              (loss (loss-of cloud))
              (grads (compile-program gpu "grads" (grad loss (cloud-views cloud)) (Nil)))
@@ -219,7 +219,6 @@
                           (k I64)
                           (pair (Pair String (Array F64))))
       (→ String)
-      (! mut)
       (let* ((name (● pair first))
              (base (● pair second))
              (analytic (bytes->values (read-sink gpu grads k) (Float)))
@@ -235,7 +234,6 @@
 
     (define (difference (gpu Gpu) (losses Program) (name String) (base (Array F64)) (i I64))
       (→ F64)
-      (! mut)
       (let* ((h 0.01)
              (at (lambda (delta)
                    (write-param gpu losses name
@@ -257,7 +255,7 @@
     ;; Mean SSIM of a 20x24 image against another, against the CPU's to a
     ;; part in 10,000; and its gradient at pixels in each of its four
     ;; tiles and across their borders, against central differences, to 2%.
-    (define (splat-ssim-check (gpu Gpu)) (→ String) (! mut)
+    (define (splat-ssim-check (gpu Gpu)) (→ String)
       (let* ((x (param "x" (list 20 24 3) (Float)))
              (loss (mean (ssim x (param "y" (list 20 24 3) (Float)))))
              (grads (compile-program gpu "ssim-grads" (grad loss (list x)) (Nil)))
@@ -323,7 +321,7 @@
 
     ;; The three gaussians rendered as a target, then a cloud started half
     ;; a scale smaller and dimmer fitted to it by Adam for 200 steps.
-    (define (splat-fit-check (gpu Gpu)) (→ String) (! mut)
+    (define (splat-fit-check (gpu Gpu)) (→ String)
       (let* ((truth (splat-params 3))
              (target-program
               (compile-program gpu "truth"
@@ -335,7 +333,7 @@
           (release-program gpu target-program)
           (fitted gpu target))))
 
-    (define (fitted (gpu Gpu) (target Bytes)) (→ String) (! mut)
+    (define (fitted (gpu Gpu) (target Bytes)) (→ String)
       (let* ((cloud (splat-params 4))
              (loss (loss-of cloud))
              (grads (grad loss (cloud-views cloud)))
@@ -375,7 +373,7 @@
         (new Pair (first (● pair first))
              (second (array-append values (make-array (quotient (array-length values) 3) 0.0))))))
 
-    (define (spare-row-zero? (gpu Gpu) (program Program) (name String)) (→ Bool) (! mut)
+    (define (spare-row-zero? (gpu Gpu) (program Program) (name String)) (→ Bool)
       (let* ((values (bytes->values (read-param gpu program name) (Float)))
              (size (array-length values)))
         (every? (lambda (x) (= x 0.0))

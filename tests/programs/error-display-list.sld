@@ -2,6 +2,6 @@
  (snail core base)
  (snail core io))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out (list "my string input"))
   (unit))

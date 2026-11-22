@@ -9,6 +9,6 @@
   (define (show (value Presented)) (→ String)
     "presentation"))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write out (new Presented))
   (unit))

@@ -7,7 +7,7 @@
  (sample table)
  (sample blob))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (define bytes (pixel))
 
   (write out (squares))

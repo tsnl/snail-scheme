@@ -19,7 +19,6 @@
  (snail shell graphics atlas)
  (snail shell graphics quad)
  (only (snail shell fetch) Fetch fetch-bytes)
- (snail shell fetch page)
  (gpu-test shaders)
  (gpu-test device))
 
@@ -33,7 +32,6 @@
 
 (define (pipeline-for (gpu Gpu) (module GpuShaderModule) (format TextureFormat))
   (→ GpuRenderPipeline)
-  (! mut)
   (create-render-pipeline gpu
                           (new RenderPipelineDescriptor
                             (label "test")
@@ -51,7 +49,6 @@
 
 (define (group-for (gpu Gpu) (pipeline GpuRenderPipeline) (color GpuBuffer))
   (→ GpuBindGroup)
-  (! mut)
   (create-bind-group gpu (new BindGroupDescriptor
                            (label "test")
                            (pipeline (RenderPipeline pipeline))
@@ -63,7 +60,6 @@
               (pipeline GpuRenderPipeline)
               (group GpuBindGroup))
   (→ Unit)
-  (! mut)
   (let ((pass (begin-render-pass gpu encoder
                                  (new RenderPassDescriptor
                                    (colors (list (Some (new ColorAttachment
@@ -93,7 +89,7 @@
    (onscreen GpuRenderPipeline)
    (onscreen-group GpuBindGroup)))
 
-(define (painting (gpu Gpu) (info DeviceInfo)) (→ Painting) (! mut)
+(define (painting (gpu Gpu) (info DeviceInfo)) (→ Painting)
   (let* ((module
           (create-shader-module gpu (new ShaderModuleDescriptor (label "test") (code shader))))
          (target (texture-named gpu "target" 4 4))
@@ -120,7 +116,7 @@
 ;; The texels of the texture's first row and the image's, each row copied
 ;; at 256 bytes, the alignment a copy into a buffer needs.
 
-(define (frame (gpu Gpu) (p Painting)) (→ (Pair Bytes Bytes)) (! mut)
+(define (frame (gpu Gpu) (p Painting)) (→ (Pair Bytes Bytes))
   (let ((encoder (create-command-encoder gpu)) (readback (● p readback)))
     (fill gpu encoder (● p target-view) (● p offscreen) (● p offscreen-group))
     (fill gpu
@@ -165,7 +161,7 @@
          (color (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0))))))
     ((None) (panic "the picture has no slot"))))
 
-(define (quads-frame (gpu Gpu)) (→ (Pair Bytes String)) (! mut)
+(define (quads-frame (gpu Gpu)) (→ (Pair Bytes String))
   (let* ((encoder (create-command-encoder gpu))
          (atlas (atlas-pictures gpu (make-atlas gpu "test" 16 1) encoder (list two-texel-picture)))
          (target (texture-named gpu "quads" 4 2))
@@ -200,7 +196,7 @@
 
 ;; The page's first bytes, and why a missing file has none.
 
-(define (fetched (fetch Fetch)) (→ String) (! mut)
+(define (fetched (fetch Fetch)) (→ String)
   (string-append (match (fetch-bytes fetch "index.html")
                    ((Ok bytes)
                     (list->string (map (lambda (byte) (integer->char (i32->i64 (u8->i32 byte))))
@@ -211,20 +207,19 @@
                    ((Ok _) "found")
                    ((Err message) message))))
 
-(define (main (gpu Gpu) (events Events) (out OutputPort)) (→ Unit) (! mut)
-  (let ((fetch (page-fetch)))
-    (let* ((info (request-device gpu)) (p (painting gpu info)))
-      (write-line out (string-append "format: " (texture-format-name (● info format))))
-      (let ((first-frame (frame gpu p)))
-        (write-line out (string-append "target: " (texels (● first-frame first))))
-        (write-line out (string-append "image: " (texels (● first-frame second)))))
-      (let ((second-frame (frame gpu p)))
-        (write-line out (string-append "again: " (texels (● second-frame first)))))
-      (let ((quads (quads-frame gpu)))
-        (write-line out (string-append "quads: " (texels (● quads first))))
-        (write-line out (string-append "url: " (● quads second))))
-      (device-checks gpu out)
-      (work-done gpu)
-      (write-line out (string-append "fetched: " (fetched fetch)))
-      (report-ready events)))
+(define (main (gpu Gpu) (fetch Fetch) (events Events) (out OutputPort)) (→ Unit)
+  (let* ((info (request-device gpu)) (p (painting gpu info)))
+    (write-line out (string-append "format: " (texture-format-name (● info format))))
+    (let ((first-frame (frame gpu p)))
+      (write-line out (string-append "target: " (texels (● first-frame first))))
+      (write-line out (string-append "image: " (texels (● first-frame second)))))
+    (let ((second-frame (frame gpu p)))
+      (write-line out (string-append "again: " (texels (● second-frame first)))))
+    (let ((quads (quads-frame gpu)))
+      (write-line out (string-append "quads: " (texels (● quads first))))
+      (write-line out (string-append "url: " (● quads second))))
+    (device-checks gpu out)
+    (work-done gpu)
+    (write-line out (string-append "fetched: " (fetched fetch)))
+    (report-ready events))
   (unit))

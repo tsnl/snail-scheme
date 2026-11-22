@@ -130,7 +130,7 @@
      (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
     ((None) (list text))))
 
-(define (compose (gpu Gpu) (atlas Atlas) (pictures (List Picture))) (→ Atlas) (! mut)
+(define (compose (gpu Gpu) (atlas Atlas) (pictures (List Picture))) (→ Atlas)
   (let* ((encoder (create-command-encoder gpu)) (next (atlas-pictures gpu atlas encoder pictures)))
     (submit gpu (list (finish gpu encoder)))
     next))
@@ -138,10 +138,9 @@
 ;; Composed a call at a time, `calls` times.
 (define (settled (gpu Gpu) (atlas Atlas) (pictures (List Picture)) (calls I64))
   (→ Atlas)
-  (! mut)
   (if (= calls 0) atlas (settled gpu (compose gpu atlas pictures) pictures (- calls 1))))
 
-(define (frames (gpu Gpu)) (→ (List Atlas)) (! mut)
+(define (frames (gpu Gpu)) (→ (List Atlas))
   (request-device gpu)
   (let* ((first (settled gpu (make-atlas gpu "test" 64 2)
                          (list (picture 1 1 30 20) (picture 2 1 30 20) (picture 3 1 30 40))
@@ -151,13 +150,13 @@
          (full (compose gpu fourth (list (picture 4 1 60 60) (picture 5 1 60 60)))))
     (list first again fourth full)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (let ((recorded (with-recorded-gpu (lambda (gpu) (frames gpu)))))
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
+  (let ((recorded (with-recorded-gpu mut (lambda (gpu) (frames gpu)))))
     (for-each (lambda (atlas) (write-line out (slots atlas (list 1 2 3 4 5)))) (● recorded first))
     (for-each (lambda (text) (write-line out text)) (heads (● recorded second))))
   (write-line out "quads:")
   (for-each (lambda (text) (write-line out text))
-            (heads (● (with-recorded-gpu (lambda (gpu) (quad-frames gpu))) second)))
+            (heads (● (with-recorded-gpu mut (lambda (gpu) (quad-frames gpu))) second)))
   (unit))
 
 (define (quad (index I64)) (→ Quad)
@@ -170,7 +169,7 @@
     (color (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)))))
 
 ;; A frame's run of quads, over a cleared canvas.
-(define (quad-frame (gpu Gpu) (quads Quads) (count I64)) (→ Quads) (! mut)
+(define (quad-frame (gpu Gpu) (quads Quads) (count I64)) (→ Quads)
   (let* ((encoder (create-command-encoder gpu))
          (pass (begin-render-pass gpu encoder
                                   (new RenderPassDescriptor
@@ -196,7 +195,7 @@
 
 ;; A run of three, then runs of a hundred and of two hundred, which grow
 ;; the instances: the outgrown buffer goes at its frame's submit.
-(define (quad-frames (gpu Gpu)) (→ Unit) (! mut)
+(define (quad-frames (gpu Gpu)) (→ Unit)
   (request-device gpu)
   (fold-left (lambda (quads count) (quad-frame gpu quads count))
              (make-quads gpu "test" (Bgra8Unorm) (● (make-atlas gpu "test" 64 2) texture))

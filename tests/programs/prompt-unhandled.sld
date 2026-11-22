@@ -13,7 +13,7 @@
                (lambda () (lambda () (suspend pausing (unit))))
                (lambda (value resume) (lambda () (unit)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out "made")
   ((later))
   (write-line out "not reached")

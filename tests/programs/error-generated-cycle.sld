@@ -6,6 +6,6 @@
  (snail core io)
  (sample knot))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out knot)
   (unit))

@@ -142,7 +142,7 @@ a `.gltf` chosen without the files it names, an address that answers 404, a
 file shorter than the scene says, an image the browser does not decode, a
 scene whose geometry is compressed by Draco or meshopt, an HDR file that
 is not one. Reading a
-scene performs `reading`, of `(snail shell graphics gltf)`: `unreadable`
+scene stops through a prompt of `(snail shell graphics gltf)`: `unreadable`
 stops it with a reason, anywhere from the JSON to the last image, and
 `attempt-reading` turns the reading into a `Result`. Nothing refused is
 left on the device, by the order of the work rather than by cleaning up:

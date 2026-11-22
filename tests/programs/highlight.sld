@@ -39,7 +39,7 @@
           (tiles? rest (● token end) end)))
     ((Nil) (= index end))))
 
-(define (show-tokens (out OutputPort) (text String)) (→ Unit) (! mut)
+(define (show-tokens (out OutputPort) (text String)) (→ Unit)
   (let* ((chars (string->array text)) (tokens (highlight-tokens text)))
     (unless (and (tiles? tokens 0 (array-length chars))
                  (string=?
@@ -56,7 +56,7 @@
                                                      tokens)
                                                 " ")))))
 
-(define (show-reading (out OutputPort) (text String)) (→ Unit) (! mut)
+(define (show-reading (out OutputPort) (text String)) (→ Unit)
   (show-tokens out text)
   (write-line out (string-append "  read: " (reading text))))
 
@@ -67,7 +67,7 @@
     ((Err (Failed diagnostics)) (diagnostics->string diagnostics))
     ((Err (Requested _)) "the reader asked for an input")))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   ;; ---- Samples ----
 
   ;; A definition's name, a comment, a number and the core forms.

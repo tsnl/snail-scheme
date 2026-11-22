@@ -17,7 +17,7 @@
 (enum Msg
   (Next))
 
-(define (update (step I64) (message Msg)) (→ (Pair I64 (List (Fn → Msg ! mut))))
+(define (update (step I64) (message Msg)) (→ (Pair I64 (List (Fn → Msg))))
   (new Pair (first (+ step 1)) (second (Nil))))
 
 (define (view (step I64)) (→ (Html Msg))
@@ -48,15 +48,15 @@
 (define (item (name String)) (→ (Html Msg))
   (Element "li" (list (Keyed name)) (list (Text name))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
-     (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
-                                          (Fire "next" "click" no-event)
-                                          (Fire "next" "click" no-event)
-                                          (Fire "next" "click" no-event))
+     (let ((result (with-memory-dom mut (list (Fire "next" "click" no-event)
+                                              (Fire "next" "click" no-event)
+                                              (Fire "next" "click" no-event)
+                                              (Fire "next" "click" no-event))
                                     (lambda (dom)
-                                      (run-ui dom 0
+                                      (run-ui mut dom 0
                                               (Nil)
                                               (lambda (model message) (update model message))
                                               view

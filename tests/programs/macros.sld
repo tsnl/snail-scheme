@@ -31,7 +31,7 @@
 
 (define (temporary) (→ I64) 10)
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write out (pairs (1 2 3) (4) 5))
   (newline out)
   (write-line out (pick else))

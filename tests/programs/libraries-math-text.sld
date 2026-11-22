@@ -4,7 +4,7 @@
  (snail shell math)
  (snail shell text))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out (round (* 1000.0 (sin (/ pi 2.0)))))
   (newline out)
   (write-line out (string-upcase "Hello λ"))

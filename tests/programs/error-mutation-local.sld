@@ -4,8 +4,8 @@
 (record Counter
   ((value I64)))
 
-;; Freshness does not silently erase a write's effect.
+;; A write to an object this function just made still takes a Mut.
 (define (build) (→ Counter)
   (let ((counter (new Counter (value 0))))
-    (set! (● counter value) 1)
+    (set! mut (● counter value) 1)
     counter))

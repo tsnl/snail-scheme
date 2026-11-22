@@ -14,19 +14,17 @@
 ;; Scratch mutation is confined by an explicit trusted boundary. The
 ;; factory preserves aliases inside each fresh graph.
 (define (prepared) (→ Shared)
-  (unsafe-total
-   (lambda ()
-     (let* ((cell (new Cell (value 3))) (previous (● cell value)))
-       (set! (● cell value) 9)
-       (new Shared (left cell) (right cell) (previous previous))))))
+  (let* ((mut (unsafe-mut)) (cell (new Cell (value 3))) (previous (● cell value)))
+    (set! mut (● cell value) 9)
+    (new Shared (left cell) (right cell) (previous previous))))
 
 (define (folded) (→ String) (string-foldcase "Straße Σςİ ﬃ"))
 (define (upper) (→ String) (string-upcase "λß"))
 (define (digit) (→ (Option I64)) (char-digit-value #\٣))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
   (let ((first (prepared)) (second (prepared)))
-    (set! (● first left value) 12)
+    (set! mut (● first left value) 12)
     (write-line out (show (● first right value)))
     (write-line out (show (● second right value)))
     (write-line out (show (● second previous))))

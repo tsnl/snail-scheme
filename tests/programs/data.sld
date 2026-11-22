@@ -32,7 +32,7 @@
 (define (sum (v (Vec3 I64))) (→ I64)
   (+ (● v x) (+ (● v y) (● v z))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out (area (Circle 2)))
   (newline out)
   (display out (area (Rectangle 3 4)))

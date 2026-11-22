@@ -47,7 +47,7 @@
 
     ;; ---- Checks ----
 
-    (define (device-checks (gpu Gpu) (out OutputPort)) (→ Unit) (! mut)
+    (define (device-checks (gpu Gpu) (out OutputPort)) (→ Unit)
       (write-line out (string-append "decoded: " (texels (decoded-texels gpu))))
       (write-line out (string-append "scene: " (texels (scene-frame gpu (Neutral)))))
       (write-line out (string-append "filmic: " (texels (scene-frame gpu (Filmic)))))
@@ -70,7 +70,7 @@
       (write-line out (string-append "densify: " (splat-densify-check gpu)))
       (write-line out (string-append "room: " (splat-room-check gpu))))
 
-    (define (training-checks (gpu Gpu) (out OutputPort)) (→ Unit) (! mut)
+    (define (training-checks (gpu Gpu) (out OutputPort)) (→ Unit)
       (write-line out (string-append "splat gradients: " (splat-gradient-check gpu)))
       (write-line out (string-append "splat fit: " (splat-fit-check gpu))))
 
@@ -78,10 +78,9 @@
 
     (define (buffer-named (gpu Gpu) (name String) (size I32) (usage (List BufferUsage)))
       (→ GpuBuffer)
-      (! mut)
       (create-buffer gpu (new BufferDescriptor (label name) (size size) (usage usage))))
 
-    (define (texture-named (gpu Gpu) (name String) (width I32) (height I32)) (→ GpuTexture) (! mut)
+    (define (texture-named (gpu Gpu) (name String) (width I32) (height I32)) (→ GpuTexture)
       (create-texture gpu (new TextureDescriptor
                             (label name)
                             (width width)
@@ -165,7 +164,7 @@
 
     ;; The PNG's texels as the host decodes them: the browser, or
     ;; @napi-rs/canvas on Node.
-    (define (decoded-texels (gpu Gpu)) (→ Bytes) (! mut)
+    (define (decoded-texels (gpu Gpu)) (→ Bytes)
       (match (decode-image gpu two-texels)
         ((Some image)
          (let ((readback (buffer-named gpu "image-readback" 256 (list (MapRead) (CopyDst))))
@@ -202,7 +201,7 @@
                   (material (new Vec2f (x 0.0) (y 1.0)))
                   (id id)))))
 
-    (define (tiles (gpu Gpu) (r Raster)) (→ Surface) (! mut)
+    (define (tiles (gpu Gpu) (r Raster)) (→ Surface)
       (make-surface gpu r
                     "tiles"
                     #f
@@ -218,7 +217,7 @@
                  1.0
                  1.0))
 
-    (define (scene-frame (gpu Gpu) (curve Tone)) (→ Bytes) (! mut)
+    (define (scene-frame (gpu Gpu) (curve Tone)) (→ Bytes)
       (let* ((target (texture-named gpu "scene" 4 4))
              (readback (buffer-named gpu "scene-readback" 1024 (list (MapRead) (CopyDst))))
              (r (make-raster gpu color-planes light-format))
@@ -245,7 +244,7 @@
     ;; Render one surface and read the motion plane at the given pixel.
 
     (define (surface-motion (gpu Gpu) (r Raster) (g GBuffer) (surface Surface) (x I32) (y I32))
-      (→ Bytes) (! mut)
+      (→ Bytes)
       (let* ((readback (buffer-named gpu "motion-readback" 4 (list (MapRead) (CopyDst))))
              (encoder (create-command-encoder gpu)))
         (let ((pass (begin-gbuffer gpu encoder g)))
@@ -269,7 +268,7 @@
 
     ;; The camera moved half a tile right, so the scene moved a quarter of the
     ;; texture left. Read the motion and the ids on each tile and past them.
-    (define (planes-frame (gpu Gpu)) (→ String) (! mut)
+    (define (planes-frame (gpu Gpu)) (→ String)
       (let* ((all (new Planes (motion #t) (ids #t)))
              (r (make-raster gpu all light-format))
              (g (make-gbuffer gpu all 4 4))
@@ -286,7 +285,7 @@
 
     ;; A stationary sprite faces an orbiting camera in both frames. A pixel
     ;; near its left edge keeps the same screen position through a quarter turn.
-    (define (billboard-motion (gpu Gpu)) (→ String) (! mut)
+    (define (billboard-motion (gpu Gpu)) (→ String)
       (let* ((all (new Planes (motion #t) (ids #t)))
              (r (make-raster gpu all light-format))
              (g (make-gbuffer gpu all 8 8))
@@ -343,7 +342,7 @@
     ;; 1 to 100, squared by 64-wide workgroups, two of them, and the first
     ;; four and the last read back.
 
-    (define (compute-frame (gpu Gpu)) (→ Bytes) (! mut)
+    (define (compute-frame (gpu Gpu)) (→ Bytes)
       (let* ((module
               (create-shader-module gpu
                                     (new ShaderModuleDescriptor (label "square") (code square))))
@@ -384,12 +383,12 @@
 
     ;; ---- Scans, sorts and splats ----
 
-    (define (storage-buffer (gpu Gpu) (name String) (count I64)) (→ GpuBuffer) (! mut)
+    (define (storage-buffer (gpu Gpu) (name String) (count I64)) (→ GpuBuffer)
       (buffer-named gpu name (i64->i32 (* 4 count)) (list (Storage) (CopySrc) (CopyDst))))
 
     ;; The buffer's first `count` numbers, read back.
 
-    (define (read-numbers (gpu Gpu) (buffer GpuBuffer) (count I64)) (→ Bytes) (! mut)
+    (define (read-numbers (gpu Gpu) (buffer GpuBuffer) (count I64)) (→ Bytes)
       (let ((readback
              (buffer-named gpu
                            "numbers-readback"
@@ -417,7 +416,7 @@
     (define (scanned-before (index I64)) (→ I64)
       (+ (* 3 (quotient index 3)) (if (= (remainder index 3) 2) 1 0)))
 
-    (define (scan-frame (gpu Gpu)) (→ String) (! mut)
+    (define (scan-frame (gpu Gpu)) (→ String)
       (let* ((count 300000)
              (numbers (storage-buffer gpu "scanned" count))
              (scan (make-scan gpu "test" numbers count))
@@ -448,7 +447,7 @@
     (define (as-i32 (value I64)) (→ I32)
       (i64->i32 (if (>= value 2147483648) (- value 4294967296) value)))
 
-    (define (sort-frame (gpu Gpu)) (→ String) (! mut)
+    (define (sort-frame (gpu Gpu)) (→ String)
       (let* ((count 5000)
              (keys (storage-buffer gpu "sort-keys" count))
              (values (storage-buffer gpu "sort-values" count))
@@ -522,7 +521,6 @@
 
     (define (splat-texels (gpu Gpu) (splats Splats) (target GpuTexture) (readback GpuBuffer))
       (→ Bytes)
-      (! mut)
       (let ((encoder (create-command-encoder gpu)))
         (sort-splats gpu encoder
                      splats
@@ -558,7 +556,7 @@
                                         (new Pair (first 12) (second 8))
                                         (new Pair (first 8) (second 4))))))))
 
-    (define (splat-frames (gpu Gpu)) (→ (Pair Bytes Bytes)) (! mut)
+    (define (splat-frames (gpu Gpu)) (→ (Pair Bytes Bytes))
       (let ((splats (make-splats gpu "test" (Rgba8Unorm) 3 3))
             (target (texture-named gpu "splats" 16 16))
             (readback (buffer-named gpu "splats-readback" 4096 (list (MapRead) (CopyDst)))))

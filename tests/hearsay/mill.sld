@@ -22,7 +22,7 @@
 
 ;; Who a person is, what they believe and the stories they hold, as the
 ;; person panel shows them.
-(define (show-person (out OutputPort) (mill Mill) (person I64)) (→ Unit) (! mut)
+(define (show-person (out OutputPort) (mill Mill) (person I64)) (→ Unit)
   (write-line out
               (string-append (show person)
                              " "
@@ -48,7 +48,7 @@
 
 ;; The shift and coins, what each audience and its people believe, the
 ;; liabilities and the goal, then the forecast or the verdict.
-(define (show-board (out OutputPort) (mill Mill)) (→ Unit) (! mut)
+(define (show-board (out OutputPort) (mill Mill)) (→ Unit)
   (write-line out (string-append (● (scenario-rules (● mill scenario)) name) ": "
                                  (if (mill-over? mill)
                                      (string-append "after shift " (show (last-shift mill)))
@@ -93,7 +93,7 @@
   (Act ((text String) (action Action)))
   (Look ((text String) (person I64))))
 
-(define (run-step (out OutputPort) (mill Mill) (step Step)) (→ Mill) (! mut)
+(define (run-step (out OutputPort) (mill Mill) (step Step)) (→ Mill)
   (match step
     ((Act text action)
      (write-line out (string-append "> " text))
@@ -107,7 +107,7 @@
      (show-person out mill person)
      mill)))
 
-(define (game (out OutputPort) (scenario Scenario) (steps (List Step))) (→ Unit) (! mut)
+(define (game (out OutputPort) (scenario Scenario) (steps (List Step))) (→ Unit)
   (write-line out (string-append "==== " (● (scenario-rules scenario) name)))
   (show-board out
               (fold-left (lambda (mill step) (run-step out mill step)) (new-mill scenario) steps))
@@ -115,7 +115,7 @@
 
 (define (wait) (→ Step) (Act "wait" (Wait)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   ;; People by number: Ana 0, Gus 6, Hana 7, Mo 12, Nia 13, Oda 14, Pim 15,
   ;; Rhea 17, Tam 19.

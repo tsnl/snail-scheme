@@ -28,7 +28,7 @@
 
 ;; A prompt of its own is an early exit no caller can intercept: the first
 ;; item `matches?` accepts, without looking at the rest.
-(define (find-first (matches? (Fn A → Bool ! e)) (items (List A))) (→ (Option A)) (! e) (∀ (A e))
+(define (find-first (matches? (Fn A → Bool)) (items (List A))) (→ (Option A)) (∀ (A))
   (let ((found (ann (make-prompt) (Prompt A Never))))
     (with-prompt found
                  (lambda ()
@@ -39,7 +39,7 @@
                    (None))
                  (lambda (item resume) (Some item)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-line out (repr (collect (lambda (emit) (for-each emit (list "a" "b" "c"))))))
   (write-line out (repr (nested)))
   (write-line out

@@ -19,7 +19,7 @@
 (define (done (value Unit)) (→ String)
   "")
 
-(define (report (out OutputPort) (label String) (text String)) (→ Unit) (! mut)
+(define (report (out OutputPort) (label String) (text String)) (→ Unit)
   (write-line out (string-append label " -> " text)))
 
 (define (kind-name (kind FileKind)) (→ String)
@@ -38,7 +38,7 @@
 (define (names (entries (List String))) (→ String)
   (string-append "(" (string-join entries " ") ")"))
 
-(define (main (fs Fs) (clock Clock) (out OutputPort)) (→ Unit) (! mut)
+(define (main (fs Fs) (clock Clock) (out OutputPort)) (→ Unit)
   ;; A run removes what an earlier one may have left.
   (remove-tree fs (root))
   ;; ---- Making directories ----

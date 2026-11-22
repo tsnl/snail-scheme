@@ -42,7 +42,7 @@
     (define (start-drawing) (→ Drawing) (new Drawing (drawn (None)) (portraits (empty-table))))
 
     ;; One page holds the shapes and eighteen walking pictures.
-    (define (drawn-of (gpu Gpu) (drawing Drawing)) (→ Drawn) (! mut)
+    (define (drawn-of (gpu Gpu) (drawing Drawing)) (→ Drawn)
       (match (● drawing drawn)
         ((Some drawn) drawn)
         ((None)
@@ -149,7 +149,6 @@
                               (view View2D)
                               (quads (Fn Atlas → (List Quad))))
       (→ Drawing)
-      (! mut)
       (let* ((drawn (drawn-of gpu drawing))
              (encoder (create-command-encoder gpu))
              (atlas (atlas-pictures gpu (● drawn atlas) encoder (append shapes pictures)))
@@ -170,7 +169,7 @@
                        atlas
                        pictures)))
 
-    (define (canvas-pass (gpu Gpu) (canvas Image) (background I32)) (→ RenderPassDescriptor) (! mut)
+    (define (canvas-pass (gpu Gpu) (canvas Image) (background I32)) (→ RenderPassDescriptor)
       (new RenderPassDescriptor
         (colors (list (Some (new ColorAttachment
                               (view (view-of gpu (● canvas texture) 1))
@@ -185,7 +184,6 @@
     ;; The first picture whose portrait is missing or shows another version.
     (define (portrait-read (gpu Gpu) (drawing Drawing) (atlas Atlas) (pictures (List Picture)))
       (→ Drawing)
-      (! mut)
       (match (find (lambda (picture) (not (portrayed? drawing picture))) pictures)
         ((Some picture)
          (Drawing-portraits-set drawing

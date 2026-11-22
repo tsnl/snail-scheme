@@ -14,8 +14,8 @@
   ((count I64)))
 
 ;; Receiver evaluation happens once for the entire path.
-(define (visit (calls Calls) (scene Scene)) (→ Scene) (! mut)
-  (set! (● calls count) (+ (● calls count) 1))
+(define (visit (mut Mut) (calls Calls) (scene Scene)) (→ Scene)
+  (set! mut (● calls count) (+ (● calls count) 1))
   scene)
 
 ;; Reads through a deferred receiver are pure.
@@ -23,31 +23,31 @@
   (let ((select (lambda (record) (● record x))))
     (select point)))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
 
   ;; Both child fields refer to independently mutable objects.
   (let ((scene (new Scene (position (new Point (x 1) (y 2))) (target (new Point (x 3) (y 4))))))
     (write-line out (show (● scene position x)))
     (write-line out (show (● scene target y)))
-    (set! (● scene target) (new Point (x 5) (y 6)))
-    (set! (● scene position x) 7)
+    (set! mut (● scene target) (new Point (x 5) (y 6)))
+    (set! mut (● scene position x) 7)
     (write-line out (show (● scene target y)))
-    (set! (● scene target y) 8)
+    (set! mut (● scene target y) 8)
     (write-line out (show (● scene position x)))
     (write-line out (show (● scene target y))))
   (write-line out (show (● (new Point (x 9) (y 10)) x)))
   (let ((calls (new Calls (count 0)))
         (scene (new Scene (position (new Point (x 13) (y 14))) (target (new Point (x 15) (y 16))))))
-    (write-line out (show (● (visit calls scene) target x)))
+    (write-line out (show (● (visit mut calls scene) target x)))
     (write-line out (show (● calls count))))
   ;; So does a write's, whatever expression computes it.
   (let ((calls (new Calls (count 0)))
         (scene (new Scene (position (new Point (x 13) (y 14))) (target (new Point (x 15) (y 16))))))
-    (set! (● (match (Some (visit calls scene))
-               ((Some found) found)
-               ((None) scene))
-             target
-             x)
+    (set! mut (● (match (Some (visit mut calls scene))
+                   ((Some found) found)
+                   ((None) scene))
+                 target
+                 x)
           19)
     (write-line out (show (● scene target x)))
     (write-line out (show (● calls count))))

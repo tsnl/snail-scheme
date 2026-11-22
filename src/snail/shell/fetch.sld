@@ -61,12 +61,12 @@
     ;; of the page the program runs in, which relative URLs resolve
     ;; against and whose query can choose what it shows.
     (record Fetch
-      ((request (Fn String String (List Header) String → (Result Reply String) ! mut))
-       (fetch-all-bytes (Fn (List String) → (List (Result Bytes String)) ! mut))
-       (page-address (Fn → String ! mut))
-       (stream-open (Fn String (List String) → Stream ! mut))
-       (stream-next (Fn Stream → (Option StreamEvent) ! mut))
-       (stream-close (Fn Stream → Unit ! mut))))
+      ((request (Fn String String (List Header) String → (Result Reply String)))
+       (fetch-all-bytes (Fn (List String) → (List (Result Bytes String))))
+       (page-address (Fn → String))
+       (stream-open (Fn String (List String) → Stream))
+       (stream-next (Fn Stream → (Option StreamEvent)))
+       (stream-close (Fn Stream → Unit))))
 
     (define (request (fetch Fetch)
                      (method String)
@@ -74,25 +74,23 @@
                      (headers (List Header))
                      (body String))
       (→ (Result Reply String))
-      (! mut)
       ((● fetch request) method url headers body))
 
     (define (fetch-all-bytes (fetch Fetch) (urls (List String)))
       (→ (List (Result Bytes String)))
-      (! mut)
       ((● fetch fetch-all-bytes) urls))
 
-    (define (page-address (fetch Fetch)) (→ String) (! mut)
+    (define (page-address (fetch Fetch)) (→ String)
       ((● fetch page-address)))
 
-    (define (stream-open (fetch Fetch) (url String) (kinds (List String))) (→ Stream) (! mut)
+    (define (stream-open (fetch Fetch) (url String) (kinds (List String))) (→ Stream)
       ((● fetch stream-open) url kinds))
 
-    (define (stream-next (fetch Fetch) (stream Stream)) (→ (Option StreamEvent)) (! mut)
+    (define (stream-next (fetch Fetch) (stream Stream)) (→ (Option StreamEvent))
       ((● fetch stream-next) stream))
 
-    (define (stream-close (fetch Fetch) (stream Stream)) (→ Unit) (! mut)
+    (define (stream-close (fetch Fetch) (stream Stream)) (→ Unit)
       ((● fetch stream-close) stream))
 
-    (define (fetch-bytes (fetch Fetch) (url String)) (→ (Result Bytes String)) (! mut)
+    (define (fetch-bytes (fetch Fetch) (url String)) (→ (Result Bytes String))
       (list-ref (fetch-all-bytes fetch (list url)) 0))))

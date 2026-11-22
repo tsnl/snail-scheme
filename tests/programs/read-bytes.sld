@@ -3,7 +3,7 @@
  (snail core base)
  (snail core io))
 
-(define (main (fs Fs) (out OutputPort)) (→ Unit) (! mut)
+(define (main (fs Fs) (out OutputPort)) (→ Unit)
 
   (define image (read-bytes fs "tests/programs/data/pixel.png"))
   (display out (array-length image))

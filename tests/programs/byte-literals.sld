@@ -237,7 +237,7 @@
 (define (signature) (→ Bytes)
   #u8(137 80 78 71 13 10 26 10))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (display out (array-length (every-byte)))
   (newline out)
   (display out (checksum (every-byte)))

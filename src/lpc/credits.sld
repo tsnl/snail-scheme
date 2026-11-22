@@ -79,7 +79,7 @@
        (hair (List (List String)))
        (bases (List String))))
 
-    (define (read-packs (fs Fs)) (→ Packs) (! mut)
+    (define (read-packs (fs Fs)) (→ Packs)
       (new Packs
         (clothing (filter (lambda (row) (not (string=? (list-ref row 0) "")))
                           (map csv-fields
@@ -91,7 +91,7 @@
                    (filter table-row? (file-lines fs "src/lpc/lpc-hair/CREDITS-hair.txt"))))
         (bases (file-lines fs "src/lpc/lpc-character-bases-v3_1/CREDITS.txt"))))
 
-    (define (file-lines (fs Fs) (path String)) (→ (List String)) (! mut)
+    (define (file-lines (fs Fs) (path String)) (→ (List String))
       (map trim-end (split (read-file fs path) #\newline)))
 
     ;; ---- Clothing ----
@@ -319,7 +319,7 @@
 
     ;; The library `name` exporting `credits`, the credit of each part the
     ;; sheets at `paths` come from, read from the packs now.
-    (define (credits-library (fs Fs) (name (List String)) (paths (List String))) (→ Syntax) (! mut)
+    (define (credits-library (fs Fs) (name (List String)) (paths (List String))) (→ Syntax)
       (let ((packs (read-packs fs)))
         (library-syntax name
                         (list "credits")

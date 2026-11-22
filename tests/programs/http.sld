@@ -79,7 +79,7 @@
     ((Ok head) (text head))
     ((Err error) (string-append "error " (kind error)))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (let* ((source
           "POST /a%2Fb?x=1&x=2 HTTP/1.1\r\nHost: example.test:8080\r\nContent-Length: 3\r\nX-Test: first\r\nx-TEST:\tsecond \t\r\n\r\n")
          (bytes (ascii source))

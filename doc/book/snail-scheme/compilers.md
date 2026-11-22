@@ -8,7 +8,7 @@ Emission consumes that result without revisiting source semantics.
 ```text
 text ──read───▶ located syntax
      ──expand─▶ resolved program   unique names, declarations, field paths
-     ──check──▶ typed program      types, rows, instances
+     ──check──▶ typed program      types, instances
      ──prepare▶ concrete code      suspensions known, yield points explicit
      ──emit───▶ WasmGC text ──assemble/link──▶ executable module
 ```
@@ -106,26 +106,26 @@ Chez performs the same ordering at macro expansion time, using private
 constructor procedures and hygienic record descriptors, with no runtime keyword
 lookup for construction.
 
-### Types, rows and conversions
+### Types and conversions
 
-`check.sld` infers types and rows, solves class requirements and
+`check.sld` infers types, solves class requirements and
 records selected instance evidence at uses. Library checking is independent
 of importers. Named functions state their parameter and result types;
 polymorphic definitions state their quantifiers and requirements.
 
-A row says whether a function may perform `mut`. Calls and callbacks
-add row-inclusion obligations, which remain pending while a callee's row is
-unknown. The checker also defers unused-effect decisions until those rows
-have enough information. This avoids either closing a callback row too early
-or granting effects absent from its implementation.
+A function's type has no row: types unify, and nothing is subsumed. What
+a function may do is in its parameters, so the checker's part is small. A
+field write checks its first operand against `Mut`, as `array-set!`'s type
+does for an array's, and a top-level signature that asks for a `Mut` its
+body never mentions is refused, so that the functions taking one are the
+ones that may write.
 
 Explicit `(Any value)` and `(downcast T boxed)` become `BoxAny` and
 `Downcast` terms. Packaging preserves type identity; extraction returns `Some`
 only for the requested type, and `None` on mismatch. Neither inserts conversions
-at unrelated boundaries or performs an effect.
-Local expressions retain their ordinary inference and effect checking. A
-top-level value's thunk has a type with no row, so its initializer is
-checked to perform nothing. The checker knows a value in one place: it does
+at unrelated boundaries.
+A top-level value's thunk takes nothing, so its initializer holds no `Mut`
+and no capability. The checker knows a value in one place: it does
 not generalize the thunk's type, and refuses one its library leaves
 undecided.
 
@@ -135,8 +135,7 @@ undecided.
 exposures it copies each definition reached once for each set of types it is
 used at, and answers the copies with their declarations, each copy's type. It
 reserves a copy's name, with its type, before copying the body, which
-permits recursion. A copy's name keys its types; rows are erased, since what
-a function performs decides nothing once it is checked. Asking for a
+permits recursion. A copy's name keys its types. Asking for a
 reserved name again does not spend the finite specialization budget.
 
 `prepare.sld` specializes the whole reachable graph before reading any
@@ -184,7 +183,7 @@ specialization families instead of exhausting the host. Ordinary recursive
 nominal types reuse their existing type entry.
 
 The `cache` and `lru-cache` primitives preserve their callback's parameter
-types, result type and row. The checker requires a known function
+types and result type. The checker requires a known function
 signature at final inferred types, including when a primitive is used as a
 function value.
 Preparation rejects raw `Funcref` keys. The Wasm
@@ -320,8 +319,8 @@ against that file rather than the printed copy (`written-in` in
 `expand.sld`), so a recipe links files beside itself wherever its producer
 is printed. The recipe's path is part of the producer's text, and so of its
 key, since the files it links depend on it. The producer computes the
-recipe's expression in a task, as `(write-generated-library (lambda ()
-EXPR))`, so the expression may read what the recipe links with
+recipe's expression in a task, as `(write-generated-library producer-fs
+producer-arguments (lambda () EXPR))`, so the expression may read what the recipe links with
 `read-resource`, run processes and build other scripts
 ([embedding](projects.md#embedding-a-build)).
 

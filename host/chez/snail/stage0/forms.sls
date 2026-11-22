@@ -16,7 +16,7 @@
 
   (meta scheme-define (header-clause? form)
         (syntax-case form ()
-          [(name . rest) (memq (syntax->datum #'name) '(→ ! ∀ ⊨))]
+          [(name . rest) (memq (syntax->datum #'name) '(→ ∀ ⊨))]
           [_ #f]))
 
   (meta scheme-define (definition-body forms)
@@ -165,12 +165,14 @@
     (syntax-rules ()
       [(_ value label) (field-of value 'label)]
       [(_ value label next ...) (● (● value label) next ...)]))
+  ;; A field write names the `Mut` it was handed first. Types are erased
+  ;; here, so the token is evaluated and otherwise unused.
   (define-syntax set!
     (syntax-rules (●)
-      [(_ (● record label) value)
-       (let ([object record] [content value])
+      [(_ mut (● record label) value)
+       (let ([token mut] [object record] [content value])
          (vector-set! object (field-index object 'label) content))]
-      [(_ (● record label next ...) value) (set! (● (● record label) next ...) value)]
+      [(_ mut (● record label next ...) value) (set! mut (● (● record label) next ...) value)]
       [(_ name value) (scheme-set! name value)]))
 
   ;; ---- Matching ----
@@ -246,7 +248,7 @@
         (error 'test-forms "named construction changed evaluation order")))
     (let* ([record (new Counter (label "before") (value 1))] [alias record]
            [changed (Counter-label-set record "after")])
-      (set! (● alias value) 2)
+      (set! 'mut (● alias value) 2)
       (unless (and (= (● record value) 2) (= (● changed value) 1)
                    (= (typed-sum 20 22) 42)
                    (= ((typed-lambda ((left I64) (right I64)) (→ I64) (+ left right)) 20 22) 42)

@@ -82,10 +82,8 @@
     ;; name, every eighth held out, and its sparse points. The first
     ;; photograph is decoded for the size they share, which the camera is
     ;; scaled to.
-    (define (dataset-scene (gpu Gpu) (read (Fn String → Bytes ! e)) (settings Settings))
+    (define (dataset-scene (gpu Gpu) (read (Fn String → Bytes)) (settings Settings))
       (→ Scene)
-      (! mut e)
-      (∀ (e))
       (let* ((sparse (lambda (file) (read (string-append (● settings scene) "sparse/0/" file))))
              (camera (list-ref (parsed (read-cameras (sparse "cameras.bin"))) 0))
              (images (list-sort (lambda (a b) (string<? (● a name) (● b name)))
@@ -109,12 +107,10 @@
            (filter (lambda (pair) (keep (● pair first))) (zip (iota (length items)) items))))
 
     ;; An image's photograph, read and decoded onto the device.
-    (define (dataset-photograph (gpu Gpu) (read (Fn String → Bytes ! e))
+    (define (dataset-photograph (gpu Gpu) (read (Fn String → Bytes))
                                 (settings Settings)
                                 (image ColmapImage))
       (→ Image)
-      (! mut e)
-      (∀ (e))
       (let ((address
              (string-append (● settings scene) (● settings images) "/" (● image name))))
         (match (decode-image gpu (read address))

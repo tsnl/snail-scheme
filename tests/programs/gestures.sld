@@ -13,7 +13,7 @@
     ((Pinch ratio) (string-append "pinch " (show ratio)))))
 
 ;; Feeds the inputs in order and prints what each one meant.
-(define (play (out OutputPort) (name String) (inputs (List Input))) (→ Unit) (! mut)
+(define (play (out OutputPort) (name String) (inputs (List Input))) (→ Unit)
   (write-line out (string-append name ": "
                                  (string-join (● (fold-left (lambda (state input)
                                                               (match (recognize
@@ -32,7 +32,7 @@
                                                  second)
                                               "; "))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
 
   (play out "pointing" (list (PointerMove 1 10 10) (PointerMove 1 12 11)))
   (play out "tap" (list (PointerDown 1 10 10 0) (PointerMove 1 13 12) (PointerUp 1 13 12)))

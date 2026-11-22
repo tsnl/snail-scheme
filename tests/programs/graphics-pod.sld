@@ -40,7 +40,7 @@
                     (● layout fields))
                " "))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
+(define (main (out OutputPort)) (→ Unit)
   (write-string out (declarations scene-shape))
   (write-line out (string-append "scene: size "
                                  (show (● scene-shape layout size))

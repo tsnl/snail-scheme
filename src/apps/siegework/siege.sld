@@ -354,15 +354,15 @@
          (lambda (n) (array-ref crowd (cell-index n))))))
 
     (define (crowding (world World)) (→ (Array I64))
-      (unsafe-total
-       (lambda ()
-         (let ((counts (make-array (* map-size map-size) 0)))
-           (for-each (lambda (e)
-                       (array-set! counts
-                                   (cell-index (● e cell))
-                                   (+ 1 (array-ref counts (cell-index (● e cell))))))
-                     (● world enemies))
-           counts))))
+      (let* ((mut (unsafe-mut)) (counts (make-array (* map-size map-size) 0)))
+        (for-each (lambda (e)
+                    (array-set! mut counts
+                                (cell-index (● e cell))
+                                (+ 1
+                                   (array-ref counts
+                                              (cell-index (● e cell))))))
+                  (● world enemies))
+        counts))
 
     ;; On its period an enemy that is not engaged steps toward its target,
     ;; unless the step is into rock still being dug.

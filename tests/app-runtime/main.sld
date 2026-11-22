@@ -8,6 +8,7 @@
  (snail shell app)
  (snail shell wire)
  (only (snail core io) Clock)
+ (only (snail shell dom) Dom)
  (only (snail shell gpu) Gpu)
  (only (snail shell page) Events)
  (only (snail shell page) PageStorage))
@@ -67,9 +68,8 @@
     (save (lambda (counter) (serialize (new Save (count (● counter count))))))
     (restore (lambda (bytes) (counting (● (ann (deserialize bytes) Save) count))))))
 
-(define (main (gpu Gpu) (events Events) (storage PageStorage) (clock Clock))
+(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock))
   (→ Unit)
-  (! mut)
   ;; A task keeps what it closed over across its waits.
   (let ((marker 17))
     (dispatch (lambda ()
@@ -77,4 +77,4 @@
                 (unless (= marker 17)
                   (panic "a child lost what it closed over"))
                 (sleep 100000)))
-    (run-scene gpu events storage clock (counter gpu))))
+    (run-scene gpu dom events storage clock (counter gpu))))

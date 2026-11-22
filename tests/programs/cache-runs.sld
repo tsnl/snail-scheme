@@ -8,30 +8,27 @@
 
 (define asking (→ (Prompt Unit I64)) (make-prompt))
 
-;; Both empty-row spellings are closed, not effect-polymorphic.
-(define (square (n I64)) (→ I64) (!) (* n n))
+(define (square (n I64)) (→ I64) (* n n))
 
-(define (memoize-pure (f (Fn A → B !))) (→ (Fn A → B)) (∀ (A B))
-  (cache f))
-
-(define (memoize-effects (f (Fn A → B ! e))) (→ (Fn A → B ! e)) (∀ (A B e))
+;; A cache of any function of one argument.
+(define (memoize (f (Fn A → B))) (→ (Fn A → B)) (∀ (A B))
   (cache f))
 
 ;; A suspension its own `with-prompt` catches never leaves the function.
 (define (ask-here (n I64)) (→ I64)
   (with-prompt asking (lambda () (suspend asking (unit))) (lambda (value resume) (resume n))))
 
-(define (main (out OutputPort)) (→ Unit) (! mut)
-  (let ((memo (memoize-pure square)) (bounded (lru-cache 2 ask-here)))
+(define (main (mut Mut) (out OutputPort)) (→ Unit)
+  (let ((memo (memoize square)) (bounded (lru-cache 2 ask-here)))
     (write-line out (show (memo 4)))
     (write-line out (show (bounded 7)))
     (write-line out (show (bounded 7))))
   (let* ((count (new Count (value 10)))
          (counting (lambda (n)
-                     (set! (● count value) (+ (● count value) 1))
+                     (set! mut (● count value) (+ (● count value) 1))
                      (+ n (● count value))))
          (wrap cache)
-         (memo (memoize-effects counting))
+         (memo (memoize counting))
          (alias (wrap counting))
          (bounded (lru-cache 1 counting)))
     ;; Each cache runs the function once for each key it has not kept.

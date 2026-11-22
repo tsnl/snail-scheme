@@ -15,7 +15,6 @@
 
     (define (files-library (fs Fs) (name (List String)) (accessor String) (directory String))
       (→ Syntax)
-      (! mut)
       (library-syntax name
                       (list accessor)
                       (list (list "snail" "core" "base") (list "snail" "shell" "resource"))
@@ -41,14 +40,14 @@
     ;; in name order, through directories and the links a build's store
     ;; view holds.
 
-    (define (files-under (fs Fs) (directory String) (prefix String)) (→ (List String)) (! mut)
+    (define (files-under (fs Fs) (directory String) (prefix String)) (→ (List String))
       (match (list-directory fs (string-append directory "/" prefix))
         ((Ok names)
          (concatenate (map (lambda (name) (file-or-files fs directory (string-append prefix name)))
                            (list-sort string<? names))))
         ((Err _) (panic (string-append "cannot list " directory "/" prefix)))))
 
-    (define (file-or-files (fs Fs) (directory String) (path String)) (→ (List String)) (! mut)
+    (define (file-or-files (fs Fs) (directory String) (path String)) (→ (List String))
       (match (followed-status fs (string-append directory "/" path))
         ((Ok status)
          (match (● status kind)
