@@ -10,12 +10,12 @@
   (fold-left + 0 items))
 
 ;; Other effects still need declaring.
-(define (noisy-sum (mut Mut) (out OutputPort) (items (List I64))) (→ I64)
+(define (noisy-sum (out OutputPort) (items (List I64))) (→ I64)
   (let ((total (new Total (value 0))))
     (for-each
      (lambda (item)
        (write-line out (show item))
-       (set! mut (● total value) (+ (● total value) item)))
+       (set! (● total value) (+ (● total value) item)))
      items)
     (● total value)))
 
@@ -25,11 +25,11 @@
     ((Cons cell _) (Some cell))
     ((Nil) (None))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
 
   (display out (sum (list 1 2 3 4)))
   (newline out)
-  (display out (noisy-sum mut out (list 5 6)))
+  (display out (noisy-sum out (list 5 6)))
   (newline out)
   (display out
            (match (first-total (list (new Total (value 7))))

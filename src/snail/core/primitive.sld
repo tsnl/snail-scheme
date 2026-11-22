@@ -7,11 +7,11 @@
 ;; nothing it declares has a body.
 ;;
 ;; A generic type quantifies its variables in the order they first occur.
-;; An operation that writes takes a `Mut` first; no other changes anything,
-;; though some can trap.
+;; `array-set!` and `array-copy!` write; no other operation changes
+;; anything, though some can trap.
 (define-library (snail core primitive)
   (export
-   unit panic unsafe-mut unsafe-cast
+   unit panic unsafe-cast
    cache lru-cache
    make-prompt with-prompt suspend
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
@@ -53,19 +53,12 @@
 
     ;; ---- Control ----
 
-    ;; A `Mut` is what a write is handed: `set!`, `array-set!` and
-    ;; `array-copy!` take one, so a function that was handed none, and
-    ;; nothing that holds one, changes nothing. A program's `main` asks its
-    ;; target for one, and passes it to what should write. `unsafe-mut`
-    ;; makes one from nothing, unchecked: the standard library uses it where
-    ;; a function writes only storage it allocates and nothing else can
-    ;; reach, so that its callers need none. `unsafe-cast` makes
+    ;; `unsafe-cast` makes
     ;; a function of whatever type is expected from a Funcref, a function
     ;; another module exports (`(snail shell wasm)`), checking only its Wasm
     ;; type. It constructs a closure that calls the exported code.
     (primitive unit (Fn → Unit))
     (primitive panic (∀ (A) (Fn String → A)))
-    (primitive unsafe-mut (Fn → Mut))
     (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
 
     ;; ---- Memoized functions ----
@@ -73,8 +66,8 @@
     ;; A top-level value is its thunk's result, which its module keeps: the
     ;; expander wraps the initializer of `(define name value)` in this, and
     ;; a read of `name` calls it. No program names it, so it is not
-    ;; exported. The thunk takes nothing, so an initializer holds no `Mut`
-    ;; and no capability: it only computes.
+    ;; exported. The thunk takes nothing, so an initializer holds no
+    ;; capability.
     (primitive cached-thunk (∀ (A) (Fn (Fn → A) → (Fn → A))))
 
     ;; F stands for an entire function signature of any arity: the wrapper
@@ -242,7 +235,7 @@
     (primitive array-set (∀ (A) (Fn (Array A) I64 A → (Array A))))
     (primitive array-generate (∀ (A) (Fn I64 (Fn I64 → A) → (Array A))))
 
-    (primitive array-set! (∀ (A) (Fn Mut (Array A) I64 A → Unit)))
+    (primitive array-set! (∀ (A) (Fn (Array A) I64 A → Unit)))
     (primitive array-copy (∀ (A) (Fn (Array A) → (Array A))))
-    (primitive array-copy! (∀ (A) (Fn Mut (Array A) I64 (Array A) I64 I64 → Unit)))))
+    (primitive array-copy! (∀ (A) (Fn (Array A) I64 (Array A) I64 I64 → Unit)))))
 

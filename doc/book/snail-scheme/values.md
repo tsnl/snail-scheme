@@ -18,13 +18,14 @@ that record, including writes through another enclosing record.
 (record Counter
   ((value I64)))
 
-(define (increment (mut Mut) (counter Counter)) (→ Unit)
-  (set! mut (● counter value) (+ (● counter value) 1)))
+(define (increment! (counter Counter)) (→ Unit)
+  (set! (● counter value) (+ (● counter value) 1)))
 ```
 
-Selecting a field needs nothing. Updating a field takes a `Mut`
-([capabilities](capabilities.md#mut)), even when its receiver was allocated
-locally: the compiler infers no exemption from allocation locality. To exchange a field's value, read it,
+Whoever holds a record may select and update its fields: nothing in a
+signature says which a function does, so one that writes is named with a
+trailing `!`, and one that only reads is not
+([capabilities](capabilities.md#what-a-signature-does-not-say)). To exchange a field's value, read it,
 then `set!` the new one.
 
 `Name-field-set` is a pure replacement operation: it returns another record

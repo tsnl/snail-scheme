@@ -159,7 +159,7 @@
     ((Some at) (substring line (+ 21 at) (- (string-length line) 4)))
     ((None) line)))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
   (match (read-ply file 3)
     ((Ok cloud) (show-cloud out cloud))
     ((Err message) (write-line out message)))
@@ -178,7 +178,7 @@
   (write-line out
               (string-join (map workgroups
                                 (filter dispatched
-                                        (● (with-recorded-gpu mut (lambda (gpu) (frame gpu)))
+                                        (● (with-recorded-gpu (lambda (gpu) (frame gpu)))
                                            second)))
                            " "))
   (unit))

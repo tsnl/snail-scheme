@@ -123,8 +123,8 @@
       ((image ColmapImage)
        (photo (Mailbox Image))))
 
-    (define (sent-for (mut Mut) (photographs Photographs) (image ColmapImage)) (→ Arriving)
-      (let ((arriving (new Arriving (image image) (photo (make-mailbox mut)))))
+    (define (sent-for (photographs Photographs) (image ColmapImage)) (→ Arriving)
+      (let ((arriving (new Arriving (image image) (photo (make-mailbox)))))
         (dispatch (lambda () (mailbox-post (● arriving photo) (photograph photographs image))))
         arriving))
 
@@ -453,7 +453,7 @@
     ;; Training on `scene`, on the device the host has opened, each 50th
     ;; step's image and the last shown by `shown`. It answers the programs
     ;; it trained, whose cloud `trained-cloud` reads.
-    (define (train (mut Mut) (photographs Photographs)
+    (define (train (photographs Photographs)
                    (gpu Gpu)
                    (clock Clock)
                    (out OutputPort)
@@ -474,11 +474,11 @@
                                        " from "
                                        (show (length (● scene points)))
                                        " points"))
-        (let ((done (trained mut photographs
+        (let ((done (trained photographs
                              gpu
                              clock
                              out
-                             (fold-left (lambda (run _) (sending mut photographs run scene))
+                             (fold-left (lambda (run _) (sending photographs run scene))
                                         (new Run
                                           (programs p)
                                           (round (Nil))
@@ -518,36 +518,36 @@
     ;; The run with one more photograph sent for: one not yet sent for
     ;; this round, picked at random, from a new round once every one has
     ;; been.
-    (define (sending (mut Mut) (photographs Photographs) (run Run) (scene Scene)) (→ Run)
+    (define (sending (photographs Photographs) (run Run) (scene Scene)) (→ Run)
       (let* ((round (if (null? (● run round)) (● scene training) (● run round)))
              (random (random-next (● run random)))
              (pick (random-below random (length round))))
         (Run-arriving-set (Run-random-set (Run-round-set run (without round pick)) random)
                           (append (● run arriving)
-                                  (list (sent-for mut photographs (list-ref round pick)))))))
+                                  (list (sent-for photographs (list-ref round pick)))))))
 
     (define (without (items (List T)) (k I64)) (→ (List T)) (∀ (T))
       (append (take items k) (list-drop items (+ k 1))))
 
-    (define (trained (mut Mut)
-                     (photographs Photographs)
-                     (gpu Gpu)
-                     (clock Clock)
-                     (out OutputPort)
-                     (run Run)
-                     (scene Scene)
-                     (options Options)
-                     (shown (Fn Programs → Unit)))
+    (define (trained
+             (photographs Photographs)
+             (gpu Gpu)
+             (clock Clock)
+             (out OutputPort)
+             (run Run)
+             (scene Scene)
+             (options Options)
+             (shown (Fn Programs → Unit)))
       (→ Run)
       (match (● run arriving)
         ((Cons next rest)
          (let ((sent (Run-arriving-set run rest)))
-           (trained mut photographs
+           (trained photographs
                     gpu
                     clock
                     out
                     (stepped gpu clock out (if (<= (+ (● run step) ahead) (● options steps))
-                                               (sending mut photographs sent scene)
+                                               (sending photographs sent scene)
                                                sent)
                              scene
                              options

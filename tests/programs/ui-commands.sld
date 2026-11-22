@@ -132,27 +132,27 @@
 (define (clicked (target String)) (→ Cue)
   (Fire target "click" no-event))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
      (let ((result
-            (with-memory-dom mut
-                             (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
-                                   (clicked "indent")
-                                   (FireWindow "keydown"
-                                               (Event-modifiers-set (Event-key-set no-event "s")
-                                                                    control-key))
-                                   (clicked "late")
-                                   (clicked "hide")
-                                   (FireWindow "online" no-event))
-                             (lambda (dom)
-                               (run-ui mut dom (new Model (text "") (shown #t) (log (Nil)))
-                                       (list (Begin))
-                                       (lambda (model message) (update dom model message))
-                                       view
-                                       window
-                                       (lambda (model) (unit))
-                                       (lambda (model) (unit)))))))
+            (with-memory-dom
+             (list (Fire "text" "input" (Event-value-set no-event "(car x)"))
+                   (clicked "indent")
+                   (FireWindow "keydown"
+                               (Event-modifiers-set (Event-key-set no-event "s")
+                                                    control-key))
+                   (clicked "late")
+                   (clicked "hide")
+                   (FireWindow "online" no-event))
+             (lambda (dom)
+               (run-ui dom (new Model (text "") (shown #t) (log (Nil)))
+                       (list (Begin))
+                       (lambda (model message) (update dom model message))
+                       view
+                       window
+                       (lambda (model) (unit))
+                       (lambda (model) (unit)))))))
        (write-line out (string-append "text: " (● (● result first) text)))
        (for-each (lambda (text) (write-line out text)) (● (● result first) log))
        (write-line out (document->html (● result second)))

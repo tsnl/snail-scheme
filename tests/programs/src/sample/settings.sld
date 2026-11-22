@@ -18,6 +18,6 @@
 
     (define port (→ I64) (+ 8000 80))
 
-    (define (visits (mut Mut)) (→ I64)
-      (set! mut (● settings visits) (+ (● settings visits) 1))
+    (define (visits) (→ I64)
+      (set! (● settings visits) (+ (● settings visits) 1))
       (● settings visits))))

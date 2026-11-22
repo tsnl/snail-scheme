@@ -91,14 +91,12 @@
 ;; ---- Mutation ----
 
 ;; Records are heap objects with mutable fields. Aliases see the same
-;; writes. A write names a `Mut`, the token `main` asks its target for; a
-;; read needs nothing, and a function handed no `Mut` leaves its inputs as
-;; they were.
+;; writes: whoever holds a record may change it.
 (record Counter
   ((count I64)))
 
-(define (bump! (mut Mut) (counter Counter)) (→ Unit)
-  (set! mut (● counter count) (+ (● counter count) 1)))
+(define (bump! (counter Counter)) (→ Unit)
+  (set! (● counter count) (+ (● counter count) 1)))
 
 ;; ---- Capabilities ----
 
@@ -124,18 +122,17 @@
 ;; ---- Macros ----
 
 ;; Macros are Scheme's `syntax-rules`, and hygienic: `swap!`'s own
-;; `temporary` cannot capture the caller's, and it writes with the `Mut`
-;; its caller passes.
+;; `temporary` cannot capture the caller's.
 (record Label
   ((text String)))
 
 (define-syntax swap!
   (syntax-rules ()
-    ((_ mut a b) (let ((temporary (● a text)))
-                   (set! mut (● a text) (● b text))
-                   (set! mut (● b text) temporary)))))
+    ((_ a b) (let ((temporary (● a text)))
+               (set! (● a text) (● b text))
+               (set! (● b text) temporary)))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
 
   (write-line out (string-append "seven squared is " (i64->string (square 7))))
   ;; Nothing converts implicitly: an I64 becomes an F64 only when asked.
@@ -159,8 +156,8 @@
   (write-line out (describe-all (list (new Point (x 1) (y 2)) (new Point (x 3) (y 4)))))
   (write-line out (describe-all (list #t #f)))
   (let ((clicks (new Counter (count 0))))
-    (bump! mut clicks)
-    (bump! mut clicks)
+    (bump! clicks)
+    (bump! clicks)
     (display out (● clicks count))
     (newline out))
   (write-line out (greet (lambda () "world")))
@@ -173,6 +170,6 @@
   (newline out)
   (let ((left (new Label (text "left")))
         (right (new Label (text "right"))))
-    (swap! mut left right)
+    (swap! left right)
     (write-line out (string-append (● left text) " " (● right text))))
   (unit))

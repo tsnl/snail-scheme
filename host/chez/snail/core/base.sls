@@ -29,7 +29,7 @@
    min
    max
    not
-   unit panic unsafe-mut cache lru-cache
+   unit panic cache lru-cache
    i64-and i64-or i64-xor i64-shift-left i64-shift-right/logical
    i64->string string->i64 u8->i32 i32->u8 i32->i64 i64->i32 digit-value
    Option Some None Result Ok Err Never absurd Pair
@@ -92,8 +92,6 @@
 
   (define (panic message) (error #f message))
 
-  ;; Types are erased here, so a `Mut` is only a value to pass along.
-  (define (unsafe-mut) 'mut)
 
   (define (negate n) (- 0 n))
 
@@ -290,11 +288,9 @@
     (array-range items index 1)
     (vector-ref items index))
 
-  (define (write-array! items index value)
+  (define (array-set! items index value)
     (array-range items index 1)
     (vector-set! items index value))
-
-  (define (array-set! mut items index value) (write-array! items index value))
 
 
 
@@ -303,14 +299,12 @@
   (define (array-generate count f)
     (let ((items (make-array count #f)))
       (do ((index 0 (+ index 1))) ((= index count) items)
-        (write-array! items index (f index)))))
+        (array-set! items index (f index)))))
 
-  (define (copy-array! to at from start count)
+  (define (array-copy! to at from start count)
     (array-range to at count)
     (array-range from start count)
     (vector-copy! from start to at count))
-
-  (define (array-copy! mut to at from start count) (copy-array! to at from start count))
 
   (define (subarray items start end)
     (array-range items start (- end start))
@@ -319,7 +313,7 @@
   (define (array-copy items) (subarray items 0 (array-length items)))
 
   (define (array-set items index value)
-    (let ((copy (array-copy items))) (write-array! copy index value) copy))
+    (let ((copy (array-copy items))) (array-set! copy index value) copy))
 
   (define (array-append left right)
     (let ((size (array-length left)))
@@ -331,7 +325,7 @@
     (let ((all (make-array
                 (fold-left (lambda (total items) (+ total (array-length items))) 0 arrays) #f)))
       (fold-left (lambda (offset items)
-                   (copy-array! all offset items 0 (array-length items))
+                   (array-copy! all offset items 0 (array-length items))
                    (+ offset (array-length items))) 0 arrays)
       all))
 

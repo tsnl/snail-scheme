@@ -35,7 +35,7 @@ A closure has type `(Fn Param ... → Result)`. This is a built-in type
 former, with the same spelling in arguments, fields, collections and
 results; there is no `dyn`, `impl`, `FnMut` or callable-class hierarchy,
 and no annotation for what calling it does: that is in what the function
-was made with ([capabilities](capabilities.md#what-a-function-value-holds)).
+was made with ([capabilities](capabilities.md#what-a-signature-does-not-say)).
 A typed function header carries its type where it is defined. Every parameter has a
 mandatory `(name Type)` annotation, and the header must state its result
 with `(→ Result)`. Optional generic-variable and constraint clauses follow
@@ -117,10 +117,10 @@ and exports remain declarations, and a program starts by calling its root
 {{#include ../../../tests/programs/global-values.sld:values}}
 ```
 
-- **Nothing to write with.** An initializer takes nothing, so it holds no
-  `Mut` and no capability: it can only compute. Reading a mutable object
-  needs neither, so a value computed from one depends on when it is first
-  read.
+- **No capability.** An initializer takes nothing, so it holds no
+  capability and reaches nothing of the host's. It may read and write
+  mutable objects it can name, so a value computed from one depends on
+  when it is first read.
   An initializer that [suspends](suspension.md) keeps nothing, and runs
   again on the next read.
 - **Order.** Values are read in the order expressions reach them, whatever
@@ -226,10 +226,8 @@ no superclasses: a signature lists every class it needs. Unbound names in an
 instance head are its type variables.
 
 Every class parameter is a type, and all of them together choose the
-instance. A method that writes takes a `Mut` in its declaration; each
-instance's method takes it too, and may need less of it
-(`tests/programs/declared-mut.sld`). A class has no associated types: a
-result type that depends on the instance is a further class parameter.
+instance. A class has no associated types: a result type that depends on
+the instance is a further class parameter.
 
 An instance's requirements are solved where its head matches. A requirement
 that leads back to its own goal, or a chain that keeps growing, is refused
@@ -238,7 +236,7 @@ as non-terminating; a requirement at a smaller type, as `(Describe T)` for
 
 Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Fractional`; `Show` converts values to text. Each takes one type, as in
-`(Num T)`, and their methods only compute.
+`(Num T)`.
 
 `Repr` is a class with one type parameter: `(Repr T)` supplies
 `(repr value) → String`. `(snail core io)`'s `write` prints that
@@ -247,10 +245,10 @@ with `(deriving Repr)`; see [ports](libraries.md#input-and-output-ports).
 
 ## What a call may do
 
-A function's type does not say. A function writes only with a `Mut` it
-holds, reaches the host only through a capability it holds, and suspends
-only to a prompt it can name: [capabilities](capabilities.md) covers the
-first two, and [suspension](suspension.md) prompts and their one-shot
+A function's type does not say. A function reaches the host only through
+a capability it holds, and suspends only to a prompt it can name:
+[capabilities](capabilities.md) covers the first, and what a signature
+leaves out, and [suspension](suspension.md) prompts and their one-shot
 `resume`.
 
 ## Functions
@@ -306,8 +304,7 @@ A task's capabilities are values its saved frames hold, so nothing about
 them crosses the host. See
 [waiting on the host](../runtimes/tasks.md#waiting-on-the-host).
 
-`unsafe-cast` is unchecked, like `unsafe-mut`
-([capabilities](capabilities.md#storage-nothing-else-can-reach-unsafe-mut)): it turns a `Funcref`, a
+`unsafe-cast` is unchecked: it turns a `Funcref`, a
 function another module exports, into a function of whatever type the
 context expects (`(snail shell wasm)`). The engine verifies its WebAssembly
 representation; the caller must establish its `snail-scheme` type contract.

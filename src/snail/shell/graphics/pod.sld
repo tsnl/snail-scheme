@@ -76,7 +76,7 @@
     (typeclass (Pod T)
       (declare (shape) (→ (Shape T)))
       (declare (pod-align (value T)) (→ I64))
-      (declare (pod-write (mut Mut) (value T) (bytes Bytes) (at I64)) (→ I64)))
+      (declare (pod-write (value T) (bytes Bytes) (at I64)) (→ I64)))
 
     (define (align-up (at I64) (align I64)) (→ I64)
       (* (quotient (+ at (- align 1)) align) align))
@@ -158,8 +158,8 @@
 
     ;; Each field at the next multiple of its alignment.
 
-    (define (place (mut Mut) (value T) (bytes Bytes) (at I64)) (→ I64) (∀ (T)) (⊨ (Pod T))
-      (pod-write mut value bytes (align-up at (pod-align value))))
+    (define (place (value T) (bytes Bytes) (at I64)) (→ I64) (∀ (T)) (⊨ (Pod T))
+      (pod-write value bytes (align-up at (pod-align value))))
 
     ;; A record of Pod fields, without parameters, derives Pod.
 
@@ -177,10 +177,10 @@
                (match value
                  ((case field ...) (fold-left max 1 (list (pod-align field) ...))))))
            (define pod-write
-             (lambda (mut value bytes at)
+             (lambda (value bytes at)
                (match value
                  ((case field ...)
-                  (let* ((end at) (end (place mut field bytes end)) ...)
+                  (let* ((end at) (end (place field bytes end)) ...)
                     (align-up end (pod-align value)))))))))))
 
     ;; ---- Packing ----
@@ -196,10 +196,10 @@
     ;; The bytes are local to this call, so packing is pure.
 
     (define (pack (shape (Shape T)) (values (List T))) (→ Bytes) (∀ (T)) (⊨ (Pod T))
-      (let* ((mut (unsafe-mut)) (step (stride shape))
+      (let* ((step (stride shape))
              (bytes (make-array (* step (length values)) (i32->u8 0))))
         (fold-left
-         (lambda (at value) (pod-write mut value bytes at) (+ at step))
+         (lambda (at value) (pod-write value bytes at) (+ at step))
          0
          values)
         bytes))
@@ -238,9 +238,9 @@
 
     ;; ---- Scalars ----
 
-    (define (write-word (mut Mut) (bytes Bytes) (at I64) (word I32)) (→ I64)
+    (define (write-word (bytes Bytes) (at I64) (word I32)) (→ I64)
       (for-each (lambda (index)
-                  (array-set! mut bytes
+                  (array-set! bytes
                               (+ at index)
                               (i32->u8
                                (i32-and (i32-shift-right/logical word (i64->i32 (* 8 index)))
@@ -251,12 +251,12 @@
     (instance (Pod F32)
       (define shape (lambda () (scalar-shape "f32" 4 4 (Float32))))
       (define pod-align (lambda (value) 4))
-      (define pod-write (lambda (mut value bytes at) (write-word mut bytes at (f32->bits value)))))
+      (define pod-write (lambda (value bytes at) (write-word bytes at (f32->bits value)))))
 
     (instance (Pod I32)
       (define shape (lambda () (scalar-shape "i32" 4 4 (Sint32))))
       (define pod-align (lambda (value) 4))
-      (define pod-write (lambda (mut value bytes at) (write-word mut bytes at value))))
+      (define pod-write (lambda (value bytes at) (write-word bytes at value))))
 
     ;; ---- Vectors and matrices ----
 
@@ -300,44 +300,44 @@
        (w Vec4f))
       (deriving Repr))
 
-    (define (words (mut Mut) (bytes Bytes) (at I64) (values (List I32))) (→ I64)
-      (fold-left (lambda (at value) (write-word mut bytes at value)) at values))
+    (define (words (bytes Bytes) (at I64) (values (List I32))) (→ I64)
+      (fold-left (lambda (at value) (write-word bytes at value)) at values))
 
-    (define (floats (mut Mut) (bytes Bytes) (at I64) (values (List F32))) (→ I64)
-      (words mut bytes at (map f32->bits values)))
+    (define (floats (bytes Bytes) (at I64) (values (List F32))) (→ I64)
+      (words bytes at (map f32->bits values)))
 
     (instance (Pod Vec2f)
       (define shape (lambda () (scalar-shape "vec2f" 8 8 (Float32x2))))
       (define pod-align (lambda (value) 8))
       (define pod-write
-        (lambda (mut value bytes at) (floats mut bytes at (list (● value x) (● value y))))))
+        (lambda (value bytes at) (floats bytes at (list (● value x) (● value y))))))
 
     (instance (Pod Vec3f)
       (define shape (lambda () (scalar-shape "vec3f" 12 16 (Float32x3))))
       (define pod-align (lambda (value) 16))
       (define pod-write
-        (lambda (mut value bytes at)
-          (floats mut bytes at (list (● value x) (● value y) (● value z))))))
+        (lambda (value bytes at)
+          (floats bytes at (list (● value x) (● value y) (● value z))))))
 
     (instance (Pod Vec4f)
       (define shape (lambda () (scalar-shape "vec4f" 16 16 (Float32x4))))
       (define pod-align (lambda (value) 16))
       (define pod-write
-        (lambda (mut value bytes at)
-          (floats mut bytes at (list (● value x) (● value y) (● value z) (● value w))))))
+        (lambda (value bytes at)
+          (floats bytes at (list (● value x) (● value y) (● value z) (● value w))))))
 
     (instance (Pod Vec2i)
       (define shape (lambda () (scalar-shape "vec2i" 8 8 (Sint32x2))))
       (define pod-align (lambda (value) 8))
       (define pod-write
-        (lambda (mut value bytes at) (words mut bytes at (list (● value x) (● value y))))))
+        (lambda (value bytes at) (words bytes at (list (● value x) (● value y))))))
 
     (instance (Pod Vec4i)
       (define shape (lambda () (scalar-shape "vec4i" 16 16 (Sint32x4))))
       (define pod-align (lambda (value) 16))
       (define pod-write
-        (lambda (mut value bytes at)
-          (words mut bytes at (list (● value x) (● value y) (● value z) (● value w))))))
+        (lambda (value bytes at)
+          (words bytes at (list (● value x) (● value y) (● value z) (● value w))))))
 
     ;; A matrix is no vertex attribute; an instance's transform is four.
 
@@ -354,8 +354,8 @@
                       (structs (Nil)))))))
       (define pod-align (lambda (value) 16))
       (define pod-write
-        (lambda (mut value bytes at)
-          (fold-left (lambda (at column) (pod-write mut column bytes at))
+        (lambda (value bytes at)
+          (fold-left (lambda (at column) (pod-write column bytes at))
                      at
                      (list (● value x) (● value y) (● value z) (● value w))))))
 

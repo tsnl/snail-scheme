@@ -56,7 +56,7 @@ those bytes as a byte literal in its generated library.
 
 | Form | Meaning |
 | --- | --- |
-| `(define name [(→ Type)] value)` | Value definition. At top level the initializer runs at most once, on the first read, and can only compute ([top-level values](types.md#top-level-values)). |
+| `(define name [(→ Type)] value)` | Value definition. At top level the initializer runs at most once, on the first read ([top-level values](types.md#top-level-values)). |
 | `(define (name (param type) ...) (→ Result) [header ...] body ...)` | Typed function definition, shorthand for `(define name (lambda ((param type) ...) (→ Result) [header ...] body ...))`. Optional generic and constraint clauses precede the body. |
 | `(lambda (param ...) body ...)`, `(lambda ((param type) ...) (→ Result) [header ...] body ...)` | Function with a fixed number of parameters. It takes a definition's whole header, or annotates nothing and has its type inferred. |
 | `(if test then [else])` | `test` is `Bool`; without `else` the result is `Unit`. |
@@ -121,7 +121,7 @@ once, so the whole program shares its cache:
 
 A wrapper does what its function does, on a miss: a hit skips the
 function's body and so what it does. A function that logs each call logs once
-for each key when cached, which is what caching it asks for. A `Mut` or a
+for each key when cached, which is what caching it asks for. A
 capability among the arguments is part of the key like any other. A call
 that [suspends](suspension.md#what-a-suspension-passes-through) out of the
 function is not remembered: resumed, it answers its caller, and the next
@@ -160,8 +160,8 @@ Raw `Funcref` host handles cannot be keys. Any other value may be a key or a
 result, including functions, `Any` values, mutable records and arrays.
 
 Cache only functions for which skipping the body is intended. A function
-handed nothing may still read mutable objects and captured state, so no
-signature proves that its answers stay the same.
+may read and write mutable objects and captured state, so no signature
+proves that its answers stay the same.
 A result is stored only after a successful return.
 Reentrant calls can populate the same cache: the last successful completion for
 a key wins, and each call returns its own computed result. There is no in-progress
@@ -218,10 +218,9 @@ inline result, generic and constraint clauses. Definitions continue to use
 
 Direct field selection is `(● receiver label ...)`: each nominal record type
 supplies its stored fields, and paths follow heap references.
-`(set! mut (● receiver label ...) value)` writes the path's final field,
-with the `Mut` the writer was handed
-([capabilities](capabilities.md#mut)); `set!` is a form, so it takes a
-field path where it is written and is not a value to pass.
+`(set! (● receiver label ...) value)` writes the path's final field; `set!`
+is a form, so it takes a field path where it is written and is not a
+value to pass.
 Every field is mutable. Computed getters are ordinary functions.
 
 Direct-style [suspension](suspension.md) remains available: the compiler
@@ -343,7 +342,7 @@ The reader-created form must have a defined hygienic binding; a local
 variable must not accidentally change what punctuation means.
 
 The translation should preserve the existing nominal projection semantics:
-read `(● object field ...)`, or use that projection in `set!`, after its `Mut`.
+read `(● object field ...)`, or use that projection in `set!`.
 Each step follows one object reference. Field lookup is resolved during
 checking, and every stored field is mutable. Computed getters are ordinary
 functions and do not become writable by punctuation.

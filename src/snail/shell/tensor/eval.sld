@@ -199,10 +199,10 @@
     ;; Zeros, with each element of `g` at its address under `accessor`.
     (define (placed (ports (Table (Array F64))) (g View) (accessor Accessor) (count I64))
       (→ (Array F64))
-      (let* ((mut (unsafe-mut)) (out (make-array count 0.0)))
+      (let ((out (make-array count 0.0)))
         (for-each (lambda (i)
                     (let ((index (unflatten i (shape-of g))))
-                      (array-set! mut out
+                      (array-set! out
                                   (fold-left + (● accessor offset)
                                              (map
                                               (lambda (pair)

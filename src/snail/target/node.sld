@@ -5,7 +5,6 @@
 ;; holds the one `Host` there is, `root`, and makes each of the host's
 ;; capabilities from it. What every host has:
 ;;
-;; - Mut, to write with;
 ;; - Host, to make a capability later or not at all, as a program that
 ;;   draws makes its `Gpu` ((snail shell gpu));
 ;; - Arguments and ProcessEnvironment, what the program was started with;
@@ -25,7 +24,6 @@
 (define-library (snail target node)
   (export
    start
-   provide-mut
    provide-host
    provide-arguments
    provide-environment
@@ -56,11 +54,6 @@
       (unit))
 
     ;; ---- What every host has ----
-
-    ;; A program's `Mut` comes from here: main asks for one and hands it to
-    ;; what should write.
-    (define (provide-mut) (→ Mut)
-      (unsafe-mut))
 
     ;; The one `Host`: what makes every capability below.
     (define root (→ Host) (unsafe-host))

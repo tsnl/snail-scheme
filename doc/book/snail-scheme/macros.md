@@ -9,9 +9,8 @@ They expand before checking, so generated expressions obey the same type
 rules as handwritten code.
 
 A macro can generate a typed definition, including its `(→ Result)`, `∀`,
-`⊨` and documentation clauses. It cannot hand code a capability or a `Mut`
-it was not given: a template's own names are resolved where the macro is
-defined, so a macro that writes takes the `Mut` as an argument.
+`⊨` and documentation clauses. It cannot hand code a capability it was
+not given: a template's own names are resolved where the macro is defined.
 Generated identifiers retain their lexical context; field labels select
 stored slots of the receiver's nominal type.
 

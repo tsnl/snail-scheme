@@ -1432,8 +1432,8 @@
                    (definition-type definition))))))
 
     ;; `prim:cached-thunk` keeps a thunk's result for its module. The thunk
-    ;; takes nothing, so an initializer holds no `Mut` and no capability:
-    ;; it can only compute.
+    ;; takes nothing, so an initializer holds no capability: it reaches
+    ;; nothing of the host's.
 
     (define (cached-thunk (value Expr)) (→ Expr)
       (let ((loc (● value loc)))
@@ -1755,8 +1755,7 @@
                              (new Scheme
                                (vars (● data params))
                                (constraints (Nil))
-                               (type (TFun (list (TCon "Mut" (Nil)) self type)
-                                           (TCon "Unit" (Nil)))))))
+                               (type (TFun (list self type) (TCon "Unit" (Nil)))))))
              (replacer (Replacer case index (generic-scheme data (list self type) self))))
         (program-with-value
          (program-with-value (program-with-value program (accessor-name case index) accessor)
@@ -2344,31 +2343,25 @@
                    (first (expr (FieldRead (● path record) (● path label) (None)) loc))
                    (second cx))))
 
-    ;; `(set! mut (● receiver label ...) value)` writes the field the path
+    ;; `(set! (● receiver label ...) value)` writes the field the path
     ;; names, and is located where the place is, as a read of it would be.
-    ;; Only a field is a place: a local or a parameter is not. `mut` is the
-    ;; `Mut` the writer was handed: no write happens without one.
+    ;; Only a field is a place: a local or a parameter is not.
 
     (define (expand-field-write (cx Context) (env Env) (items (List Syntax)) (loc Loc))
       (→ (Pair Expr Context))
       (match items
-        ((Cons token (Cons place (Cons value (Nil))))
+        ((Cons place (Cons value (Nil)))
          (match (head-binding cx env place)
            ((Some (Core "●"))
             (let ((at (syntax-loc place)))
-              (threading cx ((token (expand-expr env token))
-                             (path (expand-field-path env (form-tail place) at))
+              (threading cx ((path (expand-field-path env (form-tail place) at))
                              (value (expand-expr env value)))
                          (new Pair
-                           (first (expr (FieldWrite token
-                                                    (● path record)
-                                                    (● path label)
-                                                    value
-                                                    (None))
-                                        at))
+                           (first
+                            (expr (FieldWrite (● path record) (● path label) value (None)) at))
                            (second cx)))))
            (_ (compile-error (syntax-loc place) "a place must select a field"))))
-        (_ (compile-error loc "expected (set! mut (● receiver field ...) value)"))))
+        (_ (compile-error loc "expected (set! (● receiver field ...) value)"))))
 
     ;; Resolve names once into slots. The checker supplies each initializer's
     ;; field type before lowering this form to ordinary bindings and a call.

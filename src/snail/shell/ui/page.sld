@@ -39,34 +39,34 @@
     ;; The page's model, from its save or `initialize` with a seed, then
     ;; the interface's loop over the page's document and fetch.
 
-    (define (run-interface (mut Mut)
-                           (dom Dom)
-                           (fetch Fetch)
-                           (events Events)
-                           (storage PageStorage)
-                           (interface (InterfaceHandler Model Message)))
+    (define (run-interface
+             (dom Dom)
+             (fetch Fetch)
+             (events Events)
+             (storage PageStorage)
+             (interface (InterfaceHandler Model Message)))
       (→ Unit)
       (∀ (Model Message))
       (run-page events storage (lambda () ((● interface initialize) (random-seed events)))
                 (● interface save)
                 (● interface restore)
                 (lambda (model save)
-                  (present-interface mut dom fetch events storage interface model save))))
+                  (present-interface dom fetch events storage interface model save))))
 
     ;; The loop runs a command as a thunk, so each of the update's commands
     ;; is handed the document and fetch here, where the loop has them.
 
-    (define (present-interface (mut Mut)
-                               (dom Dom)
-                               (fetch Fetch)
-                               (events Events)
-                               (storage PageStorage)
-                               (interface (InterfaceHandler Model Message))
-                               (model Model)
-                               (save (Fn Model → Unit)))
+    (define (present-interface
+             (dom Dom)
+             (fetch Fetch)
+             (events Events)
+             (storage PageStorage)
+             (interface (InterfaceHandler Model Message))
+             (model Model)
+             (save (Fn Model → Unit)))
       (→ Unit)
       (∀ (Model Message))
-      (run-ui mut dom
+      (run-ui dom
               model
               ((● interface messages) model)
               (lambda (model message)

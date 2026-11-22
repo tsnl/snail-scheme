@@ -33,10 +33,10 @@
 (define (checkpoint (model Model)) (→ Unit)
   (yield))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
-  (match (with-memory-dom mut (list (Hide) (Hide))
+(define (main (out OutputPort)) (→ Unit)
+  (match (with-memory-dom (list (Hide) (Hide))
                           (lambda (dom)
-                            (run-ui mut dom (new Model (text "idle"))
+                            (run-ui dom (new Model (text "idle"))
                                     (list (Start))
                                     (lambda (model message) (update model message))
                                     (lambda (model) (view model))

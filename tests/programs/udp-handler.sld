@@ -20,7 +20,7 @@
 (record PendingPacket
   ((packet Datagram)))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
 
   ;; A program waits on sockets from a task, which the scheduler runs once
   ;; main returns.
@@ -35,7 +35,7 @@
                              (port (Endpoint-port endpoint))))))
                   (send (lambda (socket peer bytes)
                           (sleep 1)
-                          (set! mut (● (fixture-convert (● socket token) PendingPacket) packet)
+                          (set! (● (fixture-convert (● socket token) PendingPacket) packet)
                                 (new Datagram (peer peer) (bytes bytes)))
                           (Ok (i64->i32 (array-length bytes)))))
                   (receive (lambda (socket _)

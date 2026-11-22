@@ -7,7 +7,7 @@
    ((x I64)))
   (Empty))
 
-(define (main (mut Mut)) (→ Unit)
+(define (main) (→ Unit)
   (let ((cell (Dot 1)))
-    (set! mut (● cell x) 2))
+    (set! (● cell x) 2))
   (unit))

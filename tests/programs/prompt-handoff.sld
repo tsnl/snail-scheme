@@ -27,8 +27,8 @@
      (write-line out (string-append name ": " (show value)))
      (drain out name (next (unit))))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
-  (let ((box (ann (make-mailbox mut) (Mailbox Step))))
+(define (main (out OutputPort)) (→ Unit)
+  (let ((box (ann (make-mailbox) (Mailbox Step))))
     (dispatch (lambda () (drain out "second task" (mailbox-receive box))))
     (match (start (lambda ()
                     (suspend yielding 1)

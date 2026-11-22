@@ -107,15 +107,14 @@
     ;; whose best way crosses k closed cells, spreading through open cells
     ;; within the round and into closed ones for the next. Each cell keeps
     ;; the neighbor it was reached from, so the way is read back from
-    ;; `start`. The array is the search's own, so it makes the `Mut` it
-    ;; fills it with.
+    ;; `start`. The array is the search's own.
     (define (crossing-path (open (Array Bool)) (goals (List Cell)) (start Cell)) (→ (List Cell))
-      (let* ((mut (unsafe-mut)) (from (make-array (* map-size map-size) -1)))
+      (let ((from (make-array (* map-size map-size) -1)))
         (for-each (lambda (goal)
-                    (array-set! mut
-                                from
-                                (cell-index goal)
-                                (cell-index goal)))
+                    (array-set!
+                     from
+                     (cell-index goal)
+                     (cell-index goal)))
                   goals)
         (let round ((current goals) (next (Nil)))
           (match current
@@ -136,10 +135,10 @@
                                          -1))
                                     (neighbors cell))))
                (for-each (lambda (n)
-                           (array-set! mut
-                                       from
-                                       (cell-index n)
-                                       (cell-index cell)))
+                           (array-set!
+                            from
+                            (cell-index n)
+                            (cell-index cell)))
                          reached)
                (round
                 (append
@@ -156,11 +155,11 @@
     ;; The number of steps from each cell to the nearest goal, moving through
     ;; open cells, or -1 where no goal can be reached. A walker heads for a
     ;; goal by stepping to any neighbor one step closer. The array is the
-    ;; search's own, so it makes the `Mut` it fills it with.
+    ;; search's own.
     (define (distance-field (open (Array Bool)) (goals (List Cell))) (→ (Array I64))
-      (let* ((mut (unsafe-mut)) (distance (make-array (* map-size map-size) -1)))
+      (let ((distance (make-array (* map-size map-size) -1)))
         (for-each
-         (lambda (goal) (array-set! mut distance (cell-index goal) 0))
+         (lambda (goal) (array-set! distance (cell-index goal) 0))
          goals)
         (let loop ((frontier goals) (next (Nil)))
           (match frontier
@@ -175,10 +174,10 @@
                                                                 index)
                                                      -1))
                                              (begin
-                                               (array-set! mut
-                                                           distance
-                                                           index
-                                                           steps)
+                                               (array-set!
+                                                distance
+                                                index
+                                                steps)
                                                (Cons neighbor queued))
                                              queued)))
                                      next (neighbors cell)))))))))

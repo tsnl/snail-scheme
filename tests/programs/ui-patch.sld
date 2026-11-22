@@ -48,15 +48,15 @@
 (define (item (name String)) (→ (Html Msg))
   (Element "li" (list (Keyed name)) (list (Text name))))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
+(define (main (out OutputPort)) (→ Unit)
   (dispatch
    (lambda ()
-     (let ((result (with-memory-dom mut (list (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event)
-                                              (Fire "next" "click" no-event))
+     (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
+                                          (Fire "next" "click" no-event)
+                                          (Fire "next" "click" no-event)
+                                          (Fire "next" "click" no-event))
                                     (lambda (dom)
-                                      (run-ui mut dom 0
+                                      (run-ui dom 0
                                               (Nil)
                                               (lambda (model message) (update model message))
                                               view

@@ -127,8 +127,8 @@
     ;; the one callable type: a closure that may be called any number of
     ;; times. A `with-prompt`'s `resume` is one too; the backend panics if it
     ;; is called a second time. A function's type says nothing of what
-    ;; calling it does: that is in what it was handed (`Mut` to write, a
-    ;; capability to reach the host, a prompt to suspend).
+    ;; calling it does: it reaches the host through a capability it was
+    ;; handed, and suspends to a prompt it can name.
     ;; Metavariables exist only inside the checker, which binds their cells.
     (enum Type
       (TCon
@@ -203,7 +203,6 @@
             (new Pair (first "Bool") (second 0))
             (new Pair (first "Char") (second 0))
             (new Pair (first "Unit") (second 0))
-            (new Pair (first "Mut") (second 0))
             (new Pair (first "String") (second 0))
             (new Pair (first "Array") (second 1))
             (new Pair (first "ConstantArray") (second 1))
@@ -440,8 +439,7 @@
         (label String)
         (resolution (Option I64))))
       (FieldWrite
-       ((token Expr)
-        (record Expr)
+       ((record Expr)
         (label String)
         (value Expr)
         (resolution (Option I64))))
@@ -506,7 +504,7 @@
         ((App callee args) (Cons callee args))
         ((New callee fields) (Cons callee (map (lambda (field) (● field value)) fields)))
         ((FieldRead record _ _) (list record))
-        ((FieldWrite token record _ value _) (list token record value))
+        ((FieldWrite record _ value _) (list record value))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
         ((Seq first rest) (list first rest))

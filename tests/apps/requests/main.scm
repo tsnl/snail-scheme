@@ -6,6 +6,6 @@
  (only (snail shell page) Events)
  (only (snail shell page) PageStorage))
 
-(define (main (mut Mut) (dom Dom) (fetch Fetch) (events Events) (storage PageStorage)) (→ Unit)
-  (run-requests mut dom fetch events storage)
+(define (main (dom Dom) (fetch Fetch) (events Events) (storage PageStorage)) (→ Unit)
+  (run-requests dom fetch events storage)
   (unit))

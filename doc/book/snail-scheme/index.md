@@ -20,8 +20,8 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
 - [Terms](terms.md): programs, libraries, language forms and toolchain names.
 - [Types](types.md): scalars, data, typeclasses, foreign functions, linked
   files and dynamic values.
-- [Capabilities](capabilities.md): `Mut`, the token a write takes;
-  capabilities as values; and how `main` asks its target for them.
+- [Capabilities](capabilities.md): capabilities as values, how `main`
+  asks its target for them, and what a signature does not say.
 - [Suspension](suspension.md): prompts, exceptions, generators and a
   one-shot `resume`.
 - [Values](values.md): sharing, mutable records, closures, resources and

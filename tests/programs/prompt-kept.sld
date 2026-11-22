@@ -14,10 +14,9 @@
 
 (define attempts (→ Count) (new Count (value 0)))
 
-;; The counter is the test's own, so `attempt!` makes the `Mut` it counts
-;; with.
+;; How often the value below was computed.
 (define (attempt!) (→ I64)
-  (set! (unsafe-mut) (● attempts value) (+ (● attempts value) 1))
+  (set! (● attempts value) (+ (● attempts value) 1))
   (● attempts value))
 
 ;; A value that fails the first time it is read.

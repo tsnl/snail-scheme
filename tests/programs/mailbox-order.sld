@@ -19,8 +19,8 @@
   (yield)
   (mailbox-post mailbox "three"))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
-  (let ((mailbox (make-mailbox mut)))
+(define (main (out OutputPort)) (→ Unit)
+  (let ((mailbox (make-mailbox)))
     (dispatch (lambda () (receive-one out mailbox "first")))
     (dispatch (lambda () (receive-one out mailbox "second")))
     (dispatch (lambda () (produce mailbox)))

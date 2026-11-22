@@ -11,8 +11,8 @@
     ((Some message) message)
     ((None) "none")))
 
-(define (main (mut Mut) (out OutputPort)) (→ Unit)
-  (let ((mailbox (make-mailbox mut)))
+(define (main (out OutputPort)) (→ Unit)
+  (let ((mailbox (make-mailbox)))
     (write-line out (tried mailbox))
     (mailbox-post mailbox "first")
     (mailbox-post mailbox "second")

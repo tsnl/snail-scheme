@@ -500,7 +500,7 @@
                              scrutinee
                              (lambda (scrutinee) (rebuild (Match scrutinee clauses))))))
           ((FieldRead _ _ _) (panic "internal error: field selection survived checking"))
-          ((FieldWrite _ _ _ _ _) (panic "internal error: field selection survived checking"))
+          ((FieldWrite _ _ _ _) (panic "internal error: field selection survived checking"))
           ((New _ _) (panic "internal error: named construction survived checking"))
           ((Ann inner type)
            (threading count ((inner (normal suspensions inner)))

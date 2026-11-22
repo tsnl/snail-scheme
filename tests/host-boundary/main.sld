@@ -39,9 +39,9 @@
 (define (empty) (→ I32)
   (note-bytes 0 #u8()))
 
-(define (updated (mut Mut)) (→ I32)
+(define (updated) (→ I32)
   (let ((bytes #u8(1 0)))
-    (array-set! mut bytes 1 (ann 2 U8))
+    (array-set! bytes 1 (ann 2 U8))
     (note-bytes 9 bytes)))
 
 (define (discard (handover (Option Any))) (→ Unit)
@@ -81,11 +81,11 @@
 (expose inspect-bytes "inspect-bytes")
 
 ;; A concrete inferred entry needs no handwritten export signature.
-;; Application scaffolding relies on the same ordinary rule. Only a
-;; signature asks the target for anything, as `updated` asks for its Mut.
+;; Application scaffolding relies on the same ordinary rule.
 (define inferred-entry
   (lambda (checkpoint value)
-    (if (= (ann value I64) 0) (state checkpoint) (Any value))))
+    (set! (● checkpoint value) (Any (ann value I64)))
+    (state checkpoint)))
 (expose inferred-entry "inferred")
 
 ;; A library's function, handed the target's clock.

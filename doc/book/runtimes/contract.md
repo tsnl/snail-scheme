@@ -46,7 +46,7 @@ What code may do to a platform is in the capabilities it holds: values the
 runtime's target hands the program's `main`, which passes them on
 ([capabilities](../snail-scheme/capabilities.md#capabilities)). An application
 makes its own for abstractions and tests. Holding no capability, code can
-reach no platform resource, and holding no `Mut`, it changes nothing.
+reach no platform resource.
 
 A capability is an ordinary value, usually a record of closures, each of
 which may be called repeatedly, may capture mutable state, and may allocate

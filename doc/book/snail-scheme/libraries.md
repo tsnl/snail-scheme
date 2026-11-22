@@ -15,7 +15,7 @@ its `base`, `table` and `io`, so it can compile itself.
 
 | Library | Contents |
 | --- | --- |
-| `(snail core forms)` | The core forms and the builtin types, `Mut` among them. The compiler serves it; it has no file. |
+| `(snail core forms)` | The core forms and the builtin types. The compiler serves it; it has no file. |
 | `(snail core primitive)` | The operations the backend implements, each declared with its type by `(primitive name type)`. `(snail core base)` gives most of them their everyday names. |
 | `(snail core base)` | Forms, numeric classes, `Option`, `Result`, `Pair`, `Never`, lists, arrays, constant arrays, strings, `Show` and `Repr`, and [prompts](suspension.md): `make-prompt`, `with-prompt` and `suspend`. |
 | `(snail core io)` | The capabilities `Host`, `InputPort`, `OutputPort`, `Fs`, `Clock`, `Arguments` and `ProcessEnvironment`: [textual ports and value representations](#input-and-output-ports), files as text or bytes, [directories and names](#files-and-directories), a monotonic clock, and what a program was started with: `command-line`, `environment-variable` and `working-directory`. |
