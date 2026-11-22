@@ -79,17 +79,13 @@
           ((Param name) (list (input-of inputs name)))
           ((Constant _ data) (list (bytes->values data out)))
           ((Fill value) (list (dense-of n default-port (lambda (_) (rounded out value)))))
-          ((Elementwise op)
-           (list (dense-of n default-port
-                           (lambda (index)
-                             (operated op (etype-of (arg 0)) out
-                                       (map (lambda (a) (element ports a index)) (● n args)))))))
+          ((Map body)
+           (list (dense-of n default-port (lambda (index) (body-at body ports (● n args) index)))))
           ((Reduce op axes)
            (list (dense-of n default-port (lambda (index) (reduced ports op axes (arg 0) index)))))
           ((Matmul)
            (list
             (dense-of n default-port (lambda (index) (product-at ports (arg 0) (arg 1) index)))))
-          ((Copy) (list (dense-of n default-port (lambda (index) (element ports (arg 0) index)))))
           ((Place accessor)
            (list (placed ports (arg 0) accessor (product (● (car-of (● n ports)) shape)))))
           ((Gather)
@@ -228,6 +224,20 @@
                                first))))
 
     ;; ---- Elements ----
+
+    ;; A map's body at one index: each load its argument's element there,
+    ;; and each operation's value rounded to its type, as the GPU rounds
+    ;; each.
+    (define (body-at (e Expr) (ports (Table (Array F64))) (args (List View)) (index (List I64)))
+      (→ F64)
+      (match e
+        ((Load k _) (element ports (list-ref args k) index))
+        ((Literal value etype) (rounded etype value))
+        ((Apply op operands etype)
+         (operated op
+                   (expr-etype (car-of operands))
+                   etype
+                   (map (lambda (o) (body-at o ports args index)) operands)))))
 
     ;; An operation on its operands' values, of type `from`, answering
     ;; type `to`.
