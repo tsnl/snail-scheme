@@ -72,8 +72,10 @@ trainer alone: it builds the `Scene` with `make-scene`, and handles
 - `gaussians`, the most the cloud may hold, by default 4194304: the
   programs make about 3.3 KB a gaussian, 14 GB at the default; past it,
   densification adds only what fits;
-- `profile=1`, which first times one step's kernels on the device and
-  prints the slowest and the largest buffers; `steps=0` then trains none.
+- `profile=N`, which times step N's kernels on the device, running the
+  step a second time, and prints the slowest and the largest buffers:
+  `profile=1 steps=1` for the first, `profile=7000` once the cloud has
+  grown, the run going on after it.
 
 ## Photographs
 
