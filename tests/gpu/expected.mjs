@@ -31,11 +31,12 @@ export const deviceLines = [
   'sort: paired sorted stable permutation',
   'splats: 96 2 0 255 40 209 0 255 7 0 225 255 0 2 0 255',
   'turned: 0 2 0 255 40 209 0 255 0 0 225 255 96 2 0 255',
-  // A compiled tensor program computes each of its sinks as the CPU
+  // A lowered tensor program computes each of its sinks as the CPU
   // evaluates them, and Adam fits a line in 1,000 runs of another.
   'tensor: 12 sinks agree',
   'swapped: 5 7 6 8 / 1 2 3 4 / 1 2 3 4',
   'assigned: 9',
+  'bound: 2 4 6 8 / 2 3 4 5',
   'fitted: from above 1 to below 1e-4, b 1.0',
   // The differentiable splat renderer: a pixel blended as the paper
   // does, and fused SSIM's gradient against central differences.

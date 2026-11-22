@@ -1,12 +1,12 @@
-;; Tensors as a graph, built lazily and compiled explicitly, in the shape of
+;; Tensors as a graph, built lazily and lowered explicitly, in the shape of
 ;; Resin's DSL: a program composes nodes, each writing one dense buffer a
 ;; port, and works with views of those ports. Symbolic passes rewrite the
 ;; graph: (snail shell tensor grad) builds the gradient as more nodes, and
 ;; (snail shell tensor adam) builds an optimizer's update the same way.
-;; (snail shell tensor compile) turns the nodes a program asks for into
-;; buffers and WebGPU dispatches, once, and runs them as often as it likes;
-;; (snail shell tensor eval) evaluates the same graph on the CPU, as the
-;; specification the kernels are tested against.
+;; (snail shell tensor lower) lowers the nodes a program asks for to
+;; buffers and WebGPU dispatches the caller owns, once, to run as often as
+;; it likes; (snail shell tensor eval) evaluates the same graph on the CPU,
+;; as the specification the kernels are tested against.
 ;;
 ;;   (let* ((x (param "x" (list 64 3) (Float)))
 ;;          (w (param "w" (list 3 1) (Float)))
