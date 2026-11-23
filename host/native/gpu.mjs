@@ -6,9 +6,8 @@
 // which the repository's package.json pins and `make fetch` installs, and
 // which a Node build's package depends on when its program may ask for a
 // device. It loads at the program's first `request-device`, so a program
-// that never asks needs none. For a release build's program Dawn skips
-// its validation of each call, which a page cannot, and it keeps the other
-// guards a browser has (doc/book/graphics/plan.md, "WebGPU on Node").
+// that never asks needs none. Dawn keeps the guards a browser has, which
+// cost little (doc/book/graphics/plan.md, "WebGPU on Node").
 //
 // A browser decodes images and Node does not, so `decode-image` is npm's
 // @napi-rs/canvas package (github.com/Brooooooklyn/canvas), a 2D canvas
@@ -20,12 +19,11 @@
 import {createGpu, requestDevice} from '../browser/gpu.mjs';
 
 // `program` gives the running program, whose memory holds staged Bytes;
-// `tasks` are its tasks; `validating` says whether Dawn validates each
-// call, as it does for a debug build's program. Node has no canvas, so the
-// program has no screen.
-export function nodeGpu(program, tasks, {validating = true} = {}) {
+// `tasks` are its tasks. Node has no canvas, so the program has no
+// screen.
+export function nodeGpu(program, tasks) {
   const execution = {tasks, get entry() { return program().exports; }};
-  return createGpu(null, {execution}, () => nodeDevice(validating));
+  return createGpu(null, {execution}, nodeDevice);
 }
 
 // One device per run. The program's own targets are rgba8unorm, which
@@ -34,23 +32,18 @@ export function nodeGpu(program, tasks, {validating = true} = {}) {
 // and an instance the collector frees crashes the process at the next
 // poll, so it must stay reachable as long as the device works.
 let shared = null;
-function nodeDevice(validating) {
-  shared ??= opened(validating);
+function nodeDevice() {
+  shared ??= opened();
   return shared;
 }
 
 // Dawn rounds timestamps to 65,536 nanoseconds by default, so that a page
 // cannot time what other sites do; a program on Node is no page, and its
-// profiles need the device's own resolution. Nor does a release build
-// need Dawn's validation, which costs an indirect dispatch half a
-// millisecond of the host's time. A debug build keeps it, so the GPU
-// checks (tests/gpu.mjs), which build debug, and a program being debugged
-// see misuse reported rather than reaching the driver.
-async function opened(validating) {
+// profiles need the device's own resolution.
+async function opened() {
   const {create, globals} = await import('webgpu');
   Object.assign(globalThis, globals);
-  const instance = create(['disable-dawn-features=timestamp_quantization',
-                           ...(validating ? [] : ['enable-dawn-features=skip_validation'])]);
+  const instance = create(['disable-dawn-features=timestamp_quantization']);
   const {device, optional} = await requestDevice(instance);
   return {device, context: null, format: 'rgba8unorm', optional, instance, decode: encoded => nodeImage(device, encoded)};
 }
