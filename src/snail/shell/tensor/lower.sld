@@ -152,7 +152,9 @@
     ;; What lowering has made so far: every port's buffer by node key and
     ;; port, the pool of free buffers by size in bytes, pipelines by their
     ;; code and entry, the steps in reverse, the params, those given, and
-    ;; everything to release; and whether the pool began with given scratch.
+    ;; everything to release; whether the pool began with given scratch;
+    ;; and the ports that write an update into its param's buffer, with
+    ;; the param (In place).
     (record Build
       ((label String)
        (buffers (Table GpuBuffer))
@@ -163,7 +165,8 @@
        (given (Table Binding))
        (objects (List GpuObject))
        (made (List Made))
-       (borrowing Bool)))
+       (borrowing Bool)
+       (in-place (Table View))))
 
     ;; ---- Lowering ----
 
@@ -198,10 +201,11 @@
 
     ;; Every node the sinks and updates need, in order, each one's ports
     ;; given buffers and its kernels dispatched; then each sink made dense
-    ;; and each update written to its param. An update's param is a root
-    ;; too, so one only written, never read, still has its buffer. A param
-    ;; `given` has is read and written in the caller's buffer, which must be
-    ;; its size, and the pool starts with the scratch it has.
+    ;; and each update not written in place copied to its param. An
+    ;; update's param is a root too, so one only written, never read, still
+    ;; has its buffer. A param `given` has is read and written in the
+    ;; caller's buffer, which must be its size, and the pool starts with the
+    ;; scratch it has.
     (define (lower-with (gpu Gpu) (label String)
                         (sinks (List View))
                         (updates (List (Pair View View)))
@@ -214,6 +218,7 @@
              (order (toposort roots))
              (last (last-uses order))
              (pinned (pinned-keys roots))
+             (in-place (in-place-ports assignments sinks order last))
              (built
               (fold-left
                (lambda (b pair) (node-built gpu b (● pair second) (● pair first) last pinned))
@@ -227,13 +232,17 @@
                  (given (● given params))
                  (objects (Nil))
                  (made (Nil))
-                 (borrowing (not (null? (table-keys (● given scratch))))))
+                 (borrowing (not (null? (table-keys (● given scratch)))))
+                 (in-place in-place))
                (zip (iota (length order)) order)))
              (sunk (fold-left (lambda (state view) (sink-built gpu state view))
                               (new Pair (first built) (second (Nil)))
                               sinks))
              (done
-              (fold-left (lambda (b u) (copied-into gpu b (● u second) (view-buffer b (● u first))))
+              (fold-left (lambda (b u)
+                           (if (written-in-place? in-place u)
+                               b
+                               (copied-into gpu b (● u second) (view-buffer b (● u first)))))
                          (● sunk first)
                          assignments)))
         (new Program
@@ -292,7 +301,7 @@
                                   (pooled? (● a node kind)))
                              (released-node b (● a node))
                              b))
-                       (node-steps gpu ready n)
+                       (node-steps gpu ready (reading-own-port ready n))
                        (unique-nodes (buffer-args n))))))
 
     ;; The values `f` answers for the items it answers one for.
@@ -368,7 +377,8 @@
                  (● n ports)))
 
     ;; A port's buffer: a param's its own, by name; a constant's written
-    ;; with its data; any other from the pool.
+    ;; with its data; one writing an update in place its param's; any
+    ;; other from the pool.
     (define (port-given (gpu Gpu) (b Build) (n Node) (port Port)) (→ Build)
       (let ((key (port-key n (● port name))))
         (match (● n kind)
@@ -383,8 +393,11 @@
              ((● gpu write-buffer) buffer 0 data)
              (buffer-set (made-buffer b "constant" buffer (bytes-of port)) key buffer)))
           (_
-           (let ((pair (taken gpu b key (bytes-of port))))
-             (buffer-set (● pair first) key (● pair second)))))))
+           (match (table-ref (● b in-place) key)
+             ((Some target) (buffer-set b key (view-buffer b target)))
+             ((None)
+              (let ((pair (taken gpu b key (bytes-of port))))
+                (buffer-set (● pair first) key (● pair second)))))))))
 
     ;; A param's buffer: the given one of its name and size, or its own.
     (define (param-buffer-for (gpu Gpu) (b Build) (name String) (port Port))
@@ -526,11 +539,13 @@
         (_ #f)))
 
     ;; One view of each port a body's arguments see, in the order they
-    ;; first see them.
+    ;; first see them, but of the node's own, which it binds as a port.
     (define (map-ports (n Node)) (→ (List View))
       (reverse (fold-left (lambda (seen a)
-                            (if (any? (lambda (s) (string=? (view-port-key s) (view-port-key a)))
-                                      seen)
+                            (if (or (own-port? n a)
+                                    (any?
+                                     (lambda (s) (string=? (view-port-key s) (view-port-key a)))
+                                     seen))
                                 seen
                                 (Cons a seen)))
                           (Nil)
@@ -721,6 +736,85 @@
         (if (table-contains? written (● value node key))
             (new Pair (first target) (second (copy value)))
             update)))
+
+    ;; ---- In place ----
+
+    ;; A map computing a whole update writes it into its param's own
+    ;; buffer, sparing the copy after every node, where nothing could tell:
+    ;; the map reads the param, if at all, only at the elements each thread
+    ;; writes, and each thread loads all it needs before it stores (Map
+    ;; text); no later node reads the param, whose old value is gone once
+    ;; the map runs, and neither does a sink or another update's copy,
+    ;; which run after every node; and the param has its buffer before
+    ;; then. Training's Adam updates are such maps. Answered by the map's
+    ;; port, with the param it writes.
+    (define (in-place-ports (assignments (List (Pair View View)))
+                            (sinks (List View))
+                            (order (List Node))
+                            (last (Table I64)))
+      (→ (Table View))
+      (let ((at (positions order))
+            (read-last (pinned-keys (append sinks (map (lambda (u) (● u second)) assignments)))))
+        (fold-left (lambda (ports u)
+                     (let ((key (port-key (● u second node) (● u second port))))
+                       (if (and (not (table-contains? ports key))
+                                (not (table-contains? read-last (● u first node key)))
+                                (writes-in-place? (● u first) (● u second) at last))
+                           (table-set ports key (● u first))
+                           ports)))
+                   (empty-table)
+                   assignments)))
+
+    ;; Each node's step in `order`.
+    (define (positions (order (List Node))) (→ (Table I64))
+      (fold-left (lambda (at pair) (table-set at (● pair second key) (● pair first)))
+                 (empty-table)
+                 (zip (iota (length order)) order)))
+
+    (define (writes-in-place? (target View) (value View) (at (Table I64)) (last (Table I64)))
+      (→ Bool)
+      (let* ((n (● value node))
+             (param (● target node key))
+             (step (table-ref-or at (● n key) -1))
+             (shape (● (port-of n (● value port)) shape)))
+        (and (match (● n kind)
+               ((Map _) #t)
+               (_ #f))
+             (whole-buffer? value)
+             (< (table-ref-or at param step) step)
+             (<= (table-ref-or last param -1) step)
+             (every? (lambda (a)
+                       (or (not (string=? (● a node key) param))
+                           (and (whole-buffer? a) (equal-lists? (shape-of a) shape))))
+                     (● n args)))))
+
+    ;; Whether update `u`'s map writes it into its param.
+    (define (written-in-place? (ports (Table View)) (u (Pair View View))) (→ Bool)
+      (match (table-ref ports (port-key (● u second node) (● u second port)))
+        ((Some target) (string=? (● target node key) (● u first node key)))
+        ((None) #f)))
+
+    ;; A map writing an update in place, as it is built: reading its param
+    ;; through its own port, which is the param's buffer, so its kernel
+    ;; binds the buffer once and loads the param from `out` (`load`).
+    ;; WebGPU forbids a dispatch to bind a buffer it writes any other way.
+    (define (reading-own-port (b Build) (n Node)) (→ Node)
+      (match (table-ref (● b in-place) (port-key n default-port))
+        ((Some target)
+         (new Node
+           (key (● n key))
+           (kind (● n kind))
+           (args (map (lambda (a)
+                        (if (string=? (● a node key) (● target node key))
+                            (new View (node n) (port default-port) (accessor (● a accessor)))
+                            a))
+                      (● n args)))
+           (ports (● n ports))))
+        ((None) n)))
+
+    ;; Whether an argument is a port of the node itself, as one a map
+    ;; writing an update in place reads its param through.
+    (define (own-port? (n Node) (a View)) (→ Bool) (string=? (● a node key) (● n key)))
 
     ;; ---- Running ----
 
@@ -1035,12 +1129,15 @@
     (define (equal-pitches? (a (List I64)) (b (List I64))) (→ Bool)
       (every? (lambda (pair) (= (● pair first) (● pair second))) (zip a b)))
 
-    ;; Argument `k` of a node at `at`: a literal for a `Fill`.
+    ;; Argument `k` of a node at `at`: a literal for a `Fill`, and the
+    ;; port's own variable for one of the node's own ports.
     (define (load (n Node) (k I64) (at String)) (→ String)
       (let ((a (list-ref (● n args) k)))
         (match (● a node kind)
           ((Fill value) (literal (etype-of a) value))
-          (_ (string-append "a" (show (arg-binding n k)) "[" at "]")))))
+          (_ (if (own-port? n a)
+                 (string-append (● a port) "[" at "]")
+                 (string-append "a" (show (arg-binding n k)) "[" at "]"))))))
 
     (define (literal (etype Etype) (value F64)) (→ String)
       (match etype

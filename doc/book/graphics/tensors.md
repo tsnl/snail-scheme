@@ -229,7 +229,14 @@ Buffers are pooled by liveness: once the last node reading a port has been
 dispatched, its buffer returns to a pool, and a later port of its size
 takes it. Params, constants, sinks and updated values keep their buffers.
 What is left in the pool once a program is lowered is its scratch, which
-holds nothing between runs.
+holds nothing between runs. An update is copied into its param after
+every node, unless a map computes the whole of it and nothing could tell
+the map wrote it in place: the map reads the param only at the elements
+each of its threads writes, and no later node, sink or other update reads
+the param. Then the map's port is the param's buffer, which its kernel
+binds once and reads the param from, since WebGPU lets a dispatch bind a
+buffer it writes no other way. Adam's updates are such maps, so a step
+holds no second copy of the cloud's params and moments.
 
 A caller gives a program buffers with `(lower-with gpu label sinks updates
 given)`. A `Given` holds buffers for params by name, which the program
@@ -436,20 +443,20 @@ harmonics' degree every 1,000 steps, densifies every 100 steps from 500 to
 live, up to the page's `gaussians`, or the step's binning asked for more
 than three quarters of the entries, it lowers larger programs: it
 stashes the params, releases the old programs and gives the params back to
-the new ones. A step and densification make about 3.3 KB a gaussian of
-capacity, mostly Adam's: each param's value and moments, and its gradient
-and new values in scratch. So the 4,194,304 gaussians `gaussians` allows
-by default take 14 GB beside the sorts and photographs, and the 8,388,608
-that doubling would reach next don't fit a 32 GB RTX 5090. The PSNR on
-the views held out is reported at the end.
+the new ones. A step and densification make about 1.9 KB a gaussian of
+capacity, mostly Adam's: each param's value and moments, which its
+updates write in place, and its gradient in scratch. So the 4,194,304
+gaussians `gaussians` allows by default take 8.2 GB beside the sorts and
+photographs, and the 8,388,608 that doubling would reach next would take
+16 GB. The PSNR on the views held out is reported at the end.
 `train` answers the programs it trained, and `trained-cloud` reads their
 cloud back from the device as arrays. The program on Node writes those
 with `write-ply`, as the `.ply` file the reference implementation writes,
 at `cloud=PATH`, and `src/apps/splats` flies through it.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
-outdoor scenes, on an RTX 5090, the 30,000 steps take 21.6 minutes on
-Node, to a held-out PSNR of 25.32 against the paper's 25.25. The cloud
+outdoor scenes, on an RTX 5090, the 30,000 steps take 19.9 minutes on
+Node, to a held-out PSNR of 25.28 against the paper's 25.25. The cloud
 fills its 4,194,304 gaussians by step 9,100 and stays full until
 densifying stops at 15,000, where the reference's grows to 4.9 million.
 [A bench](https://github.com/tsnl/snail-scheme/blob/main/benches/splat-training/README.md)
