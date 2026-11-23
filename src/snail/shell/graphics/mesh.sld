@@ -21,6 +21,10 @@
    Tetrahedron
    Octahedron
    Upright
+   Geometry
+   geometry
+   all-meshes
+   mesh-index
    MeshVertex
    Instance
    Meshes

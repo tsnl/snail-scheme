@@ -26,9 +26,12 @@
 
 (const desaturation 0.15)
 
-(fn (@vertex) post_vertex (((@builtin vertex_index) corner u32)) (-> (@builtin position) vec4f)
+(struct ScreenPoint ((@builtin position) position vec4f) ((@location 0) uv vec2f))
+
+(fn (@vertex) post_vertex (((@builtin vertex_index) corner u32)) (-> ScreenPoint)
     (let unit (vec2f (f32 (bit-and corner 1u)) (f32 (>> corner 1u))))
-    (return (vec4f (- (* unit 4.0) 1.0) 0.0 1.0)))
+    (return (ScreenPoint (vec4f (- (* unit 4.0) 1.0) 0.0 1.0)
+                         (vec2f (* 2.0 (get unit x)) (- 1.0 (* 2.0 (get unit y)))))))
 
 (fn shoulder ((color vec3f)) (-> vec3f)
     (let peak (max (get color r) (max (get color g) (get color b))))
@@ -72,9 +75,8 @@
 (fn tap ((place vec2f)) (-> vec3f)
     (return (get (textureSampleLevel toned bilinear place 0.0) rgb)))
 
-(fn (@fragment) fxaa_fragment (((@builtin position) position vec4f)) (-> (@location 0) vec4f)
+(fn (@fragment) fxaa_fragment (((@location 0) uv vec2f)) (-> (@location 0) vec4f)
     (let texel (/ (vec2f 1.0) (vec2f (textureDimensions toned))))
-    (let uv (* (get position xy) texel))
     (let m (luma (tap uv)))
     (let nw (luma (tap (+ uv (* (vec2f -1.0 -1.0) texel)))))
     (let ne (luma (tap (+ uv (* (vec2f 1.0 -1.0) texel)))))

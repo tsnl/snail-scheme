@@ -14,7 +14,7 @@
 ;; KHR_materials_emissive_strength. Buffers and images are files named by
 ;; URIs relative to the scene's, base64 data: URIs, a GLB file's binary
 ;; chunk, or for an image a buffer view; sparse accessors, other texture
-;; coordinate sets, cameras, skins and animation are not read, nor
+;; coordinate sets and cameras are not read, nor
 ;; geometry compressed by Draco or meshopt.
 (define-library (snail shell graphics gltf)
   (export
@@ -28,9 +28,25 @@
    attempt-reading
    Attribute
    Primitive
+   Primitive-material-set
+   Gltf-buffers-set
+   Buffer-source-set
+   Placed-matrix-set
+   Gltf-placed-set
    Material
    Placed
    read-gltf
+   append-gltf
+   Document
+   read-document
+   gltf-ref
+   gltf-items
+   gltf-text
+   gltf-integer
+   gltf-numbers
+   source-bytes
+   buffer-bytes
+   scene-materials
    gltf-bounds
    gltf-scaled
    uri-path)
@@ -77,6 +93,7 @@
     (record Attribute
       ((offset I64)
        (stride I64)
+       (width I64)
        (component I64)
        (normalized Bool)
        (count I64)))
@@ -87,6 +104,8 @@
        (normals (Option Attribute))
        (uvs (Option Attribute))
        (tangents (Option Attribute))
+       (joints (Option Attribute))
+       (weights (Option Attribute))
        (indices (Option Attribute))
        (material I64)
        (low (List F64))
@@ -110,7 +129,8 @@
 
     ;; A primitive, and the column-major matrix from its mesh to the world.
     (record Placed
-      ((primitive Primitive)
+      ((node I64)
+       (primitive Primitive)
        (matrix (List F64))))
 
     ;; ---- Reading ----
@@ -129,6 +149,13 @@
     ;; The scene in `file`, a .gltf or a .glb file, whose URIs are relative
     ;; to `base`, the URL of the directory holding it, ending in a slash.
     (define (read-gltf (file Bytes) (base String)) (→ Gltf)
+      (● (read-document file base) scene))
+
+    (record Document
+      ((scene Gltf)
+       (json Json)
+       (accessors (Array Attribute))))
+    (define (read-document (file Bytes) (base String)) (→ Document)
       (let ((chunks (file-chunks file)))
         (match (utf8->string (● chunks first))
           ((Ok text)
@@ -137,27 +164,42 @@
              ((None) (unreadable "the scene is not JSON"))))
           ((Err _) (unreadable "the scene is not UTF-8")))))
 
-    (define (gltf-of (json Json) (base String) (chunk Bytes)) (→ Gltf)
+    (define (gltf-of (json Json) (base String) (chunk Bytes)) (→ Document)
       (refuse-compressed json)
       (let* ((buffers (list->array (buffers-of json base chunk)))
-             (views (list->array (items json "bufferViews")))
+             (views (list->array (gltf-items json "bufferViews")))
              (accessors (list->array (map (lambda (accessor) (accessor-of accessor views buffers))
-                                          (items json "accessors"))))
-             (bounds (list->array (map accessor-bounds (items json "accessors"))))
+                                          (gltf-items json "accessors"))))
+             (bounds (list->array (map accessor-bounds (gltf-items json "accessors"))))
              (meshes (list->array (map (lambda (mesh) (primitives-of mesh accessors bounds))
-                                       (items json "meshes"))))
-             (images (list->array (map (lambda (texture) (integer-or texture "source" -1))
-                                       (items json "textures")))))
-        (new Gltf
-          (buffers (array->list buffers))
-          (size (fold-left (lambda (size buffer) (aligned (+ (● buffer start) (● buffer length))))
-                           0
-                           (array->list buffers)))
-          (images (map (lambda (image) (image-source image views buffers base))
-                       (items json "images")))
-          (materials
-           (map (lambda (material) (material-of material images)) (items json "materials")))
-          (placed (scene-placed json meshes)))))
+                                       (gltf-items json "meshes"))))
+             (images (list->array (map (lambda (texture) (gltf-integer texture "source" -1))
+                                       (gltf-items json "textures")))))
+        (new Document (json json) (accessors accessors) (scene (new Gltf
+                                                                 (buffers (array->list buffers))
+                                                                 (size
+                                                                  (fold-left (lambda (size buffer)
+                                                                               (aligned
+                                                                                (+ (● buffer start)
+                                                                                   (● buffer
+                                                                                      length))))
+                                                                             0
+                                                                             (array->list buffers)))
+                                                                 (images (map (lambda (image)
+                                                                                (image-source image
+                                                                                              views
+                                                                                              buffers
+                                                                                              base))
+                                                                              (gltf-items json
+                                                                                          "images")))
+                                                                 (materials
+                                                                  (map (lambda (material)
+                                                                         (material-of material
+                                                                                      images))
+                                                                       (gltf-items json
+                                                                                   "materials")))
+                                                                 (placed
+                                                                  (scene-placed json meshes)))))))
 
     ;; Compressed geometry is in no accessor's bytes, so a scene that needs
     ;; it has nothing to draw.
@@ -169,10 +211,10 @@
                                     (list "KHR_draco_mesh_compression" "EXT_meshopt_compression"))
                        (unreadable (string-append "the scene needs " name ", which is not read"))))
                     (_ (unit))))
-                (items json "extensionsRequired")))
+                (gltf-items json "extensionsRequired")))
 
     ;; The item a scene names by `index`.
-    (define (item (items (Array T)) (index I64) (kind String)) (→ T) (∀ (T))
+    (define (gltf-ref (items (Array T)) (index I64) (kind String)) (→ T) (∀ (T))
       (if (and (>= index 0) (< index (array-length items)))
           (array-ref items index)
           (unreadable (string-append "the scene has no " kind " " (show index)))))
@@ -191,10 +233,10 @@
                             (start (match laid
                                      ((Cons last _) (aligned (+ (● last start) (● last length))))
                                      ((Nil) 0)))
-                            (length (integer-or buffer "byteLength" 0)))
+                            (length (gltf-integer buffer "byteLength" 0)))
                           laid))
                   (Nil)
-                  (items json "buffers"))))
+                  (gltf-items json "buffers"))))
 
     (define (aligned (size I64)) (→ I64) (* 4 (quotient (+ size 3) 4)))
 
@@ -210,12 +252,43 @@
       (→ Source)
       (match (json-member image "bufferView")
         ((Some (JsonInteger index))
-         (let* ((view (item views index "buffer view")) (buffer (integer-or view "buffer" 0)))
-           (item buffers buffer "buffer")
-           (ViewSource buffer (integer-or view "byteOffset" 0) (integer-or view "byteLength" 0))))
+         (let* ((view (gltf-ref views index "buffer view")) (buffer (gltf-integer view "buffer" 0)))
+           (gltf-ref buffers buffer "buffer")
+           (ViewSource buffer
+                       (gltf-integer view "byteOffset" 0)
+                       (gltf-integer view "byteLength" 0))))
         (_ (match (uri-source image base)
              ((Some source) source)
              ((None) (unreadable "an image of the scene names no file"))))))
+
+    ;; A source's bytes, from the files read and, for an image in a buffer
+    ;; view, the buffers.
+    (define (source-bytes (source Source)
+                          (files (List (Pair String Bytes)))
+                          (buffers (List Bytes)))
+      (→ Bytes)
+      (match source
+        ((FileSource path)
+         (match (assoc-ref files path)
+           ((Some bytes) bytes)
+           ((None) (unreadable (string-append path " was not read")))))
+        ((DataSource bytes) bytes)
+        ((ViewSource buffer offset length)
+         (let ((bytes (list-ref buffers buffer)))
+           (if (<= (+ offset length) (array-length bytes))
+               (subarray bytes offset (+ offset length))
+               (unreadable "an image of the scene lies outside its buffer"))))))
+
+    ;; The bytes the scene reads of a buffer, which may be the start of a
+    ;; longer file.
+    (define (buffer-bytes (buffer Buffer) (files (List (Pair String Bytes)))) (→ Bytes)
+      (let ((bytes (source-bytes (● buffer source) files (Nil))))
+        (if (< (array-length bytes) (● buffer length))
+            (unreadable (string-append (match (● buffer source)
+                                         ((FileSource path) path)
+                                         (_ "a buffer of the scene"))
+                                       " is shorter than the scene says"))
+            (subarray bytes 0 (● buffer length)))))
 
     ;; ---- Accessors ----
 
@@ -225,24 +298,29 @@
     ;; view's bytes, though glTF means zeros.
     (define (accessor-of (accessor Json) (views (Array Json)) (buffers (Array Buffer)))
       (→ Attribute)
-      (let* ((view (item views (integer-or accessor "bufferView" 0) "buffer view"))
-             (buffer (item buffers (integer-or view "buffer" 0) "buffer"))
-             (component (integer-or accessor "componentType" 5126))
+      (let* ((view (gltf-ref views (gltf-integer accessor "bufferView" 0) "buffer view"))
+             (buffer (gltf-ref buffers (gltf-integer view "buffer" 0) "buffer"))
+             (component (gltf-integer accessor "componentType" 5126))
              (packed
-              (* (component-size component) (element-count (text-or accessor "type" "SCALAR"))))
-             (stride (match (integer-or view "byteStride" 0)
+              (* (component-size component) (element-count (gltf-text accessor "type" "SCALAR"))))
+             (stride (match (gltf-integer view "byteStride" 0)
                        (0 packed)
                        (stride stride)))
-             (count (integer-or accessor "count" 0))
-             (offset (+ (integer-or view "byteOffset" 0) (integer-or accessor "byteOffset" 0))))
+             (count (gltf-integer accessor "count" 0))
+             (offset (+ (gltf-integer view "byteOffset" 0) (gltf-integer accessor "byteOffset" 0))))
         (match (json-member accessor "bufferView")
           ((Some _)
-           (when (> (+ offset (+ (* stride (- count 1)) packed)) (● buffer length))
-             (unreadable "an accessor of the scene lies outside its buffer")))
+           (let ((v (gltf-integer view "byteOffset" 0)) (n (gltf-integer view "byteLength" 0)))
+             (unless (and (>= v 0) (>= n 0) (<= (+ v n) (● buffer length))
+                          (>= offset v) (>= count 1) (>= stride packed)
+                          (>= (- (+ v n) offset) packed)
+                          (<= (- count 1) (quotient (- (- (+ v n) offset) packed) stride)))
+               (unreadable "an accessor of the scene lies outside its buffer"))))
           ((None) (unit)))
         (new Attribute
           (offset (+ (● buffer start) offset))
           (stride stride)
+          (width (element-count (gltf-text accessor "type" "SCALAR")))
           (component component)
           (normalized (bool-or accessor "normalized" #f))
           (count count))))
@@ -270,13 +348,13 @@
                            (bounds (Array (Pair (List F64) (List F64)))))
       (→ (List Primitive))
       (fold-right (lambda (primitive rest)
-                    (if (= (integer-or primitive "mode" 4) 4)
+                    (if (= (gltf-integer primitive "mode" 4) 4)
                         (match (primitive-of primitive accessors bounds)
                           ((Some read) (Cons read rest))
                           ((None) rest))
                         rest))
                   (Nil)
-                  (items mesh "primitives")))
+                  (gltf-items mesh "primitives")))
 
     (define (primitive-of (primitive Json)
                           (accessors (Array Attribute))
@@ -285,17 +363,19 @@
       (let* ((attributes (member-or primitive "attributes"))
              (accessor (lambda ((holder Json) (name String)) (→ (Option Attribute))
                          (match (json-member holder name)
-                           ((Some (JsonInteger index)) (Some (item accessors index "accessor")))
+                           ((Some (JsonInteger index)) (Some (gltf-ref accessors index "accessor")))
                            (_ (None))))))
         (match (json-member attributes "POSITION")
           ((Some (JsonInteger position))
            (Some (new Primitive
-                   (positions (item accessors position "accessor"))
+                   (positions (gltf-ref accessors position "accessor"))
                    (normals (accessor attributes "NORMAL"))
                    (uvs (accessor attributes "TEXCOORD_0"))
                    (tangents (accessor attributes "TANGENT"))
+                   (joints (accessor attributes "JOINTS_0"))
+                   (weights (accessor attributes "WEIGHTS_0"))
                    (indices (accessor primitive "indices"))
-                   (material (integer-or primitive "material" -1))
+                   (material (gltf-integer primitive "material" -1))
                    (low (● (array-ref bounds position) first))
                    (high (● (array-ref bounds position) second)))))
           (_ (None)))))
@@ -306,14 +386,14 @@
     (define (material-of (material Json) (images (Array I64))) (→ Material)
       (let* ((pbr (member-or material "pbrMetallicRoughness"))
              (image (lambda ((holder Json) (name String)) (→ I64)
-                      (let ((texture (integer-or (member-or holder name) "index" -1)))
-                        (if (< texture 0) -1 (item images texture "texture")))))
+                      (let ((texture (gltf-integer (member-or holder name) "index" -1)))
+                        (if (< texture 0) -1 (gltf-ref images texture "texture")))))
              (strength (number-or (member-or (member-or material "extensions")
                                              "KHR_materials_emissive_strength")
                                   "emissiveStrength"
                                   1.0)))
         (new Material
-          (base-color (numbers-or pbr "baseColorFactor" (list 1.0 1.0 1.0 1.0)))
+          (base-color (gltf-numbers pbr "baseColorFactor" (list 1.0 1.0 1.0 1.0)))
           (base-texture (image pbr "baseColorTexture"))
           (metallic (number-or pbr "metallicFactor" 1.0))
           (roughness (number-or pbr "roughnessFactor" 1.0))
@@ -321,14 +401,89 @@
           (normal-texture (image material "normalTexture"))
           (normal-scale (number-or (member-or material "normalTexture") "scale" 1.0))
           (emissive (map (lambda (channel) (* channel strength))
-                         (numbers-or material "emissiveFactor" (list 0.0 0.0 0.0))))
+                         (gltf-numbers material "emissiveFactor" (list 0.0 0.0 0.0))))
           (emissive-texture (image material "emissiveTexture"))
-          (alpha (let ((mode (text-or material "alphaMode" "OPAQUE")))
+          (alpha (let ((mode (gltf-text material "alphaMode" "OPAQUE")))
                    (cond ((string=? mode "MASK") 1)
                          ((string=? mode "BLEND") 2)
                          (else 0))))
           (alpha-cutoff (number-or material "alphaCutoff" 0.5))
           (double-sided (bool-or material "doubleSided" #f)))))
+
+    (define default-material (→ Material) (new Material
+                                            (base-color (list 1.0 1.0 1.0 1.0))
+                                            (base-texture -1)
+                                            (metallic 0.0)
+                                            (roughness 1.0)
+                                            (metal-rough-texture -1)
+                                            (normal-texture -1)
+                                            (normal-scale 1.0)
+                                            (emissive (list 0.0 0.0 0.0))
+                                            (emissive-texture -1)
+                                            (alpha 0)
+                                            (alpha-cutoff 0.5)
+                                            (double-sided #f)))
+    (define (scene-materials (gltf Gltf)) (→ (List Material))
+      (if (null? (● gltf materials)) (list default-material) (● gltf materials)))
+
+    ;; ---- Combining models ----
+
+    ;; The second model's accessors, image views and material references move
+    ;; into the first model's address space. Both models keep their placements.
+    (define (append-gltf (a Gltf) (b Gltf)) (→ Gltf)
+      (let* ((offset (● a size)) (first (length (● a buffers))) (images (length (● a images)))
+             (mats-a (model-materials a)) (mats-b (model-materials b))
+             (rebase (lambda ((p Placed)) (→ Placed)
+                       (Placed-primitive-set p
+                                             (shift-primitive (● p primitive)
+                                                              offset
+                                                              (length mats-a)
+                                                              (length mats-b))))))
+        (new Gltf (size (+ offset (● b size)))
+             (buffers (append (● a buffers)
+                              (map (lambda (buf) (Buffer-start-set buf (+ offset (● buf start))))
+                                   (● b buffers))))
+             (images (append (● a images)
+                             (map (lambda (s)
+                                    (match s
+                                      ((ViewSource i at n) (ViewSource (+ first i) at n))
+                                      (_ s)))
+                                  (● b images))))
+             (materials (append mats-a (map (lambda (m) (shift-material m images)) mats-b)))
+             (placed (append (map (lambda (p)
+                                    (Placed-primitive-set p
+                                                          (shift-primitive (● p primitive)
+                                                                           0
+                                                                           0
+                                                                           (length mats-a))))
+                                  (● a placed))
+                             (map rebase (● b placed)))))))
+
+    ;; glTF's omitted material is a separate default, even when materials exist.
+    (define (model-materials (g Gltf)) (→ (List Material))
+      (if (and (not (null? (● g materials)))
+               (any? (lambda (p) (< (● p primitive material) 0)) (● g placed)))
+          (append (● g materials) (list default-material))
+          (scene-materials g)))
+    (define (shift-material (m Material) (n I64)) (→ Material)
+      (let ((shift (lambda ((i I64)) (→ I64) (if (< i 0) i (+ i n)))))
+        (Material-emissive-texture-set
+         (Material-normal-texture-set
+          (Material-metal-rough-texture-set (Material-base-texture-set m (shift (● m base-texture)))
+                                            (shift (● m metal-rough-texture)))
+          (shift (● m normal-texture))) (shift (● m emissive-texture)))))
+    (define (shift-primitive (p Primitive) (n I64) (first I64) (count I64)) (→ Primitive)
+      (let* ((at (lambda ((a Attribute)) (→ Attribute) (Attribute-offset-set a (+ n (● a offset)))))
+             (maybe (lambda ((a (Option Attribute)))
+                      (→ (Option Attribute))
+                      (match a ((Some v) (Some (at v))) ((None) (None))))))
+        (new Primitive (positions (at (● p positions))) (normals (maybe (● p normals)))
+             (uvs (maybe (● p uvs)))
+             (tangents (maybe (● p tangents)))
+             (indices (maybe (● p indices)))
+             (weights (maybe (● p weights))) (joints (maybe (● p joints)))
+             (material (+ first (if (< (● p material) 0) (- count 1) (● p material))))
+             (low (● p low)) (high (● p high)))))
 
     ;; ---- Nodes ----
 
@@ -336,11 +491,12 @@
     ;; matrices of the nodes above it.
     (define (scene-placed (json Json) (meshes (Array (List Primitive))))
       (→ (List Placed))
-      (let* ((scenes (list->array (items json "scenes")))
+      (let* ((scenes (list->array (gltf-items json "scenes")))
              (roots (if (= (array-length scenes) 0)
                         (Nil)
-                        (items (item scenes (integer-or json "scene" 0) "scene") "nodes")))
-             (nodes (list->array (items json "nodes"))))
+                        (gltf-items (gltf-ref scenes (gltf-integer json "scene" 0) "scene")
+                                    "nodes")))
+             (nodes (list->array (gltf-items json "nodes"))))
         (concatenate
          (map (lambda (root) (node-placed nodes meshes (json-index root) identity 0)) roots))))
 
@@ -353,23 +509,24 @@
       (→ (List Placed))
       (when (> depth (array-length nodes))
         (unreadable "the scene's nodes form a loop"))
-      (let* ((node (item nodes index "node"))
+      (let* ((node (gltf-ref nodes index "node"))
              (matrix (multiply parent (local-matrix node)))
              (own (match (json-member node "mesh")
                     ((Some (JsonInteger mesh))
-                     (map (lambda (primitive) (new Placed (primitive primitive) (matrix matrix)))
-                          (item meshes mesh "mesh")))
+                     (map (lambda (primitive)
+                            (new Placed (node index) (primitive primitive) (matrix matrix)))
+                          (gltf-ref meshes mesh "mesh")))
                     (_ (Nil)))))
         (append own
                 (concatenate
                  (map (lambda (child)
                         (node-placed nodes meshes (json-index child) matrix (+ depth 1)))
-                      (items node "children"))))))
+                      (gltf-items node "children"))))))
 
     (define (accessor-bounds (accessor Json)) (→ (Pair (List F64) (List F64)))
       (new Pair
-        (first (numbers-or accessor "min" (list 0.0 0.0 0.0)))
-        (second (numbers-or accessor "max" (list 0.0 0.0 0.0)))))
+        (first (gltf-numbers accessor "min" (list 0.0 0.0 0.0)))
+        (second (gltf-numbers accessor "max" (list 0.0 0.0 0.0)))))
 
     (define (json-index (value Json)) (→ I64)
       (match value
@@ -379,11 +536,11 @@
     ;; A node's `matrix`, or its translation, rotation and scale composed.
     (define (local-matrix (node Json)) (→ (List F64))
       (match (json-member node "matrix")
-        ((Some _) (numbers-or node "matrix" identity))
+        ((Some _) (gltf-numbers node "matrix" identity))
         ((None)
-         (trs (numbers-or node "translation" (list 0.0 0.0 0.0))
-              (numbers-or node "rotation" (list 0.0 0.0 0.0 1.0))
-              (numbers-or node "scale" (list 1.0 1.0 1.0))))))
+         (trs (gltf-numbers node "translation" (list 0.0 0.0 0.0))
+              (gltf-numbers node "rotation" (list 0.0 0.0 0.0 1.0))
+              (gltf-numbers node "scale" (list 1.0 1.0 1.0))))))
 
     ;; Columns of the rotation of quaternion x, y, z, w, scaled, then the
     ;; translation.
@@ -577,12 +734,12 @@
         ((Some value) value)
         ((None) (JsonObject (Nil)))))
 
-    (define (items (json Json) (name String)) (→ (List Json))
+    (define (gltf-items (json Json) (name String)) (→ (List Json))
       (match (json-member json name)
         ((Some (JsonArray values)) values)
         (_ (Nil))))
 
-    (define (integer-or (json Json) (name String) (default I64)) (→ I64)
+    (define (gltf-integer (json Json) (name String) (default I64)) (→ I64)
       (match (json-member json name)
         ((Some (JsonInteger value)) value)
         (_ default)))
@@ -599,7 +756,7 @@
         (_ default)))
 
     ;; As many numbers as the default has, or the default.
-    (define (numbers-or (json Json) (name String) (default (List F64))) (→ (List F64))
+    (define (gltf-numbers (json Json) (name String) (default (List F64))) (→ (List F64))
       (match (json-member json name)
         ((Some (JsonArray values))
          (if (= (length values) (length default))
@@ -607,7 +764,7 @@
              default))
         (_ default)))
 
-    (define (text-or (json Json) (name String) (default String)) (→ String)
+    (define (gltf-text (json Json) (name String) (default String)) (→ String)
       (match (json-member json name)
         ((Some (JsonString value)) value)
         (_ default)))
