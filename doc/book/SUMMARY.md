@@ -65,6 +65,7 @@
   - [The path tracer](graphics/tracer.md)
 - [Games](games/index.md)
   - [Siegework](games/siegework.md)
+  - [Last Mile](games/last-mile.md)
 
 # Proposals
 

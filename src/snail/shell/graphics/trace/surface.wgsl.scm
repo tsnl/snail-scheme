@@ -23,9 +23,9 @@
         (v f32)
         (tangent vec4f)
         (material u32)
-        (pad0 u32)
-        (pad1 u32)
-        (pad2 u32))
+        (dx f32)
+        (dy f32)
+        (dz f32))
 
 ((var uniform) (@group 0) (@binding 0) (camera Camera3D))
 
@@ -57,7 +57,8 @@
     (= (get out tangent) (get vertex tangent))
     (= (get out material) (get vertex material))
     (= (get out clip_now) (get out position))
-    (= (get out clip_before) (* (get camera previous) (vec4f (get vertex position) 1.0)))
+    (let before (+ (get vertex position) (vec3f (get vertex dx) (get vertex dy) (get vertex dz))))
+    (= (get out clip_before) (* (get camera previous) (vec4f before 1.0)))
     (return out))
 
 (struct Targets

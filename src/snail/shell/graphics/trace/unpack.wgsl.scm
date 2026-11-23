@@ -18,9 +18,9 @@
         (v f32)
         (tangent vec4f)
         (material u32)
-        (pad0 u32)
-        (pad1 u32)
-        (pad2 u32))
+        (dx f32)
+        (dy f32)
+        (dz f32))
 
 ((var storage read) (@group 0) (@binding 0) (data (array u32)))
 
@@ -109,3 +109,38 @@
          (var index (+ local corner))
          (if ((>= (get p indices x) 0) (= index (index_at (get p indices) index))))
          (= (at indices (+ (* triangle 3u) corner)) (+ index (u32 (get p first_vertex))))))
+
+
+;; The suffix of moving vertices uses a mesh-local immutable source. delta
+;; is in world space and leads from this frame back to the previous one.
+(struct VertexInfluence (joints vec4i) (weights vec4f))
+((var storage read) (@group 0) (@binding 4) (rest_vertices (array Vertex)))
+((var storage read) (@group 0) (@binding 5) (influences (array VertexInfluence)))
+((var storage read) (@group 0) (@binding 6) (palette (array mat4x4f)))
+
+(fn (@compute) (@workgroup_size 256) pose_vertices (((@builtin global_invocation_id) id vec3u))
+    (let i (+ (get id x) (* (get id y) 16776960u)))
+    (let count (arrayLength (address-of influences)))
+    (if ((>= i count) (return)))
+    (let at_vertex (+ (- (arrayLength (address-of vertices)) count) i))
+    (let skin (at influences i))
+    (let j (get skin joints))
+    (let w (get skin weights))
+    (let m (+ (* (at palette (get j x)) (get w x)) (* (at palette (get j y)) (get w y))
+              (* (at palette (get j z)) (get w z)) (* (at palette (get j w)) (get w w))))
+    (let a (get (at m 0) xyz))
+    (let b (get (at m 1) xyz))
+    (let c (get (at m 2) xyz))
+    ;; The cofactor matrix times the determinant sign transforms a normal
+    ;; even with nonuniform scale. A collapsed normal falls back to the face.
+    (let flip (select 1.0 -1.0 (< (dot a (cross b c)) 0.0)))
+    (var v (at rest_vertices at_vertex))
+    (let n (* (mat3x3f (cross b c) (cross c a) (cross a b)) (get v normal)))
+    (= (get v normal) (* n (/ flip (max (length n) 1e-12))))
+    (= (get v tangent) (vec4f (* (mat3x3f a b c) (get v tangent xyz)) (* flip (get v tangent w))))
+    (= (get v position) (get (* m (vec4f (get v position) 1.0)) xyz))
+    (let delta (- (get (at vertices at_vertex) position) (get v position)))
+    (= (get v dx) (get delta x))
+    (= (get v dy) (get delta y))
+    (= (get v dz) (get delta z))
+    (= (at vertices at_vertex) v))

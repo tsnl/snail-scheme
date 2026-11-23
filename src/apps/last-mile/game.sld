@@ -1,0 +1,165 @@
+;; A neighborhood film crew has one take left. Everything that determines
+;; the next tick, including pedestrian intent, fits in one save value.
+(define-library (apps last-mile game)
+  (export Mission Pickup Action ToEditor Wrapped Seat OnFoot Driving Shot World Order
+          quiet new-world step! tick-ms carrier objective button? sedan)
+  (import
+   (snail core base)
+   (snail shell wire)
+   (snail shell math)
+   (snail shell game physics)
+   (snail shell game vehicle)
+   (snail shell game humanoid)
+   (snail shell game pedestrian)
+   (apps last-mile district))
+  (begin
+    (enum Mission (Pickup) (Action) (ToEditor) (Wrapped) (deriving Serialize Deserialize))
+    (enum Seat (OnFoot ((body Body))) (Driving) (deriving Serialize Deserialize))
+    (record Shot
+      ((start XZ)
+       (end XZ)
+       (until I64))
+      (deriving Serialize Deserialize))
+    (record World
+      ((tick I64)
+       (mission Mission)
+       (seat Seat)
+       (gait Gait)
+       (cooldown I64)
+       (cab Body)
+       (residents (List Pedestrian))
+       (shot (Option Shot)))
+      (deriving Serialize Deserialize))
+    (record Order
+      ((buttons I64)
+       (interact Bool)))
+
+    (define tick-ms (→ I64) 50)
+    (define dt (→ F64) (/ (i64->f64 tick-ms) 1000.0))
+    (define quiet (→ Order) (new Order (buttons 0) (interact #f)))
+    (define sedan
+      (→ CarDimensions)
+      (new CarDimensions (wheelbase 2.376) (width 1.875) (length 4.6)))
+
+    (define (new-world) (→ World)
+      (new World (tick 0) (mission (Pickup)) (seat (OnFoot (body (xz -2.2 18.4) 0.28)))
+           (gait resting) (cooldown 0) (cab (body parking 0.0))
+           (residents (list (pedestrian (xz -3.1 14.0) (xz -3.1 -8.0))
+                            (pedestrian (xz 17.0 -30.0) (xz 25.0 -30.0))))
+           (shot (None))))
+
+    (define (carrier (w World)) (→ Body)
+      (match (● w seat) ((OnFoot b) b) ((Driving) (● w cab))))
+
+    (define (objective (w World)) (→ XZ)
+      (match (● w mission) ((Pickup) (● w cab position)) ((Action) target) (_ cutting-room)))
+
+    (define (street (w World)) (→ (List Footprint))
+      (match (● w mission) ((Pickup) (Cons gate walls)) ((Action) (Cons gate walls)) (_ walls)))
+
+    (define (on-foot-walls (w World)) (→ (List Footprint))
+      (Cons (parked-footprint (● w cab) sedan) (street w)))
+
+    ;; ---- Streets and controls ----
+
+    (define (button? (bits I64) (bit I64)) (→ Bool) (not (= (i64-and bits bit) 0)))
+    (define (axis (bits I64) (positive I64) (negative I64)) (→ F64)
+      (- (if (button? bits positive) 1.0 0.0) (if (button? bits negative) 1.0 0.0)))
+
+    (define (pedals (speed F64) (throttle F64)) (→ F64)
+      (cond ((> throttle 0.0) (min 17.0 (+ speed (* dt (if (< speed 0.0) 9.0 4.2)))))
+            ((< throttle 0.0) (max -4.0 (- speed (* dt (if (> speed 0.0) 9.0 2.5)))))
+            ((> speed 0.0) (max 0.0 (- speed (* dt 1.8))))
+            (else (min 0.0 (+ speed (* dt 1.8))))))
+
+    (define (move! (w World) (bits I64)) (→ Unit)
+      (let ((turn (axis bits 8 4)) (throttle (axis bits 1 2)))
+        (match (● w seat)
+          ((OnFoot b) (set! (● w seat)
+                            (OnFoot (walk b
+                                          (+ (● b heading) (* 0.13 turn))
+                                          (* throttle 5.5)
+                                          (on-foot-walls w)
+                                          dt))))
+          ((Driving)
+           (let* ((b (● w cab)) (speed (signed-speed b))
+                  (steer (* turn (/ 0.54 (+ 1.0 (* 0.065 (abs speed)))))))
+             (set! (● w cab)
+                   (bicycle-step b sedan steer (pedals speed throttle) (street w) dt)))))))
+
+    (define (disembark! (w World)) (→ Unit)
+      (let* ((b (● w cab)) (side (forward (+ (● b heading) (* pi 0.5))))
+             (parked (parked-footprint b sedan))
+             (p (● b position))
+             (clearance (min (/ (+ (- (● parked east) (● p x)) 0.40) (max 0.0001 (abs (● side x))))
+                             (/ (+ (- (● parked south) (● p z)) 0.40)
+                                (max 0.0001 (abs (● side z))))))
+             (d (max 1.75 clearance))
+             (doors (list (offset p side (negate d)) (offset p side d))))
+        (when (< (abs (signed-speed b)) 1.0)
+          (match (find (lambda (p) (clear? p 0.36 (on-foot-walls w))) doors)
+            ((Some p) (set! (● w cab) (body (● b position) (● b heading)))
+             (set! (● w seat) (OnFoot (body p (● b heading)))))
+            (_ (unit))))))
+
+    (define (interact! (w World)) (→ Unit)
+      (match (● w seat)
+        ((Driving) (disembark! w))
+        ((OnFoot b)
+         (cond ((and (match (● w mission) ((ToEditor) #t) (_ #f))
+                     (< (distance (● b position) cutting-room) 3.5))
+                (set! (● w mission) (Wrapped)))
+               ((< (distance (● b position) (● w cab position)) 3.6)
+                (set! (● w seat) (Driving))
+                (match (● w mission) ((Pickup) (set! (● w mission) (Action))) (_ (unit))))
+               (else (unit))))))
+
+    ;; ---- Paint marker ----
+
+    (define (fire! (w World)) (→ Unit)
+      (let* ((b (carrier w)) (p (● b position)) (axis (forward (● b heading)))
+             (range (trace-distance p
+                                    axis
+                                    22.0
+                                    (match (● w seat)
+                                      ((OnFoot _) (on-foot-walls w))
+                                      (_ (street w)))))
+             (dx (- (● target x) (● p x))) (dz (- (● target z) (● p z)))
+             (along (+ (* dx (● axis x)) (* dz (● axis z))))
+             (hit (and (match (● w mission) ((Action) #t) (_ #f))
+                       (> along 0.0) (<= along range)
+                       (< (abs (- (* dx (● axis z)) (* dz (● axis x)))) 0.85))))
+        (set! (● w shot)
+              (Some (new Shot
+                      (start p)
+                      (end (offset p axis (if hit along range)))
+                      (until (+ (● w tick) 3)))))
+        (set! (● w cooldown) 8)
+        (when hit (set! (● w mission) (ToEditor)))))
+
+    (define (walkers! (w World)) (→ Unit)
+      (let ((solids (on-foot-walls w)))
+        (for-each (lambda (r)
+                    (let ((noise (match (● w shot)
+                                   ((Some s)
+                                    (if (< (distance (● r body position) (● s start)) 11.0)
+                                        (Some (● s start))
+                                        (None)))
+                                   (_ (None)))))
+                      (advance-pedestrian! r noise solids dt))) (● w residents))))
+
+    (define (step! (w World) (order Order)) (→ Unit)
+      (let ((before (● (carrier w) position)))
+        (set! (● w tick) (+ 1 (● w tick)))
+        (set! (● w cooldown) (max 0 (- (● w cooldown) 1)))
+        (match (● w shot)
+          ((Some s) (when (<= (● s until) (● w tick)) (set! (● w shot) (None))))
+          (_ (unit)))
+        (when (● order interact) (interact! w))
+        (move! w (● order buttons))
+        (when (and (button? (● order buttons) 16) (= (● w cooldown) 0)) (fire! w))
+        (let ((act (match (● w seat)
+                     ((Driving) (Riding))
+                     (_ (if (> (● w cooldown) 1) (Bracing) (Striding))))))
+          (set! (● w gait) (animate (● w gait) act (distance before (● (carrier w) position)) dt)))
+        (walkers! w)))))

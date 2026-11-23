@@ -18,3 +18,4 @@ comes from `generate-library` recipes; its producers run in every build.
 | [Siegework](siegework/README.md) | A colony game: explore a seeded map, wire an energy network across it, and destroy three nests before their attacks destroy your hub. |
 | [Splats](splats/README.md) | A gaussian-splat viewer, flown through: a trained 3D Gaussian Splatting scene from its `.ply` file, or one cloud posed three times through a transforms table, sorted and drawn on the GPU. |
 | [Hearsay](hearsay/README.md) | A design for a role-playing game that generates stories from what a city believes, with two prototypes. |
+| [Last Mile](../../doc/book/games/last-mile.md) | A single-player film shoot on Mercer Street. Drive the picture car, hit a breakaway prop and deliver the reel in a path-traced neighborhood. |

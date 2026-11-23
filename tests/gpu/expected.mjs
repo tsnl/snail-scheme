@@ -15,6 +15,8 @@ export const pageLines = [
 ];
 
 export const deviceLines = [
+  'moving shadows: hit open hit open / open hit hit open',
+  'skinned shadows: hit open hit open / open hit hit open',
   'decoded: 255 0 0 255 0 255 0 255',
   'scene: 230 3 3 255 230 3 3 255 153 153 153 255 153 153 153 255',
   // The same light through Hable's curve and sRGB encoding: the grey

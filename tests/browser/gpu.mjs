@@ -19,31 +19,13 @@
 //   CHROMIUM=... node tests/browser/gpu.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {readFile} from 'node:fs/promises';
-import {createServer} from 'node:http';
-import {extname, join, normalize} from 'node:path';
+import {join} from 'node:path';
+import {serve} from './static.mjs';
 import {promisify} from 'node:util';
 import {openBrowser, until} from './chromium.mjs';
 import {assertLines, deviceLines, fetchedLine, pageLines} from '../gpu/expected.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
-const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm'};
-
-function serve(directory) {
-  const server = createServer(async (request, response) => {
-    const path = normalize(decodeURIComponent(new URL(request.url, 'http://host').pathname)).replace(/^\/+/, '');
-    try {
-      const bytes = await readFile(join(directory, path === '' ? 'index.html' : path));
-      response.writeHead(200, {'content-type': types[extname(path || 'index.html')] ?? 'application/octet-stream'});
-      response.end(bytes);
-    } catch {
-      response.writeHead(404);
-      response.end();
-    }
-  });
-  return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server)));
-}
-
 const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', '--target', 'browser', 'tests/gpu/main.scm'], {cwd: root})).stdout.trim();
 const server = await serve(built);
 const browser = await openBrowser();
