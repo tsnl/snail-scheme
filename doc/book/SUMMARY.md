@@ -46,6 +46,7 @@
   - [Tools](libraries/tools.md)
   - [Runtime interfaces and targets](libraries/runtime.md)
   - [Liberated Pixel Cup art](libraries/lpc.md)
+  - [Datasets](libraries/datasets.md)
 
 # Runtimes
 

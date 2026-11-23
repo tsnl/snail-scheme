@@ -35,7 +35,7 @@ document.body.dataset.finished = 'true';
 const server = createServer(async (request, response) => {
   const path = decodeURIComponent(new URL(request.url, 'http://page').pathname);
   const file = path === '/' ? ['text/html', Buffer.from(page)]
-    : path === '/load.mjs' || path === '/tasks.mjs'
+    : ['/load.mjs', '/tasks.mjs', '/trace.mjs'].includes(path)
       ? ['text/javascript', await readFile(join(root, 'host/browser', path))]
     : await readFile(join(output, path)).then(bytes => ['application/wasm', bytes], () => null);
   response.writeHead(file ? 200 : 404, file ? {'content-type': file[0]} : {});

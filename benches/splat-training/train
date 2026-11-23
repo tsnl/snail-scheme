@@ -50,7 +50,7 @@ in_bench() {
 ours() {
   in_repo "./snail-scheme build --release --target node src/apps/train/node.scm"
   cp -RL "$root/build/src/apps/train/node" "$out/app"
-  in_repo "node '$out/app/main.mjs' scene='$work/scene/' steps=$steps cloud='$out/point_cloud.ply'"
+  in_repo "node '$out/app/main.mjs' steps=$steps cloud='$out/point_cloud.ply'"
 }
 
 gsplat() {

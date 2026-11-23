@@ -1,0 +1,16 @@
+the directory is at 2399, 713 bytes, of 8 members
+notes/, method 0, 0 kept, 0 held, CRC 0: ""
+notes/stored.txt, method 0, 15 kept, 15 held, CRC 1793876903: "Kept as it is.\n"
+notes/fixed.txt, method 8, 38 kept, 40 held, CRC 2089856852: "A short line, coded by the fixed codes.\n"
+notes/dynamic.txt, method 8, 151 kept, 1990 held, CRC 3539875053: sha256 e3e13243830f1916
+notes/empty.txt, method 8, 2 kept, 0 held, CRC 0: ""
+notes/run.bin, method 8, 14 kept, 605 held, CRC 158405454: sha256 062b065b9f0b3ea9
+notes/stored-blocks.bin, method 8, 773 kept, 768 held, CRC 2965430058: sha256 f3a25aa93aa2fbba
+notes/skewed.bin, method 8, 1045 kept, 4096 held, CRC 483324475: sha256 4c49c69a95125c37
+CRC-32 of 123456789: 3421780262
+a damaged byte: notes/stored.txt does not match its CRC-32
+half a stream: the stream ends inside a block
+a byte too few: the stream makes more bytes than it should
+a byte too many: the stream makes fewer bytes than it should
+a block of type 3: a block of no type
+no archive: the bytes read hold no archive's end record

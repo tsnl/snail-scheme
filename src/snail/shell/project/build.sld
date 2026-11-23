@@ -858,9 +858,11 @@
             "native/socket-imports.mjs"
             "native/tcp.mjs"
             "native/udp.mjs"
+            "native/web-imports.mjs"
             "browser/gpu.mjs"
             "browser/load.mjs"
-            "browser/tasks.mjs"))
+            "browser/tasks.mjs"
+            "browser/trace.mjs"))
 
     (define (package-node (fs Fs) (builder Builder)
                           (name String)
@@ -950,6 +952,7 @@
             "application.mjs"
             "runtime.mjs"
             "tasks.mjs"
+            "trace.mjs"
             "entry.mjs"
             "gpu.mjs"
             "storage.mjs"

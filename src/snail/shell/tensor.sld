@@ -120,6 +120,8 @@
    zeros-like
    ones-like
    mapped
+   mapped-ports
+   map-port-name
    unary
    binary
    exp
@@ -409,10 +411,12 @@
     ;; ---- Nodes ----
 
     ;; What a node computes. A `Fill` is every element one value; a `Map`
-    ;; computes its body at each element of its port's leading axes, the
-    ;; port being those axes followed by the body's tile, so a copy, the
-    ;; one way a view becomes a buffer, is a map of one load, and a small
-    ;; matrix product is a map multiplying tiles; a `Reduce` computes its
+    ;; computes each of its bodies at each element of its ports' leading
+    ;; axes, port k being those axes followed by body k's tile, so a copy,
+    ;; the one way a view becomes a buffer, is a map of one load, and a
+    ;; small matrix product is a map multiplying tiles. A map is built with
+    ;; one body; fusing makes one of several where one kernel can compute
+    ;; what a map reads and also write it (`mapped-ports`). A `Reduce` computes its
     ;; body at each element of its arguments' shape and combines it over
     ;; the trailing `span` axes, so its port is that shape without them,
     ;; and a large matrix product is a sum of products; a `Place` writes its
@@ -428,7 +432,7 @@
       (Param ((name String)))
       (Constant ((name String) (data Bytes)))
       (Fill ((value F64)))
-      (Map ((body Expr)))
+      (Map ((bodies (List Expr))))
       (Reduce ((op Reduction) (span (List I64)) (body Expr)))
       (Place ((accessor Accessor)))
       (Gather)
@@ -443,7 +447,7 @@
         ((Param name) (string-append "param " name))
         ((Constant name _) (string-append "constant " name))
         ((Fill value) (string-append "fill " (f64->string value)))
-        ((Map body) (string-append "map " (expr-text body)))
+        ((Map bodies) (string-append "map " (string-join (map expr-text bodies) " ")))
         ((Reduce op span body)
          (string-append (reduction-text op)
                         " "
@@ -622,7 +626,28 @@
     ;; argument is seen at `lead` followed by its loads' tile, and the
     ;; map's port is `lead` followed by the body's.
     (define (mapped (body Expr) (args (List View)) (lead (List I64))) (→ View)
-      (bodied (lambda (folded) (Map folded)) body args lead (append lead (expr-tile body))))
+      (node-view (mapped-ports (list body) args lead) default-port))
+
+    ;; A map of each of `bodies` over `args` at each element of `lead`, one
+    ;; kernel: port k, named by `map-port-name`, is `lead` followed by body
+    ;; k's tile. Fills become literals of every body, as in `bodied`.
+    (define (mapped-ports (bodies (List Expr)) (args (List View)) (lead (List I64))) (→ Node)
+      (let ((folded (map (lambda (body)
+                           (map-loads body
+                                      (lambda (k etype tile) (folded-load args lead k etype tile))))
+                         bodies)))
+        (node (Map folded)
+              (filter (lambda (a) (not (fill-view? a))) args)
+              (map-indexed (lambda (k body)
+                             (new Port
+                               (name (map-port-name k))
+                               (shape (append lead (expr-tile body)))
+                               (etype (expr-etype body))))
+                           folded))))
+
+    ;; A map's port k: `out`, then `out1`, `out2` and on.
+    (define (map-port-name (k I64)) (→ String)
+      (if (= k 0) default-port (string-append default-port (show k))))
 
     ;; A node of `kind` computing `body` at each element of `lead` over
     ;; `args`, into a port of `shape`. A `Fill` argument becomes literals
@@ -808,14 +833,20 @@
 
     ;; At each matrix of the leading axes, a's tile by b's, when the
     ;; product has at most 16 elements; otherwise at each row of a, the
-    ;; row by b's tile.
+    ;; row by b's tile. An outer product, over k of 1, goes a row at a
+    ;; time too: its rows share nothing, so it computes nothing twice, and
+    ;; a kernel taking it in runs a thread a row, which reads and writes
+    ;; its tiles nearer in order. Adam's update of the harmonics, whose
+    ;; gradient is such a product, took 1.18 ms so against 1.79 a whole
+    ;; tile a thread, on an RTX 5090.
     (define (tile-product (a View) (b View)) (→ View)
       (let* ((sa (shape-of a))
              (n (length sa))
              (m (list-ref sa (- n 2)))
+             (k (list-ref sa (- n 1)))
              (lead (take sa (- n 2)))
              (tb (list-drop (shape-of b) (- n 2))))
-        (if (<= (* m (list-ref tb 1)) 16)
+        (if (and (<= (* m (list-ref tb 1)) 16) (or (> k 1) (= m 1)))
             (mapped (product-of (etype-of a) (list-drop sa (- n 2)) tb)
                     (list a (broadcast-to b (append lead tb)))
                     lead)

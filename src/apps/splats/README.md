@@ -50,11 +50,13 @@ images with each other and with the photographs:
 
 ```sh
 ./snail-scheme run --target node src/apps/splats/compare.scm \
-  cloud=bicycle.ply scene=datasets/bicycle/ photos=images_4 views=8
+  cloud=bicycle.ply views=8
 ```
 
-`scene` is the COLMAP dataset's folder, ending in a slash, and `photos`
-the folder of its photographs at the views' size, 1237 pixels wide unless
-`width` says otherwise. `profile=1` also times each of the tiles' steps
+The scene is Mip-NeRF 360's bicycle, as `(datasets mipnerf360 bicycle)`
+links it, the one [Train](../train/README.md) trains on: its cameras, and
+its photographs at a quarter of their size, 1237 pixels wide, the views'
+size unless `width` says otherwise. A view the size of its photograph is
+compared with it too. `profile=1` also times each of the tiles' steps
 alone. [The graphics chapter](../../../doc/book/graphics/plan.md#scans-sorts-and-gaussian-splats)
 has bicycle's numbers.

@@ -68,3 +68,43 @@ The first embeds a dependency as a literal; the second makes a linked resource
 available to the producer's task. Every emitted form is located at the recipe
 for diagnostics. Use `(snail shell syntax)` to construct syntax explicitly;
 there is no dynamic Scheme datum conversion layer.
+
+### What a build keeps
+
+A build runs every producer it reaches, every time, and keeps none of
+their output, so no build is handed a library made from inputs that have
+since changed. Running one again is cheap: a build of Hearsay, its three
+producers among its work, takes about four seconds. Nor could a build
+tell when a kept output had gone stale: a recipe reads files through
+`Fs`, runs processes and reaches the web, and nothing records what it
+read. A cache keyed by the recipe's text would serve the LPC art as it
+was when the cache was filled.
+
+What is costly is what a recipe fetches, and the recipe keeps that
+itself, under a digest that pins what it must be. A fetch pinned so gives
+the same bytes or fails, whatever its server does later, so its result
+depends on the pin alone, and keeping it changes nothing a build can
+observe: the machine's cache holds it for every workspace, and a build
+that finds it there needs no network. `(snail shell web zip)` reads a zip
+archive's members that way, pinned by the digest of the archive's end, and
+a dataset's recipe is one call of it
+([datasets](../libraries/datasets.md)):
+
+```scheme
+(generate-library (datasets mipnerf360 bicycle)
+                  (import
+                   (snail core base)
+                   (only (snail core io) Fs ProcessEnvironment)
+                   (only (snail shell web) Web)
+                   (datasets mipnerf360))
+                  (lambda ((fs Fs) (web Web) (environment ProcessEnvironment))
+                    (scene-library fs web environment
+                                   (list "datasets" "mipnerf360" "bicycle")
+                                   "bicycle"
+                                   "images_4")))
+```
+
+The network is one more capability the recipe asks for, `Web`, and the
+cache's place comes from the environment it is handed. The library it
+returns links each file it fetched rather than embedding it, so the
+program reads them as resources, and they ship in its `store/`.

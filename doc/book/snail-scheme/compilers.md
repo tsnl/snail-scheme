@@ -287,8 +287,8 @@ Every import module a host provides is named for the runtime interface it
 implements, `snail.runtime.…` (#566): `snail.runtime.link`,
 `snail.runtime.resource` and `snail.runtime.gpu` on every host,
 `snail.runtime.wasm`, `snail.runtime.native.socket`,
-`snail.runtime.native.process`, `snail.runtime.native.files` and
-`snail.runtime.native.develop` on Node,
+`snail.runtime.native.process`, `snail.runtime.native.async-files` and
+`snail.runtime.native.web` on Node,
 and `snail.runtime.browser.events`, `.storage`, `.dom` and
 `.fetch` on the page. A `(snail runtime …)` library declares one of these
 interfaces as externs, and nothing else, so it has no items and emits no
@@ -323,7 +323,9 @@ producer-arguments (lambda () EXPR))`, so the expression may read what the recip
 
 Generated syntax is obtained before expanding its library. A build runs each
 producer its compiles reach once, and the output serves every later compile
-in that scratch. Persistent producer caching remains separate work.
+in that scratch. No build keeps a producer's output for the next: what a
+recipe fetches, it keeps itself, pinned by a digest
+([what a build keeps](macros.md#what-a-build-keeps)).
 
 A producer is compiled as a program of its own while the library it generates
 is still loading, so the expander's stack of loading libraries crosses into

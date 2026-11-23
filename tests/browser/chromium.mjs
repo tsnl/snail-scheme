@@ -27,26 +27,35 @@ function printEvent(message) {
     console.log('exception:', message.params.exceptionDetails.exception?.description ?? message.params.exceptionDetails.text);
 }
 
+// What a trace records: the page's own spans, its measures
+// (host/browser/trace.mjs), the main thread's tasks and frames, V8's
+// work, and the GPU process's.
+const TRACED = ['blink.user_timing', 'devtools.timeline', 'disabled-by-default-devtools.timeline.frame', 'v8.execute', 'gpu'];
+
 // The DevTools protocol goes over a pipe, not a port: the browser reads
 // commands on its descriptor 3 and writes replies and events on 4, each a
 // JSON message ended by a NUL, and exits when the pipe closes. So a
 // browser cannot outlive the test that opened it, however the test ends,
 // and a test cannot reach any browser but its own. The pipe speaks to the
 // browser; its page is spoken to through a session attached to it.
+// WebGPU's developer features are on, so the device's timestamps are not
+// rounded to 100 microseconds.
 export async function openBrowser() {
   const profile = await mkdtemp(join(tmpdir(), 'snail-page-'));
   const browser = spawn(process.env.CHROMIUM ?? 'chromium', ['--headless=new', '--no-sandbox', '--remote-debugging-pipe',
-    `--user-data-dir=${profile}`, '--enable-unsafe-webgpu', '--enable-features=Vulkan', '--use-vulkan=swiftshader',
+    `--user-data-dir=${profile}`, '--enable-unsafe-webgpu', '--enable-webgpu-developer-features', '--enable-features=Vulkan', '--use-vulkan=swiftshader',
     '--use-angle=swiftshader', '--window-size=1280,800', 'about:blank'], {stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']});
   const [, , , commands, replies] = browser.stdio;
   process.on('exit', () => { browser.kill('SIGKILL'); rmSync(profile, {recursive: true, force: true}); });
-  let next = 0, session, unfinished = '';
+  let next = 0, session, unfinished = '', traced = null, traceComplete = null;
   const pending = new Map();
   replies.setEncoding('utf8');
   replies.on('data', chunk => {
     const messages = (unfinished + chunk).split('\0');
     unfinished = messages.pop();
     for (const message of messages.map(text => JSON.parse(text))) {
+      if (message.method === 'Tracing.dataCollected') traced.push(...message.params.value);
+      if (message.method === 'Tracing.tracingComplete') traceComplete();
       if (message.id === undefined) { printEvent(message); continue; }
       pending.get(message.id)?.(message);
       pending.delete(message.id);
@@ -70,6 +79,18 @@ export async function openBrowser() {
     },
     async screenshot(path) {
       await writeFile(path, Buffer.from((await send('Page.captureScreenshot', {format: 'png'})).result.data, 'base64'));
+    },
+    // A trace from here until `stopTrace`, written to `path` in Chrome's
+    // JSON trace format, which Perfetto (ui.perfetto.dev) opens.
+    startTrace() {
+      traced = [];
+      return send('Tracing.start', {traceConfig: {includedCategories: TRACED}, transferMode: 'ReportEvents'});
+    },
+    async stopTrace(path) {
+      const complete = new Promise(resolve => { traceComplete = resolve; });
+      await send('Tracing.end');
+      await complete;
+      await writeFile(path, JSON.stringify({traceEvents: traced}));
     },
     close() { commands.end(); browser.kill(); },
   };
