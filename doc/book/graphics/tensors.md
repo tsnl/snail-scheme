@@ -79,12 +79,21 @@ includes them in its key, so constants can reuse a label across uploads.
 `(grad loss wrt)` walks the nodes the scalar `loss` depends on from last to
 first, as Resin's `grad` does. Each kind answers the gradient of each
 argument given the gradients of its ports, and a custom node answers with
-its own adjoint. A map's gradient goes back through its body from the top,
-whose value is the map's port: each operation hands its operands their
-shares, and each load adds its share to its argument's. The shares of tile
-operations are built of the same operations: a product's are two products,
-a pack's its gradient narrowed to each operand, and a fold's its gradient
-spread over the tile, or over the elements equal to the result. A
+its own adjoint. A map's gradient goes back through each of its bodies
+from the top, whose value is the body's port, and a map of several ports
+adds what its bodies hand back; a port with no gradient, which nothing the
+loss depends on reads, adds nothing. Through a body of one operation, as
+the library's operations build, the operation hands its operands their
+shares as nodes, and each load adds its share to its argument's. The
+shares of tile operations are built of the same operations: a product's
+are two products, a pack's its gradient narrowed to each operand, and a
+fold's its gradient spread over the tile, or over the elements equal to
+the result. A body of several operations is differentiated as one
+expression instead: the port's gradient is carried back through every
+operation inside one map for each argument, an operand's value computed
+again where a rule needs it, and a load picked apart takes each element's
+share at its place. So such a map's gradient is as many kernels as its
+arguments, not one for each share. A
 reduction's gradient is spread over its span, to every element for a sum
 and to those equal to the result for a maximum or minimum, and goes back
 through its body the same way, so a large matrix product's gradients are
@@ -198,7 +207,9 @@ write in place, and lowering refuses a map of more than eight.
 On bicycle, fusing took a training step from 779 dispatches to 348, and
 the splats viewer's frame from 272 to 80. With gradients' parts joined,
 Adam's updates of each param in one kernel, and the backward pass reading
-what forward kernels wrote, the step at 7,000 is 155. Of the viewer's
+what forward kernels wrote, the step at 7,000 was 155; with the
+harmonics' basis one map, whose gradient is then one map too, it is 127.
+Of the viewer's
 10 ms for 4 million gaussians, its sorts and its rasterizer take 4.5; of
 its generated kernels, the harmonics' color costs most, reading each
 gaussian's 48 coefficients.
@@ -350,7 +361,12 @@ stands in the world and has none, so its graph is unchanged.
   through the pinhole's Jacobian at its center (EWA splatting), with the
   center's slope clamped and 0.3 pixels² added, as the reference does. Its
   spherical harmonics, seen from the eye, give its color, each degree's
-  basis times its coefficients as a matrix product. A gaussian is culled,
+  basis times its coefficients as a matrix product. The basis, sixteen
+  numbers a gaussian, is one map of its direction, so `grad` carries its
+  gradient back as one map: built of sixteen maps and a concat, it came back
+  as a node for each operation, which fused into fifteen kernels, and step
+  7,000 took 25.15 ms on the device against 21.64 ms now. A gaussian is
+  culled,
   its radius 0, behind the near plane, when degenerate, or when the square
   of its radius about its center misses the image, as the reference culls.
   Densification counts the views that drew a gaussian by that radius:

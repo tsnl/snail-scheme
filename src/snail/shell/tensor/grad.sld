@@ -6,9 +6,11 @@
 ;;   (grad loss (list w b))   ; dloss/dw and dloss/db, shaped as w and b
 ;;
 ;; Each kind of node answers the gradient of each argument given the
-;; gradient of each port (`adjoints` below): a map back through its body,
-;; a reduction over its span and then back through its body; a custom
-;; node answers its own.
+;; gradient of each port, none for a port nothing the loss depends on
+;; reads (`adjoints` below): a map back through each of its bodies, a body
+;; of several operations as one expression, so that its gradient is one
+;; map for each argument; a reduction over its span and then back through
+;; its body; a custom node answers its own.
 ;; A view's gradient reaches its port through the view's accessor: summed
 ;; over the axes it broadcasts, then a view of the port when the view
 ;; reads all of it in some order of its axes, and a part, with the
@@ -325,16 +327,13 @@
       (match (● n kind)
         ((CustomKind c) ((● c adjoint) (● n args) outs))
         ((Sort _) (map (lambda (_) (None)) (● n args)))
+        ((Map bodies) (map-node-adjoints n bodies outs))
         (_ (single-port-adjoints n (first-gradient outs)))))
 
     ;; A node of one port, `out`, whose gradient is g.
     (define (single-port-adjoints (n Node) (g View)) (→ (List (Option View)))
       (let ((args (● n args)) (y (node-view n default-port)))
         (match (● n kind)
-          ((Map bodies)
-           (match bodies
-             ((Cons body (Nil)) (map-adjoints body args y g))
-             (_ (panic "grad: a map of several ports is made by fusing, after gradients"))))
           ((Reduce op span body) (reduce-adjoints op span body args y g))
           ((Place accessor)
            (list (Some (View-accessor-set (if (identity? g) g (copy g)) accessor))))
@@ -385,6 +384,60 @@
                     shape))
 
     ;; ---- Maps ----
+
+    ;; Each argument's gradient from every port of a map: each port's body
+    ;; carries the port's gradient back, and the shares add up. A port with
+    ;; no gradient, which nothing the loss depends on reads, adds nothing,
+    ;; as a gradient of zeros would.
+    (define (map-node-adjoints (n Node) (bodies (List Expr)) (outs (List (Option View))))
+      (→ (List (Option View)))
+      (fold-left (lambda (sums p)
+                   (match (list-ref outs p)
+                     ((Some g)
+                      (map (lambda (pair) (added (● pair first) (● pair second)))
+                           (zip sums (body-adjoints n (list-ref bodies p) (map-port-name p) g))))
+                     ((None) sums)))
+                 (map (lambda (_) (None)) (● n args))
+                 (iota (length bodies))))
+
+    (define (added (a (Option View)) (b (Option View))) (→ (Option View))
+      (match a
+        ((Some x)
+         (match b
+           ((Some y) (Some (+ x y)))
+           ((None) a)))
+        ((None) b)))
+
+    ;; One port's share for each argument: a body of one operation back
+    ;; through that operation's rule, over the arguments' views; a body of
+    ;; several operations as one expression (`expression-adjoints`).
+    (define (body-adjoints (n Node) (body Expr) (port String) (g View)) (→ (List (Option View)))
+      (let ((y (node-view n port)))
+        (if (one-operation? body)
+            (map-adjoints body (● n args) y g)
+            (expression-adjoints body
+                                 (● n args)
+                                 (take (shape-of y) (- (rank y) (length (expr-tile body))))
+                                 g))))
+
+    ;; Whether a body is one operation of loads and constants, such as a
+    ;; fill's tile of literals.
+    (define (one-operation? (body Expr)) (→ Bool)
+      (match body
+        ((Apply _ operands _ _) (every? (lambda (o) (not (computed? o))) operands))
+        (_ #t)))
+
+    ;; Whether an expression is an operation of something loaded.
+    (define (computed? (e Expr)) (→ Bool)
+      (match e
+        ((Apply _ operands _ _) (any? loads? operands))
+        (_ #f)))
+
+    (define (loads? (e Expr)) (→ Bool)
+      (match e
+        ((Load _ _ _) #t)
+        ((Literal _ _) #f)
+        ((Apply _ operands _ _) (any? loads? operands))))
 
     ;; The gradient of each argument of a map whose port's gradient is g,
     ;; back through its body from the top, whose value is the port's, y:
@@ -528,5 +581,240 @@
                    ((Float) (Some g))
                    (_ (None)))))
           (_ (map (lambda (_) (None)) args)))))
+
+    ;; ---- Bodies of several operations ----
+
+    ;; A body of several operations is differentiated as one expression,
+    ;; so that its gradient is one map for each argument, where a body of
+    ;; one operation gets a node for each share. The port's gradient,
+    ;; loaded after the arguments, is carried back through each operation
+    ;; to the loads, and each argument's gradient is the sum of its loads'
+    ;; shares. A rule that needs an operand's value uses the operand's own
+    ;; expression, which the map computes again; lowering computes each
+    ;; distinct value once, however many shares use it. A load picked
+    ;; apart, as a row's elements, takes each element's share at its place.
+    (define (expression-adjoints (body Expr) (args (List View)) (lead (List I64)) (g View))
+      (→ (List (Option View)))
+      (let ((shares (carried body
+                             (Load (length args) (expr-etype body) (expr-tile body))
+                             (empty-table)))
+            (tiles (load-tiles body (empty-table)))
+            (operands (append args (list g))))
+        (map (lambda (k)
+               (match (load-share shares k (tile-of tiles k) (etype-of (list-ref args k)))
+                 ((Some e) (Some (body-map e operands lead)))
+                 ((None) (None))))
+             (iota (length args)))))
+
+    ;; `shares` with those of the loads in `e`, whose gradient is `g`.
+    (define (carried (e Expr) (g Expr) (shares (Table Expr))) (→ (Table Expr))
+      (match e
+        ((Load k _ _) (share-added shares (show k) g))
+        ((Literal _ _) shares)
+        ((Apply (Pick indices) (Cons (Load k _ _) (Nil)) _ _)
+         (fold-left (lambda (shares pair)
+                      (share-added shares
+                                   (element-key k (● pair second))
+                                   (element-of g (● pair first))))
+                    shares
+                    (zip (iota (length indices)) indices)))
+        ((Apply op operands _ _)
+         (fold-left (lambda (shares pair)
+                      (match (● pair second)
+                        ((Some share) (carried (list-ref operands (● pair first)) share shares))
+                        ((None) shares)))
+                    shares
+                    (zip (iota (length operands)) (expression-shares op operands e g))))))
+
+    (define (share-added (shares (Table Expr)) (key String) (g Expr)) (→ (Table Expr))
+      (table-set shares
+                 key
+                 (match (table-ref shares key)
+                   ((Some share) (operation (Add) (list share g)))
+                   ((None) g))))
+
+    (define (element-key (k I64) (place I64)) (→ String)
+      (string-append (show k) "." (show place)))
+
+    ;; Element i of a tile, or a value itself.
+    (define (element-of (e Expr) (i I64)) (→ Expr)
+      (if (null? (expr-tile e))
+          e
+          (Apply (Pick (list i)) (list e) (expr-etype e) (Nil))))
+
+    ;; Argument k's gradient: its whole loads' shares, and its elements'
+    ;; at their places in its tile, zero where none was picked.
+    (define (load-share (shares (Table Expr)) (k I64) (tile (List I64)) (etype Etype))
+      (→ (Option Expr))
+      (let ((picked (map (lambda (p) (table-ref shares (element-key k p))) (iota (product tile))))
+            (whole (table-ref shares (show k))))
+        (if (every? none-share? picked)
+            whole
+            (let ((elements (Apply (Pack)
+                                   (map (lambda (share)
+                                          (match share
+                                            ((Some e) e)
+                                            ((None) (Literal 0.0 etype))))
+                                        picked)
+                                   etype
+                                   tile)))
+              (match whole
+                ((Some e) (Some (operation (Add) (list e elements))))
+                ((None) (Some elements)))))))
+
+    (define (none-share? (share (Option Expr))) (→ Bool)
+      (match share
+        ((Some _) #f)
+        ((None) #t)))
+
+    ;; The tile each argument is loaded at, by its number.
+    (define (load-tiles (e Expr) (tiles (Table (List I64)))) (→ (Table (List I64)))
+      (match e
+        ((Load k _ tile) (table-set tiles (show k) tile))
+        ((Literal _ _) tiles)
+        ((Apply _ operands _ _)
+         (fold-left (lambda (tiles o) (load-tiles o tiles)) tiles operands))))
+
+    (define (tile-of (tiles (Table (List I64))) (k I64)) (→ (List I64))
+      (match (table-ref tiles (show k))
+        ((Some tile) tile)
+        ((None) (Nil))))
+
+    ;; A map of `e` over the operands it loads, in their order.
+    (define (body-map (e Expr) (operands (List View)) (lead (List I64))) (→ View)
+      (let* ((loaded (loads-of e (Nil)))
+             (kept (filter (lambda (k) (member? k loaded)) (iota (length operands)))))
+        (mapped (map-loads e (lambda (k etype tile) (Load (position-in kept k) etype tile)))
+                (map (lambda (k) (list-ref operands k)) kept)
+                lead)))
+
+    (define (loads-of (e Expr) (found (List I64))) (→ (List I64))
+      (match e
+        ((Load k _ _) (Cons k found))
+        ((Literal _ _) found)
+        ((Apply _ operands _ _) (fold-left (lambda (found o) (loads-of o found)) found operands))))
+
+    (define (position-in (items (List I64)) (k I64)) (→ I64)
+      (match (list-index (lambda (j) (= j k)) items)
+        ((Some at) at)
+        ((None) (panic "grad: a load of no operand"))))
+
+    ;; An operation on expressions, a value broadcasting against a tile:
+    ;; its type its operands', a choice's that of what it chooses, and its
+    ;; tile the widest of theirs.
+    (define (operation (op Op) (operands (List Expr))) (→ Expr)
+      (Apply op
+             operands
+             (expr-etype (list-ref operands
+                                   (match op
+                                     ((Select) 1)
+                                     (_ 0))))
+             (fold-left (lambda (tile o)
+                          (if (> (length (expr-tile o)) (length tile)) (expr-tile o) tile))
+                        (Nil)
+                        operands)))
+
+    ;; The share of each operand of an operation, given the operation's
+    ;; value `y` and gradient `g`, by the rules a body of one operation's
+    ;; shares follow (`op-adjoints`); a share wider than its operand, a
+    ;; value broadcast against a tile, is summed over the tile. A tile's
+    ;; own operations hand each operand its elements of g, put back at the
+    ;; places a pick took, or g at each element a fold combined.
+    (define (expression-shares (op Op) (operands (List Expr)) (y Expr) (g Expr))
+      (→ (List (Option Expr)))
+      (let* ((a (list-ref operands 0))
+             (b (if (> (length operands) 1) (list-ref operands 1) y))
+             (times (lambda (u v) (operation (Mul) (list u v))))
+             (over (lambda (u v) (operation (Div) (list u v))))
+             (minus (lambda (u) (operation (Neg) (list u))))
+             (of (lambda (o u) (operation o (list u))))
+             (both (lambda (o u v) (operation o (list u v))))
+             (fit (lambda (shares) (fitted-shares operands shares))))
+        (match op
+          ((Neg) (fit (list (minus g))))
+          ((Exp) (fit (list (times g y))))
+          ((Log) (fit (list (over g a))))
+          ((Sqrt) (fit (list (over g (times (Literal 2.0 (expr-etype y)) y)))))
+          ((Sin) (fit (list (times g (of (Cos) a)))))
+          ((Cos) (fit (list (minus (times g (of (Sin) a))))))
+          ((Abs) (fit (list (times g (of (Sign) a)))))
+          ((Add) (fit (list g g)))
+          ((Sub) (fit (list g (minus g))))
+          ((Mul) (fit (list (times g b) (times g a))))
+          ((Div) (fit (list (over g b) (minus (over (times g y) b)))))
+          ((Pow) (fit (list (over (times g (times b y)) a) (times g (times (of (Log) a) y)))))
+          ((Max) (fit (list (times g (both (GreaterEqual) a b)) (times g (both (Less) a b)))))
+          ((Min) (fit (list (times g (both (LessEqual) a b)) (times g (both (Greater) a b)))))
+          ((Select)
+           (let ((zero (Literal 0.0 (expr-etype g))) (condition a))
+             (list (None)
+                   (Some
+                    (fitted (operation (Select) (list condition g zero)) (list-ref operands 1)))
+                   (Some
+                    (fitted (operation (Select) (list condition zero g)) (list-ref operands 2))))))
+          ((Convert _)
+           (list (match (expr-etype a)
+                   ((Float) (Some g))
+                   (_ (None)))))
+          ((Pack) (pack-shares operands g))
+          ((Pick indices) (list (Some (scattered g indices a))))
+          ((Fold combining) (list (Some (folded-share combining a y g))))
+          ((Product) (panic "grad: a matrix product in a body of several operations"))
+          (_ (map (lambda (_) (None)) operands)))))
+
+    (define (fitted-shares (operands (List Expr)) (shares (List Expr))) (→ (List (Option Expr)))
+      (map (lambda (pair) (Some (fitted (● pair second) (● pair first)))) (zip operands shares)))
+
+    ;; A share as wide as its operand: a value's share of a tile, summed.
+    (define (fitted (share Expr) (o Expr)) (→ Expr)
+      (cond ((= (length (expr-tile share)) (length (expr-tile o))) share)
+            ((null? (expr-tile o)) (Apply (Fold (Sum)) (list share) (expr-etype share) (Nil)))
+            (else (panic "grad: a share wider than its operand's tile"))))
+
+    ;; Each operand's elements of g, in order, but a literal's, which takes
+    ;; none.
+    (define (pack-shares (operands (List Expr)) (g Expr)) (→ (List (Option Expr)))
+      (reverse
+       (● (fold-left (lambda (state o)
+                       (let ((size (product (expr-tile o))) (at (● state second)))
+                         (new Pair
+                           (first (Cons (match o
+                                          ((Literal _ _) (None))
+                                          (_ (Some
+                                              (Apply (Pick (map (lambda (j) (+ at j)) (iota size)))
+                                                     (list g)
+                                                     (expr-etype g)
+                                                     (expr-tile o)))))
+                                        (● state first)))
+                           (second (+ at size)))))
+                     (new Pair (first (Nil)) (second 0))
+                     operands)
+          first)))
+
+    ;; g put back at the places `indices` took from a's tile: summed where
+    ;; a place was taken twice, zero where none took it.
+    (define (scattered (g Expr) (indices (List I64)) (a Expr)) (→ Expr)
+      (let ((etype (expr-etype g)))
+        (Apply (Pack)
+               (map (lambda (p)
+                      (fold-left (lambda (sum i) (operation (Add) (list sum (element-of g i))))
+                                 (Literal 0.0 etype)
+                                 (filter (lambda (i) (= (list-ref indices i) p))
+                                         (iota (length indices)))))
+                    (iota (product (expr-tile a))))
+               etype
+               (expr-tile a))))
+
+    ;; g at each element a fold combined: all of them for a sum, the chosen
+    ;; ones for the largest or smallest.
+    (define (folded-share (combining Reduction) (a Expr) (y Expr) (g Expr)) (→ Expr)
+      (let ((spread (lambda (v)
+                      (Apply (Pack)
+                             (map (lambda (_) v) (iota (product (expr-tile a))))
+                             (expr-etype v)
+                             (expr-tile a)))))
+        (match combining
+          ((Sum) (spread g))
+          (_ (operation (Mul) (list (spread g) (operation (Equal) (list a (spread y)))))))))
 
     ))
