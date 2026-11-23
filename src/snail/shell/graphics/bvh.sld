@@ -23,6 +23,8 @@
    Triangles
    Bvh
    build-bvh
+   build-moving-bvh
+   refit-bvh!
    release-bvh
    ray-size
    opaque-cutout
@@ -65,7 +67,23 @@
     (record Bvh
       ((nodes GpuBuffer)
        (triangles Triangles)
-       (layout GpuBuffer)))
+       (layout GpuBuffer)
+       (refitter (Option Refitter))))
+
+    ;; A moving mesh keeps its sorted leaf order and binary tree. The query
+    ;; bindings keep pointing to the same packed nodes after every refit.
+    (record RefitStep
+      ((pipeline GpuComputePipeline)
+       (group GpuBindGroup)
+       (count I64)))
+
+    (record Refitter
+      ((leaves RefitStep)
+       (to-spare RefitStep)
+       (to-nodes RefitStep)
+       (pack RefitStep)
+       (rounds I64)
+       (buffers (List GpuBuffer))))
 
     ;; ---- Building ----
 
@@ -83,11 +101,27 @@
     ;; Its nodes and uniform; the triangles are their owner's.
     (define (release-bvh (gpu Gpu) (bvh Bvh)) (→ Unit)
       ((● gpu destroy) (BufferObject (● bvh nodes)))
-      ((● gpu destroy) (BufferObject (● bvh layout))))
+      ((● gpu destroy) (BufferObject (● bvh layout)))
+      (match (● bvh refitter)
+        ((Some r)
+         (for-each (lambda (s) ((● gpu destroy) (BindGroupObject (● s group))))
+                   (list (● r leaves) (● r to-spare) (● r to-nodes) (● r pack)))
+         (for-each (lambda (p) ((● gpu destroy) (ComputePipelineObject p)))
+                   (list (● r leaves pipeline)
+                         (● r to-spare pipeline)
+                         (● r pack pipeline)))
+         (for-each (lambda (b) ((● gpu destroy) (BufferObject b))) (● r buffers)))
+        (_ (unit))))
 
 
 
     (define (build-bvh (gpu Gpu) (triangles Triangles)) (→ Bvh)
+      (build-tree gpu triangles #f))
+
+    (define (build-moving-bvh (gpu Gpu) (triangles Triangles)) (→ Bvh)
+      (build-tree gpu triangles #t))
+
+    (define (build-tree (gpu Gpu) (triangles Triangles) (moving Bool)) (→ Bvh)
       (let* ((n (max 1 (● triangles count)))
              (padded (power-of-two-at-least (max 2 n)))
              (steps (sort-steps padded))
@@ -145,11 +179,59 @@
           (run gpu kernels pass "pack" 0 (max 1 (- n 1)) (list (buffer 6 nodes) (buffer 7 wide)))
           ((● gpu end-compute-pass) pass))
         ((● gpu submit) (list ((● gpu finish) (● kernels encoder))))
-        (for-each (lambda (spent) ((● gpu destroy) (BufferObject spent)))
-                  (list build keys order nodes spare))
-        (for-each (lambda (named) ((● gpu destroy) (ComputePipelineObject (● named second))))
-                  (● kernels pipelines))
-        (new Bvh (nodes wide) (triangles triangles) (layout (layout-of gpu triangles)))))
+        (let ((retained (list build order nodes spare)))
+          ((● gpu destroy) (BufferObject keys))
+          (unless moving
+            (for-each (lambda (b) ((● gpu destroy) (BufferObject b))) retained))
+          (for-each (lambda (named)
+                      (unless (and moving
+                                   (member? (● named first) (list "build_leaves" "refit" "pack")))
+                        ((● gpu destroy) (ComputePipelineObject (● named second)))))
+                    (● kernels pipelines))
+          (new Bvh (nodes wide) (triangles triangles) (layout (layout-of gpu triangles))
+               (refitter
+                (if moving
+                    (Some (new Refitter
+                            (buffers retained)
+                            (rounds (quotient (refits n) 2))
+                            (leaves (refit-step gpu kernels "build_leaves" n
+                                                (list (buffer 2 order) (buffer 3 positions)
+                                                      (buffer 4 indices) (buffer 5 nodes))))
+                            (to-spare (refit-step gpu kernels "refit" (- (* 2 n) 1)
+                                                  (list (buffer 5 spare) (buffer 6 nodes))))
+                            (to-nodes (refit-step gpu kernels "refit" (- (* 2 n) 1)
+                                                  (list (buffer 5 nodes) (buffer 6 spare))))
+                            (pack (refit-step gpu kernels "pack" (max 1 (- n 1))
+                                              (list (buffer 6 nodes) (buffer 7 wide))))))
+                    (None)))))))
+
+    (define (refit-step (gpu Gpu)
+                        (k Kernels)
+                        (entry String)
+                        (count I64)
+                        (entries (List BindGroupEntry)))
+      (→ RefitStep)
+      (let ((pipeline (match (assoc-ref (● k pipelines) entry) ((Some p) p) (_ (panic entry)))))
+        (new RefitStep (pipeline pipeline) (count count)
+             (group
+              (kernel-group gpu pipeline 0 entry (Cons (slot-entry 0 (● k build) 0) entries))))))
+
+    (define (dispatch-refit (gpu Gpu) (pass GpuComputePass) (step RefitStep)) (→ Unit)
+      ((● gpu set-compute-pipeline) pass (● step pipeline))
+      ((● gpu set-compute-bind-group) pass 0 (● step group))
+      (dispatch-items gpu pass (● step count) 256))
+
+    ;; Refit after the vertex writes and before any draw or ray query.
+    (define (refit-bvh! (gpu Gpu) (bvh Bvh)) (→ Unit)
+      (let* ((r (match (● bvh refitter) ((Some r) r) (_ (panic "refit requires a moving BVH"))))
+             (encoder ((● gpu create-command-encoder)))
+             (pass ((● gpu begin-compute-pass) encoder)))
+        (dispatch-refit gpu pass (● r leaves))
+        (for-each (lambda (_) (dispatch-refit gpu pass (● r to-spare))
+                          (dispatch-refit gpu pass (● r to-nodes))) (iota (● r rounds)))
+        (dispatch-refit gpu pass (● r pack))
+        ((● gpu end-compute-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))))
 
     (define (layout-of (gpu Gpu) (triangles Triangles)) (→ GpuBuffer)
       (uniform-buffer gpu "bvh/layout"

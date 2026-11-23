@@ -105,6 +105,34 @@ file. It unpacks the buffers on the device into one vertex and one index buffer,
 draws each image into a layer of one array texture with its mipmaps, and
 scales a scene less than a unit across up to one.
 
+## Moving geometry
+
+Last Mile uses the same surface, path, SVGF and post passes for a moving cast.
+A `MovingScene` owns a static prefix of world vertices and one contiguous range
+of local vertices per moving object or skinned mesh. `pose-scene!` writes the posed vertices
+and their displacement from the previous draw. The surface pass uses that
+displacement for motion vectors. Both primary visibility and secondary rays
+consume the same world-space triangles. Mesh topology and materials stay fixed.
+
+`make-moving-tracer` keeps the leaf order and binary tree for those triangles.
+After a simulation tick, `refit-tracer!` refreshes the leaf boxes, propagates
+their bounds and packs them into the original query buffer. Bindings survive
+a refit. The viewer can discard this build scratch for static scenes. A moving
+tracer accepts one to four bounces. Last Mile uses two, and the final FXAA
+pass samples normalized screen coordinates so a small traced image fills a
+larger browser canvas. [Last Mile](../games/last-mile.md)
+
+## Skinned animation
+
+Start with a mesh and one joint. A vertex fully weighted to that joint follows its matrix, just as the sedan follows its rigid pose. Add a hinge and let a vertex share two joints. Its position becomes a weighted sum of the two transformed bind positions. A character uses the same operation with up to four influences per vertex.
+
+1. Call `read-rigged-gltf` in `(snail shell graphics gltf animation)`. It reads the buffers once and returns the mesh, its per-vertex influences, a parent-first hierarchy, inverse binds and named clips. A primitive with a skin starts in mesh coordinates. A rigid attachment gets a slot for its own node. Multiple skins can order their joints differently.
+2. Use `sample-pose` in `(snail shell graphics animation)` at the desired clip time. Untargeted local transforms keep their authored values. STEP holds a key until the next key. LINEAR interpolates translations and scales and takes the shortest quaternion arc for rotations. `clip-time` wraps or clamps a clock. `blend-poses` crossfades local poses and `blend-branch` restricts a blend to chosen nodes.
+3. Call `joint-palette` with the pose and the instance placement. It walks the hierarchy, including non-joint ancestors, and multiplies each joint’s world matrix by its inverse bind. Instances share the rig and clips and sample their own poses.
+4. Give `skin-scene` the fixed topology and vertex influences once. At each draw, `deform-scene!` blends the palette matrices on the GPU, transforms positions, normals and tangents, and records the displacement back to the preceding draw. Refit the BVH after a pose changes. Camera visibility and Monte Carlo shadow queries then use the same triangles. SVGF receives their motion vectors and FXAA runs after tone mapping.
+
+The reader supports floating-point transform keys, unsigned byte or unsigned short joint indices, and floating-point or normalized unsigned integer weights. It reports unsupported cubic samplers, morph-weight channels, sparse accessors and additional vertex influence sets. The mechanical hinge fixture in `tests/programs/data/hinge.gltf` has a non-joint ancestor, reversed node order and mixed weights. [glTF skins and animations](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#skins)
+
 ## The viewer
 
 ```sh

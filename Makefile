@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats pages
+.PHONY: format check fetch test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats last-mile pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -32,6 +32,7 @@ test-browser:
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
 	node tests/browser/gpu.mjs "$(CURDIR)"
+	node tests/browser/last-mile.mjs "$(CURDIR)"
 
 # The GPU checks on Node, on the GPU Dawn finds (host/native/gpu.mjs), or
 # on the CPU through lavapipe where there is none, as in CI (shell.nix).
@@ -67,10 +68,13 @@ generated-unicode:
 
 # Each application is a script, src/apps/NAME/main.scm, built into
 # build/src/apps/NAME/main.
-site: siegework hearsay viewer splats
+site: siegework hearsay viewer splats last-mile
 
 siegework:
 	./snail-scheme build --release --target browser src/apps/siegework/main.scm
+
+last-mile:
+	./snail-scheme build --release --target browser src/apps/last-mile/main.scm
 
 hearsay:
 	./snail-scheme build --release --target browser src/apps/hearsay/main.scm
@@ -88,7 +92,7 @@ splats:
 # carries its LPC art's credits, read from the packs when it is built,
 # and shows them from its menu.
 # Train stays unpublished: its page trains on a dataset served beside it.
-PAGES_APPS = siegework viewer splats hearsay
+PAGES_APPS = siegework viewer splats hearsay last-mile
 
 pages: $(PAGES_APPS)
 	"$(MDBOOK)" build --dest-dir build/pages

@@ -16,6 +16,16 @@
    Scene
    SurfaceMaterial
    load-scene
+   upload-scene
+   scene-materials
+   ObjectPose
+   MovingScene
+   moving-scene
+   skin-scene
+   pose-matrix
+   deform-scene!
+   pose-scene!
+   release-moving-scene
    release-scene
    vertex-stride
    scene-triangles)
@@ -23,6 +33,13 @@
    (snail core base)
    (snail shell gpu)
    (snail shell graphics pod)
+   (only (snail shell graphics animation)
+         Influence
+         SkinBinding
+         rigid-binding
+         shift-influence
+         v4
+         matrix-from)
    (snail shell graphics kernel)
    (snail shell graphics gltf)
    (only (snail shell graphics bvh) Triangles)
@@ -91,8 +108,17 @@
                         (path String)
                         (layer-size I32))
       (→ Scene)
-      (let* ((gltf (drawable (read-gltf (list-ref (read (list path)) 0) (directory-of path))))
-             (paths (file-paths gltf))
+      (upload-scene gpu
+                    read
+                    (drawable (read-gltf (list-ref (read (list path)) 0) (directory-of path)))
+                    layer-size))
+
+    (define (upload-scene (gpu Gpu)
+                          (read (Fn (List String) → (List Bytes)))
+                          (gltf Gltf)
+                          (layer-size I32))
+      (→ Scene)
+      (let* ((paths (file-paths gltf))
              (files (zip paths (read paths)))
              (buffers (map (lambda (buffer) (buffer-bytes buffer files)) (● gltf buffers)))
              (layers (load-layers gpu (map (lambda (image) (source-bytes image files buffers))
@@ -116,7 +142,7 @@
           (indices (● geometry second))
           (materials (storage-of gpu "scene/materials"
                                  (pack material-shape
-                                       (map surface-material (with-default (● gltf materials))))))
+                                       (map surface-material (scene-materials gltf)))))
           (layers layers)
           (layers-view ((● gpu create-view) layers
                         (new TextureViewDescriptor
@@ -138,6 +164,114 @@
       ((● gpu destroy) (TextureObject (● scene layers)))
       ((● gpu destroy) (SamplerObject (● scene sampler))))
 
+    ;; ---- Moving geometry ----
+
+    ;; Position and cosine of yaw, then positive scale and sine of yaw.
+    (record ObjectPose
+      ((place Vec4f)
+       (size Vec4f))
+      (deriving Pod))
+
+    (record MovingScene
+      ((scene Scene)
+       (rest GpuBuffer)
+       (influences GpuBuffer)
+       (poses GpuBuffer)
+       (pipeline GpuComputePipeline)
+       (group GpuBindGroup)
+       (joints I64)
+       (vertices I64)))
+
+    (define matrix-shape (→ (Shape Mat4x4f)) (shape))
+    (define influence-shape (→ (Shape Influence)) (shape))
+    (define (pose-matrix (pose ObjectPose)) (→ Mat4x4f)
+      (let* ((p (● pose place)) (s (● pose size)) (c (● p w)) (a (● s w)))
+        (new Mat4x4f
+          (x (v4 (* c (● s x)) 0.0 (negate (* a (● s x))) 0.0))
+          (y (v4 0.0 (● s y) 0.0 0.0))
+          (z (v4 (* a (● s z)) 0.0 (* c (● s z)) 0.0)) (w (v4 (● p x) (● p y) (● p z) 1.0)))))
+
+    ;; A rigid range is the one-joint case of linear blend skinning.
+    (define (moving-scene (gpu Gpu) (source Scene) (counts (List I64))) (→ MovingScene)
+      (skin-scene gpu source (map rigid-binding counts)))
+
+    (define (bound-influence? (v Influence) (slots I64)) (→ Bool)
+      (let ((j (● v joints)) (w (● v weights)))
+        (and (>= (min (min (● j x) (● j y)) (min (● j z) (● j w))) 0)
+             (< (i32->i64 (max (max (● j x) (● j y)) (max (● j z) (● j w)))) slots)
+             (>= (min (min (● w x) (● w y)) (min (● w z) (● w w))) 0.0)
+             (< (abs (- (+ (+ (● w x) (● w y)) (+ (● w z) (● w w))) 1.0)) 0.0001))))
+    ;; Assign palette slots in instance order once, when the stage is built.
+    (define (combined-binding (skins (List SkinBinding))) (→ SkinBinding)
+      (let loop ((rest skins) (base 0) (ranges (Nil)))
+        (match rest
+          ((Nil) (new SkinBinding (slots base) (vertices (concatenate (reverse ranges)))))
+          ((Cons skin next)
+           (let ((n (● skin slots)) (vertices (● skin vertices)))
+             (unless (and (> n 0)
+                          (not (null? vertices))
+                          (every? (lambda (v) (bound-influence? v n)) vertices))
+               (panic "invalid vertex influence"))
+             (loop next
+                   (+ base n)
+                   (Cons (map (lambda (v) (shift-influence v (i64->i32 base))) vertices)
+                         ranges)))))))
+
+    ;; Static vertices precede the influenced suffix. Own the original scene
+    ;; as the immutable bind mesh and keep its topology and material bindings.
+    (define (skin-scene (gpu Gpu) (source Scene) (bindings (List SkinBinding))) (→ MovingScene)
+      (let* ((binding (combined-binding bindings))
+             (influences (● binding vertices))
+             (joints (● binding slots))
+             (total (length influences)) (size (* vertex-stride (● source vertex-count))))
+        (unless (and (> total 0) (<= total (● source vertex-count))) (panic "invalid skin size"))
+        (let* ((ids (storage-of gpu "scene/influences" (pack influence-shape influences)))
+               (world (storage-buffer gpu "scene/world" size (list (CopyDst) (CopySrc))))
+               (poses (storage-buffer gpu
+                                      "scene/joints"
+                                      (* (stride matrix-shape) joints)
+                                      (list (CopyDst))))
+               (module ((● gpu create-shader-module)
+                        (new ShaderModuleDescriptor (label "scene/pose")
+                             (code (string-append (declarations unpack-shape) unpack-shader)))))
+               (kernel (compute-kernel gpu module "scene" "pose_vertices"))
+               (encoder ((● gpu create-command-encoder))))
+          ((● gpu copy-buffer-to-buffer) encoder (● source vertices) 0 world 0 (i64->i32 size))
+          ((● gpu submit) (list ((● gpu finish) encoder)))
+          (new MovingScene (scene (Scene-vertices-set source world)) (rest (● source vertices))
+               (influences ids)
+               (poses poses)
+               (joints joints)
+               (vertices total)
+               (pipeline kernel)
+               (group (kernel-group gpu kernel 0 "scene/pose"
+                                    (list (BufferEntry 2 world 0 0)
+                                          (BufferEntry 4 (● source vertices) 0 0)
+                                          (BufferEntry 5 ids 0 0)
+                                          (BufferEntry 6 poses 0 0))))))))
+
+    ;; Run once per displayed pose. The shader saves the preceding position
+    ;; for reprojection, including on a second draw of the same tick.
+    (define (pose-scene! (gpu Gpu) (scene MovingScene) (poses (List ObjectPose))) (→ Unit)
+      (deform-scene! gpu scene (map pose-matrix poses)))
+
+    (define (deform-scene! (gpu Gpu) (scene MovingScene) (palette (List Mat4x4f))) (→ Unit)
+      (unless (= (length palette) (● scene joints)) (panic "wrong joint palette size"))
+      ((● gpu write-buffer) (● scene poses) 0 (pack matrix-shape palette))
+      (let* ((encoder ((● gpu create-command-encoder))) (pass ((● gpu begin-compute-pass) encoder)))
+        ((● gpu set-compute-pipeline) pass (● scene pipeline))
+        ((● gpu set-compute-bind-group) pass 0 (● scene group))
+        (dispatch-items gpu pass (● scene vertices) 256)
+        ((● gpu end-compute-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))))
+
+    (define (release-moving-scene (gpu Gpu) (scene MovingScene)) (→ Unit)
+      ((● gpu destroy) (BindGroupObject (● scene group)))
+      ((● gpu destroy) (ComputePipelineObject (● scene pipeline)))
+      (for-each (lambda (b) ((● gpu destroy) (BufferObject b)))
+                (list (● scene influences) (● scene poses) (● scene rest)))
+      (release-scene gpu (● scene scene)))
+
     ;; ---- Sources ----
 
     ;; The files the scene's buffers and images name.
@@ -149,35 +283,6 @@
                   (Nil)
                   (append (map (lambda (buffer) (● buffer source)) (● gltf buffers))
                           (● gltf images))))
-
-    ;; A source's bytes, from the files read and, for an image in a buffer
-    ;; view, the buffers.
-    (define (source-bytes (source Source)
-                          (files (List (Pair String Bytes)))
-                          (buffers (List Bytes)))
-      (→ Bytes)
-      (match source
-        ((FileSource path)
-         (match (assoc-ref files path)
-           ((Some bytes) bytes)
-           ((None) (unreadable (string-append path " was not read")))))
-        ((DataSource bytes) bytes)
-        ((ViewSource buffer offset length)
-         (let ((bytes (list-ref buffers buffer)))
-           (if (<= (+ offset length) (array-length bytes))
-               (subarray bytes offset (+ offset length))
-               (unreadable "an image of the scene lies outside its buffer"))))))
-
-    ;; The bytes the scene reads of a buffer, which may be the start of a
-    ;; longer file.
-    (define (buffer-bytes (buffer Buffer) (files (List (Pair String Bytes)))) (→ Bytes)
-      (let ((bytes (source-bytes (● buffer source) files (Nil))))
-        (if (< (array-length bytes) (● buffer length))
-            (unreadable (string-append (match (● buffer source)
-                                         ((FileSource path) path)
-                                         (_ "a buffer of the scene"))
-                                       " is shorter than the scene says"))
-            (subarray bytes 0 (● buffer length)))))
 
     ;; A scene with something to draw, at least a unit across.
     (define (drawable (gltf Gltf)) (→ Gltf)
@@ -207,23 +312,6 @@
 
     ;; A scene without materials draws with glTF's default, white and
     ;; rough.
-    (define (with-default (materials (List Material))) (→ (List Material))
-      (if (null? materials)
-          (list (new Material
-                  (base-color (list 1.0 1.0 1.0 1.0))
-                  (base-texture -1)
-                  (metallic 0.0)
-                  (roughness 1.0)
-                  (metal-rough-texture -1)
-                  (normal-texture -1)
-                  (normal-scale 1.0)
-                  (emissive (list 0.0 0.0 0.0))
-                  (emissive-texture -1)
-                  (alpha 0)
-                  (alpha-cutoff 0.5)
-                  (double-sided #f)))
-          materials))
-
     (define (surface-material (m Material)) (→ SurfaceMaterial)
       (let ((color (map f64->f32 (● m base-color))) (glow (map f64->f32 (● m emissive))))
         (new SurfaceMaterial
@@ -309,8 +397,8 @@
           (uvs (accessor (● primitive uvs)))
           (tangents (accessor (● primitive tangents)))
           (indices (accessor (● primitive indices)))
-          (matrix (matrix-of (● placed matrix)))
-          (normal-matrix (matrix-of (normal-matrix (● placed matrix)))))))
+          (matrix (matrix-from (● placed matrix)))
+          (normal-matrix (matrix-from (normal-matrix (● placed matrix)))))))
 
     (define (accessor (attribute (Option Attribute))) (→ Vec4i)
       (match attribute
@@ -321,15 +409,6 @@
            (z (i64->i32 (● a component)))
            (w (if (● a normalized) 1 0))))
         ((None) (new Vec4i (x -1) (y 0) (z 0) (w 0)))))
-
-    (define (matrix-of (m (List F64))) (→ Mat4x4f)
-      (let ((column (lambda ((c I64)) (→ Vec4f)
-                      (new Vec4f
-                        (x (f64->f32 (list-ref m (* 4 c))))
-                        (y (f64->f32 (list-ref m (+ (* 4 c) 1))))
-                        (z (f64->f32 (list-ref m (+ (* 4 c) 2))))
-                        (w (f64->f32 (list-ref m (+ (* 4 c) 3))))))))
-        (new Mat4x4f (x (column 0)) (y (column 1)) (z (column 2)) (w (column 3)))))
 
     ;; The inverse transpose of the upper 3x3, up to a positive scale: its
     ;; cofactors, negated when the matrix mirrors, so normals stay outward.
@@ -359,7 +438,10 @@
       (let* ((data (storage-buffer gpu "scene/data" (● gltf size) (list (CopyDst))))
              (unpacks (storage-of gpu "scene/unpacks" (pack unpack-shape (unpacks-of gltf))))
              (vertices
-              (storage-buffer gpu "scene/vertices" (* vertex-stride (● counts first)) (Nil)))
+              (storage-buffer gpu
+                              "scene/vertices"
+                              (* vertex-stride (● counts first))
+                              (list (CopySrc))))
              (indices (storage-buffer gpu "scene/indices" (* 4 (● counts second)) (list (Index)))))
         (for-each (lambda (laid)
                     ((● gpu write-buffer) data

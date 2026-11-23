@@ -1,0 +1,48 @@
+{
+  "asset": {"version": "2.0", "generator": "Snail Scheme mechanical hinge regression fixture"},
+  "scene": 0,
+  "scenes": [
+    {"nodes": [0, 3, 5]}
+  ],
+  "nodes": [
+    {"name": "plate", "mesh": 0, "skin": 0, "translation": [100, 0, 0]},
+    {"name": "hinge", "translation": [1, 0, 0]},
+    {"name": "base", "children": [1]},
+    {"name": "stand", "matrix": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 4, 1], "children": [2, 4]},
+    {"name": "base plate", "mesh": 1, "translation": [3, 0, 0]},
+    {"name": "second skin", "mesh": 0, "skin": 1}
+  ],
+  "meshes": [
+    {"primitives": [{"attributes": {"POSITION": 0, "JOINTS_0": 1, "WEIGHTS_0": 2}}]},
+    {"primitives": [{"attributes": {"POSITION": 0}}]}
+  ],
+  "skins": [
+    {"joints": [2, 1], "inverseBindMatrices": 3},
+    {"joints": [1, 2]}
+  ],
+  "animations": [
+    {"name": "fold", "samplers": [{"input": 4, "output": 5, "interpolation": "LINEAR"}, {"input": 4, "output": 6, "interpolation": "STEP"}], "channels": [{"sampler": 0, "target": {"node": 1, "path": "rotation"}}, {"sampler": 1, "target": {"node": 2, "path": "translation"}}]},
+    {"name": "stretch", "samplers": [{"input": 4, "output": 7}], "channels": [{"sampler": 0, "target": {"node": 2, "path": "scale"}}]}
+  ],
+  "accessors": [
+    {"bufferView": 0, "type": "VEC3", "componentType": 5126, "count": 3, "min": [0, 0, 0], "max": [2, 0.2, 0.1]},
+    {"bufferView": 0, "type": "VEC4", "componentType": 5123, "count": 3, "byteOffset": 12},
+    {"bufferView": 0, "type": "VEC4", "componentType": 5121, "count": 3, "byteOffset": 20, "normalized": true},
+    {"bufferView": 1, "type": "MAT4", "componentType": 5126, "count": 2},
+    {"bufferView": 2, "type": "SCALAR", "componentType": 5126, "count": 2, "min": [0], "max": [1]},
+    {"bufferView": 3, "type": "VEC4", "componentType": 5126, "count": 2},
+    {"bufferView": 4, "type": "VEC3", "componentType": 5126, "count": 2},
+    {"bufferView": 5, "type": "VEC3", "componentType": 5126, "count": 2}
+  ],
+  "bufferViews": [
+    {"buffer": 0, "byteOffset": 0, "byteLength": 72, "byteStride": 24},
+    {"buffer": 0, "byteOffset": 72, "byteLength": 128},
+    {"buffer": 0, "byteOffset": 200, "byteLength": 8},
+    {"buffer": 0, "byteOffset": 208, "byteLength": 32},
+    {"buffer": 0, "byteOffset": 240, "byteLength": 24},
+    {"buffer": 0, "byteOffset": 264, "byteLength": 24}
+  ],
+  "buffers": [
+    {"byteLength": 288, "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAAABAAAAAAD/AAAAAAAAQAAAAAAAAAAAAAABAAAAAACAfwAAAAAAQM3MTD7NzMw9AAABAAAAAAAA/wAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIDAAACAPwAAgD8AAAAAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAAAAAAIA/AAAAAAAAgL8AAAAAAACAwAAAgD8AAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAPMENb/zBDW/AAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAACAPwAAgD8AAIA/AAAAQAAAgD8AAIA/"}
+  ]
+}

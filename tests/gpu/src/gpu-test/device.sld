@@ -41,6 +41,7 @@
    (snail shell graphics radix-sort)
    (snail shell graphics splat)
    (snail shell graphics splat-view)
+   (gpu-test moving-scene)
    (gpu-test shaders)
    (gpu-test tensor)
    (gpu-test splat-train)
@@ -50,6 +51,8 @@
     ;; ---- Checks ----
 
     (define (device-checks (gpu Gpu) (out OutputPort)) (→ Unit)
+      (write-line out (string-append "moving shadows: " (moving-shadows gpu)))
+      (write-line out (string-append "skinned shadows: " (bent-shadows gpu)))
       (write-line out (string-append "decoded: " (texels (decoded-texels gpu))))
       (write-line out (string-append "scene: " (texels (scene-frame gpu (Neutral)))))
       (write-line out (string-append "filmic: " (texels (scene-frame gpu (Filmic)))))

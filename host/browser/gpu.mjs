@@ -54,7 +54,7 @@ async function pageImage(device, encoded) {
 // GiB, 16384-texel textures, 64 bytes of color attachments per sample and
 // 32 KiB of workgroup memory, or as much as the adapter has.
 export async function requestDevice(gpu) {
-  const adapter = await gpu.requestAdapter();
+  const adapter = await gpu.requestAdapter() ?? await gpu.requestAdapter({powerPreference: 'high-performance'});
   if (!adapter) throw new Error('this host offers no WebGPU adapter');
   const missing = REQUIRED.filter(name => !adapter.features.has(name));
   if (missing.length) throw new Error(`this WebGPU adapter lacks ${missing.join(', ')}`);
