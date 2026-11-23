@@ -70,7 +70,7 @@ trainer alone: it builds the `Scene` with `make-scene`, and handles
   360's outdoor scenes (its indoor scenes at `images_2`);
 - `steps`, by default 30000;
 - `gaussians`, the most the cloud may hold, by default 4194304: the
-  programs make about 3.3 KB a gaussian, 14 GB at the default; past it,
+  programs make about 1.9 KB a gaussian, 8.2 GB at the default; past it,
   densification adds only what fits;
 - `profile=N`, which times step N's kernels on the device, running the
   step a second time, and prints the slowest and the largest buffers:
@@ -88,8 +88,8 @@ it, so a page's scene should be near, or cached.
 
 ## Results
 
-On bicycle at `images_4`, on an RTX 5090, 30,000 steps take 21.6 minutes
-on Node and reach a held-out PSNR of 25.32; the paper reports 25.25.
+On bicycle at `images_4`, on an RTX 5090, 30,000 steps take 19.9 minutes
+on Node and reach a held-out PSNR of 25.28; the paper reports 25.25.
 [`benches/splat-training`](../../../benches/splat-training/README.md)
 trains the reference implementation and gsplat beside it on the same GPU.
 
