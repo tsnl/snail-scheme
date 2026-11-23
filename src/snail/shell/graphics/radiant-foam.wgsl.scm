@@ -1,0 +1,236 @@
+;; Exact Voronoi intervals in the model cube. SITES is the logical site
+;; count. Sixteen spatially adjacent site ids share one bounding box.
+;; A cell packs the site position and extinction into its first four floats.
+(struct Cell (material vec4f) (color vec4f))
+(struct Bounds (low vec3f) (high vec3f))
+(struct PhotographRay (origin vec4f) (direction vec4f) (observed vec4f))
+((var storage read_write) (@group 0) (@binding 0) (cells (array Cell)))
+((var storage read) (@group 0) (@binding 1) (order (array u32)))
+((var storage read_write) (@group 0) (@binding 2) (bounds (array Bounds)))
+((var storage read) (@group 0) (@binding 3) (rays (array PhotographRay)))
+((var storage read_write) (@group 0) (@binding 4) (pixels (array vec4f)))
+((var storage read_write) (@group 0) (@binding 5) (gradients (array (atomic u32))))
+((var storage read) (@group 0) (@binding 6) (indices (array u32)))
+((var uniform) (@group 0) (@binding 7) (rate f32))
+((var uniform) (@group 0) (@binding 8) (camera CameraUniform))
+
+;; ---- Front to back ----
+
+(struct Path (entry vec3f) (direction vec3f) (end f32))
+
+(fn clip_ray ((origin vec3f) (d vec3f)) (-> Path)
+    (var near 0.0)
+    (var far 3.0e38)
+    (for ((var k 0u) (< k 3u) (+= k 1u))
+         (let o (at origin k))
+         (let v (at d k))
+         (if ((== v 0.0) (if ((> (abs o) 1.0) (return (Path origin d 0.0)))))
+             (else (let a (/ (- -1.0 o) v))
+                   (let b (/ (- 1.0 o) v))
+                   (= near (max near (min a b)))
+                   (= far (min far (max a b))))))
+    (return (Path (+ origin (* near d)) d (- far near))))
+
+(fn box_distance ((x vec3f) (b Bounds)) (-> f32)
+    (let gap (- x (clamp x (get b low) (get b high))))
+    (return (dot gap gap)))
+
+(fn nearest ((r Path)) (-> u32)
+    (var owner 0u)
+    (var squared 3.0e38)
+    (var slope -3.0e38)
+    (for ((var b 0u) (< (* b 16u) SITES) (+= b 1u))
+         (if ((> (box_distance (get r entry) (at bounds b)) (+ squared 0.00001)) (continue)))
+         (for ((var j (* b 16u)) (< j (min SITES (* (+ b 1u) 16u))) (+= j 1u))
+              (let i (at order j))
+              (let p (get (at cells i) material xyz))
+              (let offset (- p (get r entry)))
+              (let dist (dot offset offset))
+              (let along (dot p (get r direction)))
+              (if ((or (< dist squared) (and (== dist squared)
+                                             (or (> along slope)
+                                                 (and (== along slope) (< i owner)))))
+                   (= owner i) (= squared dist) (= slope along)))))
+    (return owner))
+
+(struct Crossing (id u32) (distance f32))
+
+;; At the current position p is nearest. The squared distances to q and
+;; p differ by an affine function along the ray. If even the closest
+;; point of a box cannot beat p at the candidate exit, its sites cannot
+;; take over anywhere before that exit either. Slack only adds work.
+(fn next_crossing ((r Path) (p vec3f)) (-> Crossing)
+    (let d (get r direction))
+    (let slope (dot p d))
+    (var hit (Crossing SITES (get r end)))
+    (var tip (+ (get r entry) (* (get hit distance) d)))
+    (for ((var b 0u) (< (* b 16u) SITES) (+= b 1u))
+         (let delta (- tip p))
+         (if ((> (box_distance tip (at bounds b)) (+ (dot delta delta) 0.00001)) (continue)))
+         (for ((var j (* b 16u)) (< j (min SITES (* (+ b 1u) 16u))) (+= j 1u))
+              (let i (at order j))
+              (let q (get (at cells i) material xyz))
+              (let speed (- (dot q d) slope))
+              (if ((<= speed 0.0) (continue)))
+              (let middle (- (* 0.5 (+ p q)) (get r entry)))
+              (let t (/ (dot (- q p) middle) speed))
+              (if ((or (< t (get hit distance))
+                       (and (== t (get hit distance)) (< t (get r end)) (< i (get hit id))))
+                   (= hit (Crossing i t))
+                   (= tip (+ (get r entry) (* t d)))))))
+    (return hit))
+
+;; A training ray saves its first sixteen exits in invocation-local memory.
+;; Longer walks replay only the overflow. Rendering specializes the save
+;; away, and no ray ever stops because the cache filled.
+(struct Visits (hits (array Crossing 16)) (count u32))
+
+(fn radiance ((r Path) (first u32) (visits (ptr function Visits)) (save bool)) (-> vec3f)
+    (var id first)
+    (var near 0.0)
+    (var trans 1.0)
+    (var rgb (vec3f 0.0))
+    (while (< id SITES)
+           (let c (at cells id))
+           (let hit (next_crossing r (get c material xyz)))
+           (let far (max near (get hit distance)))
+           (if ((and save (< (get (deref visits) count) 16u))
+                (= (at (get (deref visits) hits) (get (deref visits) count)) hit)
+                (+= (get (deref visits) count) 1u)))
+           (let q (exp (* (- (get c material w)) (- far near))))
+           (+= rgb (* trans (- 1.0 q) (get c color xyz)))
+           (*= trans q)
+           (= near far)
+           (= id (get hit id)))
+    (return rgb))
+
+;; dispatch-items fills a row of 65535 workgroups before starting another.
+(fn item ((id vec3u)) (-> u32) (return (+ (get id x) (* (get id y) 65535u 64u))))
+
+(fn (@compute) (@workgroup_size 64) render (((@builtin global_invocation_id) id vec3u))
+    (let i (item id))
+    (let source (vec2u (get camera image xy)))
+    (let view (vec2u (get camera image zw)))
+    (if ((>= i (* (get view x) (get view y))) (return)))
+    ;; Aim through the same original pixel center sampled by the photograph.
+    (let pixel (vec2u (% i (get view x)) (/ i (get view x))))
+    (let xy (vec2f (/ (* (+ (* pixel 2u) (vec2u 1u)) source) (* view 2u))))
+    (let direction (normalize (+ (get camera corner xyz) (+ (* (get xy x) (get camera dx xyz))
+                                                            (* (get xy y) (get camera dy xyz))))))
+    (let r (clip_ray (get camera eye xyz) direction))
+    (var rgb (vec3f 0.0))
+    (var (visits Visits))
+    (if ((> (get r end) 0.0) (= rgb (radiance r (nearest r) (address-of visits) false))))
+    (= (at pixels i) (vec4f rgb 1.0)))
+
+;; ---- Photometric gradients ----
+
+(fn accumulate ((i u32) (value f32))
+    (if ((== value 0.0) (return)))
+    (var old (atomicLoad (address-of (at gradients i))))
+    (loop
+     (let sum ((bitcast u32) (+ ((bitcast f32) old) value)))
+     (let change (atomicCompareExchangeWeak (address-of (at gradients i)) old sum))
+     (if ((get change exchanged) (break)))
+     (= old (get change old_value))))
+
+(fn add_three ((i u32) (v vec3f))
+    (accumulate i (get v x))
+    (accumulate (+ i 1u) (get v y))
+    (accumulate (+ i 2u) (get v z)))
+
+(fn move_face ((r Path) (t f32) (a u32) (b u32) (change f32))
+    (let p (get (at cells a) material xyz))
+    (let q (get (at cells b) material xyz))
+    (let x (+ (get r entry) (* t (get r direction))))
+    (let k (/ change (- (dot q (get r direction)) (dot p (get r direction)))))
+    (add_three (* 8u a) (* k (- x p)))
+    (add_three (* 8u b) (* k (- q x))))
+
+;; Replay the intervals carrying the prefix P and incoming transmission T.
+;; For final color C, dC/d(optical depth) = P + T*color - C. This also
+;; holds behind an opaque foreground. Zero-length ties own no material.
+(fn backward ((r Path) (first u32) (final_rgb vec3f) (adj vec3f) (visits (ptr function Visits)))
+    (var id first)
+    (var near 0.0)
+    (var trans 1.0)
+    (var prefix (vec3f 0.0))
+    (var front SITES)
+    (var front_change 0.0)
+    (var k 0u)
+    (while (< id SITES)
+           (let c (at cells id))
+           (var (hit Crossing))
+           (if ((< k (get (deref visits) count)) (= hit (at (get (deref visits) hits) k)))
+               (else (= hit (next_crossing r (get c material xyz)))))
+           (+= k 1u)
+           (let far (max near (get hit distance)))
+           (if ((> far near)
+                (let color (get c color xyz))
+                (let sigma (get c material w))
+                (let q (exp (* (- sigma) (- far near))))
+                ;; The unobserved suffix is RGB in [0,1]. Its maximum
+                ;; influence T*q also bounds cancellation in opaque cells.
+                (let tail (vec3f (* trans q)))
+                (let depth (dot adj (clamp (- (+ prefix (* trans color)) final_rgb) (- tail) tail)))
+                (let change (* sigma depth))
+                (if ((< front SITES) (move_face r near front id (- front_change change))))
+                (let weight (* trans (- 1.0 q)))
+                (accumulate (+ (* 8u id) 3u) (* depth (- far near)))
+                (add_three (+ (* 8u id) 4u) (* weight adj))
+                (+= prefix (* weight color))
+                (*= trans q)
+                (= front id)
+                (= front_change change)))
+           (= near far)
+           (= id (get hit id))))
+
+(fn (@compute) (@workgroup_size 64) learn (((@builtin global_invocation_id) id vec3u))
+    (let i (item id))
+    (if ((>= i (arrayLength (address-of indices))) (return)))
+    (let s (at rays (at indices i)))
+    (let r (clip_ray (get s origin xyz) (get s direction xyz)))
+    (if ((<= (get r end) 0.0) (return)))
+    (let first (nearest r))
+    (var (visits Visits))
+    (let rgb (radiance r first (address-of visits) true))
+    (backward r first rgb (* (/ 2.0 3.0) (- rgb (get s observed xyz))) (address-of visits)))
+
+;; ---- Projected gradient descent and spatial bounds ----
+
+(fn take_gradient ((i u32)) (-> f32)
+    (return (* rate ((bitcast f32) (atomicExchange (address-of (at gradients i)) 0u)))))
+
+(fn step_cell ((i u32)) (-> vec3f)
+    (let base (* 8u i))
+    (let dp (vec3f (take_gradient base) (take_gradient (+ base 1u)) (take_gradient (+ base 2u))))
+    (let ds (take_gradient (+ base 3u)))
+    (let dc (vec3f
+             (take_gradient (+ base 4u))
+             (take_gradient (+ base 5u))
+             (take_gradient (+ base 6u))))
+    (let cell (at cells i))
+    (let p (clamp
+            (- (get cell material xyz) (clamp dp (vec3f -0.02) (vec3f 0.02)))
+            (vec3f -1.0)
+            (vec3f 1.0)))
+    (= (at cells i) (Cell (vec4f p (max 0.0 (- (get cell material w) ds)))
+                          (vec4f (clamp (- (get cell color xyz) dc) (vec3f 0.0) (vec3f 1.0)) 0.0)))
+    (return p))
+
+((var workgroup) (positions (array vec3f 16)))
+
+(fn (@compute) (@workgroup_size 16) update_cells
+    (((@builtin workgroup_id) group vec3u) ((@builtin local_invocation_index) lane u32))
+    (let b (+ (get group x) (* (get group y) 65535u)))
+    (if ((>= (* b 16u) SITES) (return)))
+    (let j (+ (* b 16u) lane))
+    (if ((< j SITES) (= (at positions lane) (step_cell (at order j)))))
+    (workgroupBarrier)
+    (if ((== lane 0u)
+         (var low (at positions 0u))
+         (var high low)
+         (for ((var k 1u) (< k (min 16u (- SITES (* 16u b)))) (+= k 1u))
+              (= low (min low (at positions k)))
+              (= high (max high (at positions k))))
+         (= (at bounds b) (Bounds low high)))))

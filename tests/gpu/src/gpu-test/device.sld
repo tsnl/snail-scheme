@@ -41,6 +41,7 @@
    (snail shell graphics radix-sort)
    (snail shell graphics splat)
    (snail shell graphics splat-view)
+   (gpu-test foam)
    (gpu-test shaders)
    (gpu-test tensor)
    (gpu-test splat-train)
@@ -77,7 +78,8 @@
       (write-line out (string-append "splat tile ranges: " (splat-tile-ranges gpu)))
       (write-line out (string-append "ssim: " (splat-ssim-check gpu)))
       (write-line out (string-append "densify: " (splat-densify-check gpu)))
-      (write-line out (string-append "room: " (splat-room-check gpu))))
+      (write-line out (string-append "room: " (splat-room-check gpu)))
+      (write-line out (string-append "foam: " (check-foam gpu))))
 
     (define (training-checks (gpu Gpu) (out OutputPort)) (→ Unit)
       (write-line out (string-append "splat gradients: " (splat-gradient-check gpu)))

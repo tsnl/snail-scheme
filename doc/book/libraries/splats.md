@@ -155,3 +155,33 @@ Voronoi sites, and those neighbors can change as the sites move.
 Run the synthetic fit with `./snail-scheme run --target node src/apps/foam/main.scm`.
 The application also reads the splat trainer's COLMAP datasets and can
 export other thresholds from a saved fit. [Run the prototype](https://github.com/tsnl/snail-scheme/blob/main/src/apps/foam/README.md)
+
+## `(snail shell graphics radiant-foam-gpu)`
+
+`make-device-foam` uploads the CPU model's sites as floats. Sixteen sites
+near one another in Morton order share a bounding box. At a cell entry
+the current site is nearest. The squared-distance difference between it
+and any other site is affine along the ray. If a group's box is farther
+away than the current site at the candidate exit, that group can supply
+no earlier crossing. The shader uses this test to skip groups and checks
+the remaining bisectors directly.
+
+`make-foam-view` allocates a camera uniform and a storage buffer of RGBA
+floats. `write-foam-camera!` changes the pose or intrinsics.
+`dispatch-foam-view` generates the pinhole rays and composites a frame in
+a caller's compute pass. Another pass can consume the view's `pixels`
+buffer directly. `read-foam-view` transfers the image when CPU RGB is needed.
+
+`make-foam-trainer` uploads posed training rays once. `train-foam!` takes
+the first step's seed, step count, and learning rate. The CPU reference and
+GPU sample the same ray indices at each step. Each training ray caches its
+first sixteen cell exits and recomputes any later exits for the backward
+pass. Gradients pass through both materials and moving Voronoi faces.
+The update applies projected gradient descent and refits every group's
+bounds on the GPU. The training loop batches up to 32 updates per
+submission without reading intermediate parameters.
+
+`read-foam` returns sites in checkpoint order for export or inspection.
+Release views and trainers when finished, then release the device foam.
+The application measures both backends on Mip-NeRF 360 bicycle.
+[Application and measurements](https://github.com/tsnl/snail-scheme/blob/main/src/apps/foam/README.md)

@@ -1,4 +1,4 @@
-;; Posed RGB samples for the CPU foam. The built-in scene and photographs
+;; Posed RGB samples for the foam. The built-in scene and photographs
 ;; from the splat trainer both enter through COLMAP pinhole cameras.
 (define-library (apps foam views)
   (export Model View Experiment demo-experiment photo-experiment)
@@ -26,6 +26,7 @@
 
     (record View
       ((name String)
+       (camera RayCamera)
        (width I64)
        (height I64)
        (samples (Array Sample))))
@@ -39,15 +40,14 @@
       (vec3d (list-ref values 0) (list-ref values 1) (list-ref values 2)))
 
     ;; R maps world to camera. Its rows are the camera axes in the world.
-    (define (pixel-rays (model Model) (cam ColmapCamera) (pose ColmapImage))
-      (→ (Fn I64 I64 → Ray))
-      (let* ((rows (image-rotation pose)) (right (three rows))
-             (down (three (list-tail rows 3))) (forward (three (list-tail rows 6)))
-             (eye (v* (v- (three (image-center pose)) (● model center)) (/ 1.0 (● model radius)))))
-        (lambda (x y)
-          (let ((u (/ (- (+ (i64->f64 x) 0.5) (● cam cx)) (● cam fx)))
-                (v (/ (- (+ (i64->f64 y) 0.5) (● cam cy)) (● cam fy))))
-            (ray eye (v+ forward (v+ (v* right u) (v* down v))))))))
+    (define (pose-camera (model Model) (cam ColmapCamera) (pose ColmapImage)) (→ RayCamera)
+      (let* ((rows (image-rotation pose)) (forward (three (list-tail rows 6)))
+             (dx (v* (three rows) (/ 1.0 (● cam fx))))
+             (dy (v* (three (list-tail rows 3)) (/ 1.0 (● cam fy))))
+             (eye (v* (v- (three (image-center pose)) (● model center)) (/ 1.0 (● model radius))))
+             (corner (v+ forward (v+ (v* dx (- 0.5 (● cam cx))) (v* dy (- 0.5 (● cam cy)))))))
+        (new RayCamera (eye eye) (corner corner) (dx dx) (dy dy)
+             (width (● cam width)) (height (● cam height)))))
 
     ;; One original pixel nearest each thumbnail pixel center. Both the
     ;; ray and the RGB refer to that same original pixel.
@@ -58,14 +58,14 @@
              (h
               (max 1 (quotient (+ (* w (● cam height)) (quotient (● cam width) 2)) (● cam width))))
              (pixel (lambda (i source size) (quotient (* (+ (* 2 i) 1) source) (* 2 size))))
-             (aim (pixel-rays model cam pose)))
+             (camera (pose-camera model cam pose)))
         (new View
-          (name (● pose name)) (width w) (height h)
+          (name (● pose name)) (camera camera) (width w) (height h)
           (samples (array-generate (* w h)
                                    (lambda (i)
                                      (let* ((x (pixel (remainder i w) (● cam width) w))
                                             (y (pixel (quotient i w) (● cam height) h))
-                                            (r (aim x y)))
+                                            (r (camera-ray camera x y)))
                                        (new Sample (ray r) (rgb (color x y r))))))))))
 
     ;; ---- A small example ----
@@ -95,21 +95,22 @@
     (define demo-camera (→ ColmapCamera)
       (new ColmapCamera (id 1) (width 96) (height 72) (fx 112.0) (fy 112.0) (cx 48.0) (cy 36.0)))
 
-    (define (demo-view (model Model) (angle F64)) (→ View)
+    (define (demo-view (model Model) (angle F64) (width I64)) (→ View)
       (let* ((half (* angle 0.5))
              (pose (new ColmapImage (id 0) (camera 1) (name "synthetic")
                         (rotation (list (cos half) 0.0 (sin half) 0.0))
                         (translation (list 0.0 0.0 2.6)))))
-        (thumbnail model demo-camera pose 96 (lambda (x y r) (render-ray reference r)))))
+        (thumbnail model demo-camera pose width (lambda (x y r) (render-ray reference r)))))
 
-    (define (demo-experiment (saved (Option Model)) (train Bool) (index I64)) (→ Experiment)
+    (define (demo-experiment (saved (Option Model)) (train Bool) (index I64) (width I64))
+      (→ Experiment)
       (let* ((model (match saved ((Some m) m) ((None) demo-model)))
              (angle (lambda (i) (* (i64->f64 i) (/ pi 4.0))))
-             (views (if train (map (lambda (i) (demo-view model (angle i))) (iota 8)) (Nil))))
+             (views (if train (map (lambda (i) (demo-view model (angle i) 96)) (iota 8)) (Nil))))
         (new Experiment
           (initial model)
           (training (array-concatenate (map (lambda (v) (● v samples)) views)))
-          (held (demo-view model (+ (angle index) (/ pi 8.0)))))))
+          (held (demo-view model (+ (angle index) (/ pi 8.0)) width)))))
 
     ;; ---- COLMAP photographs ----
 
@@ -118,7 +119,7 @@
       (let* ((a (list->array items)) (n (array-length a)) (k (min count n)))
         (map (lambda (i) (array-ref a (quotient (* (+ (* 2 i) 1) n) (* 2 k)))) (iota k))))
 
-    (define (photo-model (scene Scene)) (→ Model)
+    (define (photo-model (scene Scene) (count I64)) (→ Model)
       (let* ((poses (append (● scene training) (● scene held)))
              (center (v* (fold-left (lambda (v p) (v+ v (three (image-center p))))
                                     (vec3d 0.0 0.0 0.0) poses) (/ 1.0 (i64->f64 (length poses)))))
@@ -126,7 +127,7 @@
              (local (lambda (p) (v* (v- (three (● p position)) center) (/ 1.0 radius))))
              (inside (lambda (v) (<= (max (abs (● v x)) (max (abs (● v y)) (abs (● v z)))) 1.0))))
         (unless (> radius 0.0) (panic "foam needs distinct camera centers"))
-        (let ((points (evenly (filter (lambda (p) (inside (local p))) (● scene points)) 48)))
+        (let ((points (evenly (filter (lambda (p) (inside (local p))) (● scene points)) count)))
           (when (null? points) (panic "no sparse points inside the camera bounds"))
           (new Model (center center) (radius radius)
                (sites (map (lambda (p) (site (local p) 1.0 (three (● p color)))) points))))))
@@ -163,10 +164,14 @@
                        (vec3d (channel i) (channel (+ i 1)) (channel (+ i 2))))))))
 
     (define (photo-experiment (gpu Gpu) (read (Fn String → Bytes)) (settings Settings)
-                              (saved (Option Model)) (train Bool) (index I64))
+                              (saved (Option Model))
+                              (train Bool)
+                              (index I64)
+                              (count I64)
+                              (width I64))
       (→ Experiment)
       (let* ((scene (dataset-scene gpu read settings))
-             (model (match saved ((Some m) m) ((None) (photo-model scene))))
+             (model (match saved ((Some m) m) ((None) (photo-model scene count))))
              (view (lambda (pose width) (photo-view model gpu (● scene camera) pose
                                                     (dataset-photograph gpu read settings pose)
                                                     width)))
@@ -175,6 +180,6 @@
         (new Experiment (initial model)
              (training
               (array-concatenate (map (lambda (pose) (● (view pose 48) samples)) training)))
-             (held (view (list-ref (● scene held) index) 96)))))
+             (held (view (list-ref (● scene held) index) width)))))
 
     ))
