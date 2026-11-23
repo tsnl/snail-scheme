@@ -1,27 +1,32 @@
-;; Sorting `u32` keys and their `u32` values in storage buffers, in place,
-;; on the GPU: a least-significant-digit radix sort, four bits a pass
-;; (radix-sort.wgsl.scm). A pass counts each block of 256 keys by digit,
-;; scans the counts with (snail shell graphics scan) into where each
-;; block's keys of each digit go, and scatters the keys and values there,
-;; stably, into a second pair of buffers; the next pass reads them back.
-;; The sort is stable: equal keys keep their values' order.
+;; Sorting `u32` keys and their `u32` values in storage buffers on the
+;; GPU: a least-significant-digit radix sort, eight bits a pass
+;; (radix-sort.wgsl.scm). A pass counts the keys of each workgroup's run
+;; of blocks by digit, scans the counts with (snail shell graphics scan)
+;; into where each run's keys of each digit go, and scatters the keys and
+;; values there, stably, into another pair of buffers, which the next
+;; pass reads. The sort is stable: equal keys keep their values' order.
 ;;
-;;   (let ((sorter (make-sorter gpu "depths" keys values count 32 (None))))
+;;   (let* ((lane (new SortLane (keys keys) (values values)))
+;;          (sorter (make-sorter gpu "depths" lane lane count 32 (None))))
 ;;     (dispatch-sort gpu pass sorter) ; in a pass from begin-compute-pass
 ;;     ...)
 ;;
-;; A sorter sorts the low `key-bits` bits of each key, 8, 16, 24 or 32: an
-;; even number of passes, so the sorted keys end where they began. It
-;; sorts all `count` keys, or as many of them as the first `u32` of a
-;; buffer it is given says, which the device may compute in the same pass,
-;; and leaves the keys past that as they were. Each pass dispatches a
-;; workgroup a block of the capacity, at most `most-groups`, and each
-;; workgroup takes the blocks counted in turn. Dispatching only the
-;; workgroups the count needs would take an indirect dispatch, which Dawn
-;; validates on the host at about half a millisecond each.
+;; A sorter sorts the low `key-bits` bits of each key, 8, 16, 24 or 32. It
+;; reads the lane `from` and leaves the pairs sorted in the lane `to`, its
+;; passes alternating between `to` and a spare lane of its own so that the
+;; last writes `to`. So `from` may be `to`, a sort in place, only for an
+;; even number of passes: 16 or 32 bits. It sorts all `count` pairs, or as
+;; many as the first `u32` of a buffer it is given says, which the device
+;; may compute in the same pass, and writes nothing of `to` past them.
+;; Each pass dispatches a workgroup a block of the capacity, at most
+;; `most-groups`, and the workgroups share the blocks counted in runs.
+;; Dispatching only the workgroups the count needs would take an indirect
+;; dispatch, which Dawn validates on the host at about half a millisecond
+;; each.
 (define-library (snail shell graphics radix-sort)
   (export
    SortPass
+   SortLane
    Sorter
    make-sorter
    dispatch-sort
@@ -56,7 +61,7 @@
     (define sort-code (→ String) (string-append (declarations pass-shape) radix-sort-shader))
 
     ;; Keys and their values, side by side.
-    (record Lane
+    (record SortLane
       ((keys GpuBuffer)
        (values GpuBuffer)))
 
@@ -68,9 +73,9 @@
        (scatter-group GpuBindGroup)))
 
     ;; The shader and its pipelines, a step a pass, the counts by digit and
-    ;; block and their scan, and the spare lane the passes alternate with
-    ;; the sorted one; the buffer counting the keys sorted, whether the
-    ;; sorter made it, and the workgroups a pass takes.
+    ;; run and their scan, and the spare lane the passes alternate with the
+    ;; sorted one; the buffer counting the keys sorted, whether the sorter
+    ;; made it, and the workgroups a pass takes.
     (record Sorter
       ((module GpuShaderModule)
        (count-pipeline GpuComputePipeline)
@@ -78,69 +83,77 @@
        (steps (List Step))
        (counts GpuBuffer)
        (scan Scan)
-       (spare Lane)
+       (spare SortLane)
        (counting GpuBuffer)
        (own-count Bool)
        (groups I64)))
 
-    ;; Workgroups enough to keep a device busy, each taking blocks in turn.
-    ;; On an RTX 5090, eight dispatches of a kernel storing each key of a
-    ;; block took 0.026 ms over 1.65 million keys with 4096 workgroups, and
-    ;; 0.75 ms with a workgroup a block of a capacity of 33.5 million, most
-    ;; finding none; over 33.5 million keys they took 0.64 and 0.82 ms.
+    ;; Workgroups enough to keep a device busy, each taking a run of the
+    ;; blocks counted. On an RTX 5090, eight dispatches of a kernel storing
+    ;; each key of a block took 0.026 ms over 1.65 million keys with 4096
+    ;; workgroups taking blocks in turn, and 0.75 ms with a workgroup a
+    ;; block of a capacity of 33.5 million, most finding none; over 33.5
+    ;; million keys they took 0.64 and 0.82 ms.
     (define most-groups (→ I64) 4096)
 
     ;; ---- Making ----
 
-    ;; A sorter of `count` keys and values in `keys` and `values`, which
-    ;; need the `Storage` usage, or of as many as `counted` holds, a buffer
-    ;; of the `Storage` usage too. Even passes read the given lane and
-    ;; write the spare one; odd passes read it back.
+    ;; A sorter of `count` keys and values from the lane `from` into the
+    ;; lane `to`, whose buffers need the `Storage` usage, or of as many as
+    ;; `counted` holds, a buffer of the `Storage` usage too. The counts
+    ;; take 256 words a workgroup, a million for 4096 workgroups.
 
     (define (make-sorter (gpu Gpu) (label String)
-                         (keys GpuBuffer)
-                         (values GpuBuffer)
+                         (from SortLane)
+                         (to SortLane)
                          (count I64)
                          (key-bits I64)
                          (counted (Option GpuBuffer)))
       (→ Sorter)
-      (unless (and (any? (lambda (bits) (= bits key-bits)) (list 8 16 24 32)) (> count 0))
-        (panic "radix-sort: a sorter sorts 8, 16, 24 or 32 bits of at least one key"))
-      (let* ((module ((● gpu create-shader-module)
-                      (new ShaderModuleDescriptor
-                        (label "radix-sort")
-                        (code sort-code))))
-             (blocks (tiles count 256))
-             (counts (u32-buffer gpu (string-append label "/counts") (* 16 blocks)))
-             (given (new Lane (keys keys) (values values)))
-             (spare (new Lane
-                      (keys (u32-buffer gpu (string-append label "/keys") count))
-                      (values (u32-buffer gpu (string-append label "/values") count))))
-             (counting (match counted
-                         ((Some buffer) buffer)
-                         ((None) (count-buffer gpu label count))))
-             (sorter (new Sorter
-                       (module module)
-                       (count-pipeline (sort-pipeline gpu module "count_digits"))
-                       (scatter-pipeline (sort-pipeline gpu module "scatter"))
-                       (steps (Nil))
-                       (counts counts)
-                       (scan (make-scan gpu label counts (* 16 blocks)))
-                       (spare spare)
-                       (counting counting)
-                       (own-count (match counted
-                                    ((Some _) #f)
-                                    ((None) #t)))
-                       (groups (min blocks most-groups)))))
-        (Sorter-steps-set sorter
-                          (map (lambda (pass)
-                                 (let ((even (= (remainder pass 2) 0)))
+      (let ((passes (quotient key-bits 8)))
+        (unless (and (any? (lambda (bits) (= bits key-bits)) (list 8 16 24 32)) (> count 0))
+          (panic "radix-sort: a sorter sorts 8, 16, 24 or 32 bits of at least one key"))
+        (when (and (= (remainder passes 2) 1) (shares-a-buffer? from to))
+          (panic "radix-sort: a sorter sorts in place only 16 or 32 bits"))
+        (let* ((module ((● gpu create-shader-module)
+                        (new ShaderModuleDescriptor
+                          (label "radix-sort")
+                          (code sort-code))))
+               (groups (min (tiles count 256) most-groups))
+               (counts (u32-buffer gpu (string-append label "/counts") (* 256 groups)))
+               (spare (new SortLane
+                        (keys (u32-buffer gpu (string-append label "/keys") count))
+                        (values (u32-buffer gpu (string-append label "/values") count))))
+               (sorter (new Sorter
+                         (module module)
+                         (count-pipeline (sort-pipeline gpu module "count_digits"))
+                         (scatter-pipeline (sort-pipeline gpu module "scatter"))
+                         (steps (Nil))
+                         (counts counts)
+                         (scan (make-scan gpu label counts (* 256 groups)))
+                         (spare spare)
+                         (counting (match counted
+                                     ((Some buffer) buffer)
+                                     ((None) (count-buffer gpu label count))))
+                         (own-count (match counted
+                                      ((Some _) #f)
+                                      ((None) #t)))
+                         (groups groups)))
+               (written (lambda (pass) (if (= (remainder (- passes pass) 2) 1) to spare))))
+          (Sorter-steps-set sorter
+                            (map (lambda (pass)
                                    (step gpu label
                                          sorter
-                                         (pass-uniform gpu label (* 4 pass) count)
-                                         (if even given spare)
-                                         (if even spare given))))
-                               (iota (quotient key-bits 4))))))
+                                         (pass-uniform gpu label (* 8 pass) count)
+                                         (if (= pass 0) from (written (- pass 1)))
+                                         (written pass)))
+                                 (iota passes))))))
+
+    ;; Whether two lanes share a buffer, so that a pass from one to the
+    ;; other would write what it reads.
+    (define (shares-a-buffer? (a SortLane) (b SortLane)) (→ Bool)
+      (let ((ids (lambda (lane) (list (● lane keys id) (● lane values id)))))
+        (any? (lambda (id) (member? id (ids b))) (ids a))))
 
     (define (count-buffer (gpu Gpu) (label String) (count I64)) (→ GpuBuffer)
       (let ((buffer (u32-buffer gpu (string-append label "/count") 1)))
@@ -179,8 +192,8 @@
                   (label String)
                   (sorter Sorter)
                   (uniform GpuBuffer)
-                  (from Lane)
-                  (to Lane))
+                  (from SortLane)
+                  (to SortLane))
       (→ Step)
       (new Step
         (uniform uniform)
