@@ -1,13 +1,11 @@
 // The `Gpu` capability on Node, whose device is Dawn's (host/native/gpu.mjs):
 // tests/gpu/node.scm runs the checks that need only a device, as the page
 // does, and the splat renderer's training checks, on the GPU Dawn finds,
-// and WebGPU reports no error: the checks are a debug build, whose device
-// validates each call, where a release build's skips that. Its build is a
-// package that depends on the webgpu and @napi-rs/canvas packages, and runs
-// as it would be shipped: Node finds both in the repository's
-// node_modules, which `make fetch` installs. `make test-gpu` runs this, on
-// the machine's GPU, or in CI, which has none, on the CPU through lavapipe
-// (shell.nix).
+// and WebGPU reports no error. Its build is a package that depends on the
+// webgpu and @napi-rs/canvas packages, and runs as it would be shipped:
+// Node finds both in the repository's node_modules, which `make fetch`
+// installs. `make test-gpu` runs this, on the machine's GPU, or in CI,
+// which has none, on the CPU through lavapipe (shell.nix).
 //
 //   node tests/gpu.mjs ROOT
 import assert from 'node:assert/strict';
