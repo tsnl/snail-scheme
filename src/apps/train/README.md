@@ -70,7 +70,7 @@ trainer alone: it builds the `Scene` with `make-scene`, and handles
   360's outdoor scenes (its indoor scenes at `images_2`);
 - `steps`, by default 30000;
 - `gaussians`, the most the cloud may hold, by default 4194304: the
-  programs make about 1.9 KB a gaussian, 8.2 GB at the default; past it,
+  programs make about 1.6 KB a gaussian, 6.6 GB at the default; past it,
   densification adds only what fits;
 - `profile=N`, which times step N's kernels on the device, running the
   step a second time, and prints the slowest and the largest buffers:
