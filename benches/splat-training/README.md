@@ -68,9 +68,12 @@ GCC's headers stopped including along the way in GCC 13, so it includes it.
 ## What differs
 
 - **The cap on gaussians.** The train app stops growing the cloud at
-  4,194,304 gaussians, its default, since its programs make about 3.3 KB
-  for each, and reaches it near step 9,100. The reference trainers have
-  no cap, so from there on they train more gaussians than it does.
+  4,194,304 gaussians, its default, and reaches it at step 10,300. Its
+  programs make 6.6 GB at that capacity, and every kernel over the
+  gaussians covers every row of it, live or not; the next capacity,
+  8,388,608, would take 13 GB and double those rows. The reference
+  trainers have no cap, so from there on they train more gaussians than
+  it does.
 - **gsplat's camera.** gsplat's loader divides the camera by 4, sizes
   the photographs by whole division, 4946 // 4 = 1236, then scales the
   camera by their real size, 1237 by 822. Its camera comes out 0.04%
@@ -90,11 +93,13 @@ GCC's headers stopped including along the way in GCC 13, so it includes it.
 
 ## Results
 
-On 2026-11-22, on an RTX 5090 (driver 595.104, at its 600 W limit) beside
-an Intel Core Ultra 7 270K Plus: the train app at 204ce650f, on Node
-26.8.1 and Dawn (the `webgpu` package 0.6.2) over Vulkan; gsplat at
-512d366b and the INRIA code at 54c035f, on PyTorch 2.9.1 for CUDA 12.8.
-Two runs each, taking turns:
+The runs were on 2026-11-22, on an RTX 5090 (driver 595.104, at its
+600 W limit) beside an Intel Core Ultra 7 270K Plus. gsplat at 512d366b
+and the INRIA code at 54c035f ran on PyTorch 2.9.1 for CUDA 12.8, two
+runs each, taking turns. The train app at 641327b22 ran on Node 26.8.1
+and Dawn (the `webgpu` package 0.6.2) over Vulkan. It ran once, after
+them: its two runs in the first comparison (below) finished 4 seconds
+and 0.001 dB apart.
 
 | Run | Seconds | Gaussians | Peak MiB | PSNR | SSIM | LPIPS | Own PSNR |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -102,8 +107,7 @@ Two runs each, taking turns:
 | gsplat-2 | 626.1 | 6,395,089 | 14,540 | 25.187 | 0.7643 | 0.2055 | 25.189 |
 | inria-1 | 1027.0 | 4,896,996 | 14,948 | 25.208 | 0.7654 | 0.2085 | |
 | inria-2 | 1032.0 | 4,929,436 | 14,120 | 25.245 | 0.7653 | 0.2096 | |
-| ours-1 | 1369.3 | 4,194,304 | 16,944 | 25.271 | 0.7643 | 0.2112 | 25.274 |
-| ours-2 | 1373.1 | 4,194,304 | 17,104 | 25.272 | 0.7645 | 0.2113 | 25.274 |
+| ours | 857.5 | 4,194,304 | 10,759 | 25.287 | 0.7643 | 0.2119 | 25.289 |
 
 | Run | Seconds to 7,000 | Gaussians at 7,000 |
 | --- | ---: | ---: |
@@ -111,32 +115,54 @@ Two runs each, taking turns:
 | gsplat-2 | 70.8 | 3,788,424 |
 | inria-1 | 132.0 | 3,250,034 |
 | inria-2 | 133.0 | 3,255,640 |
-| ours-1 | 239.6 | 3,264,163 |
-| ours-2 | 238.3 | 3,251,380 |
+| ours | 152.6 | 3,250,768 |
 
-gsplat trains bicycle in 46% of the train app's time and the INRIA code
-in 75%, each to a held-out PSNR within 0.12 dB of the train app's: 25.15
-and 25.23 on average, against 25.27. The train app's LPIPS is the
-highest of the three, 0.211 against 0.209 and 0.206, from the smallest
-cloud. gsplat's camera costs it about 0.14 dB: fitted to the
-photographs, it scores 25.29 (above).
+The INRIA code takes 1.20 times as long as the train app to train
+bicycle, to a held-out PSNR 0.06 dB lower: 25.23 on average, against
+25.29. gsplat takes 73% of the train app's time, to 25.15. The train
+app's LPIPS is the highest of the three, 0.212 against 0.209 and 0.206,
+from the smallest cloud. gsplat's camera costs it about 0.14 dB: fitted
+to the photographs, it scores 25.29 (above).
 
-Up to step 7,000 the train app and the INRIA code densify alike, to 3.26
-and 3.25 million gaussians, and the INRIA code takes 55% of the train
-app's time; gsplat's cloud grows 16% larger, and it takes 30%. A step's
-time shows where the gap opens. gsplat's grows with its cloud: 7.3 ms at
-1.1 million gaussians, 18.1 ms at 4.2 million and 25.0 ms at 6.4
-million. The train app's holds at 45 to 49 ms from step 2,700, where its
-programs are made for 4,194,304 gaussians, however many of them are
-live. Their shapes are fixed by that capacity: every kernel over the
-gaussians runs over every row, and binning sorts every entry of its
-capacity, 33,554,432, of which 4 to 10 million hold a gaussian. Even at
-the cap, with every row live, a step takes 2.7 times gsplat's at the same
-number of gaussians.
+Up to step 7,000 the train app and the INRIA code densify alike, to 3.25
+million gaussians, and the INRIA code takes 87% of the train app's time.
+gsplat's cloud grows 16% larger by then, and it takes 46%. After step
+7,000 the INRIA code's cloud grows on to 4.9 million, and its steps
+average 39 ms against the train app's 30.6 ms.
 
-The train app's peak memory is a moment's, about a second at step 2,700,
-as it moves the cloud into the larger programs; it holds 12.5 GB from
-then on. The reference trainers' peaks come with their largest clouds.
+A step's time shows where the gap to gsplat opens. gsplat's grows with
+its cloud: 7.3 ms at 1.1 million gaussians, 18.1 ms at 4.2 million and
+25.0 ms at 6.4 million. The train app's barely grows: 26.2 ms at 1.2
+million and 30.6 ms at 4.2 million. From step 2,700 its programs are made
+for 4,194,304 gaussians, however many are live, and every kernel over
+the gaussians runs over every row of that capacity. Sizing those kernels
+to the live rows is the next step of
+[#891](https://github.com/tsnl/snail-scheme/issues/891). Even at the cap, with every
+row live, a step takes 1.7 times gsplat's at the same number of
+gaussians.
+
+The train app's peak memory lasts a moment: about a second at step
+2,700, while it moves the cloud into the larger programs. From then on
+it holds about 6,700 MiB. The reference trainers' peaks come with their
+largest clouds.
+
+### Since the first comparison
+
+The first comparison was the same morning, at 204ce650f. Each change
+after it was measured with one run of this bench:
+
+| Train app | Seconds | Seconds to 7,000 | Peak MiB | PSNR |
+| --- | ---: | ---: | ---: | ---: |
+| First comparison, two runs | 1369.3, 1373.1 | 239.6, 238.3 | 16,944, 17,104 | 25.271, 25.272 |
+| Binning keeps to the tiles a gaussian reaches ([#894](https://github.com/tsnl/snail-scheme/pull/894)) | 1295.9 | 233.1 | 15,214 | 25.317 |
+| Updates are written in place ([#895](https://github.com/tsnl/snail-scheme/pull/895)) | 1191.4 | 212.1 | 13,694 | 25.278 |
+| A device-computed count sizes the tile sort ([#896](https://github.com/tsnl/snail-scheme/pull/896)) | 1094.4 | 195.6 | 13,118 | 25.274 |
+| The radix sort takes eight bits a pass ([#897](https://github.com/tsnl/snail-scheme/pull/897)) | 1077.8 | 191.1 | 13,697 | 25.274 |
+| A gradient's parts are joined, not placed ([#898](https://github.com/tsnl/snail-scheme/pull/898)) | 857.5 | 152.6 | 10,759 | 25.287 |
+
+A run is not deterministic: the backward pass adds each gaussian's
+gradients in whatever order its threads arrive. Two runs of one trainer
+here differ in PSNR by up to 0.07 dB.
 
 ## gsplat's release
 
