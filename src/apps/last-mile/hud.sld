@@ -1,5 +1,4 @@
-;; Build the instrument panel once. Only the six changing readouts and
-;; the two map markers cross the DOM boundary on subsequent updates.
+;; Build the instruments once. Dialogue comes from the saved story cursor.
 (define-library (apps last-mile hud)
   (export Hud make-hud show!)
   (import
@@ -7,6 +6,9 @@
    (snail shell dom)
    (snail shell math)
    (snail shell game physics)
+   (snail shell game boarding)
+   (snail shell game dialogue)
+   (apps last-mile lines)
    (apps last-mile game)
    (apps last-mile district))
   (begin
@@ -14,6 +16,8 @@
       ((stage Node)
        (title Node)
        (message Node)
+       (speech Node)
+       (answers Node)
        (signal Node)
        (mode Node)
        (range Node)
@@ -60,24 +64,65 @@
             (stage stage)
             (title title)
             (message message)
+            (speech (element d card "p" "speech" ""))
+            (answers (element d card "div" "answers" ""))
             (mode mode)
             (range range)
             (signal signal)
             (you (element d map-node "i" "you" "")) (goal (element d map-node "i" "goal" ""))))))
 
-    (define (brief (w World) (seated Bool)) (→ (List String))
+    (define (brief (w Game)) (→ (List String))
       (match (● w mission)
-        ((Pickup) (list "PICTURE CAR" "Pick up Rosa’s sedan."
-                        "One street permit, one last take. Press E beside the car, then drive north on Mercer."))
-        ((Action) (list "ON LOCATION" "Hit the red prop plate."
-                        "Point the car or your character at the square in front of the gate. Fire the paint marker within 22 m."))
-        ((ToEditor) (list "CUTTING ROOM" "Deliver the film can."
-                          (if seated
-                              "Follow the gold marker to the editor’s table. Brake to a stop and press E to get out."
-                              "Walk to the editor’s table and press E to hand over the can.")))
-        ((Wrapped) (list "THAT’S A WRAP" "The last take is in."
-                         "Rosa threads the reel. The gate falls right on cue. Keep exploring, or press R for another take."))))
-
+        ((PictureCar)
+         (list "PICTURE CAR"
+               "Pick up the sedan."
+               "Press E near the car to walk to the driver’s door."))
+        ((MeetRosa) (list "PASSENGER PICKUP" "Pull over for Rosa." (match (● w rosa)
+                                                                     ((AtDoor _)
+                                                                      (if (blocked-door? w
+                                                                                         (PassengerDoor))
+                                                                          "Rosa’s door is blocked. Pull forward or back and brake again."
+                                                                          "Hold the brake. Rosa is walking to the passenger door."))
+                                                                     ((Entering _ _)
+                                                                      "Rosa is getting in. Hold the brake.")
+                                                                     (_
+                                                                      "Drive north to the gold diamond. Hold B and leave room at the passenger door."))))
+        ((FindMark)
+         (list "SHOOTING MARK"
+               "Make the right on Mercer."
+               "Turn before the delivery van. Stop on the gold tape facing the red plate."))
+        ((OnCue)
+         (list "ACTION"
+               "Hit the red prop plate."
+               "Rosa calls action. Aim at the plate and fire the paint marker."))
+        ((ToCuttingRoom)
+         (list "CUTTING ROOM"
+               "Drive Rosa to the editor."
+               "Take the next left. Brake at the editor’s table with room on Rosa’s side."))
+        ((HandOff)
+         (list "HANDOFF"
+               "Rosa has the reel."
+               (if (and (aboard? (● w rosa)) (blocked-door? w (PassengerDoor)))
+                   "The passenger door is blocked. Reposition near the table and brake again."
+                   "Keep the sedan stopped near the table while Rosa delivers the reel.")))
+        ((Finished)
+         (list "THAT’S A WRAP"
+               "The last take is in."
+               "The reel is on the editor’s table. Keep exploring or press R for another take."))))
+    (define (show-dialogue! (d Dom) (h Hud) (at (Option Cursor))) (→ Unit)
+      (let ((tell (● d set-text)))
+        (match at
+          ((None) (tell (● h speech) "") (tell (● h answers) ""))
+          ((Some c) (tell (● h speech) (spoken conversation c))
+           (let ((options (replies conversation c)))
+             (tell (● h answers)
+                   (if (null? options) "T  ·  Continue"
+                       (string-join (map-indexed (lambda (i reply)
+                                                   (string-append (show (+ 1 i))
+                                                                  "  ·  "
+                                                                  (● reply text)))
+                                                 options)
+                                    "\n"))))))))
     (define (bearing (b Body) (target XZ)) (→ String)
       (let ((turn (- (heading-to (● b position) target) (● b heading))))
         (cond ((< (cos turn) -0.6) "behind")
@@ -85,10 +130,11 @@
               ((< (sin turn) -0.4) "left")
               (else "ahead"))))
 
-    (define (show! (d Dom) (h Hud) (w World) (paused Bool)) (→ Unit)
+    (define (show! (d Dom) (h Hud) (w Game) (paused Bool)) (→ Unit)
       (let* ((b (carrier w)) (p (● b position)) (target (objective w))
-             (seated (match (● w seat) ((OnFoot _) #f) (_ #t))) (lines (brief w seated))
+             (lines (brief w))
              (speed (distance (● b velocity) (xz 0.0 0.0))) (tell (● d set-text)))
+        (show-dialogue! d h (● w talk))
         (tell (● h stage) (list-ref lines 0))
         (tell (● h title) (list-ref lines 1))
         (tell (● h message) (list-ref lines 2))
@@ -96,8 +142,11 @@
                                  ((> (● w cooldown) 0) "MARKER CYCLING")
                                  (else "MARKER READY")))
         (tell (● h mode)
-              (match (● w seat)
-                ((Driving) (string-append (show (f64->i64 (round (* 3.6 speed)))) " KM/H"))
+              (match (● w driver)
+                ((AtDoor _) "AT DRIVER’S DOOR")
+                ((Entering _ _) "BOARDING")
+                ((Leaving _) "STEPPING OUT")
+                ((Aboard) (string-append (show (f64->i64 (round (* 3.6 speed)))) " KM/H"))
                 (_ "ON FOOT")))
         (tell (● h range)
               (string-append (show (f64->i64 (round (distance p target))))
