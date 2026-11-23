@@ -162,6 +162,7 @@ after it was measured with one run of this bench:
 | A device-computed count sizes the tile sort ([#896](https://github.com/tsnl/snail-scheme/pull/896)) | 1094.4 | 195.6 | 13,118 | 25.274 |
 | The radix sort takes eight bits a pass ([#897](https://github.com/tsnl/snail-scheme/pull/897)) | 1077.8 | 191.1 | 13,697 | 25.274 |
 | A gradient's parts are joined, not placed ([#898](https://github.com/tsnl/snail-scheme/pull/898)) | 857.5 | 152.6 | 10,759 | 25.287 |
+| Adam's updates of a param are one kernel ([#911](https://github.com/tsnl/snail-scheme/pull/911)) | 797.9 | 144.8 | 10,792 | 25.275 |
 
 A run is not deterministic: the backward pass adds each gaussian's
 gradients in whatever order its threads arrive. Two runs of one trainer

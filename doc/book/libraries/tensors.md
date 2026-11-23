@@ -34,7 +34,8 @@ nodes, broadcasting as NumPy does.
 - **Maps and reductions**: the elementwise operations (`exp`, `log`,
   `sigmoid`, `where`, `maximum`, comparisons, `convert`, `bitcast`, …),
   `sum`, `sum-all`, `mean`, `amax`, `amin` and `matmul`; `mapped` and
-  `reduced` take an `Expr` body directly.
+  `reduced` take an `Expr` body directly. A map of several bodies, one
+  kernel writing a port for each, is fusing's (`mapped-ports`).
 - **Data movement**: `copy`, `reshape`, `gather`, `scatter-add`, `concat`,
   `stack` and `place`.
 - **Sorts and scans**: `sort-pairs`, `sort-first-pairs` (only as many pairs
@@ -93,10 +94,12 @@ computes its products as it sums them; nothing takes in a reduction, a
 gather, a concat that is not a pack, a sort or a custom kernel.
 
 Two limits shape it: a body stays within 256 expressions, and a kernel
-within the eight storage buffers every device allows. A producer read by
-several kernels is computed in each, so it is taken in only where that
-holds no more memory, for no longer, than its own buffer would
-([fusing](../graphics/tensors.md#fusing)).
+within the eight storage buffers every device allows, its ports among them.
+A producer read by several kernels is computed in each, so it is taken in
+only where that holds no more memory, for no longer, than its own buffer
+would. A producer whose port is kept anyway, such as an update's value, is
+written by the map reading it whole, as a port of its own, so Adam's three
+updates of a param are one kernel ([fusing](../graphics/tensors.md#fusing)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/tensor/fuse.sld)
 
@@ -114,7 +117,8 @@ the caller's, as often as it likes; `write-param`, `read-param` and
   too, with no buffer.
 - **Buffers** return to a pool once the last node reading them has run;
   params, constants, sinks and updates keep theirs. An update that a map
-  computes whole is written in place, into its param's buffer.
+  computes whole is written in place, into its param's buffer, each port
+  of a map of several into its own param.
 - **Counts the device computes** size the work of sorts and of custom
   kernels that take them: a fixed number of workgroups loop over the work
   below the count ([lowering and running](../graphics/tensors.md#lowering-and-running)).
