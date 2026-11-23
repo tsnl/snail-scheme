@@ -107,6 +107,48 @@ close, as `serve-one` does.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/http/exchange.sld)
 
+## `(snail shell web)`
+
+`Web`, the web as a program on Node reads it, made by `host-web`:
+`((● web size) url)` answers the length of the file at a URL, and
+`((● web parts) url spans)` the bytes of each `Span` of it, asked for
+together, each a GET with a Range header. Node's fetch makes the requests
+(`host/native/web-imports.mjs`), over HTTPS or HTTP, following redirects,
+while the task that asked waits. A server must answer a part with exactly
+its bytes: one that answers with the whole file is stopped before its body
+comes, so a program can read a few megabytes of a file of many gigabytes,
+as `(snail shell web zip)` does. The page's requests are `(snail shell
+fetch)`'s.
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/web.sld)
+
+## `(snail shell web zip)`
+
+Zip archives on the web, read a member at a time and kept in the machine's
+cache, for the recipes of generated libraries. A `WebZip` names an archive
+by its URL and pins it by the SHA-256 of its end: its directory and the
+records after it, which give every member's name, length, CRC-32 and
+place. `zip-members` answers, for each member whose name a predicate
+takes, the path of its file in the cache, reading those not yet there
+eight at a time, checked against the pinned directory's CRC-32:
+
+```text
+CACHE/zip/PIN.end    the archive's end, as pinned
+CACHE/zip/PIN/NAME   each member read, by its name in the archive
+```
+
+The pin is what makes the cache correct. A file in the cache was read
+from the archive the pin names, whatever its server later serves, so a
+build that finds it there needs no network and any checkout on the
+machine may share it. A server whose archive has another end fails the
+build, naming the digest it has. `machine-cache` is `snail-scheme` in
+`$XDG_CACHE_HOME`, or `~/.cache/snail-scheme`. Each file is written in a
+folder made beside its place, which no other writer can share, and renamed
+into it, so a reader never sees part of one. Nothing reclaims the cache:
+deleting it costs only fetching again.
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/web/zip.sld)
+
 ## `(snail shell wasm)`
 
 WebAssembly modules loaded while a program runs, through the capability

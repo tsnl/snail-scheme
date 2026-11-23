@@ -6,19 +6,21 @@
 ;; by PSNR. On Node, whose device times are not rounded:
 ;;
 ;;   ./snail-scheme run --target node src/apps/splats/compare.scm \
-;;     cloud=bicycle.ply scene=datasets/bicycle/ views=8 width=1237
+;;     cloud=bicycle.ply views=8 width=1237
 ;;
-;; `scene` is a COLMAP dataset's folder, ending in a slash, whose sparse/0
-;; holds its cameras and images; the cloud stands in its frame. Each view
-;; is drawn `width` pixels wide at its photograph's aspect, with the
-;; principal point at the center, as the quads take it; both renderers
-;; are first drawn once, untimed, as their pipelines are made then.
-;; `photos=images_4` names the scene's photographs at the target's size,
-;; and each renderer's image is compared with its photograph too;
-;; `profile=1` times each of the training renderer's steps alone.
+;; The scene is Mip-NeRF 360's bicycle, as (datasets mipnerf360 bicycle)
+;; links it: its cameras and images, in whose frame the cloud stands, and
+;; its photographs at a quarter of their size. Each view is drawn `width`
+;; pixels wide at its photograph's aspect, with the principal point at the
+;; center, as the quads take it; both renderers are first drawn once,
+;; untimed, as their pipelines are made then. When the views are the
+;; photographs' size, as they are by default, each renderer's image is
+;; compared with its photograph too; `profile=1` times each of the
+;; training renderer's steps alone.
 (import
  (snail core base)
  (only (snail core io) Host Arguments Fs OutputPort command-line read-bytes write-line)
+ (only (snail shell resource) Resources read-resource)
  (only (snail shell math) log)
  (snail shell gpu)
  (snail shell graphics pod)
@@ -26,7 +28,8 @@
  (only (snail shell graphics ply) read-ply)
  (snail shell graphics splat)
  (snail shell graphics splat-view)
- (only (snail shell tensor lower) profile-program))
+ (only (snail shell tensor lower) profile-program)
+ (only (datasets mipnerf360 bicycle) files photographs))
 
 ;; ---- Settings ----
 
@@ -223,35 +226,45 @@
 
 ;; A view: its photograph's name, the quad path's camera at its pose, and
 ;; the photograph's pixels, rows as far apart as the target's, when the
-;; scene's folder of photographs at the target's size is named.
+;; photograph is the target's size.
 (record Pose
   ((name String)
    (camera SplatCamera)
    (photo (Option Bytes))))
 
-;; A photograph decoded and read back as the target's image is.
-(define (photograph (fs Fs) (gpu Gpu) (path String) (target Target)) (→ Bytes)
-  (match ((● gpu decode-image) (read-bytes fs path))
+;; A file of the scene, by its path in it.
+(define (scene-file (resources Resources) (path String)) (→ Bytes)
+  (match (find (lambda (file) (string=? (● file first) path)) files)
+    ((Some file) (read-resource resources (● file second)))
+    ((None) (panic (string-append "compare: the scene has no file " path)))))
+
+;; A photograph decoded and read back as the target's image is, when it is
+;; the target's size.
+(define (photograph (resources Resources) (gpu Gpu) (path String) (target Target))
+  (→ (Option Bytes))
+  (match ((● gpu decode-image) (scene-file resources path))
     ((Some image)
-     (unless (and (= (i32->i64 (● image width)) (● target width))
-                  (= (i32->i64 (● image height)) (● target height)))
-       (panic (string-append "compare: " path " is not " (show (● target width)) "x"
-                             (show (● target height)))))
-     (let ((encoder ((● gpu create-command-encoder))))
-       ((● gpu copy-texture-to-buffer) encoder
-        (whole-texture (● image texture))
-        (● target readback)
-        0
-        (i64->i32 (● target pitch))
-        (● image width)
-        (● image height))
-       ((● gpu submit) (list ((● gpu finish) encoder)))
-       ((● gpu destroy) (TextureObject (● image texture)))
-       ((● gpu read-buffer)
-        (● target readback)
-        0
-        (i64->i32 (* (● target pitch) (● target height))))))
+     (if (and (= (i32->i64 (● image width)) (● target width))
+              (= (i32->i64 (● image height)) (● target height)))
+         (Some (read-back gpu image target))
+         (begin ((● gpu destroy) (TextureObject (● image texture))) (None))))
     ((None) (panic (string-append "compare: " path " is no image")))))
+
+(define (read-back (gpu Gpu) (image Image) (target Target)) (→ Bytes)
+  (let ((encoder ((● gpu create-command-encoder))))
+    ((● gpu copy-texture-to-buffer) encoder
+     (whole-texture (● image texture))
+     (● target readback)
+     0
+     (i64->i32 (● target pitch))
+     (● image width)
+     (● image height))
+    ((● gpu submit) (list ((● gpu finish) encoder)))
+    ((● gpu destroy) (TextureObject (● image texture)))
+    ((● gpu read-buffer)
+     (● target readback)
+     0
+     (i64->i32 (* (● target pitch) (● target height))))))
 
 (define (milliseconds (seconds F64)) (→ String)
   (f64->string (/ (round (* seconds 1000000.0)) 1000.0)))
@@ -368,16 +381,12 @@
     ((None) text)))
 
 ;; The views, `views` of them evenly through the scene's images, each with
-;; its photograph when `photos` names the folder of them at the target's
-;; size, as images_4.
-(define (poses-of (arguments Arguments) (fs Fs) (gpu Gpu) (scene String) (target Target))
+;; its photograph when that is the target's size.
+(define (poses-of (arguments Arguments) (resources Resources) (gpu Gpu) (target Target))
   (→ (List Pose))
-  (let* ((sparse (string-append scene "sparse/0/"))
-         (cameras
-          (told "cameras" (read-cameras (read-bytes fs (string-append sparse "cameras.bin")))))
-         (images
-          (evenly (told "images" (read-images (read-bytes fs (string-append sparse "images.bin"))))
-                  (number arguments "views" 8))))
+  (let* ((cameras (told "cameras" (read-cameras (scene-file resources "sparse/0/cameras.bin"))))
+         (images (evenly (told "images" (read-images (scene-file resources "sparse/0/images.bin")))
+                         (number arguments "views" 8))))
     (map (lambda (image)
            (new Pose
              (name (● image name))
@@ -385,30 +394,28 @@
                                   (camera-sized (camera-of cameras image)
                                                 (● target width)
                                                 (● target height))))
-             (photo (match (setting arguments "photos")
-                      ((Some folder)
-                       (Some
-                        (photograph fs gpu (string-append scene folder "/" (● image name)) target)))
-                      ((None) (None))))))
+             (photo (photograph resources
+                                gpu
+                                (string-append photographs "/" (● image name))
+                                target))))
          images)))
 
 ;; The target's height at `width`, rounded, as a dataset's smaller
 ;; photographs are: the first camera's aspect.
-(define (height-at (fs Fs) (scene String) (width I64)) (→ I64)
-  (let ((camera (list-ref (told "cameras"
-                                (read-cameras
-                                 (read-bytes fs (string-append scene "sparse/0/cameras.bin"))))
-                          0)))
+(define (height-at (resources Resources) (width I64)) (→ I64)
+  (let ((camera
+         (list-ref (told "cameras" (read-cameras (scene-file resources "sparse/0/cameras.bin")))
+                   0)))
     (quotient (+ (* width (● camera height)) (quotient (● camera width) 2)) (● camera width))))
 
-(define (main (arguments Arguments) (fs Fs) (out OutputPort) (host Host)) (→ Unit)
+(define (main (arguments Arguments) (fs Fs) (resources Resources) (out OutputPort) (host Host))
+  (→ Unit)
   (let ((gpu (host-gpu host)))
     ((● gpu request-device))
     (let* ((cloud (told "cloud" (read-ply (read-bytes fs (required arguments "cloud")) 0)))
-           (scene (required arguments "scene"))
            (width (number arguments "width" 1237))
-           (target (target-of gpu width (height-at fs scene width)))
-           (poses (poses-of arguments fs gpu scene target))
+           (target (target-of gpu width (height-at resources width)))
+           (poses (poses-of arguments resources gpu target))
            (splats (make-splats gpu "compare" (Rgba8Unorm) (● cloud count) 1)))
       (write-cloud gpu splats 0 cloud)
       (write-line out (string-append (show (● cloud count))

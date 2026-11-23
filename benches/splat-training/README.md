@@ -13,13 +13,16 @@ well, against two reference trainers on the same GPU:
 ## Running it
 
 ```sh
-scripts/fetch-mipnerf360 bicycle
 benches/splat-training/compare
 ```
 
-`compare` sets up the reference trainers (`setup`), trains each trainer
-twice, taking turns (`train`), then scores every run the same way and
-writes the table (`score`). Everything it makes is in
+The scene is Mip-NeRF 360's bicycle, the one the train app links
+([datasets](../../doc/book/libraries/datasets.md)). `setup` runs
+`dataset.scm`, which reads bicycle's files into the machine's cache as the
+train app's build does, its full-size photographs too, which gsplat lists,
+and links them into the bench's scene. `compare` sets up the reference
+trainers (`setup`), trains each trainer twice, taking turns (`train`), then
+scores every run the same way and writes the table (`score`). Everything it makes is in
 `build/benches/splat-training`: the trainers' sources and environments,
 the scene, each run's console, GPU samples and outputs under `runs/`, and
 `report.md`. Each script can also be run alone; its header says how.

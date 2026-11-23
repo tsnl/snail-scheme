@@ -14,8 +14,9 @@
 #   (TORCH_CUDA_ARCH_LIST, 12.0 for the RTX 5090);
 # - scene: the scene as every trainer reads it.
 #
-# DATASET is a Mip-NeRF 360 scene's folder, by default
-# build/datasets/bicycle, which scripts/fetch-mipnerf360 makes. gsplat
+# DATASET is Mip-NeRF 360's bicycle's folder, by default the one
+# dataset.scm reads into the machine's cache, where the train app's build
+# reads the same files: the train app trains on the scene it links. gsplat
 # trains on bicubic downscales of the full photographs that it makes
 # itself, 1236 by 822 for bicycle, where the INRIA code and the train app
 # read the dataset's own quarter-size photographs, images_4, 1237 by 822.
@@ -27,12 +28,16 @@
 # not yet done. Compiling the CUDA kernels takes most of its time.
 set -eu
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+root=$(CDPATH= cd -- "$here/../.." && pwd)
 if [ -z "${SPLAT_BENCH:-}" ]; then
+  if [ $# -eq 0 ]; then
+    set -- "$(cd "$root" && nix-shell --quiet shell.nix \
+      --run './snail-scheme run --target node benches/splat-training/dataset.scm')"
+  fi
   env=$(nix-build --no-out-link "$here/default.nix")
   exec "$env/bin/splat-bench" "$0" "$@"
 fi
-root=$(CDPATH= cd -- "$here/../.." && pwd)
-dataset=$(CDPATH= cd -- "${1:-$root/build/datasets/bicycle}" && pwd -P)
+dataset=$(CDPATH= cd -- "$1" && pwd -P)
 work=$root/build/benches/splat-training
 export MAX_JOBS=${MAX_JOBS:-8}
 

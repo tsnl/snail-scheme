@@ -447,11 +447,13 @@ three parts:
   `Photographs` for a view's photograph, a texture on the device, and is
   given how a step's image is shown: on the page's canvas, or nowhere.
 - **The dataset**, `(apps train dataset)`, is a COLMAP dataset as such a
-  scene: where its files are, the camera scaled to its photographs, the
-  decoding, and every eighth photograph held out.
-- **The entry points** say how a file's bytes are had and what is kept. A
-  page fetches them from the dataset's URL and keeps nothing; a program
-  on Node reads them from its folder and keeps the cloud.
+  scene: how its files are read, the camera scaled to its photographs,
+  the decoding, and every eighth photograph held out.
+- **The entry points** link the dataset, Mip-NeRF 360's bicycle as
+  `(datasets mipnerf360 bicycle)` gives it ([datasets](../libraries/datasets.md)),
+  and say what is kept. A page fetches the files from its store and keeps
+  nothing; a program on Node reads them from its package and keeps the
+  cloud.
 
 A program whose scene is made or embedded calls the trainer alone, with a
 `Scene` of its own and a texture for each view asked for.

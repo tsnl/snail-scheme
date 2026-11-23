@@ -10,6 +10,7 @@ import {socketImports} from './socket-imports.mjs';
 import {createProcesses, createTermination} from './process.mjs';
 import {processImports} from './process-imports.mjs';
 import {createAsyncFiles} from './async-files.mjs';
+import {webImports} from './web-imports.mjs';
 import {nodeGpu} from './gpu.mjs';
 import {startTrace, traceFile} from '../browser/trace.mjs';
 
@@ -61,6 +62,7 @@ async function run(filename, arguments_) {
                 'snail.runtime.native.async-files': asyncFiles.imports,
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
                 'snail.runtime.native.process': processImports(() => program, tasks, processes, termination),
+                'snail.runtime.native.web': webImports(tasks),
                 'snail.runtime.gpu': nodeGpu(() => program, tasks).imports};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.

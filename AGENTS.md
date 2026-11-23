@@ -198,6 +198,10 @@ producers of the `generate-library` recipes it reaches, so Hearsay builds
 too; its producers run every time. What matters when writing code:
 
 - Keep what should survive a page reload in the application's Save.
+- A dataset is a library to import, such as `(datasets mipnerf360 bicycle)`:
+  its recipe reads the files into the machine's cache, `~/.cache/snail-scheme`,
+  pinned by digest, and the build links them into the program
+  ([datasets](doc/book/libraries/datasets.md)).
 - A program's entry is its `main`, and the parameters of `main` are the
   capabilities it asks its target for: `(define (main (out OutputPort)
   (gpu Gpu)) ...)`. A top level holds definitions alone.
