@@ -126,6 +126,7 @@ Three conventions run through the shell:
 | [`(snail shell graphics splat-view)`](splats.md#snail-shell-graphics-splat-view) | Gaussians drawn tile by tile, as training draws them |
 | [`(snail shell graphics splat-train)`](splats.md#snail-shell-graphics-splat-train) | The differentiable splat renderer, as a tensor graph |
 | [`(snail shell graphics splat-fit)`](splats.md#snail-shell-graphics-splat-fit) | Training: a step, densification and the opacity reset |
+| [`(snail shell graphics radiant-foam)`](splats.md#snail-shell-graphics-radiant-foam) | Voronoi volume rendering, fitting, and density interfaces on the CPU |
 
 ### Path tracing
 
