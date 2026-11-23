@@ -88,7 +88,7 @@ it, so a page's scene should be near, or cached.
 
 ## Results
 
-On bicycle at `images_4`, on an RTX 5090, 30,000 steps take 19.9 minutes
+On bicycle at `images_4`, on an RTX 5090, 30,000 steps take 18.2 minutes
 on Node and reach a held-out PSNR of 25.28; the paper reports 25.25.
 [`benches/splat-training`](../../../benches/splat-training/README.md)
 trains the reference implementation and gsplat beside it on the same GPU.
