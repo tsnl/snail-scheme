@@ -11,7 +11,7 @@
 ;; `splat-ssim-backward-shader`, `splat-place-shader`, `splat-normals-shader`
 ;; and `splat-knn-shader`, and the path tracer's `bvh-shader`,
 ;; `rays-shader`, `svgf-shader`, `environment-shader` and
-;; `environment-light-shader`.
+;; `environment-light-shader`, and the Voronoi renderer's `radiant-foam-shader`.
 (generate-library (snail shell graphics shaders)
                   (import
                    (snail core base)
@@ -91,6 +91,9 @@
                                           (new Pair
                                             (first "splat-knn-shader")
                                             (second (link-file "splat-knn.wgsl.scm")))
+                                          (new Pair
+                                            (first "radiant-foam-shader")
+                                            (second (link-file "radiant-foam.wgsl.scm")))
                                           (new Pair
                                             (first "bvh-shader")
                                             (second (link-file "bvh.wgsl.scm")))

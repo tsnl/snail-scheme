@@ -59,6 +59,7 @@ export const deviceLines = [
   // for one row, it clones and leaves the large one whole.
   'densify: live 1 1 1 1 1 0 0 0 (5), kept then cloned, two children 1.6 times smaller',
   'room: live 1 1 1 1 (4), cloned, the large one kept whole',
+  'foam: rays and all seven fitted site parameters agree with the CPU',
 ];
 
 // Every param's gradient of L1 and D-SSIM against central differences,

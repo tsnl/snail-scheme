@@ -5,10 +5,11 @@
   (export
    Vec3d vec3d v+ v- v* dot
    Site site Foam make-foam
-   Ray ray Sample render-ray fit-step density-faces)
+   Ray ray RayCamera camera-ray Sample render-ray sample-batch fit-step density-faces)
   (import
    (snail core base)
    (only (snail shell math) exp)
+   (snail shell random)
    (snail shell wire))
   (begin
 
@@ -105,6 +106,21 @@
     ;; A unit direction makes a parameter difference a physical distance.
     (define (ray (origin Vec3d) (direction Vec3d)) (→ Ray)
       (new Ray (origin origin) (direction (unit-vector direction))))
+
+    ;; Unnormalized directions through the original pinhole image: corner
+    ;; points through the center of pixel (0,0), dx and dy span one pixel.
+    (record RayCamera
+      ((eye Vec3d)
+       (corner Vec3d)
+       (dx Vec3d)
+       (dy Vec3d)
+       (width I64)
+       (height I64)))
+
+    (define (camera-ray (camera RayCamera) (x I64) (y I64)) (→ Ray)
+      (ray (● camera eye) (v+ (● camera corner)
+                              (v+ (v* (● camera dx) (i64->f64 x))
+                                  (v* (● camera dy) (i64->f64 y))))))
 
     (record Interval
       ((near F64)
@@ -205,6 +221,14 @@
     (record Sample
       ((ray Ray)
        (rgb Vec3d)))
+
+    ;; Both backends see the same minibatch for a step, including repeated rays.
+    (define (sample-batch (count I64) (size I64) (seed I64)) (→ (List I64))
+      (unless (and (>= size 0) (or (= size 0) (> count 0)))
+        (panic "a nonempty foam batch needs sample rays"))
+      (let loop ((left size) (rng (make-random seed)) (indices (Nil)))
+        (if (= left 0) indices
+            (loop (- left 1) (random-next rng) (Cons (random-below rng count) indices)))))
 
     ;; The batch owns one accumulator per site. All its rays see the same foam.
     (record Gradient
@@ -315,10 +339,16 @@
 
     (define (face-between (sites (List Site)) (a Site) (b Site)) (→ (List Vec3d))
       (let* ((p (● a position)) (square (bisector-square p (● b position)))
-             (others
-              (filter (lambda (s) (not (or (same-position? s a) (same-position? s b)))) sites)))
-        (face-corners (fold-left (lambda (face s) (clip-polygon face (bisector p (● s position))))
-                                 (fold-left clip-polygon square box) others))))
+             (bounded (fold-left clip-polygon square box)))
+        ;; Most pairs never share a face. As soon as a third site clips
+        ;; the polygon away, the remaining half-spaces cannot restore it.
+        (let loop ((face bounded) (rest sites))
+          (if (null? face) (Nil)
+              (match rest
+                ((Nil) (face-corners face))
+                ((Cons s tail)
+                 (loop (if (or (same-position? s a) (same-position? s b)) face
+                           (clip-polygon face (bisector p (● s position)))) tail)))))))
 
     ;; Each dense/sparse face once, facing the sparse site. The box clips
     ;; these interfaces. Only changes in material supply faces.
