@@ -160,6 +160,15 @@ run answers in minutes what CI answers in tens of minutes, and it reproduces
 a failure as many times as a fix needs; pushing to see what breaks spends
 that time for a worse report. Push when a change is verified, not to find out.
 
+Measure performance from traces ([Traces](doc/book/snail-scheme/toolchain.md#traces)):
+`SNAIL_TRACE=FILE` on Node, `TRACE=FILE node tests/browser/page.mjs ...`
+for a page, opened in Perfetto. Benchmark from the spans the code already
+has, not from timers added for one measurement. The host's spans stay in
+the checked-in code: the scheduler's turns, GPU submits and reads, and
+each pass on the device. Add a span with `span` or `traced`
+(`host/browser/trace.mjs`) where time passes from one party to another,
+and keep it.
+
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline`, and
 `cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check`.

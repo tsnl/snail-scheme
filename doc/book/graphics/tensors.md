@@ -283,6 +283,9 @@ are read once, after the last. It needs the device's `timestamp-query`
 feature. Node's times are not rounded; a browser's are, to 100 μs, so a
 program is best profiled on Node. A pass per step costs a little that one
 pass would not, so the sum is a little more than a run takes.
+A traced run ([Traces](../snail-scheme/toolchain.md#traces)) shows
+instead each pass a run makes for as long as the device ran it, with no
+passes added.
 
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. On the device, which

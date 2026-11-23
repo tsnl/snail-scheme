@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {readFile} from 'node:fs/promises';
+import {readFile, writeFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
 import {linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
@@ -11,6 +11,7 @@ import {createProcesses, createTermination} from './process.mjs';
 import {processImports} from './process-imports.mjs';
 import {createAsyncFiles} from './async-files.mjs';
 import {nodeGpu} from './gpu.mjs';
+import {startTrace, traceFile} from '../browser/trace.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
@@ -103,7 +104,8 @@ async function loadProgram(filename, wasi, host, tasks) {
 
 // The program runs on Node's main thread, as a page runs one on its own,
 // so signals reach its tasks directly and `exec` replaces the process at
-// once. Tail calls are the language's constant-stack loop mechanism, so
+// once. With SNAIL_TRACE=FILE, the run writes a trace of its spans to FILE
+// as it ends (host/browser/trace.mjs). Tail calls are the language's constant-stack loop mechanism, so
 // V8's default stack suits it; a larger young generation, which a caller
 // may give with --max-semi-space-size, helps only a program that copies
 // long lists. A run that ends without a status failed in its host.
@@ -111,7 +113,10 @@ export async function start(filename, arguments_) {
   process.exitCode = 2;
   try {
     if (!filename) throw new Error('usage: run-snail.mjs MODULE.wasm [ARGUMENT ...]');
+    const trace = process.env.SNAIL_TRACE;
+    if (trace) startTrace();
     process.exitCode = await run(filename, arguments_);
+    if (trace) await writeFile(trace, await traceFile());
   } catch (error) {
     console.error(`snail: ${error instanceof Error ? error.message : String(error)}`);
   }

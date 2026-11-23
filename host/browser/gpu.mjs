@@ -12,6 +12,7 @@
 // at a time.
 
 import {byteSnapshot, byteView} from './load.mjs';
+import {span, spansLater, traced, tracing} from './trace.mjs';
 
 // The features the graphics libraries need, and those they use when the
 // adapter has them. Phones lack BC compression and SwiftShader, which the
@@ -82,7 +83,7 @@ export async function requestDevice(gpu) {
 export function createGpu(canvas, runtime, open = pageDevice) {
   const objects = new Map();
   let gpu = null, next = 1, reply = [], held = new Uint8Array(), decoded = null, pass = null, queued = [];
-  let timestamps = null;
+  let timestamps = null, timeline = null;
   let canvasIds = [], retired = [];
   const memory = () => runtime.execution.entry.memory;
   const tasks = () => runtime.execution.tasks;
@@ -98,13 +99,20 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     // A page without the baseline answers 1, which the program reports.
     'start-device'(ticket) {
       tasks().start(Number(ticket), async () => {
-        try { gpu = await open(canvas); return 0; } catch (error) { console.error(error.message); return 1; }
+        try { gpu = await open(canvas); } catch (error) { console.error(error.message); return 1; }
+        if (tracing && gpu.optional.includes('timestamp-query')) timeline = createTimeline(gpu.device);
+        return 0;
       }, status => status);
     },
     'finish-device': ticket => tasks().finish(Number(ticket)),
     // Waits until the device has done the work submitted so far.
     'start-done'(ticket) {
-      tasks().start(Number(ticket), () => gpu.device.queue.onSubmittedWorkDone().then(() => 0), status => status);
+      const start = performance.now();
+      tasks().start(Number(ticket), async () => {
+        await gpu.device.queue.onSubmittedWorkDone();
+        span('wait', 'gpu done', start);
+        return 0;
+      }, status => status);
     },
     'finish-done': ticket => tasks().finish(Number(ticket)),
     'device-format': () => answer(gpu.format),
@@ -126,9 +134,11 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'start-read'(ticket, id, offset, size) {
       const buffer = object(id);
       tasks().start(Number(ticket), async () => {
+        const start = performance.now();
         await buffer.mapAsync(GPUMapMode.READ, offset, size);
         const read = new Uint8Array(buffer.getMappedRange(offset, size)).slice();
         buffer.unmap();
+        span('wait', 'gpu read', start);
         return read;
       }, read => { held = read; return read.length; });
     },
@@ -139,7 +149,8 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'start-decode'(ticket, usage, address) {
       const encoded = byteSnapshot(memory(), address);
       tasks().start(Number(ticket), async () => {
-        const image = await gpu.decode(encoded);
+        const start = performance.now(), image = await gpu.decode(encoded);
+        span('wait', 'decode image', start);
         if (!image) return null;
         const texture = gpu.device.createTexture({size: [image.width, image.height], format: 'rgba8unorm', usage});
         image.write(texture);
@@ -183,12 +194,18 @@ export function createGpu(canvas, runtime, open = pageDevice) {
       timestamps = {querySet: object(querySet), beginningOfPassWriteIndex: beginning, endOfPassWriteIndex: end};
     },
     'begin-pass'(encoder) {
-      const descriptor = {...pass, ...(timestamps && {timestampWrites: timestamps})};
+      const writes = timeline ? timeline.writes(object(encoder), timestamps) : timestamps;
+      const descriptor = {...pass, ...(writes && {timestampWrites: writes})};
       pass = null;
       timestamps = null;
-      return keep(object(encoder).beginRenderPass(descriptor));
+      const begun = object(encoder).beginRenderPass(descriptor);
+      timeline?.begun(object(encoder), begun, writes, 'render pass');
+      return keep(begun);
     },
-    'set-pipeline'(pass, pipeline) { object(pass).setPipeline(object(pipeline)); },
+    'set-pipeline'(pass, pipeline) {
+      timeline?.uses(object(pass), object(pipeline));
+      object(pass).setPipeline(object(pipeline));
+    },
     'set-bind-group'(pass, index, group) { object(pass).setBindGroup(index, object(group)); },
     'set-vertex-buffer'(pass, slot, buffer, offset) { object(pass).setVertexBuffer(slot, object(buffer), offset); },
     'set-index-buffer'(pass, buffer, format, offset) { object(pass).setIndexBuffer(object(buffer), format ? 'uint32' : 'uint16', offset); },
@@ -200,11 +217,16 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'draw-indexed-indirect'(pass, buffer, offset) { object(pass).drawIndexedIndirect(object(buffer), offset); },
     'end-pass'(pass) { take(pass).end(); },
     'begin-compute'(encoder) {
-      const descriptor = timestamps ? {timestampWrites: timestamps} : undefined;
+      const writes = timeline ? timeline.writes(object(encoder), timestamps) : timestamps;
       timestamps = null;
-      return keep(object(encoder).beginComputePass(descriptor));
+      const begun = object(encoder).beginComputePass(writes ? {timestampWrites: writes} : undefined);
+      timeline?.begun(object(encoder), begun, writes, 'compute pass');
+      return keep(begun);
     },
-    'set-compute-pipeline'(pass, pipeline) { object(pass).setPipeline(object(pipeline)); },
+    'set-compute-pipeline'(pass, pipeline) {
+      timeline?.uses(object(pass), object(pipeline));
+      object(pass).setPipeline(object(pipeline));
+    },
     'set-compute-bind-group'(pass, index, group) { object(pass).setBindGroup(index, object(group)); },
     dispatch(pass, x, y, z) { object(pass).dispatchWorkgroups(x, y, z); },
     'dispatch-indirect'(pass, buffer, offset) { object(pass).dispatchWorkgroupsIndirect(object(buffer), offset); },
@@ -212,10 +234,15 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'resolve-queries'(encoder, querySet, first, count, buffer, offset) {
       object(encoder).resolveQuerySet(object(querySet), first, count, object(buffer), offset);
     },
-    finish: encoder => keep(take(encoder).finish()),
+    finish(id) {
+      const encoder = take(id);
+      return keep(timeline ? timeline.finish(encoder) : encoder.finish());
+    },
     'queue-buffer'(id) { queued.push(take(id)); },
     submit() {
-      gpu.device.queue.submit(queued);
+      const submitted = performance.now();
+      traced('gpu submit', () => gpu.device.queue.submit(queued));
+      timeline?.submitted(queued, submitted);
       queued = [];
       for (const id of retired) take(id)?.destroy?.();
       retired = [];
@@ -248,6 +275,111 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     decoded = null;
   }
   return {imports, reset};
+}
+
+// ---- The device's timeline ----
+
+// While a run is traced (trace.mjs), the host times every pass on a
+// device that can, so that a trace shows the device's work beside the
+// program's. A pass the program times writes the program's queries, and
+// any other two of the host's own. As an encoder finishes, the queries its
+// passes wrote are resolved and copied into one buffer, which is read once
+// the device has done that work; then each pass is a span on the `gpu`
+// track, named for the pipelines it set. WebGPU times passes, not draws or
+// dispatches, so a pass is the finest span, and timing them costs the
+// device a little.
+//
+// The device's times count from an origin of its own. A pass starts no
+// earlier than its submit, so the host places the device's clock as early
+// as it can be with no submit so far after its first pass: exactly once
+// the device was idle at some submit, and otherwise early by however long
+// work had waited. Durations are the device's own.
+function createTimeline(device) {
+  const encoders = new WeakMap(), passes = new WeakMap(), reads = new WeakMap();
+  const timed = encoder => encoders.get(encoder) ?? encoders.set(encoder, {passes: [], own: [], used: 64}).get(encoder);
+  let origin = null, offset = -Infinity;
+  function draw(times, submitted) {
+    origin ??= times[0].begin;
+    const ms = time => Number(time - origin) / 1e6;
+    offset = Math.max(offset, submitted - Math.min(...times.map(time => ms(time.begin))));
+    for (const {name, begin, end} of times) span('gpu', name, ms(begin) + offset, ms(end) + offset);
+  }
+  return {
+    // The program's timestamp writes for a pass of `encoder`, or the
+    // host's own, from a set of 64 its passes share.
+    writes(encoder, writes) {
+      const record = timed(encoder);
+      if (writes) return writes;
+      if (record.used === 64) { record.own.push(device.createQuerySet({label: 'trace', type: 'timestamp', count: 64})); record.used = 0; }
+      record.used += 2;
+      return {querySet: record.own.at(-1), beginningOfPassWriteIndex: record.used - 2, endOfPassWriteIndex: record.used - 1};
+    },
+    begun(encoder, pass, writes, kind) {
+      const record = {writes, kind, pipelines: []};
+      timed(encoder).passes.push(record);
+      passes.set(pass, record);
+    },
+    uses(pass, pipeline) {
+      const {pipelines} = passes.get(pass);
+      if (!pipelines.includes(pipeline.label)) pipelines.push(pipeline.label);
+    },
+    finish(encoder) {
+      const record = encoders.get(encoder), read = record && resolvedTimes(device, encoder, record);
+      const buffer = encoder.finish();
+      if (read) reads.set(buffer, read);
+      return buffer;
+    },
+    submitted(buffers, submitted) {
+      for (const buffer of buffers)
+        if (reads.has(buffer)) spansLater(reads.get(buffer)().then(times => times.length && draw(times, submitted)));
+    },
+  };
+}
+
+// The queries an encoder's passes wrote, resolved after its commands into
+// one buffer, a range of each query set in turn; and the function that
+// reads it once the device is done, answering each written pass's name and
+// times, and destroying what the reading needed.
+function resolvedTimes(device, encoder, {passes, own}) {
+  const ranges = queryRanges(passes), first = new Map();
+  let size = 0;
+  for (const [set, [low, high]] of ranges) { first.set(set, size / 8 - low); size += 8 * (high - low + 1); }
+  const readback = device.createBuffer({label: 'trace/times', size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST});
+  const used = [...own, readback];
+  for (const [set, [low, high]] of ranges) {
+    const count = high - low + 1;
+    const resolved = device.createBuffer({label: 'trace/resolved', size: 8 * count, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC});
+    encoder.resolveQuerySet(set, low, count, resolved, 0);
+    encoder.copyBufferToBuffer(resolved, 0, readback, 8 * (first.get(set) + low), 8 * count);
+    used.push(resolved);
+  }
+  const slot = (set, query) => first.get(set) + query;
+  return async () => {
+    await readback.mapAsync(GPUMapMode.READ);
+    const times = new BigUint64Array(readback.getMappedRange().slice(0));
+    for (const object of used) object.destroy();
+    return passes.map(({writes, kind, pipelines}) => ({name: passName(kind, pipelines),
+      begin: times[slot(writes.querySet, writes.beginningOfPassWriteIndex)], end: times[slot(writes.querySet, writes.endOfPassWriteIndex)]}))
+      .filter(({begin, end}) => begin > 0n && end >= begin);
+  };
+}
+
+// A pass is named for the first three pipelines it set, and how many
+// more: `splat/fit, scan/scan_tiles, scan/add_sums +2`.
+function passName(kind, pipelines) {
+  if (!pipelines.length) return kind;
+  const more = pipelines.length - 3;
+  return pipelines.slice(0, 3).join(', ') + (more > 0 ? ` +${more}` : '');
+}
+
+// Each query set the passes wrote, and the first and last query written.
+function queryRanges(passes) {
+  const ranges = new Map();
+  for (const {writes: {querySet, beginningOfPassWriteIndex: begin, endOfPassWriteIndex: end}} of passes) {
+    const [low, high] = ranges.get(querySet) ?? [begin, end];
+    ranges.set(querySet, [Math.min(low, begin, end), Math.max(high, begin, end)]);
+  }
+  return ranges;
 }
 
 // ---- Descriptors ----

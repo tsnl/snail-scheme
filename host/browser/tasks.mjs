@@ -3,7 +3,11 @@
 // tasks wait on. A task takes a ticket, starts the operation through a
 // synchronous import that returns at once, awaits the ticket, and then
 // finishes it, through another, which takes the outcome the host kept
-// (task.sld's `through-host`). No Wasm stack is ever suspended.
+// (task.sld's `through-host`). No Wasm stack is ever suspended. Each turn
+// is a span of a traced run (trace.mjs): the time the program's own code
+// ran.
+
+import {traced} from './trace.mjs';
 
 // The program's exports, which hold (snail shell task)'s, or null when the
 // program does not link it and has no tasks to drive. A program is a
@@ -112,7 +116,7 @@ export function createTasks(exports, {reportError = () => {}} = {}) {
       for (;;) {
         if (closed) return;
         let next;
-        try { next = Number(enter('tasks:turn', BigInt(Date.now()))); }
+        try { next = Number(traced('turn', () => enter('tasks:turn', BigInt(Date.now())))); }
         catch (error) {
           reportError(error, owner === null ? 0 : Number(scheduler['tasks:running'](owner)));
           this.close(error);
