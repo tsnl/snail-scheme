@@ -12,9 +12,10 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 
 | Stage | Library | What it does |
 | --- | --- | --- |
-| Surfaces | `trace/surface.wgsl.scm` | Rasterizes the first hits into a G-buffer: normal, albedo, material, motion and depth. |
-| Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries. |
-| Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure. |
+| Surfaces | `trace/surface.wgsl.scm` | Rasterizes the first hits into a G-buffer: normal, albedo, material, motion and depth. A scene with blended materials also gets the nearest blended surface in front of them, in a second G-buffer, the blended layer. |
+| Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries, for each layer. |
+| Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure, for each layer. |
+| Compose | `trace/compose.wgsl.scm` | Blends the blended layer's light over the first hits', by its alpha. |
 | Post | `passes` | Hable's filmic curve, sRGB encoding, and FXAA. |
 
 `make-tracer` takes a `Scene`, an `Environment`, the canvas format and size,
@@ -60,6 +61,41 @@ Every queue kernel is dispatched over the queue's capacity, and threads
 past its count return at once. Chromium validates each indirect dispatch,
 which takes about half a millisecond of wall time, more than the wasted
 threads cost.
+
+## The blended layer
+
+A glTF material is opaque, masked or blended. The first hits' G-buffer
+holds only opaque and masked surfaces, and a masked one is discarded below
+its cutoff. A scene with a blended material, whose `Scene` says
+`blended`, gets a second G-buffer of the same targets, the blended layer.
+Every triangle is drawn again over a copy of the first hits' depth, so
+the depth test keeps the nearest blended surface in front of them, with
+its alpha in the albedo's. A texel whose alpha is under 1/255 is no
+surface and hides nothing.
+
+The layer is lit as the first hits are:
+
+- **Paths.** Its paths run as a second wavefront after theirs, over the
+  same queues once the counts are cleared. Its radiance comes after theirs
+  in the same buffer, so the bounces need no change, and a pixel the layer
+  does not cover makes no path.
+- **Filtering.** It is gathered into its own noisy plane and filtered by
+  its own SVGF, with its own normals, depth and motion. So each layer's
+  history follows its own surface, where a stipple of the two would mix
+  them.
+- **Composing.** A triangle over the screen then blends the layer's light
+  over the first hits', in the light target, through the target's blend
+  state: α·T + (1 − α)·O, before tone mapping.
+
+Only the nearest blended surface is in the layer: a blended surface behind
+another one is not seen through it. Rays treat blended surfaces as
+cutouts, passing through with the odds of their alpha, so shadows and
+reflections see them in part.
+
+A scene without a blended material makes none of the layer's targets,
+bind groups or filters. `retrace` remakes the targets when a new scene
+changes that. On an RTX 5090 at 1280 by 657, AlphaBlendModeTest took 3.3
+to 5.4 ms a frame, the same as before the layer within the timing's noise.
 
 ## The BVH and ray queries
 

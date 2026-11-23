@@ -24,6 +24,10 @@
 ;;              `primary`
 ;;   gather     `radiance` into the `noisy` plane
 ;;
+;; The blended surfaces' layer (surface.wgsl.scm) is traced the same way
+;; after the first hits, from its own G-buffer into its own noisy plane,
+;; its radiance a pixel count past theirs.
+;;
 ;; A frame runs primary, then for each bounce occlude, connect, intersect
 ;; and shade, then gather. A pixel has at most one ray in a queue, so
 ;; adding to its radiance needs no atomics. Rays are appended with an
@@ -347,11 +351,18 @@
 (fn pixel_index ((pixel vec2i)) (-> u32)
     (return (+ (u32 (get pixel x)) (* (u32 (get pixel y)) (get (textureDimensions depth) x)))))
 
+;; The first hits' paths, or the layer's: `tracing.frame.y` is where the
+;; wave's radiance starts, 0 for the first hits and a pixel count past
+;; them for the layer's, whose pixels with no blended surface, their
+;; alpha 0, make no path.
 (fn (@compute) (@workgroup_size 8 8) primary (((@builtin global_invocation_id) id vec3u))
     (let size (textureDimensions depth))
     (if ((or (>= (get id x) (get size x)) (>= (get id y) (get size y))) (return)))
     (let pixel (vec2i (get id xy)))
-    (let index (pixel_index pixel))
+    (let index (+ (pixel_index pixel) (u32 (get tracing frame y))))
+    (if ((and (> (get tracing frame y) 0) (== (get (textureLoad albedo pixel 0) w) 0.0))
+         (= (at radiance index) (vec4f 0.0))
+         (return)))
     (let z (textureLoad depth pixel 0))
     (if ((>= z 1.0)
          (let ndc (- (* (/ (+ (vec2f pixel) 0.5) (vec2f size)) 2.0) 1.0))
@@ -405,4 +416,5 @@
     (let size (textureDimensions depth))
     (if ((or (>= (get id x) (get size x)) (>= (get id y) (get size y))) (return)))
     (let pixel (vec2i (get id xy)))
-    (textureStore noisy pixel (vec4f (get (at radiance (pixel_index pixel)) xyz) 1.0)))
+    (let index (+ (pixel_index pixel) (u32 (get tracing frame y))))
+    (textureStore noisy pixel (vec4f (get (at radiance index) xyz) 1.0)))
