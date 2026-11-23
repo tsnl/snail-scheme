@@ -181,6 +181,12 @@ target behavior. `(snail shell format)` is the formatter shared by `snail-scheme
 and `snail-scheme format`; `make test` checks its CLI and every tracked
 Scheme file. Browser changes should be seen running:
 `node tests/browser/page.mjs URL SCREENSHOT` drives headless Chromium.
+Show what a change looks like on its pull request with the `gh attach`
+extension (`gh extension install sudosubin/gh-attach`):
+`gh attach SCREENSHOT -R tsnl/snail-scheme --markdown` uploads it as a
+GitHub attachment and prints the image's Markdown, for the body or a
+comment. It uses a browser's GitHub session on the machine, and GitHub
+shows the file's name, so name the file for what it shows.
 GPU changes should run on a device: `make test-gpu` runs the GPU checks on
 Node's, through Dawn on Vulkan (lavapipe on a machine without a GPU, as
 CI is), and `make test-browser` on the page's, SwiftShader in headless
