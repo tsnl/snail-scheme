@@ -33,6 +33,8 @@ filled dw: agrees
 fit dx: 4x3
 gather dx: agrees
 gather dx: -1.0 -0.5 0.0 0.5 2.0 3.0
+empty beside one dx: 1.0 0.0 0.0
+empty port dx: 0x3, 0 values
 chain: 4 nodes, fused 2, the same values
 transposed: 3 nodes, fused 2, the same values
 narrowed: 3 nodes, fused 2, the same values

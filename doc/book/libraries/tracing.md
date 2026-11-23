@@ -21,8 +21,8 @@ nearest hit and `occlude` for any, with the program's `cutout` test, and
 A queue is a buffer of 80-byte rays and its count, so a kernel appends to it
 with atomics. A query is dispatched over the queue's capacity, and the
 invocations past the count return: an indirect dispatch would launch only
-what the count needs, but on Dawn each costs about half a millisecond of the
-host's time, more than the idle workgroups cost
+what the count needs, but with Dawn's validation each takes about half a
+millisecond of wall time, more than the idle workgroups cost
 ([the BVH and ray queries](../graphics/tracer.md#the-bvh-and-ray-queries)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/bvh.sld)
