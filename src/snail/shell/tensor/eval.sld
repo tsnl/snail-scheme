@@ -99,7 +99,7 @@
             (dense-of n default-port (lambda (index) (scattered ports (arg 0) (arg 1) index)))))
           ((Concat axis)
            (list (dense-of n default-port (lambda (index) (joined ports (● n args) axis index)))))
-          ((Sort bits) (sorted ports (arg 0) (arg 1) bits))
+          ((Sort bits) (sorted ports (arg 0) (arg 1) (sort-count ports n) bits))
           ((PrefixSum) (list (scanned ports (arg 0))))
           ((CustomKind c)
            (panic (string-append "eval: custom node " (● c name) " has no CPU form"))))))
@@ -164,18 +164,30 @@
                          (map-indexed (lambda (k i) (if (= k axis) (- i size) i)) index)))))
           ((Nil) (panic "eval: an index past a concat")))))
 
-    ;; Pairs in order of their keys' low bits, equal keys in their order.
-    (define (sorted (ports (Table (Array F64))) (keys View) (values View) (bits I64))
+    ;; The first `count` pairs in order of their keys' low bits, equal keys
+    ;; in their order, and the rest as they are.
+    (define (sorted (ports (Table (Array F64))) (keys View) (values View) (count I64) (bits I64))
       (→ (List (Array F64)))
       (let* ((low (lambda (key)
                     (if (= bits 32) key (i64->f64 (remainder (f64->i64 key) (expt-i 2 bits))))))
-             (pairs (list-sort (lambda (a b) (< (low (● a first)) (low (● b first))))
-                               (map (lambda (i) (new Pair
-                                                  (first (element ports keys (list i)))
-                                                  (second (element ports values (list i)))))
-                                    (iota (element-count keys))))))
+             (pair-at (lambda (i)
+                        (new Pair
+                          (first (element ports keys (list i)))
+                          (second (element ports values (list i))))))
+             (all (iota (element-count keys)))
+             (pairs (append (list-sort (lambda (a b) (< (low (● a first)) (low (● b first))))
+                                       (map pair-at (take all count)))
+                            (map pair-at (list-tail all count)))))
         (list (list->array (map (lambda (pair) (● pair first)) pairs))
               (list->array (map (lambda (pair) (● pair second)) pairs)))))
+
+    ;; How many pairs a sort sorts: as many as its count, at most all.
+    (define (sort-count (ports (Table (Array F64))) (n Node)) (→ I64)
+      (let ((all (element-count (list-ref (● n args) 0))))
+        (match (list-tail (● n args) 2)
+          ((Cons count _)
+           (min all (f64->i64 (element ports count (map (lambda (_) 0) (shape-of count))))))
+          ((Nil) all))))
 
     ;; Zeros, with each element of `g` at its address under `accessor`.
     (define (placed (ports (Table (Array F64))) (g View) (accessor Accessor) (count I64))

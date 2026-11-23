@@ -164,6 +164,7 @@
    stack
    scatter-add
    sort-pairs
+   sort-first-pairs
    exclusive-scan
    custom
    node-view
@@ -420,8 +421,9 @@
     ;; its first argument at the indices of its second; a `ScatterAdd` adds
     ;; each row of its first argument to row `index` of `rows` zero rows; a
     ;; `Concat` joins its arguments along an axis; a `Sort` sorts u32 keys
-    ;; and values on their low `bits` bits, stably; a `PrefixSum` replaces
-    ;; each u32 number by the sum of those before it.
+    ;; and values on their low `bits` bits, stably, all of them or as many
+    ;; as a third argument counts; a `PrefixSum` replaces each u32 number
+    ;; by the sum of those before it.
     (enum Kind
       (Param ((name String)))
       (Constant ((name String) (data Bytes)))
@@ -984,12 +986,33 @@
     ;; u32 keys and their u32 values sorted by the keys' low `bits` bits,
     ;; 8, 16, 24 or 32, equal keys keeping their order.
     (define (sort-pairs (keys View) (values View) (bits I64)) (→ (Pair View View))
+      (sorted-pairs (list keys values) bits))
+
+    ;; The first `count` pairs sorted as `sort-pairs` sorts them, `count` a
+    ;; view of one u32, at most the keys' length, and the pairs after them
+    ;; as they are: the work is that of the pairs counted, whatever room the
+    ;; keys have. The sort reads its count from a buffer of its own.
+    (define (sort-first-pairs (keys View) (values View) (count View) (bits I64))
+      (→ (Pair View View))
+      (unless (and (= (element-count count) 1) (same-etype? (etype-of count) (Unsigned)))
+        (panic "tensor: a sort's count is one u32"))
+      (sorted-pairs (list keys
+                          values
+                          (if (and (whole-buffer? count) (not (fill-view? count)))
+                              count
+                              (copy count)))
+                    bits))
+
+    (define (sorted-pairs (args (List View)) (bits I64)) (→ (Pair View View))
       (let ((n (node (Sort bits)
-                     (list keys values)
-                     (list (new Port (name "keys") (shape (shape-of keys)) (etype (Unsigned)))
+                     args
+                     (list (new Port
+                             (name "keys")
+                             (shape (shape-of (list-ref args 0)))
+                             (etype (Unsigned)))
                            (new Port
                              (name "values")
-                             (shape (shape-of values))
+                             (shape (shape-of (list-ref args 1)))
                              (etype (Unsigned)))))))
         (new Pair (first (node-view n "keys")) (second (node-view n "values")))))
 

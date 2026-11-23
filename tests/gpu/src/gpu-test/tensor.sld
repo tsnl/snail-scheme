@@ -1,8 +1,8 @@
 ;; Tensor programs on the device, against the CPU's evaluation of the same
 ;; graph: elementwise operations through views, reductions small and in
-;; levels, a matrix product, gathers and float scatters, sorts and scans,
-;; and a gradient through slices, unfused and fused, and the same program
-;; profiled; params
+;; levels, a matrix product, gathers and float scatters, sorts of every
+;; pair and of as many as the device counts, scans, and a gradient through
+;; slices, unfused and fused, and the same program profiled; params
 ;; swapped and assigned, and one bound to the caller's buffer, in the
 ;; caller's pass. Then a line fitted by Adam, its loss read back after 300
 ;; steps of one lowered program.
@@ -75,7 +75,13 @@
              (rows (list-ref (params) 3))
              (keys (list-ref (params) 4))
              (loss (sum-all (square (narrow (transpose (matmul x w)) 0 2 4))))
-             (sorted (sort-pairs keys (exclusive-scan (ones-like keys)) 16))
+             (order (exclusive-scan (ones-like keys)))
+             (sorted (sort-pairs keys order 16))
+             (first-sorted (sort-first-pairs keys
+                                             order
+                                             (+ (narrow order 0 999 1)
+                                                (fill 1.0 (list 1) (Unsigned)))
+                                             16))
              (m (reshape (narrow x 1 0 9) (list 64 3 3)))
              (gram (matmul m (transpose (reshape (narrow x 1 9 9) (list 64 3 3))))))
         (list (* (tensor-exp (* (scalar 0.1) x)) (tensor-sin x))
@@ -95,7 +101,9 @@
               (concat (list (narrow x 1 0 1) (tensor-exp (narrow x 1 1 2)) (narrow x 1 5 3)) 1)
               (amin (narrow x 1 3 7) (list 1))
               (matmul (narrow x 1 0 12) (narrow (narrow w 0 0 12) 1 0 3))
-              (list-ref (grad (sum-all (square (matmul m (transpose m)))) (list x)) 0))))
+              (list-ref (grad (sum-all (square (matmul m (transpose m)))) (list x)) 0)
+              (● first-sorted first)
+              (● first-sorted second))))
 
     ;; ---- Agreement ----
 

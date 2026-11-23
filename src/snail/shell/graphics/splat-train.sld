@@ -343,13 +343,13 @@
     (define (tiles-y (sensor Sensor)) (→ I64) (tiles (● sensor height) 16))
     (define (tile-count (sensor Sensor)) (→ I64) (* (tiles-x sensor) (tiles-y sensor)))
 
-    ;; The first unused tile id is the padding key. Sort enough whole bytes
-    ;; to distinguish it from every tile on this sensor.
+    ;; Sort enough whole bytes of a key to tell every tile on this sensor
+    ;; apart.
     (define (tile-key-bits (sensor Sensor)) (→ I64)
-      (let ((padding (tile-count sensor)))
-        (cond ((< padding 256) 8)
-              ((< padding 65536) 16)
-              ((< padding 16777216) 24)
+      (let ((last (- (tile-count sensor) 1)))
+        (cond ((< last 256) 8)
+              ((< last 65536) 16)
+              ((< last 16777216) 24)
               (else 32))))
 
     (define (constants (sensor Sensor) (count I64)) (→ String)
@@ -380,7 +380,11 @@
        (entries View)))
 
     ;; Binning reads the gaussians as the rasterizer does, from `splats`,
-    ;; and the radii of their squares from `p`.
+    ;; and the radii of their squares from `p`. The entries asked for, at
+    ;; most the capacity, are counted on the device, and the tile sort and
+    ;; the ranges cover only those, the ranges' workgroups taking the
+    ;; entries in turn as the sort's do: the capacity costs memory, not
+    ;; time.
     (define (binned (p Projection) (splats View) (sensor Sensor)) (→ Bins)
       (let* ((count (list-ref (shape-of (● p centers)) 0))
              (code (lambda (text) (string-append (constants sensor count) splat-tiles-shader text)))
@@ -406,29 +410,35 @@
                                 (name (label "splat-keys"))
                                 (kernels (list (kernel (code splat-keys-shader)
                                                        "emit_keys"
-                                                       (list 0 1 2 3 5 6)
-                                                       (tiles count 256))
-                                               (kernel (code splat-keys-shader)
-                                                       "pad_keys"
-                                                       (list 3 4 5)
-                                                       (tiles capacity 256))))
+                                                       (list 0 1 2 3 4 5)
+                                                       (tiles count 256))))
                                 (adjoint no-gradient))
-                              (list splats radii order offsets sorted-counts)
+                              (list splats radii order offsets)
                               (list (u32-port "keys" capacity) (u32-port "ids" capacity))))
-             (by-tile (sort-pairs (list-ref entries 0) (list-ref entries 1) (tile-key-bits sensor)))
+             (asked (+ (narrow offsets 0 (- count 1) 1) (narrow sorted-counts 0 (- count 1) 1)))
+             (total (minimum asked (fill (i64->f64 capacity) (list 1) (Unsigned))))
+             (by-tile (sort-first-pairs (list-ref entries 0)
+                                        (list-ref entries 1)
+                                        total
+                                        (tile-key-bits sensor)))
              (ranges (only-port (custom (new Custom
                                           (name (label "splat-ranges"))
                                           (kernels (list (kernel (code splat-ranges-shader)
                                                                  "find_ranges"
-                                                                 (list 0 1)
-                                                                 (tiles capacity 256))))
+                                                                 (list 0 1 2)
+                                                                 (min (tiles capacity 256)
+                                                                      range-groups))))
                                           (adjoint no-gradient))
-                                        (list (● by-tile first))
+                                        (list (● by-tile first) total)
                                         (list (u32-port "ranges" (* 2 (tile-count sensor))))))))
         (new Bins
           (ids (● by-tile second))
           (ranges ranges)
-          (entries (sum-all (convert counts (Float)))))))
+          (entries (reshape (convert asked (Float)) (Nil))))))
+
+    ;; Workgroups enough to keep a device busy, each taking entries in
+    ;; turn, as the sort's take blocks (radix-sort).
+    (define range-groups (→ I64) 4096)
 
     (define (only-port (views (List View))) (→ View) (list-ref views 0))
 
