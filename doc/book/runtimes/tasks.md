@@ -183,27 +183,21 @@ proof that the subsequent read fits. Other error values are `Unavailable`,
 changing file are not snapshots. This first capability does not change
 core filesystem operations.
 
-On Linux, the Rust host submits open, read and close through `io_uring`,
-with one outstanding kernel request per file operation and at most 64
-active operations. When the scheduler has no runnable task, the host waits
-for a completion or its earliest deadline using
-[`submit_with_args`](https://docs.rs/io-uring/0.7.16/io_uring/struct.Submitter.html#method.submit_with_args).
-There is no periodic polling or language worker pool. An unavailable ring,
-including one denied by the host environment, returns `Unavailable`; other
-native platforms currently return the same. Node provides matching reads
-through its asynchronous filesystem API. There is no implicit browser backend.
+Node does each read with its asynchronous file system
+(`host/native/async-files.mjs`): it opens the file, reads at most the limit
+plus one bytes, and closes it, while the program's other tasks run. There
+is no periodic polling and no worker pool of the language's own; Node's
+event loop wakes the read's ticket when it completes. A page has no
+`Files`, since it has no file system to read.
 
-A suspended read holds only its request's id. The host retains the
-pathname, buffer and descriptor until the outstanding kernel request
-completes, then closes the file before releasing the operation. A completed
-result whose ticket wakes no task, because the task trapped or the run
-closed, is discarded. Orderly host shutdown drains outstanding operations. If a fatal kernel-driver
-error prevents that drain, kernel-visible allocations are retained until
-process exit rather than freed while the kernel may access them.
+A suspended read holds only its request's id. The host keeps the path,
+the buffer and the file handle until the read completes, then closes the
+file before letting the operation go. A completed result whose ticket wakes
+no task, because the task trapped or the run closed, is discarded.
 
 Only scalar operation IDs, tickets, path characters and bytes cross the
-host boundary. The runtime constructs managed `Bytes` on its owning thread,
-after completion; no managed object is shared with the kernel.
+host boundary. The runtime makes the managed `Bytes` after the read
+completes, so no managed object is shared with the host while it reads.
 
 ## Mailboxes
 

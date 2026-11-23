@@ -2,6 +2,8 @@
 
 [`snail-scheme`](index.md)
 
+# The language
+
 - [`snail-scheme`](snail-scheme/index.md)
   - [Terms](snail-scheme/terms.md)
   - [Types](snail-scheme/types.md)
@@ -9,15 +11,6 @@
   - [Suspension](snail-scheme/suspension.md)
   - [Values](snail-scheme/values.md)
   - [Macros and generated libraries](snail-scheme/macros.md)
-  - [Bootstrap and self-hosting](snail-scheme/bootstrap.md)
-  - [Libraries](snail-scheme/libraries.md)
-  - [HTTP protocol](snail-scheme/http.md)
-  - [Workspaces and builds](snail-scheme/projects.md)
-  - [Proposed scripts and builds](snail-scheme/scripts.md)
-  - [Compiler architecture](snail-scheme/compilers.md)
-  - [Application model](snail-scheme/applications.md)
-  - [Development toolchain](snail-scheme/toolchain.md)
-  - [Proposed typed state](snail-scheme/state.md)
   - [Notable omissions](snail-scheme/omissions.md)
   - [References](snail-scheme/references.md)
 - [Tutorials](snail-scheme/tutorials/index.md)
@@ -26,6 +19,35 @@
   - [Colors](snail-scheme/tutorials/colors.md)
   - [Capabilities](snail-scheme/tutorials/capabilities.md)
   - [Values and mutation](snail-scheme/tutorials/values.md)
+
+# Building programs
+
+- [Application model](snail-scheme/applications.md)
+- [Workspaces and builds](snail-scheme/projects.md)
+  - [Scripts and targets](snail-scheme/scripts.md)
+- [Development toolchain](snail-scheme/toolchain.md)
+- [Compiler architecture](snail-scheme/compilers.md)
+  - [Bootstrap and self-hosting](snail-scheme/bootstrap.md)
+
+# Libraries
+
+- [Library reference](libraries/index.md)
+  - [Core](libraries/core.md)
+  - [Text and data](libraries/data.md)
+  - [Tasks, files, processes and networks](libraries/system.md)
+    - [HTTP protocol](snail-scheme/http.md)
+  - [Pages, documents and interfaces](libraries/pages.md)
+  - [The GPU](libraries/gpu.md)
+  - [Rasterized graphics](libraries/rendering.md)
+  - [Gaussian splats](libraries/splats.md)
+  - [Path tracing](libraries/tracing.md)
+  - [Tensors](libraries/tensors.md)
+  - [Tools](libraries/tools.md)
+  - [Runtime interfaces and targets](libraries/runtime.md)
+  - [Liberated Pixel Cup art](libraries/lpc.md)
+
+# Runtimes
+
 - [Runtimes](runtimes/index.md)
   - [Task operations](runtimes/tasks.md)
   - [Driving the scheduler](runtimes/scheduling.md)
@@ -34,12 +56,16 @@
   - [Instances, queues and shared memory](runtimes/instances.md)
   - [Continuations and parallel execution](runtimes/future.md)
 
-# Extras
+# Graphics and games
 
-- [Games](games/index.md)
-  - [Siegework](games/siegework.md)
 - [Graphics](graphics/index.md)
-  - [Proposed WebGPU libraries](graphics/plan.md)
+  - [WebGPU design](graphics/plan.md)
   - [Tensors and training](graphics/tensors.md)
   - [Path tracing primer](graphics/path-tracing.md)
   - [The path tracer](graphics/tracer.md)
+- [Games](games/index.md)
+  - [Siegework](games/siegework.md)
+
+# Proposals
+
+- [Proposed typed state](snail-scheme/state.md)
