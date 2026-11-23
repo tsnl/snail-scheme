@@ -266,7 +266,7 @@
           (projected projected)
           (keys keys)
           (values values)
-          (sorter (make-sorter gpu (string-append label "/order") keys values capacity 32))
+          (sorter (make-sorter gpu (string-append label "/order") keys values capacity 32 (None)))
           (project-module project-module)
           (project-pipeline project-pipeline)
           (project-group

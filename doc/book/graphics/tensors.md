@@ -34,7 +34,7 @@ nodes.
 | `Place` | A gradient placed at a view's addresses |
 | `Gather`, `ScatterAdd` | Rows by `u32` index, and their adjoint |
 | `Concat` | Views joined along an axis; `stack` joins them along a new one |
-| `Sort`, `PrefixSum` | `u32` keys and values sorted stably; an exclusive prefix sum |
+| `Sort`, `PrefixSum` | `u32` keys and values sorted stably, all or as many as a count says; an exclusive prefix sum |
 | `CustomKind` | Kernels a library writes in WGSL, with their own adjoint |
 
 A map's body is an `Expr`: `Load k`, argument k's element at the map's
@@ -221,6 +221,18 @@ design](plan.md#scans-sorts-and-gaussian-splats)). Every dispatch is in one
 compute pass, so each sees the writes of those before it, and dispatches of
 more than 65,535 workgroups are laid out in rows.
 
+Shapes are fixed when a program is lowered, so a buffer has room for the
+most it may hold, but a count the device computes can size the work: a
+port of one `u32`, read where it is written, never by the host, so nothing
+waits. `sort-first-pairs` sorts as many pairs as its count says, leaving
+the rest as they are. Each of the sorter's passes runs a fixed number of
+workgroups, at most 4,096, that take the blocks counted in turn, and lays
+its digit table out by those blocks, so a pass costs the keys counted, not
+the capacity. A custom kernel does the same with a count among its
+arguments. Dispatching only the workgroups a count needs would take an
+indirect dispatch, which Dawn validates on the host: half a millisecond
+each, against a microsecond or two for a direct dispatch.
+
 A kernel binds at most the eight storage buffers every device allows, so
 `concat` joins more than six views in a tree, whether as a map packing them
 or as a `Concat`, and a custom node packs what it reads.
@@ -322,12 +334,14 @@ stands in the world and has none, so its graph is unchanged.
   of bicycle where this makes 1.7 million, and cut an opaque gaussian at
   three deviations, where its alpha passes 1/255 out to 3.33. A stable
   sort by tile then leaves each 16x16 tile's entries near to far. The
-  tile count itself marks padding. The radix sort includes enough bits
-  for that key, including on grids with 65,536 or more tiles. Binning
-  passes no gradient. The sensor's capacity bounds the entries; past it
-  the farthest gaussians' are dropped, so a rendering answers how many
-  entries its gaussians asked for, and a host lowers room for more before
-  they run out.
+  radix sort includes enough bits for every tile's key, including on grids
+  with 65,536 or more tiles. The entries asked for, the last gaussian's
+  offset and count, are counted on the device, and the tile sort and
+  `splat-ranges` cover only those, so the capacity's room costs memory and
+  no time. Binning passes no gradient. The sensor's capacity bounds the
+  entries; past it the farthest gaussians' are dropped, so a rendering
+  answers how many entries its gaussians asked for, and a host lowers room
+  for more before they run out.
 - **Rasterizing is a custom node** (`splat-forward`), a workgroup per tile.
   It blends as the paper does and hands each pixel's final transmittance
   and its count of entries to `keep`. The purpose chooses `keep`'s text:
@@ -455,7 +469,7 @@ with `write-ply`, as the `.ply` file the reference implementation writes,
 at `cloud=PATH`, and `src/apps/splats` flies through it.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
-outdoor scenes, on an RTX 5090, the 30,000 steps take 19.9 minutes on
+outdoor scenes, on an RTX 5090, the 30,000 steps take 18.2 minutes on
 Node, to a held-out PSNR of 25.28 against the paper's 25.25. The cloud
 fills its 4,194,304 gaussians by step 9,100 and stays full until
 densifying stops at 15,000, where the reference's grows to 4.9 million.

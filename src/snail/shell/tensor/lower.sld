@@ -595,16 +595,35 @@
           ((Map body) (product (take shape (- (length shape) (length (expr-tile body))))))
           (_ (product shape)))))
 
-    ;; The keys and values copied into the ports, then sorted there.
+    ;; The keys and values copied into the ports, then sorted there: all of
+    ;; them, or as many as the node's count, its third argument, says.
     (define (sort-steps (gpu Gpu) (b Build) (n Node) (bits I64)) (→ Build)
       (let* ((keys (buffer-of b n "keys"))
              (values (buffer-of b n "values"))
-             (count (element-count (list-ref (● n args) 0)))
+             (capacity (element-count (list-ref (● n args) 0)))
              (copied (copied-into gpu (copied-into gpu b (list-ref (● n args) 0) keys)
                                   (list-ref (● n args) 1)
                                   values))
-             (sorter (make-sorter gpu (string-append (● b label) "/sort") keys values count bits)))
+             (counted (match (list-tail (● n args) 2)
+                        ((Cons count _) (Some (count-buffer b count)))
+                        ((Nil) (None))))
+             (sorter (make-sorter gpu (string-append (● b label) "/sort")
+                                  keys
+                                  values
+                                  capacity
+                                  bits
+                                  counted)))
         (step-added copied (Sorting sorter))))
+
+    ;; A count's buffer: a port of one u32, which the sort reads at its
+    ;; start.
+    (define (count-buffer (b Build) (count View)) (→ GpuBuffer)
+      (if (and (not (fill? count))
+               (whole-buffer? count)
+               (= (element-count count) 1)
+               (same-etype? (etype-of count) (Unsigned)))
+          (view-buffer b count)
+          (panic "tensor lower: a count is a port of one u32, seen whole")))
 
     (define (scan-steps (gpu Gpu) (b Build) (n Node)) (→ Build)
       (let* ((out (buffer-of b n default-port))

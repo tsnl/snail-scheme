@@ -469,7 +469,7 @@
       (let* ((count 5000)
              (keys (storage-buffer gpu "sort-keys" count))
              (values (storage-buffer gpu "sort-values" count))
-             (sorter (make-sorter gpu "test" keys values count 32))
+             (sorter (make-sorter gpu "test" keys values count 32 (None)))
              (encoder ((● gpu create-command-encoder)))
              (pass ((● gpu begin-compute-pass) encoder)))
         ((● gpu write-buffer)
