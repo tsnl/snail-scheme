@@ -248,18 +248,23 @@ count, keeping each level's sums, uniform and bind groups, and
 `dispatch-scan` encodes it into a compute pass; dispatches in a pass see
 the writes of those before them.
 
-`(snail shell graphics radix-sort)` sorts `u32` keys and their `u32` values
-in place, least-significant digit first, four bits a pass
-(`radix-sort.wgsl.scm`). A pass counts each block of 256 keys by digit into
-a table laid out digit-major, scans the table with a `Scan`, which gives
-where each block's keys of each digit start, and scatters each key and its
-value there, after the keys of its digit earlier in its block. A key's rank
-in its block is a count of the matching digits before it in workgroup
-memory, the simplest stable ranking, so every pass is stable and the passes
-together sort. A `Sorter` sorts 8, 16, 24 or 32 bits, an even number of
-passes, so they alternate between the given keys and values and a spare
-pair and end where they began. Both libraries are building blocks with no
-knowledge of what they order.
+`(snail shell graphics radix-sort)` sorts `u32` keys and their `u32` values,
+least-significant digit first, eight bits a pass (`radix-sort.wgsl.scm`).
+A pass's workgroups share the blocks of 256 keys in runs, the first
+workgroup taking the first run. A pass counts each run's keys by digit into
+a table laid out digit-major, 256 words a workgroup, and scans the table
+with a `Scan`, which gives where each run's keys of each digit start. It
+then scatters each key and its value there, a block at a time, after the
+keys of its digit earlier in the run. A key's rank in its block is a count
+of the matching digits before it in workgroup memory, the simplest stable
+ranking, so every pass is stable and the passes together sort. A table
+laid out by block, as the sort's was at four bits a pass, would hold as many
+words as there are keys at 256 digits; by workgroup it holds a million at
+most. A `Sorter` sorts 8, 16, 24 or 32 bits from one pair of keys and
+values into another. Its passes alternate between the second pair and a
+spare pair of its own so that the last pass writes the second pair, so it
+sorts a pair in place only when the passes are even: 16 or 32 bits. Both
+libraries are building blocks with no knowledge of what they order.
 
 `(snail shell graphics splat)` renders 3D Gaussian Splatting (Kerbl et
 al., 2023) with them. A `Gaussian` is a `Pod` record: its center, the row
@@ -382,7 +387,7 @@ Each row is `(snail shell graphics NAME)`:
 | `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. **Implemented**: the sun, tone mapping and FXAA. |
 | `quad` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling a texture array, including earlier passes' targets. **Implemented.** |
 | `scan` | Blelloch's exclusive prefix sum of `u32` numbers in a storage buffer, over levels of 512-number tiles, laid out in rows of workgroups past 65,535 of them. **Implemented.** |
-| `radix-sort` | A stable least-significant-digit radix sort of `u32` keys and values, four bits a pass, counting, scanning and scattering by blocks, in rows of workgroups past 65,535 blocks. **Implemented.** |
+| `radix-sort` | A stable least-significant-digit radix sort of `u32` keys and values, eight bits a pass, counting, scanning and scattering by runs of blocks, at most 4,096 workgroups. **Implemented.** |
 | `splat` | 3D Gaussian Splatting: gaussians posed by rows of a transforms table, projected by EWA splatting with spherical harmonics to degree 3, sorted far to near, and blended as quads. **Implemented.** |
 | `ply` | 3D Gaussian Splatting's binary PLY files read into a cloud of activated gaussians. **Implemented.** |
 | `splat-view` | A `splat`'s splats drawn tile by tile by `splat-train`'s renderer, rendered for viewing, on the splats' own buffers, in the caller's passes. **Implemented.** |
@@ -485,6 +490,17 @@ that gathers 268 million words at computed indices took the same 7.84 ms
 without bounds checks. The zeroing cannot go: WebGPU promises zeroed
 buffers, and a tensor program's params start at zeros, Adam's moments
 among them. What Node gains is Dawn in its own process.
+
+An indirect dispatch is the exception. Dawn checks its arguments on the
+device with a dispatch it adds before it, and making that dispatch cost
+about 0.46 ms of the host's time for each indirect dispatch on the 5090,
+against 1.5 μs for a direct one, and nothing with validation skipped.
+Chromium pays the same for a page. So nothing dispatches indirectly: a
+kernel that a count the device computes sizes runs a fixed number of
+workgroups, which read the count and loop over the work below it
+(`radix-sort.sld`, `bvh.sld`). Without indirect dispatches, validation
+costs a training step nothing measurable: training bicycle to step 7,000
+took 191.3 s with it and 190.7 s without.
 
 ## Device baseline
 

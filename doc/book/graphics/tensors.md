@@ -224,14 +224,19 @@ more than 65,535 workgroups are laid out in rows.
 Shapes are fixed when a program is lowered, so a buffer has room for the
 most it may hold, but a count the device computes can size the work: a
 port of one `u32`, read where it is written, never by the host, so nothing
-waits. `sort-first-pairs` sorts as many pairs as its count says, leaving
-the rest as they are. Each of the sorter's passes runs a fixed number of
-workgroups, at most 4,096, that take the blocks counted in turn, and lays
-its digit table out by those blocks, so a pass costs the keys counted, not
-the capacity. A custom kernel does the same with a count among its
-arguments. Dispatching only the workgroups a count needs would take an
-indirect dispatch, which Dawn validates on the host: half a millisecond
-each, against a microsecond or two for a direct dispatch.
+waits. `sort-first-pairs` sorts as many pairs as its count says and writes
+none past them, which are unspecified. Each of the sorter's passes runs a
+fixed number of workgroups, at most 4,096, that share the blocks counted in
+runs, so a pass costs the keys counted, not the capacity. A custom kernel
+does the same with a count among its arguments. Dispatching only the
+workgroups a count needs would take an indirect dispatch, which Dawn
+validates on the host: half a millisecond each, against a microsecond or
+two for a direct dispatch
+([WebGPU on Node](plan.md#webgpu-on-node)).
+
+A sort's first pass reads its keys and values where they are, and its last
+writes its ports, so a sort copies nothing. A fill or a part of a buffer is
+copied first into scratch the pool lends for the sort.
 
 A kernel binds at most the eight storage buffers every device allows, so
 `concat` joins more than six views in a tree, whether as a map packing them
@@ -469,7 +474,7 @@ with `write-ply`, as the `.ply` file the reference implementation writes,
 at `cloud=PATH`, and `src/apps/splats` flies through it.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
-outdoor scenes, on an RTX 5090, the 30,000 steps take 18.2 minutes on
+outdoor scenes, on an RTX 5090, the 30,000 steps take 18.0 minutes on
 Node, to a held-out PSNR of 25.28 against the paper's 25.25. The cloud
 fills its 4,194,304 gaussians by step 9,100 and stays full until
 densifying stops at 15,000, where the reference's grows to 4.9 million.
