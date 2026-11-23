@@ -467,12 +467,12 @@ harmonics' degree every 1,000 steps, densifies every 100 steps from 500 to
 live, up to the page's `gaussians`, or the step's binning asked for more
 than three quarters of the entries, it lowers larger programs: it
 stashes the params, releases the old programs and gives the params back to
-the new ones. A step and densification make about 1.9 KB a gaussian of
+the new ones. A step and densification make about 1.6 KB a gaussian of
 capacity, mostly Adam's: each param's value and moments, which its
 updates write in place, and its gradient in scratch. So the 4,194,304
-gaussians `gaussians` allows by default take 8.2 GB beside the sorts and
+gaussians `gaussians` allows by default take 6.6 GB beside the sorts and
 photographs, and the 8,388,608 that doubling would reach next would take
-16 GB. The PSNR on the views held out is reported at the end.
+13 GB. The PSNR on the views held out is reported at the end.
 `train` answers the programs it trained, and `trained-cloud` reads their
 cloud back from the device as arrays. The program on Node writes those
 with `write-ply`, as the `.ply` file the reference implementation writes,
@@ -481,15 +481,15 @@ at `cloud=PATH`, and `src/apps/splats` flies through it.
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
 outdoor scenes, on an RTX 5090, the 30,000 steps take 14.3 minutes on
 Node, to a held-out PSNR of 25.29 against the paper's 25.25. The cloud
-fills its 4,194,304 gaussians by step 9,100 and stays full until
-densifying stops at 15,000, where the reference's grows to 4.9 million.
+fills its 4,194,304 gaussians at step 10,300, while the reference's grows
+on until densifying stops at 15,000, to 4.9 million.
 [A bench](https://github.com/tsnl/snail-scheme/blob/main/benches/splat-training/README.md)
 trains the reference and gsplat beside it on the same GPU: they take 17.2
 and 10.4 minutes, to 25.23 and 25.15. Their steps take longer as their
 clouds grow; the programs here have shapes fixed by their capacity, so a
-step takes as long with a million gaussians live as with four. At full
-resolution the photographs no longer limit a run, since they are streamed;
-the step's own buffers do. Before binning kept to the tiles a gaussian
+step takes nearly as long with a million gaussians live as with four:
+26 ms against 31. At full resolution the photographs no longer limit a
+run, since they are streamed; the step's own buffers do. Before binning kept to the tiles a gaussian
 reaches, the default cloud's entries reached 2^27 near step 6,500, and the
 programs for them no longer fit a 32 GB device beside the cloud's 14 GB.
 A cloud of 2,097,152 left them room: the 30,000 steps took 48 minutes on
