@@ -97,7 +97,7 @@
       (string-append (declarations gaussian-shape)
                      (declarations camera-shape)
                      (declarations projected-shape)
-                     splat-project-shader))
+                     spherical-harmonics-shader splat-project-shader))
 
     (define draw-code
       (→ String)

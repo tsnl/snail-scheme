@@ -2,7 +2,9 @@
 
 Fit a Voronoi radiance field, render a held-out camera, and export a
 triangle mesh at a chosen density. The default backend trains and renders
-on WebGPU. Run from the repository root inside `nix-shell`.
+on WebGPU. A second entry point renders the authors’ trained bicycle
+model at photographic resolution. Run the Snail programs from the
+repository root inside `nix-shell`. [Render a released model](#render-the-authors-trained-model)
 
 ```sh
 ./snail-scheme run --target node src/apps/foam/main.scm
@@ -65,6 +67,51 @@ Changing the camera uploads 80 bytes. The library reference covers the
 ray traversal, density mesh, and DefTet comparison.
 [Radiant Foam in the book](../../../doc/book/libraries/splats.md#snail-shell-graphics-radiant-foam)
 
+## Render the authors’ trained model
+
+The released Mip-NeRF 360 bicycle model contains 4,199,873 sites and
+63,719,194 directed neighbor entries. Download its `model.pt` and `config.yaml`.
+Convert the checkpoint once in a Python environment with CPU PyTorch and NumPy,
+then render in `nix-shell`. Supply the same COLMAP reconstruction used in
+training. [Authors’ bicycle checkpoint](https://drive.google.com/drive/folders/1EtHcckGPdVPSQWTB6FrR4WD_2HRSPCve)
+
+```sh
+python3 scripts/pack-radfoam.py model.pt build/bicycle-radfoam
+./snail-scheme run --target node src/apps/foam/checkpoint.scm \
+  checkpoint=build/bicycle-radfoam scene=build/datasets/bicycle/ \
+  images=images_4 frames=15 out=build/bicycle-renders
+```
+
+The packer applies the checkpoint's softplus density activation and retains
+the F32 positions and all 48 color coefficients. It accepts degree-three
+models. Pass `--activation-scale` when the checkpoint config specifies a
+value other than 1. The bicycle `model.pt` used below has SHA-256
+`cd720244c01923037648b92deadcd79295a17395505c2e401de1f16d32fd1a3b`.
+The WebGPU program reads the packed files directly. Its largest storage
+binding for bicycle is 769 MiB.
+
+By default the program scores every held-out photograph at its decoded
+resolution and writes `camera-<COLMAP image ID>.png` for each pose. Set
+`views=1` to render the first held-out pose. Optional `frames` measures
+the median of consecutive timestamped draws after a warm-up. Camera setup,
+readback, scoring and PNG encoding are outside the timed passes.
+
+### How closely does the fitter follow the paper?
+
+The small fitter learns site positions, extinction and one RGB color from
+photographs in a clipped cube. It uses a fixed site count, projected gradient
+descent on squared RGB error, and a black background. The released trainer
+learns degree-three view-dependent radiance, adds sites where position
+gradients and cell radii are large, and prunes low-contribution cells.
+It uses Adam with separate learning rates, a photometric loss, an opacity
+loss and a depth-quantile regularizer. On outdoor scenes its 20,000-step
+schedule switches from eighth-size to quarter-size photographs at step
+5,000 and targets 4,194,304 sites. The checkpoint renderer can use the
+unbounded graph and radiance learned by that trainer.
+[Training loop](https://github.com/theialab/radfoam/blob/3e7b52cf74e37ab2ab5e695f53570f515f537e3d/train.py)
+· [Scene optimization](https://github.com/theialab/radfoam/blob/3e7b52cf74e37ab2ab5e695f53570f515f537e3d/radfoam_model/scene.py)
+· [Outdoor configuration](https://github.com/theialab/radfoam/blob/3e7b52cf74e37ab2ab5e695f53570f515f537e3d/configs/mipnerf360_outdoor.yaml)
+
 ## Bicycle measurements
 
 On an RTX 5090, the 256-site command above fit 2,048,000 sampled rays in
@@ -76,18 +123,37 @@ and took 19.26 seconds to fit.
 
 The table uses all 25 held-out cameras at the native `images_4` size of
 1237 × 822. PSNR is averaged over photographs. Frame time is the median
-across cameras. For foam each camera was timed over five warmed passes.
+across cameras. The fixed-budget fits used five warmed passes per camera and the released
+RadFoam checkpoint used fifteen.
 For 3DGS each time includes its compute and draw passes using the existing
 trained bicycle checkpoint. [3DGS renderer comparison](../splats/README.md)
 
 | Renderer | Mean held-out RGB PSNR | Median GPU frame |
 | --- | ---: | ---: |
-| Radiant Foam, 256 sites | 16.80 dB | 1.28 ms |
-| Radiant Foam, 1,024 sites | 16.93 dB | 4.18 ms |
+| Snail fit, 256 sites | 16.80 dB | 1.28 ms |
+| Snail fit, 1,024 sites | 16.93 dB | 4.18 ms |
+| Released RadFoam, 4,199,873 sites | 24.13 dB | 12.55 ms |
 | 3DGS quads, 4,194,304 Gaussians | 24.98 dB | 3.98 ms |
 | 3DGS tiles, same checkpoint | 25.22 dB | 7.04 ms |
 
-On the first held-out photograph, `_DSC8679.JPG`, both foam fits recover
-broad patches of color. The bicycle frame and spokes are visible in the
-3DGS render. The 1,024-site foam exported 7,793 triangles at density 1.
-These models use a fixed site budget and one RGB color per site.
+PSNR in the table pools RGB mean squared error per image. The
+authors’ evaluation averages the three channel PSNRs per image. With that
+convention our renderer measures 24.14 dB on the released model. The paper
+reports 24.19 dB for bicycle. [Upstream metric](https://github.com/theialab/radfoam/blob/3e7b52cf74e37ab2ab5e695f53570f515f537e3d/radfoam_model/utils.py)
+· [ICCV supplement, Table 3](https://openaccess.thecvf.com/content/ICCV2025/supplemental/Govindarajan_Radiant_Foam_Real-Time_ICCV_2025_supplemental.pdf)
+
+As a separate check, the upstream CUDA forward kernel rendered the same
+checkpoint from the same 25 COLMAP poses. The largest absolute per-view
+RGB PSNR difference from WebGPU was 0.000087 dB. After rounding both
+renders to 8-bit RGB, over 99.9999% of channel values agreed within one
+level. [Reference CUDA forward kernel](https://github.com/theialab/radfoam/blob/3e7b52cf74e37ab2ab5e695f53570f515f537e3d/src/tracing/pipeline.cu)
+
+Holding the checkpoint's positions, densities, neighbors and constant color
+coefficients fixed, zeroing the other 45 floats per site gives **21.97 dB**
+pooled RGB. Restoring those coefficients adds **2.15 dB**. The remaining
+difference from the small fits combines site count, placement, training
+images, background and optimization. On the first held-out photograph,
+`_DSC8679.JPG`, the 1,024-site fit scores 14.80 dB. The released foam
+scores 20.67 dB and resolves the bicycle frame and spokes. These image
+scores evaluate volume rendering. The small fit's density-1 mesh has 7,793
+triangles.

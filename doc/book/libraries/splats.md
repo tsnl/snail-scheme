@@ -184,4 +184,29 @@ submission without reading intermediate parameters.
 `read-foam` returns sites in checkpoint order for export or inspection.
 Release views and trainers when finished, then release the device foam.
 The application measures both backends on Mip-NeRF 360 bicycle.
+
+### Rendering a trained RadFoam checkpoint
+
+`open-foam-checkpoint` takes a GPU, a function that reads each of the four
+packed model files, and the output width and height. Sites retain their
+COLMAP world coordinates. Each stores extinction per world unit and sixteen
+RGB spherical-harmonic coefficients. The checkpoint supplies the Delaunay
+edges as neighbor IDs and one range of edges per site. The loader checks the
+ranges and indices, uploads the buffers, and caches the displacement across
+each edge at the same half precision as the authors' renderer.
+
+`set-checkpoint-camera!` locates the cell containing the pinhole once per
+pose. Across a violated Voronoi face the neighboring site is closer to the
+eye, so following successively closer neighbors reaches its cell.
+`dispatch-foam-checkpoint` generates one ray per pixel. Each ray crosses the
+nearest front-facing neighbor bisector, evaluates degree-three color along
+its viewing direction, and composites the finite interval. An open cell
+with no exit contributes no interval. The residual transmittance reveals
+white. The reference stops at transmittance 0.001 or 1,024 visited cells.
+`read-foam-checkpoint` returns the clamped floating-point RGB frame.
+`release-foam-checkpoint` frees the scene and its frame buffers.
+
+The application includes the one-time packer for the authors' `model.pt`
+and scores its renders on the same held-out photographs as the small
+from-scratch fitter.
 [Application and measurements](https://github.com/tsnl/snail-scheme/blob/main/src/apps/foam/README.md)

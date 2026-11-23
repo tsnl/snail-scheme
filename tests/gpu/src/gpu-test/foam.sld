@@ -4,6 +4,7 @@
   (import
    (snail core base)
    (snail shell gpu)
+   (snail shell graphics pod)
    (snail shell graphics radiant-foam)
    (snail shell graphics radiant-foam-gpu))
   (begin
@@ -97,7 +98,45 @@
                                (panic "foam GPU update differs in position, density or RGB")))
                            reference))
 
+    ;; A finite colored cell at x=0 has length two from either eye. Its
+    ;; extinction ln(2) leaves 1/4 white. The last hull cell is opaque but
+    ;; has no finite exit. Odd SH terms change sign in the reversed view.
+    (define (line-checkpoint (name String)) (→ Bytes)
+      (cond
+       ((string=? name "sites.f32")
+        (pack (ann (shape) (Shape F32))
+              (map f64->f32 (list -2.0 0.0 0.0 0.0 0.0 0.0 0.0 0.69314718056
+                                  2.0 0.0 0.0 0.0 4.0 0.0 0.0 100.0))))
+       ((string=? name "offsets.u32")
+        (pack (ann (shape) (Shape I32)) (list 0 1 3 5 6)))
+       ((string=? name "neighbors.u32")
+        (pack (ann (shape) (Shape I32)) (list 1 0 2 1 3 2)))
+       ((string=? name "sh.f32")
+        (pack (ann (shape) (Shape F32))
+              (map (lambda (i) (f64->f32 (case i ((49) -0.7) ((59) 0.3) ((93) 0.4) (else 0.0))))
+                   (iota 192))))
+       (else (panic name))))
+
+    (define (check-checkpoint-ray (gpu Gpu) (foam FoamCheckpoint) (x F64) (dx F64) (want Vec3d))
+      (→ Unit)
+      (set-checkpoint-camera! gpu foam (single-pixel (ray (vec3d x 0.0 0.0) (vec3d dx 0.0 0.0))))
+      (let* ((encoder ((● gpu create-command-encoder))) (pass ((● gpu begin-compute-pass) encoder)))
+        (dispatch-foam-checkpoint gpu pass foam)
+        ((● gpu end-compute-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder))))
+      (unless (close? (array-ref (read-foam-checkpoint gpu foam) 0) want)
+        (panic
+         "wrong finite Voronoi interval, viewing direction, or background in released-checkpoint rendering")))
+
+    (define (check-checkpoint (gpu Gpu)) (→ Unit)
+      (let ((scene (open-foam-checkpoint gpu line-checkpoint 1 1)))
+        (check-checkpoint-ray gpu scene -1.5 1.0 (vec3d 0.447986923 0.476900239 0.515064435))
+        (check-checkpoint-ray gpu scene 2.0 -1.0 (vec3d 0.802013077 0.476900239 0.734935565))
+        (check-checkpoint-ray gpu scene 4.0 1.0 (vec3d 1.0 1.0 1.0))
+        (release-foam-checkpoint gpu scene)))
+
     (define (check-foam (gpu Gpu)) (→ String)
+      (check-checkpoint gpu)
       (let* ((device (make-device-foam gpu line))
              (trainer (make-foam-trainer gpu device samples 67)))
         (check-camera gpu device)
