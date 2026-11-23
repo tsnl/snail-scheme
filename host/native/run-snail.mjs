@@ -45,7 +45,7 @@ function exiting(wasi) {
   return {getImportObject: () => imports, initialize: instance => wasi.initialize(instance)};
 }
 
-async function run(filename, arguments_, release) {
+async function run(filename, arguments_) {
   const freshWasi = () => exiting(new WASI({version: 'preview1', args: [filename, ...arguments_],
     env: {...process.env, SNAIL_CWD: process.cwd()}, preopens: {'/': '/'}}));
   const wasi = freshWasi();
@@ -60,7 +60,7 @@ async function run(filename, arguments_, release) {
                 'snail.runtime.native.async-files': asyncFiles.imports,
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
                 'snail.runtime.native.process': processImports(() => program, tasks, processes, termination),
-                'snail.runtime.gpu': nodeGpu(() => program, tasks, {validating: !release}).imports};
+                'snail.runtime.gpu': nodeGpu(() => program, tasks).imports};
   // A task waiting on a timer or a ticket is live work even when no OS
   // handle keeps Node alive.
   const keepAlive = setInterval(() => {}, 60_000);
@@ -107,21 +107,18 @@ async function loadProgram(filename, wasi, host, tasks) {
 // V8's default stack suits it; a larger young generation, which a caller
 // may give with --max-semi-space-size, helps only a program that copies
 // long lists. A run that ends without a status failed in its host.
-// `release` says a release build made the module: its device then skips
-// Dawn's validation, which a debug build's keeps (host/native/gpu.mjs).
-export async function start(filename, arguments_, {release = false} = {}) {
+export async function start(filename, arguments_) {
   process.exitCode = 2;
   try {
     if (!filename) throw new Error('usage: run-snail.mjs MODULE.wasm [ARGUMENT ...]');
-    process.exitCode = await run(filename, arguments_, release);
+    process.exitCode = await run(filename, arguments_);
   } catch (error) {
     console.error(`snail: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
-// As a command, this runs the module its first argument names, as a
-// debug build's; a Node package's main.mjs, which `snail-scheme run` runs,
-// imports it and names its own, with its build's mode. Neither waits at the
+// As a command, this runs the module its first argument names; a Node
+// package's main.mjs imports it and names its own. Neither waits at the
 // top level, so `require` can load the package too, as an executable's
 // injected script does (doc/book/snail-scheme/projects.md, "A Node package").
 if (import.meta.main) {

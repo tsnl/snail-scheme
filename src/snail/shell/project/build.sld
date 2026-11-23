@@ -81,9 +81,8 @@
     ;; its directory can be served or shipped on its own, a page's with the
     ;; browser host and a Node program's as an npm package. A release build
     ;; also optimizes the module with wasm-opt, which can inline the
-    ;; runtime's functions into the program, and a release Node program's
-    ;; device skips Dawn's validation of each call, which a debug program's
-    ;; keeps (host/native/gpu.mjs); those are the modes' differences.
+    ;; runtime's functions into the program; that is the modes' one
+    ;; difference.
     (enum Mode
       (Debug)
       (Release))
@@ -874,18 +873,17 @@
                                (string-append directory "/host/" file)
                                (string-append "cannot copy the native host's " file)))
                   node-files)
-        (write-file fs (string-append directory "/main.mjs") (node-main name (● builder mode)))
+        (write-file fs (string-append directory "/main.mjs") (node-main name))
         (write-file fs (string-append directory "/package.json")
                     (json->string (node-manifest fs root name libraries)))))
 
     ;; The package's entry, which runs NAME.wasm beside it with its own
-    ;; arguments and tells the runner the build's mode. Node warns that
-    ;; WASI is experimental as the runner loads, which the command line's
-    ;; --no-warnings silences. The entry silences warnings before it imports
-    ;; the runner, so the package runs alike through npm, as `node main.mjs`
-    ;; and in an executable.
+    ;; arguments. Node warns that WASI is experimental as the runner loads,
+    ;; which the command line's --no-warnings silences. The entry silences
+    ;; warnings before it imports the runner, so the package runs alike
+    ;; through npm, as `node main.mjs` and in an executable.
 
-    (define (node-main (name String) (mode Mode)) (→ String)
+    (define (node-main (name String)) (→ String)
       (string-join (list "#!/usr/bin/env node"
                          (string-append "// Runs " (program-name name) ", a snail-scheme program.")
                          "import {join} from 'node:path';"
@@ -894,12 +892,7 @@
                          (string-append "const program = join(import.meta.dirname, "
                                         (json->string (JsonString (program-name name)))
                                         ");")
-                         (string-append "import('./host/native/run-snail.mjs')"
-                                        ".then(({start}) => start(program, process.argv.slice(2), {release: "
-                                        (match mode
-                                          ((Debug) "false")
-                                          ((Release) "true"))
-                                        "}));")
+                         "import('./host/native/run-snail.mjs').then(({start}) => start(program, process.argv.slice(2)));"
                          "")
                    "\n"))
 

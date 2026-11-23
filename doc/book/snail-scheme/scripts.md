@@ -170,9 +170,8 @@ The commands:
 
 - `snail-scheme build FLAGS FILE` builds `FILE`.
 - `snail-scheme run FLAGS FILE [ARGUMENT ...]` builds `FILE` exactly as `build`
-  does, then runs it on Node through its package's `main.mjs`, as `node
-  main.mjs` would. Its output stays on disk, so a failure can be diagnosed,
-  and future caching needs no new path.
+  does, then runs it on Node. Its output stays on disk, so a failure can be
+  diagnosed, and future caching needs no new path.
 - `snail-scheme lsp` and `snail-scheme format` are unchanged.
 
 A producer that calls the compiler passes the same flags, as a record, so a
@@ -195,10 +194,8 @@ folder can be served or run as it is, as `python3 -m http.server
 --directory build/src/apps/siegework/main` serves a browser program.
 
 A release build, `--release`, also optimizes the module with Binaryen's
-`wasm-opt -O2`, which can inline the runtime's functions into the program,
-and on Node its device skips Dawn's validation of each call, which a debug
-build's keeps ([WebGPU on Node](../graphics/plan.md#webgpu-on-node)).
-Those are the modes' differences: a debug build was once a module per
+`wasm-opt -O2`, which can inline the runtime's functions into the program.
+That is the modes' one difference: a debug build was once a module per
 library with a manifest, kept for relinking a running page, and went when
 reload did.
 
