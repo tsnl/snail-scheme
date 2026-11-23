@@ -1,0 +1,13 @@
+front and back have different weights in opposite views
+a ray on a bisector has one owner
+a ray starting inside sees only the remaining distance
+a missed box and a transparent cell give black
+both sites' position, density and RGB gradients match finite differences
+a fitting step reduces RGB error
+one square lies on the bisector and reaches all four box edges
+a third site clips the face at the shared edge
+uniform classification emits no surface
+edge contact between opposite cells emits no extra face
+coincident sites keep the first material
+face winding points from dense to sparse
+crossing a four-cell edge gives no weight to zero-length visits

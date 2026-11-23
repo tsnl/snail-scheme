@@ -104,3 +104,54 @@ capacity. The schedule is the host's
 ([training on photographs](../graphics/tensors.md#training-on-photographs)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/splat-fit.sld)
+
+## `(snail shell graphics radiant-foam)`
+
+Radiant Foam partitions space into convex Voronoi cells. Each site controls
+the position of its cell walls and carries a density and radiance. A ray
+crossing a cell for distance `d` transmits a fraction `exp(-density * d)`
+of the light from behind it. The repository's 3DGS renderer projects
+overlapping Gaussians into image-space ellipses and blends their splats.
+The paper uses the dual Delaunay graph to walk from cell to cell and can
+grow the point set during fitting. [Radiant Foam](https://radfoam.github.io/)
+
+`make-foam` builds a CPU reference for small scenes in the cube
+`[-1, 1]³`. Each site carries a position in the cube, finite nonnegative
+extinction per model unit, and RGB in `[0, 1]`. Coincident positions share
+the first site's material. At box entry, `render-ray` finds the nearest
+site. Along the ray the squared distance to every site has the same
+quadratic term, so intersecting the remaining straight lines gives the
+next cell boundary. Each crossing goes to a site farther along the ray.
+The CPU reference considers all `N` sites as candidates at each of `K`
+visited cells, taking `O(NK)` work. It composites their contributions
+over black. `fit-step` takes a batch of posed RGB samples and returns a new foam.
+It differentiates mean squared RGB error through color, extinction, and
+the movement of the bisector at each ray crossing. Grazing rays can give
+large position gradients, so each batch can move a coordinate by at most
+one percent of the box width. The prototype uses
+view-independent RGB and a fixed site budget.
+
+### Which surface does the mesh describe?
+
+The foam supplies the geometry of every **volume cell**. Choosing a density
+threshold gives one possible **object surface**. `density-faces` intersects
+the bisectors separating cells on opposite sides of that threshold with
+the other half-spaces. The resulting convex polygons face the sparser
+cell. The demo triangulates these polygons and welds shared vertices for
+OBJ export. Interfaces that reach the clipping box end there. Density
+can also be spread through translucent material or concentrated in
+disconnected patches, so a fitted image alone does not establish a
+watertight physical object. The paper uses a regularizer to encourage
+surface-like densities. [Radiant Foam paper, §3.3](https://openaccess.thecvf.com/content/ICCV2025/papers/Govindarajan_Radiant_Foam_Real-Time_Differentiable_Ray_Tracing_ICCV_2025_paper.pdf)
+
+DefTet starts with a tetrahedralization, learns displacements for its
+shared vertices, and predicts an occupancy for each tetrahedron. Once those
+occupancies are classified, shared triangular faces between occupied and
+empty tetrahedra directly form the object's boundary. Radiant Foam's
+Delaunay tetrahedra play a different role. Their edges connect neighboring
+Voronoi sites, and those neighbors can change as the sites move.
+[DefTet](https://research.nvidia.com/labs/toronto-ai/DefTet/) · [Radiant Foam](https://radfoam.github.io/)
+
+Run the synthetic fit with `./snail-scheme run --target node src/apps/foam/main.scm`.
+The application also reads the splat trainer's COLMAP datasets and can
+export other thresholds from a saved fit. [Run the prototype](https://github.com/tsnl/snail-scheme/blob/main/src/apps/foam/README.md)

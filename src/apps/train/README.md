@@ -103,4 +103,5 @@ the held-out PSNR at 4946x3286 was 23.76. The paper trains this scene at
 a quarter of that width, so it has no number to set beside this one.
 
 COLMAP's cameras must be pinholes: undistort the photographs first, as
-Mip-NeRF 360's are.
+Mip-NeRF 360's are. A small Radiant Foam trainer reads the same cameras,
+photographs and split. [Foam prototype](../foam/README.md)
