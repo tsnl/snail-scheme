@@ -194,6 +194,44 @@
                                (show (array-length (only-value (list de) inputs)))
                                " values"))))
 
+;; A body of several operations differentiated as one expression: a
+;; row's elements picked apart, combined, and packed again, whose gradient
+;; is one map; and a map of two ports, the loss reading one of them, whose
+;; other adds nothing, then both.
+(define (expression-gradients (out OutputPort)) (→ Unit)
+  (let* ((x (param "x" (list 4 3) (Float)))
+         (inputs (inputs-of (list (new Pair (first "x") (second (ramp 12 0.1 -0.5))))))
+         (row (Load 0 (Float) (list 3)))
+         (at (lambda (i) (Apply (Pick (list i)) (list row) (Float) (Nil))))
+         (k (lambda (c) (Literal c (Float))))
+         (of (lambda (op a) (Apply op (list a) (Float) (Nil))))
+         (on (lambda (op a b) (Apply op (list a b) (Float) (Nil))))
+         (u (at 0))
+         (v (at 1))
+         (w (at 2))
+         (body (Apply (Pack)
+                      (list (k 0.0)
+                            (on (Mul) (k 1.5) (on (Mul) u v))
+                            (on (Sub) (on (Mul) w w) (of (Sqrt) (on (Add) (on (Mul) u u) (k 1.0))))
+                            (on (Div) (of (Exp) v) (on (Add) (on (Mul) w w) (k 2.0)))
+                            (on (Max) u (on (Mul) v w)))
+                      (Float)
+                      (list 5)))
+         (one (mapped body (list x) (list 4)))
+         (two (mapped-ports (list body (on (Mul) u (of (Sin) w))) (list x) (list 4)))
+         (first-port (node-view two (map-port-name 0)))
+         (second-port (node-view two (map-port-name 1)))
+         (loss (sum-all (square one))))
+    (check out "one map dx" loss x inputs)
+    (check out "two ports, one read, dx" (sum-all (square first-port)) x inputs)
+    (check out "two ports dx" (+ (sum-all (square first-port)) (sum-all second-port)) x inputs)
+    (write-line out
+                (string-append "one map dx: "
+                               (show (length (toposort (grad loss (list x)))))
+                               " nodes, "
+                               (show (length (toposort (list loss))))
+                               " in the loss"))))
+
 ;; ---- Fusion ----
 
 ;; A fused graph computes exactly what it fused, since the evaluator rounds
@@ -371,6 +409,7 @@
   (gradients out)
   (rows-gradient out)
   (empty-gradients out)
+  (expression-gradients out)
   (fusion out)
   (fusion-limits out)
   (written-ports out)

@@ -34,8 +34,9 @@ nodes, broadcasting as NumPy does.
 - **Maps and reductions**: the elementwise operations (`exp`, `log`,
   `sigmoid`, `where`, `maximum`, comparisons, `convert`, `bitcast`, …),
   `sum`, `sum-all`, `mean`, `amax`, `amin` and `matmul`; `mapped` and
-  `reduced` take an `Expr` body directly. A map of several bodies, one
-  kernel writing a port for each, is fusing's (`mapped-ports`).
+  `reduced` take an `Expr` body directly, and `mapped-ports` a map of
+  several bodies, one kernel writing a port for each, as fusing also
+  makes them.
 - **Data movement**: `copy`, `reshape`, `gather`, `scatter-add`, `concat`,
   `stack` and `place`.
 - **Sorts and scans**: `sort-pairs`, `sort-first-pairs` (only as many pairs
@@ -57,8 +58,17 @@ one back ([graphs and views](../graphics/tensors.md#graphs-and-views)).
 `(grad loss views)` answers the gradient of a scalar with respect to each
 view, as views of new nodes; nothing runs. It walks the nodes the loss
 depends on from last to first, and each kind of node hands each argument
-its share of its ports' gradients: a map back through its body, a
-reduction over its span, a custom node by its own adjoint.
+its share of its ports' gradients: a map back through each of its bodies,
+a reduction over its span, a custom node by its own adjoint. A port that
+nothing the loss depends on reads has no gradient, and adds nothing.
+
+A body of one operation, as every elementwise operation, `matmul`, `concat`
+and small reduction builds, hands each argument a node built by that
+operation's rule. A body of several operations, which a library writes with
+`mapped`, is differentiated as one expression: its gradient is one map for
+each argument, which a kernel computes whole. The splat trainer writes the
+harmonics' basis so, sixteen numbers a gaussian from its direction
+([gradients and Adam](../graphics/tensors.md#gradients-and-adam)).
 
 A port's shares are gathered once every node reading it has handed one
 back. A share through a view that reads the whole port comes back as a

@@ -414,9 +414,10 @@
     ;; computes each of its bodies at each element of its ports' leading
     ;; axes, port k being those axes followed by body k's tile, so a copy,
     ;; the one way a view becomes a buffer, is a map of one load, and a
-    ;; small matrix product is a map multiplying tiles. A map is built with
-    ;; one body; fusing makes one of several where one kernel can compute
-    ;; what a map reads and also write it (`mapped-ports`). A `Reduce` computes its
+    ;; small matrix product is a map multiplying tiles. A map of several
+    ;; bodies computes them all in one kernel, a port for each
+    ;; (`mapped-ports`), as fusing makes one where a kernel can compute
+    ;; what a map reads and also write it. A `Reduce` computes its
     ;; body at each element of its arguments' shape and combines it over
     ;; the trailing `span` axes, so its port is that shape without them,
     ;; and a large matrix product is a sum of products; a `Place` writes its
