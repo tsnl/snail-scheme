@@ -165,18 +165,11 @@
                                   (- speed (max -0.55 (min 0.55 speed)))
                                   (pedals speed (axis bits 1 2)))))
               (set! (● w cab) (bicycle-step b sedan steer next-speed (car-walls w) dt))))))
+    (define (use-door (r Rider) (car Body) (solids (List Footprint))) (→ Rider)
+      (match r ((Ground _) (approach-door r car 4.2)) ((AtDoor b) (Ground b))
+             (_ (leave-seat r car sedan (DriverDoor) solids))))
     (define (move-driver! (w Game) (bits I64) (use Bool)) (→ Unit)
-      (let* ((car (● w cab)) (r (● w driver)) (requested (if use
-                                                             (match r
-                                                               ((Ground _)
-                                                                (approach-door r car 4.2))
-                                                               ((AtDoor b) (Ground b))
-                                                               (_ (leave-seat r
-                                                                              car
-                                                                              sedan
-                                                                              (DriverDoor)
-                                                                              (street w))))
-                                                             r)))
+      (let* ((car (● w cab)) (r (● w driver)) (requested (if use (use-door r car (street w)) r)))
         (match requested
           ((Ground b) (set! (● w driver) (Ground (walk b (+ (● b heading) (* 0.13 (axis bits 8 4)))
                                                        (* 5.5 (axis bits 1 2))

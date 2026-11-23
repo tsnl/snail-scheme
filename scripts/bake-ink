@@ -115,6 +115,8 @@ def main():
     parser.add_argument("--check", action="store_true", help="verify the committed library matches the Ink source")
     parser.add_argument("--max-turns", type=int, default=256)
     args = parser.parse_args()
+    # The self-contained .NET CLI can run in the Nix shell without system ICU.
+    os.environ.setdefault("DOTNET_SYSTEM_GLOBALIZATION_INVARIANT", "1")
     root = Path(__file__).resolve().parents[1]
     names = args.output.resolve().relative_to(root / "src").with_suffix("").parts
     if args.output.suffix != ".sld" or not all(re.fullmatch(r"[a-z][a-z0-9-]*", n) for n in names):

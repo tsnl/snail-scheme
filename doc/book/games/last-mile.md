@@ -21,7 +21,7 @@ python3 -m http.server 0 --bind 127.0.0.1 --directory build/src/apps/last-mile/m
 | Space or primary mouse button | Fire the paint marker straight ahead | Fire in the car’s heading |
 | P or Escape | Pause or resume | Pause or resume |
 
-The gold diamond on the map marks the current objective. The speedometer switches to a distance and bearing readout beside the on-foot indicator. The page saves in this browser every five seconds and when hidden. R starts another take after delivery.
+Replies can also be clicked or focused with Tab and selected with Enter. The gold diamond on the map marks the current objective. The speedometer switches to a distance and bearing readout beside the on-foot indicator. The page saves in this browser every five seconds and when hidden. R starts another take after delivery.
 
 ## Build it in six steps
 
