@@ -29,3 +29,7 @@ kbd { display: inline-block; min-width: 20px; padding: 2px 4px; margin-right: 2p
 @media (max-width: 650px) { .keys { gap: 6px; font-size: 10px; } .dispatch { padding: 10px; } .dash { padding: 8px; } }
 
 #status { position: fixed; top: 42%; left: 50%; transform: translate(-50%,-50%); padding: 12px 18px; background: #141b29; color: #f1eee2; }
+
+.speech:not(:empty) { margin-top: 10px; padding-top: 8px; border-top: 1px solid #75959380; color: #bcebe1; }
+.answers:not(:empty) { margin-top: 6px; color: #fff0cc; font-size: clamp(11px,1.05vw,14px); line-height: 1.55; white-space: pre-line; }
+@media (max-width: 650px) { .keys { flex-wrap: wrap; max-width: 94vw; bottom: 1.2vh; } }

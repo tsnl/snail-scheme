@@ -48,6 +48,7 @@
    buffer-bytes
    scene-materials
    gltf-bounds
+   gltf-transformed
    gltf-scaled
    uri-path)
   (import
@@ -688,8 +689,13 @@
                  (new Pair (first (list 1e30 1e30 1e30)) (second (list -1e30 -1e30 -1e30)))
                  (● gltf placed)))
 
-    ;; The scene made `factor` times larger about the origin: each
-    ;; placement's matrix with its first three rows scaled.
+    ;; An instance transform precedes each placed primitive's node transform.
+    (define (gltf-transformed (g Gltf) (matrix (List F64))) (→ Gltf)
+      (Gltf-placed-set g
+                       (map (lambda (p) (Placed-matrix-set p (multiply matrix (● p matrix))))
+                            (● g placed))))
+
+    ;; Scale about the origin by multiplying the first three rows.
     (define (gltf-scaled (gltf Gltf) (factor F64)) (→ Gltf)
       (Gltf-placed-set gltf
                        (map (lambda (placed)

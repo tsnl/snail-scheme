@@ -57,6 +57,23 @@
                                                         0.035 z 0.58 1.0 1.25 0.0)) (iota 6)))
                     (list 13.5 -3.3 -27.0)))))
 
+    (define (take-marks) (→ (List Item))
+      (let ((gold (rgb 247 179 53)))
+        (append (place-parts (list (piece (Tile) gold 0.0 0.047 -1.2 4.6 1.0 0.14 0.0)
+                                   (piece (Tile) gold 0.0 0.047 1.2 4.6 1.0 0.14 0.0)
+                                   (piece (Tile) gold 2.25 0.047 0.0 0.14 1.0 2.4 0.0))
+                             shoot-mark 0.0 0.0)
+                (list (piece (Tile) gold (● pickup-curb x) 0.042 (● pickup-curb z) 0.25 1.0 2.5 0.0)
+                      (piece (Tile)
+                             gold
+                             (● editor-stop x)
+                             0.042
+                             (● editor-stop z)
+                             2.35
+                             1.0
+                             0.22
+                             0.0)))))
+
     (define (trees) (→ (List Item))
       (concatenate (map (lambda (p)
                           (let ((z (● p z)) (x (● p x)))
@@ -73,16 +90,17 @@
     (define (street-items) (→ (List Item))
       (concatenate (list (list (piece (Box) tar 0.0 -0.4 -4.0 140.0 0.4 145.0 0.0))
                          (markings)
+                         (take-marks)
                          (trees)
                          (cutting-room-items)
                          (concatenate (map facade buildings)))))
 
     ;; The plate and gate drop together. They retain their mesh slots across takes.
-    (define (prop-items (w World)) (→ (List Item))
-      (let ((y (match (● w mission) ((Pickup) 0.0) ((Action) 0.0) (_ -3.0))))
-        (list (piece (Box) cream 0.0 (+ y 0.78) -15.0 8.8 0.27 0.16 0.0)
-              (piece (Box) red 0.0 (+ y 0.87) -14.9 8.7 0.09 0.06 0.0)
-              (piece (Box) tar (● target x) y (● target z) 0.13 1.5 0.13 0.0)
-              (piece (Box) red (● target x) (+ y 0.97) (● target z) 1.65 1.3 0.15 0.0)
-              (piece (Box) cream (● target x) (+ y 1.25) (+ (● target z) 0.09) 0.84 0.74 0.03 0.0)
-              (piece (Box) red (● target x) (+ y 1.44) (+ (● target z) 0.12) 0.4 0.36 0.02 0.0))))))
+    (define (prop-items (w Game)) (→ (List Item))
+      (let ((y (if (gate-up? w) 0.0 -3.5)) (x (● target x)) (z (● target z)))
+        (list (piece (Box) cream 21.5 (+ y 0.78) -6.0 0.16 0.27 8.8 0.0)
+              (piece (Box) red 21.4 (+ y 0.87) -6.0 0.06 0.09 8.7 0.0)
+              (piece (Box) tar x y z 0.13 1.5 0.13 0.0)
+              (piece (Box) red x (+ y 0.97) z 0.15 1.3 1.65 0.0)
+              (piece (Box) cream (- x 0.09) (+ y 1.25) z 0.03 0.74 0.84 0.0)
+              (piece (Box) red (- x 0.12) (+ y 1.44) z 0.02 0.36 0.4 0.0))))))

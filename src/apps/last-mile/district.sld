@@ -1,7 +1,20 @@
 ;; Every building's footprint supplies both the street collider and the
 ;; facade in the scene. Roads run through the gaps between blocks.
 (define-library (apps last-mile district)
-  (export Building buildings tree-sites canopies walls gate target cutting-room parking)
+  (export Building
+          buildings
+          tree-sites
+          canopies
+          walls
+          gate
+          target
+          cutting-room
+          parking
+          pickup-curb
+          shoot-mark
+          van-center
+          editor-stop
+          delivery-point)
   (import
    (snail core base)
    (snail shell game physics))
@@ -38,11 +51,17 @@
       (append (map (lambda (b) (footprint (● b center x) (● b center z) (● b width) (● b depth)))
                    buildings)
               (append (map (lambda (p) (footprint (● p x) (● p z) 0.3 0.3)) tree-sites)
-                      (list (footprint -45.0 -6.0 2.0 100.0) (footprint 44.0 -6.0 2.0 100.0)
+                      (list (footprint (● van-center x) (● van-center z) 4.875 2.1)
+                            (footprint (● cutting-room x) (● cutting-room z) 2.7 1.05)
+                            (footprint -45.0 -6.0 2.0 100.0) (footprint 44.0 -6.0 2.0 100.0)
                             (footprint 0.0 -55.0 96.0 2.0) (footprint 0.0 43.0 96.0 2.0)))))
 
     (define parking (→ XZ) (xz 0.0 17.0))
-    (define target (→ XZ) (xz 0.0 -13.0))
-    (define cutting-room (→ XZ) (xz 20.0 -30.0))
-    (define gate (→ Footprint) (footprint 0.0 -15.0 9.0 0.45))
-    ))
+    (define pickup-curb (→ XZ) (xz 2.35 8.5))
+    (define van-center (→ XZ) (xz 6.9 -8.7))
+    (define shoot-mark (→ XZ) (xz 11.8 -5.25))
+    (define target (→ XZ) (xz 19.4 -5.25))
+    (define gate (→ Footprint) (footprint 21.5 -6.0 0.45 8.8))
+    (define editor-stop (→ XZ) (xz 19.4 -28.9))
+    (define cutting-room (→ XZ) (xz 23.6 -30.0))
+    (define delivery-point (→ XZ) (xz 23.6 -28.96))))

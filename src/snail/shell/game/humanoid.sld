@@ -7,7 +7,7 @@
           Striding
           Bracing
           Riding
-          Gait
+          Gait Gait-seat-set
           resting
           animate
           Pose

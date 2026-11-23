@@ -3,7 +3,7 @@
 ;; a fast vehicle cannot skip a thin wall between simulation ticks.
 (define-library (snail shell game physics)
   (export XZ xz distance heading-to forward offset Footprint footprint clear?
-          Body body travel walk trace-distance)
+          Body body travel walk clear-path? trace-distance)
   (import
    (snail core base)
    (snail shell math)
@@ -79,6 +79,15 @@
                    (let ((hit (contact p delta r w)))
                      (if (< (● hit time) (● nearest time)) hit nearest)))
                  free walls))
+
+    (define (clear-path? (from XZ) (to XZ) (radius F64) (walls (List Footprint))) (→ Bool)
+      (and (clear? from radius walls) (clear? to radius walls)
+           (= (● (first-contact from
+                                (xz (- (● to x) (● from x)) (- (● to z) (● from z)))
+                                radius
+                                walls)
+                 time)
+              1.0)))
 
     (record Body
       ((position XZ)
