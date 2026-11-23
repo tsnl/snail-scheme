@@ -1,7 +1,9 @@
 // The `Gpu` capability on Node, whose device is Dawn's (host/native/gpu.mjs):
 // tests/gpu/node.scm runs the checks that need only a device, as the page
 // does, and the splat renderer's training checks, on the GPU Dawn finds,
-// and WebGPU reports no error. Its build is a package that depends on the
+// and WebGPU reports no error. A program on Node skips Dawn's validation;
+// the checks keep it, with SNAIL_GPU_VALIDATION=1, unless the variable says
+// otherwise. Its build is a package that depends on the
 // webgpu and @napi-rs/canvas packages, and runs as it would be shipped:
 // Node finds both in the repository's node_modules, which `make fetch`
 // installs. `make test-gpu` runs this, on the machine's GPU, or in CI,
@@ -21,7 +23,8 @@ const built = (await execute(join(root, 'snail-scheme'), ['build', '--target', '
   {cwd: root})).stdout.trim();
 const manifest = JSON.parse(await readFile(join(built, 'package.json'), 'utf8'));
 assert.ok(manifest.dependencies.webgpu && manifest.dependencies['@napi-rs/canvas'], 'the package depends on webgpu and @napi-rs/canvas');
-const {stdout, stderr} = await execute(process.execPath, [join(built, 'main.mjs')], {cwd: root});
+const env = {...process.env, SNAIL_GPU_VALIDATION: process.env.SNAIL_GPU_VALIDATION ?? '1'};
+const {stdout, stderr} = await execute(process.execPath, [join(built, 'main.mjs')], {cwd: root, env});
 assert.deepEqual(stderr.split('\n').filter(line => line.startsWith('WebGPU')), [], 'WebGPU reported nothing');
 const printed = stdout.trimEnd().split('\n');
 assert.equal(printed[0], 'format: rgba8unorm');

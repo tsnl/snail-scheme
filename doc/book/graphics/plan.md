@@ -482,25 +482,31 @@ waits on the device often, as a training loop that reads its loss does,
 waits a thirtieth as long on Node. Chromium coarsens the page's clock to
 100 μs, which the last row's range shows.
 
-Node keeps Dawn's guards, as a browser does: validation of every call,
-bounds checks on shaders' memory, and zeroed workgroup memory and
-resources. Turning the first three off, which Dawn's toggles allow, saved
-0.1 μs of the 1.4 that encoding a dispatch takes on the 5090, and a shader
-that gathers 268 million words at computed indices took the same 7.84 ms
-without bounds checks. The zeroing cannot go: WebGPU promises zeroed
-buffers, and a tensor program's params start at zeros, Adam's moments
-among them. What Node gains is Dawn in its own process.
+Node skips Dawn's validation of each call, which a page cannot
+(`enable-dawn-features=skip_validation`), and keeps the other guards a
+browser has: bounds checks on shaders' memory, and zeroed workgroup memory
+and resources. A program trusts its own calls. The GPU checks
+(`tests/gpu.mjs`) validate them, with `SNAIL_GPU_VALIDATION=1`, so misuse
+still fails a check rather than reaching the driver as undefined behaviour,
+and a program being debugged can set the same.
 
-An indirect dispatch is the exception. Dawn checks its arguments on the
-device with a dispatch it adds before it, and making that dispatch cost
-about 0.46 ms of the host's time for each indirect dispatch on the 5090,
-against 1.5 μs for a direct one, and nothing with validation skipped.
-Chromium pays the same for a page. So nothing dispatches indirectly: a
+Validation costs little except for an indirect dispatch. Skipping it saved
+0.1 μs of the 1.4 that encoding a dispatch takes on the 5090, and training
+bicycle to step 7,000 took 190.7 s without it, against 191.3 s with it. An
+indirect dispatch's arguments are checked on the device, by a dispatch
+Dawn adds before it. Dawn gives that dispatch a new uniform buffer each
+time, written at creation through a staging buffer the host can map. Dawn's
+Vulkan backend gives every mappable buffer memory of its own, so making
+and releasing one cost about 0.46 ms of the host's time, against 1.5 μs for
+a direct dispatch. A page pays that, so nothing dispatches indirectly: a
 kernel that a count the device computes sizes runs a fixed number of
 workgroups, which read the count and loop over the work below it
-(`radix-sort.sld`, `bvh.sld`). Without indirect dispatches, validation
-costs a training step nothing measurable: training bicycle to step 7,000
-took 191.3 s with it and 190.7 s without.
+(`radix-sort.sld`, `bvh.sld`).
+
+A shader that gathers 268 million words at computed indices took the same
+7.84 ms without bounds checks. The zeroing cannot go: WebGPU promises zeroed
+buffers, and a tensor program's params start at zeros, Adam's moments
+among them. What Node gains is Dawn in its own process.
 
 ## Device baseline
 
