@@ -6,8 +6,9 @@
 // which the repository's package.json pins and `make fetch` installs, and
 // which a Node build's package depends on when its program may ask for a
 // device. It loads at the program's first `request-device`, so a program
-// that never asks needs none. Dawn keeps the guards a browser has, which
-// cost little (doc/book/graphics/plan.md, "WebGPU on Node").
+// that never asks needs none. Dawn skips its validation of each call,
+// which a page cannot, unless SNAIL_GPU_VALIDATION=1, and keeps the other
+// guards a browser has (doc/book/graphics/plan.md, "WebGPU on Node").
 //
 // A browser decodes images and Node does not, so `decode-image` is npm's
 // @napi-rs/canvas package (github.com/Brooooooklyn/canvas), a 2D canvas
@@ -39,11 +40,17 @@ function nodeDevice() {
 
 // Dawn rounds timestamps to 65,536 nanoseconds by default, so that a page
 // cannot time what other sites do; a program on Node is no page, and its
-// profiles need the device's own resolution.
+// profiles need the device's own resolution. Nor does it need Dawn's
+// validation, which costs an indirect dispatch half a millisecond of the
+// host's time: a program trusts its own calls, and the GPU checks
+// (tests/gpu.mjs) validate them, with SNAIL_GPU_VALIDATION=1, so that
+// misuse still fails a check rather than reaching the driver.
 async function opened() {
   const {create, globals} = await import('webgpu');
   Object.assign(globalThis, globals);
-  const instance = create(['disable-dawn-features=timestamp_quantization']);
+  const validating = process.env.SNAIL_GPU_VALIDATION === '1';
+  const instance = create(['disable-dawn-features=timestamp_quantization',
+                           ...(validating ? [] : ['enable-dawn-features=skip_validation'])]);
   const {device, optional} = await requestDevice(instance);
   return {device, context: null, format: 'rgba8unorm', optional, instance, decode: encoded => nodeImage(device, encoded)};
 }

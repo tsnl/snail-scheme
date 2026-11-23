@@ -241,8 +241,8 @@ fixed number of workgroups, at most 4,096, that share the blocks counted in
 runs, so a pass costs the keys counted, not the capacity. A custom kernel
 does the same with a count among its arguments. Dispatching only the
 workgroups a count needs would take an indirect dispatch, which Dawn
-validates on the host: half a millisecond each, against a microsecond or
-two for a direct dispatch
+validates on the host for a page: half a millisecond each, against a
+microsecond or two for a direct dispatch
 ([WebGPU on Node](plan.md#webgpu-on-node)).
 
 A sort's first pass reads its keys and values where they are, and its last
