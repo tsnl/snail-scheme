@@ -312,7 +312,33 @@
     (updates-line out
                   "reordered"
                   (list (new Pair (first m) (second m2)) (new Pair (first g) (second (- g turned))))
-                  inputs)))
+                  inputs)
+    (later-line out m g inputs)))
+
+;; A map reading a producer whole, which a gather after it reads too: the
+;; map writes the producer's port, which the gather then reads.
+(define (later-line (out OutputPort) (m View) (g View) (inputs (Table (Array F64)))) (→ Unit)
+  (let* ((shared (+ (* m m) g))
+         (sum (+ shared (scalar 1.0)))
+         (rows (gather shared
+                       (constant "rows"
+                                 (list 2)
+                                 (Unsigned)
+                                 (values->bytes (list->array (list 3.0 0.0)) (Unsigned)))))
+         (roots (list sum rows))
+         (fused (fuse roots))
+         (same (every? (lambda (pair)
+                         (every? (lambda (xy) (= (● xy first) (● xy second)))
+                                 (zip (array->list (● pair first)) (array->list (● pair second)))))
+                       (zip (evaluate roots inputs) (evaluate fused inputs)))))
+    (write-line out (string-append "read later: "
+                                   (show (length (toposort roots)))
+                                   " nodes, fused "
+                                   (show (length (toposort fused)))
+                                   ", the map of "
+                                   (show (length (● (list-ref fused 0) node ports)))
+                                   " ports"
+                                   (if same ", the same values" ", other values")))))
 
 ;; How many nodes the updates' values need before and after fusing, the
 ;; ports of the node computing the last, and whether they agree.
