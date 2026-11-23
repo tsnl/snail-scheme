@@ -31,12 +31,13 @@
 ;; (`worth-taking?`). That weighs every node reading a producer, so a
 ;; program's sinks and updates are fused together.
 ;;
-;; A producer whose port is kept anyway, an update's value or a sink, is
-;; computed by its own kernel even where a map reads it. A map reading
-;; it whole, at the elements each of its threads computes, takes it in
-;; and writes its port too, a port of its own, so the producer needs no
-;; kernel (`writable?`): Adam's update of a param reads the moments it
-;; updates, and the three become one kernel of three ports.
+;; A producer whose port is kept anyway, an update's value, a sink, or a
+;; buffer a later kernel reads, is computed by its own kernel even where a
+;; map reads it. A map reading it whole, at the elements each of its
+;; threads computes, takes it in and writes its port too, a port of its
+;; own, so the producer needs no kernel, where nothing that runs before
+;; that map reads it (`writable?`): Adam's update of a param reads the
+;; moments it updates, and the three become one kernel of three ports.
 (define-library (snail shell tensor fuse)
   (export
    fuse
@@ -305,7 +306,7 @@
     ;; else taken in where that fits and is worth it.
     (define (taken-at (graph Graph) (kept (Table Bool)) (place I64) (f Fusing) (k I64))
       (→ (Option Fusing))
-      (or-taken (if (writable? graph place f k) (written-in graph kept place f k) (None))
+      (or-taken (if (writable? graph kept place f k) (written-in graph kept place f k) (None))
                 (lambda ()
                   (match (taking-in graph place f k (None))
                     ((Some next)
@@ -443,10 +444,13 @@
     ;; as take it in, so that the producer needs no kernel of its own: a
     ;; map of one body, read whole and in order, so that each thread
     ;; computes the producer's elements it loads; through no other view;
-    ;; and read by nothing else but what the kernel writes already, and
-    ;; the roots, which read its port once every node ran, and for which
-    ;; it is kept.
-    (define (writable? (graph Graph) (place I64) (f Fusing) (k I64)) (→ Bool)
+    ;; kept, its port read by a kernel planned before or by the roots; and
+    ;; read by nothing but what the kernel takes in or writes already and
+    ;; what runs after it, which reads the port the kernel wrote. So the
+    ;; backward pass reads what the forward pass computed for itself
+    ;; anyway, from the forward's kernel, and the step of bicycle's
+    ;; training at 7,000 runs 25 fewer kernels.
+    (define (writable? (graph Graph) (kept (Table Bool)) (place I64) (f Fusing) (k I64)) (→ Bool)
       (let* ((v (list-ref (● f args) k))
              (producer (● v node))
              (readers (readers-of (● graph readers) producer)))
@@ -457,10 +461,9 @@
                        (or (string=? (view-key a) (view-key v))
                            (not (string=? (● a node key) (● producer key)))))
                      (● f args))
-             (every? (lambda (r)
-                       (or (= (● r place) (● graph end)) (in-kernel? graph place f (● r place))))
+             (every? (lambda (r) (or (> (● r place) place) (in-kernel? graph place f (● r place))))
                      readers)
-             (any? (lambda (r) (= (● r place) (● graph end))) readers))))
+             (table-contains? kept (● producer key)))))
 
     (define (some-body? (n Node)) (→ Bool)
       (match (single-body n)

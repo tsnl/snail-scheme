@@ -176,28 +176,32 @@ forward pass rather than kept as their parts until then. Since this weighs
 every node reading a producer, a program's sinks and updates are fused
 together.
 
-A producer whose port is kept anyway, such as an update's value or a sink,
-keeps its own kernel where a map reads it, since taking it in would only
-compute it twice. A map can write it instead: one that reads it whole and
-in order, at the elements each of its threads computes, and is its only
-reader but for the roots, takes it in and writes its port as one of its
-own. That makes a map of several ports, one kernel computing each of its
-bodies, which share every expression they have in common
-(`mapped-ports`). Adam's update of a param reads the two moments it updates
+A producer whose port is kept anyway keeps its own kernel where a map
+reads it, since taking it in would only compute it twice. Its port is
+kept for an update's value or a sink, or for a later kernel that reads
+its buffer. A map can write it instead, if it reads the producer whole
+and in order, at the elements each of its threads computes, and nothing
+that runs before the map reads it. The map then takes it in and writes
+its port as one of its own, for what runs later to read. That makes a
+map of several ports, one kernel computing each of its bodies, which
+share every expression they have in common (`mapped-ports`). Adam's update of a param reads the two moments it updates
 whole, so the three updates of each param become one kernel of three
-ports. Each port counts toward the kernel's eight buffers. A param that a
-port writes in place shares that port's binding, but lowering decides
-which ports it writes in place, after fusing. So fusing counts the shared
-binding only for a param nothing else reads, as nothing but Adam reads its
-moments, where lowering is sure to write in place, and lowering refuses a
-map of more than eight.
+ports. A value of the forward pass that a later forward kernel reads whole,
+and the backward pass reads again, is written by that forward kernel
+rather than by a kernel of its own. Each port counts toward the kernel's
+eight buffers. A param that a port writes in place shares that port's
+binding, but lowering decides which ports it writes in place, after
+fusing. So fusing counts the shared binding only for a param nothing else
+reads, as nothing but Adam reads its moments, where lowering is sure to
+write in place, and lowering refuses a map of more than eight.
 
 On bicycle, fusing took a training step from 779 dispatches to 348, and
-the splats viewer's frame from 272 to 80; with gradients' parts joined
-since, the step is 197. Of the viewer's 10 ms for 4
-million gaussians, its sorts and its rasterizer take 4.5; of its generated
-kernels, the harmonics' color costs most, reading each gaussian's 48
-coefficients.
+the splats viewer's frame from 272 to 80. With gradients' parts joined,
+Adam's updates of each param in one kernel, and the backward pass reading
+what forward kernels wrote, the step at 7,000 is 155. Of the viewer's
+10 ms for 4 million gaussians, its sorts and its rasterizer take 4.5; of
+its generated kernels, the harmonics' color costs most, reading each
+gaussian's 48 coefficients.
 
 ## Lowering and running
 
