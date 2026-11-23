@@ -97,9 +97,10 @@ Two limits shape it: a body stays within 256 expressions, and a kernel
 within the eight storage buffers every device allows, its ports among them.
 A producer read by several kernels is computed in each, so it is taken in
 only where that holds no more memory, for no longer, than its own buffer
-would. A producer whose port is kept anyway, such as an update's value, is
-written by the map reading it whole, as a port of its own, so Adam's three
-updates of a param are one kernel ([fusing](../graphics/tensors.md#fusing)).
+would. A producer whose port is kept anyway, such as an update's value or
+a buffer a later kernel reads, is written by the map reading it whole, as
+a port of its own, so Adam's three updates of a param are one kernel
+([fusing](../graphics/tensors.md#fusing)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/tensor/fuse.sld)
 
