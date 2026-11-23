@@ -1,9 +1,11 @@
 ;; Build the instruments once. Dialogue comes from the saved story cursor.
 (define-library (apps last-mile hud)
-  (export Hud make-hud show!)
+  (export Hud make-hud show! click-reply!)
   (import
    (snail core base)
+   (only (snail core table) table-ref)
    (snail shell dom)
+   (prefix (snail shell ui) ui:)
    (snail shell math)
    (snail shell game physics)
    (snail shell game boarding)
@@ -16,6 +18,8 @@
       ((stage Node)
        (title Node)
        (message Node)
+       (book Dialogue)
+       (shown (List (ui:Shown (Pair Cursor I64))))
        (speech Node)
        (answers Node)
        (signal Node)
@@ -64,6 +68,7 @@
             (stage stage)
             (title title)
             (message message)
+            (book conversation) (shown (Nil))
             (speech (element d card "p" "speech" ""))
             (answers (element d card "div" "answers" ""))
             (mode mode)
@@ -71,22 +76,21 @@
             (signal signal)
             (you (element d map-node "i" "you" "")) (goal (element d map-node "i" "goal" ""))))))
 
+    (define (pickup-line (w Game)) (→ String)
+      (match (● w rosa)
+        ((AtDoor _) (if (blocked-door? w (PassengerDoor))
+                        "Rosa’s door is blocked. Pull forward or back and brake again."
+                        "Hold the brake. Rosa is walking to the passenger door."))
+        ((Entering _ _) "Rosa is getting in. Hold the brake.")
+        (_ "Drive north to the gold diamond. Hold B and leave room at the passenger door.")))
+
     (define (brief (w Game)) (→ (List String))
       (match (● w mission)
         ((PictureCar)
          (list "PICTURE CAR"
                "Pick up the sedan."
                "Press E near the car to walk to the driver’s door."))
-        ((MeetRosa) (list "PASSENGER PICKUP" "Pull over for Rosa." (match (● w rosa)
-                                                                     ((AtDoor _)
-                                                                      (if (blocked-door? w
-                                                                                         (PassengerDoor))
-                                                                          "Rosa’s door is blocked. Pull forward or back and brake again."
-                                                                          "Hold the brake. Rosa is walking to the passenger door."))
-                                                                     ((Entering _ _)
-                                                                      "Rosa is getting in. Hold the brake.")
-                                                                     (_
-                                                                      "Drive north to the gold diamond. Hold B and leave room at the passenger door."))))
+        ((MeetRosa) (list "PASSENGER PICKUP" "Pull over for Rosa." (pickup-line w)))
         ((FindMark)
          (list "SHOOTING MARK"
                "Make the right on Mercer."
@@ -109,20 +113,36 @@
          (list "THAT’S A WRAP"
                "The last take is in."
                "The reel is on the editor’s table. Keep exploring or press R for another take."))))
+    (define (reply-button (c Cursor) (i I64) (label String)) (→ (ui:Html (Pair Cursor I64)))
+      (ui:Element "button"
+                  (list (ui:Keyed (string-append (● c page) "/" (show (● c line)) "/" (show i)))
+                        (ui:On "click" (Nil) (Allow) (lambda (_) (new Pair (first c) (second i)))))
+                  (list (ui:Text label))))
+    (define (reply-buttons (book Dialogue) (c Cursor)) (→ (List (ui:Html (Pair Cursor I64))))
+      (let ((options (replies book c)))
+        (if (null? options) (list (reply-button c -1 "T  ·  Continue"))
+            (map-indexed (lambda (i reply) (reply-button c i
+                                                         (if (< i 9)
+                                                             (string-append (show (+ 1 i))
+                                                                            "  ·  "
+                                                                            (● reply text))
+                                                             (● reply text))))
+                         options))))
     (define (show-dialogue! (d Dom) (h Hud) (at (Option Cursor))) (→ Unit)
-      (let ((tell (● d set-text)))
-        (match at
-          ((None) (tell (● h speech) "") (tell (● h answers) ""))
-          ((Some c) (tell (● h speech) (spoken conversation c))
-           (let ((options (replies conversation c)))
-             (tell (● h answers)
-                   (if (null? options) "T  ·  Continue"
-                       (string-join (map-indexed (lambda (i reply)
-                                                   (string-append (show (+ 1 i))
-                                                                  "  ·  "
-                                                                  (● reply text)))
-                                                 options)
-                                    "\n"))))))))
+      (let ((book (● h book)))
+        ((● d set-text) (● h speech) (match at ((None) "") ((Some c) (spoken book c))))
+        (set! (● h shown) (ui:patch-children d (● h answers) (● h shown)
+                                             (match at
+                                               ((None) (Nil))
+                                               ((Some c) (reply-buttons book c)))))))
+    (define (click-reply! (h Hud) (w Game) (listener I32)) (→ Unit)
+      (match (table-ref (ui:listener-table (● h shown)) (show listener))
+        ((Some message)
+         (match (new Pair (first (message no-event)) (second (● w talk)))
+           ((Pair (Pair from i) (Some now))
+            (when (and (string=? (● from page) (● now page)) (= (● from line) (● now line)))
+              (speak! w i)))
+           (_ (unit)))) (_ (unit))))
     (define (bearing (b Body) (target XZ)) (→ String)
       (let ((turn (- (heading-to (● b position) target) (● b heading))))
         (cond ((< (cos turn) -0.6) "behind")

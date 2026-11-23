@@ -74,7 +74,10 @@ try {
   await ready();
   await expect('.stage', 'SHOOTING MARK');
   await expect('.speech', 'Gold tape, eastbound');
-  await tap('t');
+  const button = await browser.evaluate('document.querySelector(".answers button").getBoundingClientRect().toJSON()');
+  const click = {x: button.x + button.width / 2, y: button.y + button.height / 2, button: 'left', clickCount: 1};
+  await browser.send('Input.dispatchMouseEvent', {type: 'mousePressed', ...click});
+  await browser.send('Input.dispatchMouseEvent', {type: 'mouseReleased', ...click});
   await until(async () => (await read('.speech')) === '', 'finished conversation');
   await expect('.mode', 'KM/H');
   await tap('e');
