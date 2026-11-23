@@ -379,7 +379,9 @@
        (ranges View)
        (entries View)))
 
-    (define (binned (p Projection) (sensor Sensor)) (→ Bins)
+    ;; Binning reads the gaussians as the rasterizer does, from `splats`,
+    ;; and the radii of their squares from `p`.
+    (define (binned (p Projection) (splats View) (sensor Sensor)) (→ Bins)
       (let* ((count (list-ref (shape-of (● p centers)) 0))
              (code (lambda (text) (string-append (constants sensor count) splat-tiles-shader text)))
              (label (lambda (what) (string-append what " " (constants sensor count))))
@@ -391,7 +393,7 @@
                                                                  (list 0 1 2)
                                                                  (tiles count 256))))
                                           (adjoint no-gradient))
-                                        (list (● p centers) radii)
+                                        (list splats radii)
                                         (list (u32-port "counts" count)))))
              (order (● (sort-pairs (bitcast (reshape (● p depths) (list count)) (Unsigned))
                                    (exclusive-scan (ones-like counts))
@@ -411,7 +413,7 @@
                                                        (list 3 4 5)
                                                        (tiles capacity 256))))
                                 (adjoint no-gradient))
-                              (list (● p centers) radii order offsets sorted-counts)
+                              (list splats radii order offsets sorted-counts)
                               (list (u32-port "keys" capacity) (u32-port "ids" capacity))))
              (by-tile (sort-pairs (list-ref entries 0) (list-ref entries 1) (tile-key-bits sensor)))
              (ranges (only-port (custom (new Custom
@@ -452,18 +454,11 @@
 
     (define (render (cloud Cloud) (camera View) (sensor Sensor) (purpose Purpose)) (→ Rendering)
       (let* ((p (project cloud camera sensor))
-             (bins (binned p sensor)))
+             (splats (concat (list (● p centers) (● p conics) (● p colors) (● p opacities)) 1))
+             (bins (binned p splats sensor)))
         (new Rendering
-          (image (only-port (rasterized sensor
-                                        purpose
-                                        (list (● bins ids)
-                                              (● bins ranges)
-                                              (concat
-                                               (list (● p centers)
-                                                     (● p conics)
-                                                     (● p colors)
-                                                     (● p opacities))
-                                               1)))))
+          (image (only-port
+                  (rasterized sensor purpose (list (● bins ids) (● bins ranges) splats))))
           (projection p)
           (entries (● bins entries)))))
 
