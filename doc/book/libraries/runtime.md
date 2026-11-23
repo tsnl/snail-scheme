@@ -46,6 +46,7 @@ submit lets go of each object destroyed since the last one.
 | `(snail runtime native socket)` | TCP and UDP sockets as handles, each wait started under its ticket and answered with numbers and held bytes | `(snail shell socket)` |
 | `(snail runtime native process)` | Child processes and termination signals, answered as the sockets are; a command sent a character at a time | `(snail shell process)` |
 | `(snail runtime native async-files)` | Bounded file reads, a path staged a character at a time | `(snail shell async-files)` |
+| `(snail runtime native web)` | A file's length at a URL, and parts of it, answered as the sockets are; a URL sent a character at a time | `(snail shell web)` |
 
 Each file's header tabulates what its operations answer
 ([the Wasm boundary](../runtimes/networking.md#wasm-boundary)).
@@ -75,8 +76,8 @@ asks for what it needs by its parameters' types; a function here of no
 parameters provides each, made from the one `Host` the target holds. Every
 host gives `Host`, `Arguments`, `ProcessEnvironment`, an `OutputPort`
 (standard output), `Clock`, `Resources` and `Wasm`. Node adds an
-`InputPort` (standard input), `Fs`, `Files`, `Processes`, `Signals`, `Tcp`
-and `Udp`. A program that draws asks for `Host` and makes its `Gpu` with
+`InputPort` (standard input), `Fs`, `Files`, `Processes`, `Signals`, `Tcp`,
+`Udp` and `Web`. A program that draws asks for `Host` and makes its `Gpu` with
 `host-gpu` ([capabilities](../snail-scheme/capabilities.md)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/target/node.sld)

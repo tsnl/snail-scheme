@@ -14,7 +14,8 @@ come in layers, each importing only from the layers before it:
 - **Targets**, `(snail target …)`, run a program's `main` and give it the
   capabilities it asks for.
 - **Application support**: `(lpc …)` draws Liberated Pixel Cup characters,
-  and each application under `src/apps/` keeps libraries of its own.
+  `(datasets …)` links published datasets into programs, and each
+  application under `src/apps/` keeps libraries of its own.
 
 There are no `(scheme …)` compatibility libraries and no dynamic numeric
 tower.
@@ -66,6 +67,8 @@ Three conventions run through the shell:
 | [`(snail shell json)`](data.md#snail-shell-json), [`(snail shell json read)`](data.md#snail-shell-json-read) | JSON values, written as `JSON.stringify` writes them, and read back |
 | [`(snail shell wire)`](data.md#snail-shell-wire) | Values to bytes and back, checked against their schema |
 | [`(snail shell syntax)`](data.md#snail-shell-syntax) | The syntax a `generate-library` recipe returns |
+| [`(snail shell inflate)`](data.md#snail-shell-inflate) | DEFLATE streams, decompressed |
+| [`(snail shell zip)`](data.md#snail-shell-zip) | Zip archives, read a member at a time from the bytes given |
 | [`(snail shell compiler sha256)`](data.md#snail-shell-compiler-sha256) | SHA-256, the same on both hosts |
 
 ### Tasks, files, processes and networks
@@ -78,6 +81,8 @@ Three conventions run through the shell:
 | [`(snail shell process)`](system.md#snail-shell-process) | Child processes, commands run to their end, and signals |
 | [`(snail shell socket)`](system.md#snail-shell-socket) | TCP and UDP |
 | [`(snail shell http)`](system.md#snail-shell-http), [`(snail shell http exchange)`](system.md#snail-shell-http-exchange) | A bounded subset of HTTP/1.1, and one exchange over a connection |
+| [`(snail shell web)`](system.md#snail-shell-web) | The length of the file at a URL, and parts of it, on Node |
+| [`(snail shell web zip)`](system.md#snail-shell-web-zip) | Zip archives on the web, pinned, their members kept in the machine's cache |
 | [`(snail shell wasm)`](system.md#snail-shell-wasm) | Compiling, linking and calling WebAssembly modules |
 | [`(snail shell explore)`](system.md#snail-shell-explore) | Bounded model checking of a state machine |
 
@@ -166,7 +171,7 @@ Three conventions run through the shell:
 | --- | --- |
 | [`(snail runtime browser …)`](runtime.md#the-page) | The page's events, save, document, requests and files |
 | [`(snail runtime gpu)`](runtime.md#snail-runtime-gpu) | The host's WebGPU device |
-| [`(snail runtime native …)`](runtime.md#nodes-own) | Node's sockets, processes and asynchronous files |
+| [`(snail runtime native …)`](runtime.md#nodes-own) | Node's sockets, processes, asynchronous files and the web |
 | [`(snail runtime resource)`](runtime.md#snail-runtime-resource), [`(snail runtime wasm)`](runtime.md#snail-runtime-wasm) | Linked files and WebAssembly on every host |
 | [`(snail target node)`](runtime.md#snail-target-node), [`(snail target browser)`](runtime.md#snail-target-browser) | The two targets |
 
@@ -179,6 +184,13 @@ Three conventions run through the shell:
 | [`(lpc wardrobe)`](lpc.md#lpc-wardrobe) | Characters dressed from the catalog, as pictures |
 | [`(lpc skins)`](lpc.md#lpc-skins) | The skin ramps, read when built |
 | [`(lpc credits)`](lpc.md#lpc-credits), [`(lpc embed)`](lpc.md#lpc-embed) | Credits for what a program embeds, and recipes that embed it |
+
+### Datasets
+
+| Library | For |
+| --- | --- |
+| [`(datasets mipnerf360)`](datasets.md#datasets-mipnerf360) | Mip-NeRF 360's scenes, read from Google's archives when built |
+| [`(datasets mipnerf360 bicycle)`](datasets.md#the-scenes), and the other eight scenes | One scene's reconstruction and photographs, at the size 3D Gaussian Splatting trains it |
 
 ### Applications' own libraries
 
