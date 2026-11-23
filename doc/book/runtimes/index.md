@@ -38,9 +38,10 @@ process-lifetime token.
 
 An event loop, an I/O readiness service and a scheduler serve different
 purposes. Linux `epoll` reports which descriptors can make progress; it
-does not schedule language closures. Our host
-uses JavaScript platform APIs for Node and browser I/O notifications, and
-Linux `io_uring` for [native asynchronous file reads](tasks.md#native-asynchronous-file-reads).
+does not schedule language closures. Our hosts
+use JavaScript platform APIs for Node and browser I/O notifications,
+[asynchronous file reads](tasks.md#native-asynchronous-file-reads) among
+them.
 `snail-scheme`'s scheduler owns tasks on both hosts. It does not need its own `epoll` wrapper. See the
 [Linux interface](https://man7.org/linux/man-pages/man7/epoll.7.html).
 

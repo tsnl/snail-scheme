@@ -1,9 +1,9 @@
 ;; Compiling and instantiating WebAssembly modules, as host/native/run-snail.mjs
-;; and crates/snail provide it: a module is compiled from bytes into a
-;; handle, linked against providers chosen
-;; one per import, and its exports are found by name, sent a character at a
-;; time; a name the host holds comes back a character at a time. (snail
-;; shell wasm)'s `host-wasm` is made of these.
+;; and the page's loader provide it: a module is compiled from bytes into a
+;; handle, linked against providers chosen one per import, and its exports
+;; are found by name, sent a character at a time; a name the host holds
+;; comes back a character at a time. (snail shell wasm)'s `host-wasm` is
+;; made of these.
 (define-library (snail runtime wasm)
   (export
    argument-character

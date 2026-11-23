@@ -15,7 +15,7 @@ This is one language, with no R7RS compatibility layer, `call/cc` or
 `dynamic-wind`. The compiler emits WasmGC and compiles itself; a small Chez
 adapter runs its source for the first [bootstrap](bootstrap.md).
 
-The chapters describe implemented behavior and mark proposed toolchain changes:
+These chapters describe the language:
 
 - [Terms](terms.md): programs, libraries, language forms and toolchain names.
 - [Types](types.md): scalars, data, typeclasses, foreign functions, linked
@@ -28,19 +28,10 @@ The chapters describe implemented behavior and mark proposed toolchain changes:
   their representation.
 - [Macros and generated libraries](macros.md): hygienic expansion and explicit
   build-time producers.
-- [Bootstrap and self-hosting](bootstrap.md): the erasure property, the two
-  hosts and the stages that make the compiler compile itself.
-- [Libraries](libraries.md): the standard library and wire types.
-- [Workspaces and builds](projects.md): workspaces, output directories and
-  embedding one build in another.
-- [Compiler architecture](compilers.md): the passes, bootstrap, linking and
-  complete rebuilds.
-- [Application model](applications.md): interactive applications in the
-  browser.
-- [Development toolchain](toolchain.md): the commands and their builds,
-  the language server and editor support, and the proposed
-  application workflow.
-- [Proposed typed state](state.md): durable records and disposable cached views;
-  an API for review, not implemented functionality.
 - [Notable omissions](omissions.md): what was left out, and why.
 - [References](references.md): influences and further reading.
+
+[Building programs](applications.md) covers applications, workspaces,
+builds, the toolchain and the compiler; the [library reference](../libraries/index.md)
+lists every library; and [proposed typed state](state.md) is an API for
+review, not implemented functionality.

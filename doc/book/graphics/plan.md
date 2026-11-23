@@ -1,14 +1,13 @@
-# WebGPU and graphics libraries
+# WebGPU design
 
 Applications draw through two layers written in `snail-scheme`: a `Gpu`
 capability that is a thin wrapper around WebGPU, and `(snail shell graphics
 ...)` libraries of pipelines and packers on top of it. They replaced a
 fixed JavaScript renderer, `host/browser/renderer.mjs`, and its picture
-store. The capability, `pod`, `wgsl`, `atlas`, `quad`, `mesh`, `raster`,
-`passes`, `scan`, `radix-sort`, `splat`, `splat-train`, `splat-fit`,
-`splat-view`, `colmap` and `ply` are **implemented**; the
-rest is **proposed**. Delivery is tracked
-in [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
+store. This chapter explains how the layers work and why they are shaped
+as they are; the [library reference](../libraries/gpu.md) lists each
+library and its entry points. Open work on them is tracked in
+[the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
 functions and the runtime's waits. Those waits are suspensions,
@@ -331,10 +330,10 @@ The tiles' image is closer to the photographs at every view, since
 training fitted the cloud to this renderer. The PSNR between the two
 renderers' images is 38.3 dB on average, and 31.4 at the least. The
 tiles take 3.7 times as long. Their blend alone took 1.72 ms, less than
-the quads' draw. Their two sorts took 1.92 and 0.85 ms. Most of the
-rest of their 273 steps are the projection's unfused tensor kernels, a
-buffer each, which fusion
-([#875](https://github.com/tsnl/snail-scheme/issues/875)) is for.
+the quads' draw. Their two sorts took 1.92 and 0.85 ms. When this was
+measured, before tensor graphs were fused
+([#875](https://github.com/tsnl/snail-scheme/issues/875)), most of the rest
+of their 273 steps were the projection's tensor kernels, a buffer each.
 
 `src/apps/splats` opens on one procedural ring written three times on three
 transform rows, which it turns each frame, and shows a trained scene in
@@ -362,7 +361,7 @@ viewer keeps 60 frames a second with room for 60,000, 1,000,000 and
 drawn; from submit to the queue's completion takes 3.9, 3.8 and 5.8 ms at
 the median.
 
-## The `graphics` libraries
+## Middleware, not a renderer
 
 The graphics libraries are middleware: composable WebGPU pipelines and packers
 whose interfaces are buffers and textures, in WebGPU's own terms. The
@@ -375,35 +374,10 @@ record deriving `Pod`, and it changes when the pipeline does. Nothing is hidden
 behind a renderer object: every pass, buffer and layout is a value the
 application can read, replace or extend.
 
-Each row is `(snail shell graphics NAME)`:
-
-| Library | Provides |
-| --- | --- |
-| `pod` | `(deriving Pod)` on a record gives its WGSL layout and alignment, a packer from a list to `Bytes`, its vertex attributes and its WGSL declaration, one source of truth for each shader interface. **Implemented.** |
-| `wgsl` | Shaders as S-expressions: one-to-one with WGSL, read from source files by build-time recipes and printed to WGSL text, with struct declarations from `Pod`. **Implemented.** |
-| `mesh` | The flat glTF-shaped model as records and packers: geometry, material, instance, transform and indirect-draw tables, and lights. **Implemented** as a geometry table of eight shapes, instances and indirect draws. |
-| `atlas` | Texture-array pages with padded slots and slot tables, uncompressed. Pictures are composed into them on the GPU. **Implemented**, without mips. |
-| `raster` | A deferred G-buffer pipeline with configurable targets: depth, normal, albedo, metal-roughness, emissive, ids and motion. **Implemented**: albedo, normal, material and depth, with motion and ids when asked, and a forward pipeline for translucent surfaces. |
-| `passes` | Full-screen passes: a fixed sun, tone mapping, FXAA, copies. **Implemented**: the sun, tone mapping and FXAA. |
-| `quad` | 2D quads in world units under a 2D camera, pixel-snapped in the vertex shader, sampling a texture array, including earlier passes' targets. **Implemented.** |
-| `scan` | Blelloch's exclusive prefix sum of `u32` numbers in a storage buffer, over levels of 512-number tiles, laid out in rows of workgroups past 65,535 of them. **Implemented.** |
-| `radix-sort` | A stable least-significant-digit radix sort of `u32` keys and values, eight bits a pass, counting, scanning and scattering by runs of blocks, at most 4,096 workgroups. **Implemented.** |
-| `splat` | 3D Gaussian Splatting: gaussians posed by rows of a transforms table, projected by EWA splatting with spherical harmonics to degree 3, sorted far to near, and blended as quads. **Implemented.** |
-| `ply` | 3D Gaussian Splatting's binary PLY files read into a cloud of activated gaussians. **Implemented.** |
-| `splat-view` | A `splat`'s splats drawn tile by tile by `splat-train`'s renderer, rendered for viewing, on the splats' own buffers, in the caller's passes. **Implemented.** |
-| `splat-train` | The differentiable splat renderer as a tensor graph: projection by tensor operations, tile binning and a tiled rasterizer as custom nodes with a hand-written backward pass, and L1 with D-SSIM ([tensors](tensors.md#differentiable-splatting)). **Implemented.** |
-| `splat-fit` | 3D Gaussian Splatting's training as three tensor graphs: a step with Adam and densification's statistics, densification by cloning, splitting and pruning on the device, and the opacity reset ([tensors](tensors.md#training-on-photographs)). **Implemented.** |
-| `colmap` | COLMAP's binary cameras, images and points read into poses and pinhole intrinsics, refusing distorted camera models. **Implemented.** |
-| later | `bvh`, compute ray tracing and `svgf`, for path-traced lighting over the rasterized G-buffer. |
-
-- **Sampling an atlas.** Slots carry gutters of repeated edge texels; UVs wrap
-  in slot space, `fract` for repeat and `clamp` for clamp; samples stay half
-  a texel inside the slot; filtered textures use `textureSampleGrad` with
-  derivatives of the unwrapped UVs, so the wrap cannot spike the mip level;
-  pixel art samples nearest, without mips.
 - **No bindless.** Core WebGPU has no binding arrays, so material textures live
   in atlas arrays, and the quad pass draws runs of quads that share a
-  texture.
+  texture. The path tracer puts every image in one texture array for the
+  same reason ([scenes](tracer.md#scenes)).
 - **No multi-draw.** The G-buffer pass issues one `drawIndexedIndirect` per
   geometry; the `indirect-first-instance` feature lets each start at its
   own instance.
@@ -411,6 +385,12 @@ Each row is `(snail shell graphics NAME)`:
   renders albedo, normal and depth, lights them with a sun pass of its own
   or the library's, and composites the result to the canvas with quads. A
   richer game builds its own passes from the same pieces.
+- **Filtered textures** are **proposed**: the atlas would then carry gutters
+  of repeated edge texels and mips, UVs would wrap in slot space (`fract`
+  to repeat, `clamp` to clamp) with samples half a texel inside the slot,
+  and a filtered sample would use `textureSampleGrad` with derivatives of
+  the unwrapped UVs, so the wrap cannot spike the mip level. Pixel art
+  samples nearest today, which needs none of this.
 
 ## WebGPU on Node
 

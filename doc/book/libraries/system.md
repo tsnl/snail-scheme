@@ -1,0 +1,138 @@
+# Tasks, files, processes and networks
+
+The libraries that wait on the world. Each operation that waits suspends
+the task that called it, through `(snail shell task)`, while the host does
+the work; each capability is a record of its operations, so a test makes
+its own ([runtimes](../runtimes/index.md)).
+
+## `(snail shell task)`
+
+Cooperative tasks on a scheduler, written in `snail-scheme`. A host makes
+the scheduler, hands it to each turn and wake, and closes it; a program
+starts tasks with `dispatch` (or `dispatch-in` a scheduler) and waits with
+`yield`, `sleep` and `await`. Those stop the task wherever it is, however
+deep in its calls, and the scheduler keeps the rest of it to run later. No
+function between the wait and the task's start says so in its type, and
+none takes anything for it ([suspension](../snail-scheme/suspension.md)).
+`through-host` is how every host operation waits: it starts the operation
+under a `ticket` and suspends until the host wakes it. A `Mailbox`
+(`make-mailbox`, `mailbox-post`, `mailbox-receive`,
+`mailbox-try-receive`) carries values between tasks.
+
+A task runs until it finishes: nothing cancels one, and tasks that want to
+stop each other arrange it, through a mailbox. `tasks-turn`, `tasks-wake!`
+and `tasks-close!` are the host's side, which a program never calls.
+
+[Task operations](../runtimes/tasks.md) and [driving the
+scheduler](../runtimes/scheduling.md) describe the model in full.
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/task.sld)
+
+## `(snail shell async-files)`
+
+`Files`, a capability for whole-file reads that wait as a task while other
+tasks run, made by `host-files` on Node. `((● files read-file) path limit)`
+reads at most `limit` bytes, up to 16 MiB, and fails as a `FileError`:
+`Unavailable`, `InvalidInput`, `TooLarge`, `NotFound`, `PermissionDenied`
+or `Failed`. Neither the read nor its result promises a snapshot of the
+disk. Node does the read with its asynchronous file system
+(`host/native/async-files.mjs`)
+([native asynchronous file reads](../runtimes/tasks.md#native-asynchronous-file-reads)).
+
+Use it rather than `(snail core io)`'s `read-bytes` when the program has
+other work while a large file arrives; `read-bytes` holds the whole program.
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/async-files.sld)
+
+## `(snail shell resource)`
+
+Files a library ships beside the program instead of embedding them, as
+Python's `importlib.resources` names a package's data. `(link-file
+"path")` ties the file beside the library's source to the library; the
+build copies it beside the program's module and gives the program a
+`Resource`. `read-resource` reads one through a `Resources`, waiting as a
+task does, since a page can only fetch it, and `read-resources` reads
+several at once.
+
+`Resource` is exported without its constructor, so holding one is evidence
+that its file ships ([linked files](../snail-scheme/types.md#linked-files)).
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/resource.sld)
+
+## `(snail shell process)`
+
+Child processes, as the capability `Processes`, made by `host-processes`:
+spawn a `Command` with piped standard streams and read its output, write
+and close its input, signal it and wait for its `Exit` (`Exited` or
+`Signaled`); `run` a command to its end and answer what it `Captured`; or
+`exec` one in place of the program. `Signals`, made by `host-signals`,
+answers the termination signal the program was sent
+([child processes](../runtimes/networking.md#child-processes)).
+
+Stage 0's tool runner on Chez, `host/chez/snail/stage0/process.sls`, has
+the same name; Chez never sees `src/`.
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/process.sld)
+
+## `(snail shell socket)`
+
+TCP and UDP as the capabilities `Tcp` and `Udp`, made by `host-tcp` and
+`host-udp`: listen, accept, connect, read, write and finish a `Connection`,
+and bind, send and receive `Datagram`s on a `UdpSocket`. An `Endpoint` is
+parsed once, by `endpoint`; the type is exported without its constructor,
+so holding one is evidence that its address is IPv4 and its port in range,
+and nothing checks either again ([native networking](../runtimes/networking.md)).
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/socket.sld)
+
+## `(snail shell http)`
+
+A deliberately bounded subset of HTTP/1.1: ASCII heads, origin-form targets,
+`Content-Length` bodies, one exchange per connection, and response streams
+that end when the connection closes. `parse-request-head` and
+`parse-target` read a request, `encode-response` and `encode-stream-head`
+write the answer, and `head-limit` and `body-limit` bound what is read; an
+`HttpError` says why a request was refused
+([HTTP protocol](../snail-scheme/http.md)).
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/http.sld)
+
+## `(snail shell http exchange)`
+
+One request and its response over a `Tcp` connection. `serve-one` is the
+whole exchange with one handler. A server that chooses between reading and
+answering calls the halves itself: `read-request`, then `respond`, which
+needs only the request's method, so a server can answer a request it could
+not read. A failure of either leaves the connection open for the caller to
+close, as `serve-one` does.
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/http/exchange.sld)
+
+## `(snail shell wasm)`
+
+WebAssembly modules loaded while a program runs, through the capability
+`Wasm` both targets provide. `compile-bytes` compiles a module,
+`module-imports` lists its imports, and `link-module` takes one `Provider`
+per import, in order: `(ExportOf instance name)`, an instance's export;
+`(HostProvided)`, a host service; `(ConstantOf n)`, a constant function; or
+`(Unprovided)`, a function that traps if called. A provider that is missing
+or does not fit answers `LinkFailed`. Linking runs `_initialize` when the
+module has one.
+
+`module-export` answers an untyped `Funcref`, and `unsafe-cast` makes it an
+`Fn` at the type the caller asserts: WebAssembly's cast checks the
+representation, not `snail-scheme`'s nominal types, so the caller
+establishes that contract. `run-export` calls a scalar export by name
+([linking by hand](../snail-scheme/compilers.md#linking-by-hand)).
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/wasm.sld)
+
+## `(snail shell explore)`
+
+Bounded model checking of a total state machine: from an initial state,
+`explore` applies every move each state allows, breadth first up to a
+depth, and answers the first state that breaks the invariant as a
+`Violation`, with the moves that reach it. States are identified by their
+wire encoding (`(snail shell wire)`), so each is checked once and the path
+reported is a shortest one.
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/explore.sld)

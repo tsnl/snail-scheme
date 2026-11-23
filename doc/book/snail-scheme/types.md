@@ -241,7 +241,7 @@ Arithmetic and comparison are the classes `Num`, `Ord`, `Integral` and
 `Repr` is a class with one type parameter: `(Repr T)` supplies
 `(repr value) → String`. `(snail core io)`'s `write` prints that
 representation to an `OutputPort`. Records and enums can generate instances
-with `(deriving Repr)`; see [ports](libraries.md#input-and-output-ports).
+with `(deriving Repr)`; see [ports](../libraries/core.md#ports).
 
 ## What a call may do
 

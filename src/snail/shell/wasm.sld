@@ -1,5 +1,6 @@
-;; Compiling modules, linking their imports to explicit providers, and finding
-;; exports. The engine uses these operations to run and replace library modules.
+;; Compiling modules while a program runs, linking their imports to explicit
+;; providers, one an import, and finding and calling their exports, through
+;; the `Wasm` both targets provide.
 (define-library (snail shell wasm)
   (export
    Funcref
