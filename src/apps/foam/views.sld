@@ -1,12 +1,13 @@
 ;; Posed RGB samples for the foam. The built-in scene and photographs
 ;; from the splat trainer both enter through COLMAP pinhole cameras.
 (define-library (apps foam views)
-  (export Model View Experiment demo-experiment photo-experiment)
+  (export Model View Experiment demo-experiment photo-experiment pose-camera photo-bytes rgb-png)
   (import
    (snail core base)
    (only (snail shell math) cos sin pi)
    (snail shell wire)
    (snail shell gpu)
+   (only (snail shell png) rgba->png)
    (snail shell graphics colmap)
    (snail shell graphics radiant-foam)
    (only (snail shell graphics splat-fit) texel-pitch)
@@ -40,11 +41,12 @@
       (vec3d (list-ref values 0) (list-ref values 1) (list-ref values 2)))
 
     ;; R maps world to camera. Its rows are the camera axes in the world.
-    (define (pose-camera (model Model) (cam ColmapCamera) (pose ColmapImage)) (→ RayCamera)
+    (define (pose-camera (cam ColmapCamera) (pose ColmapImage) (center Vec3d) (radius F64))
+      (→ RayCamera)
       (let* ((rows (image-rotation pose)) (forward (three (list-tail rows 6)))
              (dx (v* (three rows) (/ 1.0 (● cam fx))))
              (dy (v* (three (list-tail rows 3)) (/ 1.0 (● cam fy))))
-             (eye (v* (v- (three (image-center pose)) (● model center)) (/ 1.0 (● model radius))))
+             (eye (v* (v- (three (image-center pose)) center) (/ 1.0 radius)))
              (corner (v+ forward (v+ (v* dx (- 0.5 (● cam cx))) (v* dy (- 0.5 (● cam cy)))))))
         (new RayCamera (eye eye) (corner corner) (dx dx) (dy dy)
              (width (● cam width)) (height (● cam height)))))
@@ -58,7 +60,7 @@
              (h
               (max 1 (quotient (+ (* w (● cam height)) (quotient (● cam width) 2)) (● cam width))))
              (pixel (lambda (i source size) (quotient (* (+ (* 2 i) 1) source) (* 2 size))))
-             (camera (pose-camera model cam pose)))
+             (camera (pose-camera cam pose (● model center) (● model radius))))
         (new View
           (name (● pose name)) (camera camera) (width w) (height h)
           (samples (array-generate (* w h)
@@ -67,6 +69,16 @@
                                             (y (pixel (quotient i w) (● cam height) h))
                                             (r (camera-ray camera x y)))
                                        (new Sample (ray r) (rgb (color x y r))))))))))
+
+    (define (rgb-png (width I64) (height I64) (rgb (Array Vec3d))) (→ Bytes)
+      (let* ((byte (lambda (v) (i32->u8 (f64->i32 (round (* 255.0 (max 0.0 (min 1.0 v))))))))
+             (pixels (array-generate (* 4 (array-length rgb))
+                                     (lambda (i)
+                                       (let ((p (array-ref rgb (quotient i 4))))
+                                         (case (remainder i 4)
+                                           ((0) (byte (● p x))) ((1) (byte (● p y)))
+                                           ((2) (byte (● p z))) (else (i32->u8 255))))))))
+        (rgba->png (i64->i32 width) (i64->i32 height) pixels)))
 
     ;; ---- A small example ----
 

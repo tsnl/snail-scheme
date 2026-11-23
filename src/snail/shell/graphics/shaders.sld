@@ -44,6 +44,12 @@
                                             (first "radix-sort-shader")
                                             (second (link-file "radix-sort.wgsl.scm")))
                                           (new Pair
+                                            (first "spherical-harmonics-shader")
+                                            (second (link-file "spherical-harmonics.wgsl.scm")))
+                                          (new Pair
+                                            (first "radfoam-checkpoint-shader")
+                                            (second (link-file "radfoam-checkpoint.wgsl.scm")))
+                                          (new Pair
                                             (first "splat-project-shader")
                                             (second (link-file "splat-project.wgsl.scm")))
                                           (new Pair

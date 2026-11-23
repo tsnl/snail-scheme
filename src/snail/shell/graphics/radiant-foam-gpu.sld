@@ -8,14 +8,19 @@
           dispatch-foam-view
           read-foam-view
           release-foam-view
-          FoamTrainer make-foam-trainer train-foam! release-foam-trainer)
+          FoamTrainer make-foam-trainer train-foam! release-foam-trainer
+          FoamCheckpoint open-foam-checkpoint set-checkpoint-camera! dispatch-foam-checkpoint
+          read-foam-checkpoint release-foam-checkpoint)
   (import
    (snail core base)
    (snail shell gpu)
    (snail shell graphics kernel)
    (snail shell graphics pod)
    (snail shell graphics radiant-foam)
-   (only (snail shell graphics shaders) radiant-foam-shader))
+   (only (snail shell graphics shaders)
+         radiant-foam-shader
+         spherical-harmonics-shader
+         radfoam-checkpoint-shader))
   (begin
 
     ;; ---- Buffer layout ----
@@ -72,10 +77,12 @@
             (pod-write (four (● s ray direction) 0.0) data (+ at 16))
             (pod-write (four (● s rgb) 0.0) data (+ at 32))))))
 
-    (define (float-at (data Bytes) (at I64)) (→ F64)
+    (define (word-at (data Bytes) (at I64)) (→ I32)
       (let ((byte (lambda (k shift) (i32-shift-left (u8->i32 (array-ref data (+ at k))) shift))))
-        (f32->f64 (bits->f32 (i32-or (i32-or (byte 0 0) (byte 1 8))
-                                     (i32-or (byte 2 16) (byte 3 24)))))))
+        (i32-or (i32-or (byte 0 0) (byte 1 8)) (i32-or (byte 2 16) (byte 3 24)))))
+
+    (define (float-at (data Bytes) (at I64)) (→ F64)
+      (f32->f64 (bits->f32 (word-at data at))))
 
     (define (three-at (data Bytes) (at I64)) (→ Vec3d)
       (vec3d (float-at data at) (float-at data (+ at 4)) (float-at data (+ at 8))))
@@ -83,10 +90,13 @@
     ;; Even an empty array needs room for one WGSL element to bind.
     (define (upload (gpu Gpu) (name String) (bytes Bytes) (minimum I64) (more (List BufferUsage)))
       (→ GpuBuffer)
-      (let ((buf
-             (storage-buffer gpu name (max minimum (array-length bytes)) (Cons (CopyDst) more))))
-        (when (> (array-length bytes) 0) ((● gpu write-buffer) buf 0 bytes))
-        buf))
+      ;; A foreign byte argument crosses the host's linear staging memory.
+      ;; Upload large storage buffers in 16 MiB writes and reuse that memory.
+      (let* ((n (array-length bytes)) (chunk 16777216)
+             (buf (storage-buffer gpu name (max minimum n) (Cons (CopyDst) more))))
+        (do ((i 0 (+ i chunk))) ((>= i n) buf)
+          ((● gpu write-buffer) buf (i64->i32 i)
+           (if (<= n chunk) bytes (subarray bytes i (min n (+ i chunk))))))))
 
     (define (read-storage (gpu Gpu) (buf GpuBuffer) (size I64)) (→ Bytes)
       (if (= size 0) (make-array 0 (i32->u8 0))
@@ -233,10 +243,12 @@
     (define (dispatch-foam-view (gpu Gpu) (pass GpuComputePass) (view FoamView)) (→ Unit)
       (dispatch gpu pass (● view foam render) (● view group) (* (● view width) (● view height)) 64))
 
-    (define (read-foam-view (gpu Gpu) (view FoamView)) (→ (Array Vec3d))
-      (let* ((n (* (● view width) (● view height)))
-             (data (read-storage gpu (● view pixels) (* 16 n))))
+    (define (read-colors (gpu Gpu) (pixels GpuBuffer) (n I64)) (→ (Array Vec3d))
+      (let ((data (read-storage gpu pixels (* 16 n))))
         (array-generate n (lambda (i) (three-at data (* 16 i))))))
+
+    (define (read-foam-view (gpu Gpu) (view FoamView)) (→ (Array Vec3d))
+      (read-colors gpu (● view pixels) (* (● view width) (● view height))))
 
     (define (release-foam-view (gpu Gpu) (view FoamView)) (→ Unit)
       (for-each (● gpu destroy)
@@ -306,5 +318,131 @@
       (array-for-each (lambda (g) ((● gpu destroy) (BindGroupObject g))) (● trainer groups))
       ((● gpu destroy) (BufferObject (● trainer indices)))
       ((● gpu destroy) (BufferObject (● trainer rays))))
+
+    ;; ---- Released RadFoam checkpoints ----
+
+    ;; The four files written by pack-radfoam.py retain upstream site ids.
+    ;; Offsets partition the directed neighbor array. Its geometry comes
+    ;; from the checkpoint's Delaunay triangulation in world coordinates.
+    (record FoamCheckpoint
+      ((count I64)
+       (width I64)
+       (height I64)
+       (camera GpuBuffer)
+       (pixels GpuBuffer)
+       (locate GpuComputePipeline)
+       (eye-group GpuBindGroup)
+       (trace GpuComputePipeline)
+       (trace-group GpuBindGroup)
+       (owned (List GpuObject))))
+
+    (define (checkpoint-sites (gpu Gpu) (bytes Bytes)) (→ (Pair GpuBuffer I64))
+      (let ((n (quotient (array-length bytes) 16)))
+        (unless (and (> n 0) (= (array-length bytes) (* 16 n)) (<= (* 192 n) buffer-limit))
+          (panic "radfoam needs xyz and density for each site and room for 16 RGB coefficients"))
+        (new Pair (first (upload gpu "radfoam/sites" bytes 16 (Nil))) (second n))))
+
+    (define (checkpoint-offsets (gpu Gpu) (bytes Bytes) (n I64)) (→ (Pair GpuBuffer I64))
+      (unless (and (= (array-length bytes) (* 4 (+ n 1))) (= (word-at bytes 0) 0))
+        (panic "radfoam offsets must start at zero and span every site"))
+      (let ((edges (i32->i64 (word-at bytes (* 4 n)))))
+        (unless (and (>= edges 0) (<= (* 8 edges) buffer-limit))
+          (panic "radfoam edges exceed the face buffer"))
+        (do ((i 0 (+ i 1))) ((= i n) (unit))
+          (when (> (word-at bytes (* 4 i)) (word-at bytes (* 4 (+ i 1))))
+            (panic "radfoam offsets must be nondecreasing")))
+        (new Pair (first (upload gpu "radfoam/offsets" bytes 4 (Nil))) (second edges))))
+
+    (define (checkpoint-neighbors (gpu Gpu) (bytes Bytes) (edges I64) (n I64)) (→ GpuBuffer)
+      (unless (= (array-length bytes) (* 4 edges))
+        (panic "radfoam neighbor count differs from offsets"))
+      (do ((i 0 (+ i 1))) ((= i edges) (unit))
+        (let ((j (i32->i64 (word-at bytes (* 4 i)))))
+          (unless (and (>= j 0) (< j n)) (panic "radfoam neighbor outside the site array"))))
+      (upload gpu "radfoam/neighbors" bytes 4 (Nil)))
+
+    (define (checkpoint-sh (gpu Gpu) (bytes Bytes) (n I64)) (→ GpuBuffer)
+      (unless (= (array-length bytes) (* n 192))
+        (panic "radfoam needs 16 RGB coefficients per site"))
+      (upload gpu "radfoam/sh" bytes 4 (Nil)))
+
+    (define (run-checkpoint-kernel (gpu Gpu) (kernel GpuComputePipeline) (group GpuBindGroup)
+                                   (count I64) (size I64))
+      (→ Unit)
+      (let* ((encoder ((● gpu create-command-encoder)))
+             (pass ((● gpu begin-compute-pass) encoder)))
+        (dispatch gpu pass kernel group count size)
+        ((● gpu end-compute-pass) pass)
+        ((● gpu submit) (list ((● gpu finish) encoder)))))
+
+    (define (cache-checkpoint-faces (gpu Gpu)
+                                    (module GpuShaderModule)
+                                    (geometry (List BindGroupEntry))
+                                    (deltas GpuBuffer) (n I64))
+      (→ Unit)
+      (let* ((kernel
+              (compute-kernel gpu module "radfoam" "cache_faces"))
+             (group (kernel-group gpu
+                                  kernel
+                                  0
+                                  "radfoam/faces"
+                                  (Cons (entry 4 deltas) geometry))))
+        (run-checkpoint-kernel gpu kernel group n 64)
+        ((● gpu destroy) (BindGroupObject group))
+        ((● gpu destroy) (ComputePipelineObject kernel))))
+
+    (define (open-foam-checkpoint (gpu Gpu) (read (Fn String → Bytes)) (width I64) (height I64))
+      (→ FoamCheckpoint)
+      (unless (and (> width 0) (> height 0) (<= width 524280) (<= height 524280)
+                   (<= width (quotient (quotient buffer-limit 16) height)))
+        (panic "radfoam frame exceeds its device buffers or dispatch grid"))
+      (let* ((sites (checkpoint-sites gpu (read "sites.f32"))) (n (● sites second))
+             (offsets (checkpoint-offsets gpu (read "offsets.u32") n)) (edges (● offsets second))
+             (neighbors (checkpoint-neighbors gpu (read "neighbors.u32") edges n))
+             (sh (checkpoint-sh gpu (read "sh.f32") n))
+             (deltas (storage-buffer gpu "radfoam/faces" (* 8 edges) (Nil)))
+             (start (storage-buffer gpu "radfoam/eye cell" 4 (Nil)))
+             (camera (uniform-buffer gpu "radfoam/camera" (make-array 80 (i32->u8 0))))
+             (pixels (storage-buffer gpu "radfoam/pixels" (* 16 (* width height)) (list (CopySrc))))
+             (module ((● gpu create-shader-module)
+                      (new ShaderModuleDescriptor (label "RadFoam checkpoint")
+                           (code (string-append (declarations camera-shape)
+                                                spherical-harmonics-shader
+                                                radfoam-checkpoint-shader)))))
+             (geometry
+              (list (entry 0 (● sites first)) (entry 1 (● offsets first)) (entry 2 neighbors)))
+             (locate (compute-kernel gpu module "radfoam" "locate_eye"))
+             (trace (compute-kernel gpu module "radfoam" "render_checkpoint"))
+             (view (append geometry (list (entry 5 camera) (entry 6 start))))
+             (eye-group (kernel-group gpu locate 0 "radfoam/locate" view))
+             (trace-group (kernel-group gpu trace 0 "radfoam/trace"
+                                        (append view
+                                                (list (entry 3 sh)
+                                                      (entry 4 deltas)
+                                                      (entry 7 pixels))))))
+        (cache-checkpoint-faces gpu module geometry deltas n)
+        (new FoamCheckpoint (count n) (width width) (height height) (camera camera) (pixels pixels)
+             (locate locate) (eye-group eye-group) (trace trace) (trace-group trace-group)
+             (owned (append (list (BindGroupObject eye-group) (BindGroupObject trace-group)
+                                  (ComputePipelineObject locate) (ComputePipelineObject trace)
+                                  (ModuleObject module))
+                            (map BufferObject (list pixels camera start deltas sh neighbors
+                                                    (● offsets first) (● sites first))))))))
+
+    (define (set-checkpoint-camera! (gpu Gpu) (scene FoamCheckpoint) (cam RayCamera)) (→ Unit)
+      ((● gpu write-buffer) (● scene camera) 0 (camera-bytes cam (● scene width) (● scene height)))
+      (run-checkpoint-kernel gpu (● scene locate) (● scene eye-group) 1 1))
+
+    (define (dispatch-foam-checkpoint (gpu Gpu) (pass GpuComputePass) (scene FoamCheckpoint))
+      (→ Unit)
+      ((● gpu set-compute-pipeline) pass (● scene trace))
+      ((● gpu set-compute-bind-group) pass 0 (● scene trace-group))
+      (dispatch-texels gpu pass (i64->i32 (● scene width)) (i64->i32 (● scene height))))
+
+    (define (read-foam-checkpoint (gpu Gpu) (scene FoamCheckpoint)) (→ (Array Vec3d))
+      (read-colors gpu (● scene pixels) (* (● scene width) (● scene height))))
+
+    (define (release-foam-checkpoint (gpu Gpu) (scene FoamCheckpoint)) (→ Unit)
+      (for-each (● gpu destroy) (● scene owned)))
 
     ))

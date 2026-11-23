@@ -5,7 +5,6 @@
  (snail core io)
  (snail core table)
  (snail shell wire)
- (only (snail shell png) rgba->png)
  (snail shell gpu)
  (only (snail shell json) JsonNumber JsonInteger)
  (only (snail shell json read) string->json)
@@ -30,16 +29,6 @@
     (if (= i (array-length drawn)) (/ total (* 3.0 (i64->f64 i)))
         (let ((error (v- (array-ref drawn i) (● (array-ref (● view samples) i) rgb))))
           (loop (+ i 1) (+ total (dot error error)))))))
-
-(define (image-bytes (view View) (rgb (Array Vec3d))) (→ Bytes)
-  (let* ((byte (lambda (v) (i32->u8 (f64->i32 (round (* 255.0 (max 0.0 (min 1.0 v))))))))
-         (pixels (array-generate (* 4 (array-length rgb))
-                                 (lambda (i)
-                                   (let ((p (array-ref rgb (quotient i 4))))
-                                     (case (remainder i 4)
-                                       ((0) (byte (● p x))) ((1) (byte (● p y)))
-                                       ((2) (byte (● p z))) (else (i32->u8 255))))))))
-    (rgba->png (i64->i32 (● view width)) (i64->i32 (● view height)) pixels)))
 
 ;; ---- The threshold surface ----
 
@@ -179,9 +168,11 @@
     (write-file fs (path "surface.obj") (surface-obj model faces level))
     (write-bytes fs
                  (path "target.png")
-                 (image-bytes view (array-map (lambda (s) (● s rgb)) (● view samples))))
-    (write-bytes fs (path "before.png") (image-bytes view before))
-    (write-bytes fs (path "render.png") (image-bytes view after))
+                 (rgb-png (● view width)
+                          (● view height)
+                          (array-map (lambda (s) (● s rgb)) (● view samples))))
+    (write-bytes fs (path "before.png") (rgb-png (● view width) (● view height) before))
+    (write-bytes fs (path "render.png") (rgb-png (● view width) (● view height) after))
     (write-line out (string-append (show (array-length trained)) " sites, " (show steps)
                                    " steps, held-out " (● view name) " " (show (● view width)) "x"
                                    (show (● view height))
