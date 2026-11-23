@@ -42,7 +42,9 @@ pkgs.mkShell {
     git
     git-filter-repo
     chez
+    coreutils
     gnumake
+    inklecate
     nixfmt
     npins
     rustup

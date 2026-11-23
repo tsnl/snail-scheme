@@ -74,16 +74,25 @@ Rosa: First right, before the van. # id:turn
 -> END
 ```
 
-Inside the project’s Nix shell, set `INKLECATE` to the reference compiler executable and bake the conversation. Version 1.2.1 produces Ink format 21. Use `--check` to compare the current source with the committed library. `make test-ink` also exercises rejected stories. Building and playing the game uses that library. [Inklecate releases](https://github.com/inkle/ink/releases/tag/v1.2.1)
+Save the `.ink` file and run `make last-mile` in the repository’s Nix shell. The game imports `(apps last-mile lines)`, whose source is this build recipe.
 
-```sh
-export INKLECATE=/path/to/inklecate
-scripts/bake-ink src/apps/last-mile/rosa.ink src/apps/last-mile/lines.sld
+```scheme
+(generate-library (apps last-mile lines)
+  (import
+   (snail core base)
+   (only (snail core io) Arguments Fs)
+   (only (snail shell process) Processes)
+   (only (snail shell resource) Resources)
+   (snail shell game ink))
+  (lambda ((arguments Arguments) (fs Fs) (processes Processes) (resources Resources))
+    (ink-library arguments fs processes resources (list "apps" "last-mile" "lines") "rosa.ink")))
 ```
 
-The producer compiles the Ink, then plays every reachable sequence of player choices with the reference runtime. It writes the spoken lines, ordered replies and destinations as a Snail `Dialogue`. Inside the game, `open-dialogue` returns a cursor. `spoken` reads the current line, `continue-dialogue` advances it, and `replies` exposes choices after the last line. `answer-dialogue` takes a zero-based reply index. A finished conversation returns `None`. Only the passage ID and line index go into the save. Without an explicit ID the producer uses the choice path, so keep tagged IDs for released conversations.
+The recipe links the story relative to its own file. Use relative `INCLUDE` paths and list each included file after the entry, such as `"rosa.ink" "parts/curb.ink"`. Each build that reaches the library stages those inputs in private scratch and runs the pinned reference compiler, inklecate 1.2.1. The producer plays each choice history and returns typed Snail syntax for `conversation`. The compiler links that definition into the browser or Node program. The reference compiler and the Ink source are build-time inputs. [Inklecate release](https://github.com/inkle/ink/releases/tag/v1.2.1)
 
-Baking suits finite, deterministic conversations whose inputs are the player’s replies. The producer rejects random and shuffle instructions, external calls, and a tagged passage revisited along its own choice path. Its default limit is 256 explored turns, including separate histories leading to the same passage. An untagged loop reaches this limit. Keep simulation facts in the quest and select the appropriate conversation at its start.
+Inside the game, `open-dialogue` returns a cursor. `spoken` reads the current line, `continue-dialogue` advances it, and `replies` exposes choices after the last line. `answer-dialogue` takes a zero-based reply index. A finished conversation returns `None`. Only the passage ID and line index go into the save. Without an explicit ID the producer uses the choice path, so keep tagged IDs for released conversations.
+
+Baking suits finite, deterministic conversations whose inputs are the player’s replies. The producer rejects random and shuffle instructions, external calls, and a tagged passage revisited along its own choice path. Its default limit is 256 explored turns, including separate histories leading to the same passage. Set a different budget with `(max-turns 512)` immediately before the entry filename. An untagged loop reaches this limit. Keep simulation facts in the quest and select the appropriate conversation at its start.
 
 Full Ink supports live variables, external bindings and serializing the interpreter’s state as JSON. The reference runtime is C# and inkjs would introduce a JavaScript application dependency. A future integration for stories that need these features could put the existing Rust interpreter behind a scalar service with a story handle, a choice operation and a save boundary. That would require building and testing the service on both browser and native hosts. [Ink runtime guide](https://github.com/inkle/ink/blob/master/Documentation/RunningYourInk.md) · [Rust Ink interpreter](https://github.com/bladecoder/blade-ink-rs)
 

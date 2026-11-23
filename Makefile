@@ -39,9 +39,9 @@ test-browser:
 test-gpu:
 	node tests/gpu.mjs "$(CURDIR)"
 
-# Authoring check for finite Ink dialogue. INKLECATE selects the reference CLI.
+# Rebuild a generated Ink library after changing its inputs.
 test-ink:
-	python3 tests/bake-ink.py
+	node tests/ink.mjs "$(CURDIR)"
 
 # Rebuilds the command line from the compiler's source on Chez, then to a
 # fixpoint.
