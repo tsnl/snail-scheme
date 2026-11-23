@@ -112,6 +112,7 @@
    identity?
    whole-buffer?
    dense?
+   equal-lists?
    param
    constant
    fill
