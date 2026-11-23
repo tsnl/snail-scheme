@@ -77,11 +77,11 @@
              (loss (sum-all (square (narrow (transpose (matmul x w)) 0 2 4))))
              (order (exclusive-scan (ones-like keys)))
              (sorted (sort-pairs keys order 16))
-             (first-sorted (sort-first-pairs keys
-                                             order
+             (first-sorted (sort-first-pairs (narrow keys 0 0 2000)
+                                             (narrow order 0 0 2000)
                                              (+ (narrow order 0 999 1)
                                                 (fill 1.0 (list 1) (Unsigned)))
-                                             16))
+                                             8))
              (m (reshape (narrow x 1 0 9) (list 64 3 3)))
              (gram (matmul m (transpose (reshape (narrow x 1 9 9) (list 64 3 3))))))
         (list (* (tensor-exp (* (scalar 0.1) x)) (tensor-sin x))
@@ -102,8 +102,8 @@
               (amin (narrow x 1 3 7) (list 1))
               (matmul (narrow x 1 0 12) (narrow (narrow w 0 0 12) 1 0 3))
               (list-ref (grad (sum-all (square (matmul m (transpose m)))) (list x)) 0)
-              (● first-sorted first)
-              (● first-sorted second))))
+              (narrow (● first-sorted first) 0 0 1000)
+              (narrow (● first-sorted second) 0 0 1000))))
 
     ;; ---- Agreement ----
 

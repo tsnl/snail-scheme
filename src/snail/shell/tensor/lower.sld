@@ -595,25 +595,55 @@
           ((Map body) (product (take shape (- (length shape) (length (expr-tile body))))))
           (_ (product shape)))))
 
-    ;; The keys and values copied into the ports, then sorted there: all of
-    ;; them, or as many as the node's count, its third argument, says.
+    ;; The keys and values sorted into the ports: all of them, or as many
+    ;; as the node's count, its third argument, says. The sort's first pass
+    ;; reads them where they are, so it copies nothing, unless one is a
+    ;; fill or part of a buffer: then both are copied into scratch the pool
+    ;; lends for the sort.
     (define (sort-steps (gpu Gpu) (b Build) (n Node) (bits I64)) (→ Build)
-      (let* ((keys (buffer-of b n "keys"))
-             (values (buffer-of b n "values"))
-             (capacity (element-count (list-ref (● n args) 0)))
-             (copied (copied-into gpu (copied-into gpu b (list-ref (● n args) 0) keys)
-                                  (list-ref (● n args) 1)
-                                  values))
+      (let* ((keys (list-ref (● n args) 0))
+             (values (list-ref (● n args) 1))
+             (lent (or (lent? keys) (lent? values)))
+             (from (if lent
+                       (lent-lane gpu b keys values)
+                       (new Pair (first b) (second (read-lane b keys values)))))
              (counted (match (list-tail (● n args) 2)
                         ((Cons count _) (Some (count-buffer b count)))
                         ((Nil) (None))))
              (sorter (make-sorter gpu (string-append (● b label) "/sort")
-                                  keys
-                                  values
-                                  capacity
+                                  (● from second)
+                                  (new SortLane
+                                    (keys (buffer-of b n "keys"))
+                                    (values (buffer-of b n "values")))
+                                  (element-count keys)
                                   bits
-                                  counted)))
-        (step-added copied (Sorting sorter))))
+                                  counted))
+             (sorted (step-added (● from first) (Sorting sorter))))
+        (if lent (lane-returned sorted (● from second) keys values) sorted)))
+
+    ;; Whether a sort reads a view from a copy: a fill has no buffer, and a
+    ;; sort reads every element of a buffer from its start.
+    (define (lent? (view View)) (→ Bool)
+      (or (fill? view) (not (whole-buffer? view))))
+
+    (define (read-lane (b Build) (keys View) (values View)) (→ SortLane)
+      (new SortLane (keys (view-buffer b keys)) (values (view-buffer b values))))
+
+    ;; Keys and values copied into two buffers the pool lends.
+    (define (lent-lane (gpu Gpu) (b Build) (keys View) (values View)) (→ (Pair Build SortLane))
+      (let* ((k (taken gpu b "sort/keys" (* 4 (element-count keys))))
+             (v (taken gpu (● k first) "sort/values" (* 4 (element-count values)))))
+        (new Pair
+          (first
+           (copied-into gpu (copied-into gpu (● v first) keys (● k second)) values (● v second)))
+          (second (new SortLane (keys (● k second)) (values (● v second)))))))
+
+    ;; The lent buffers back in the pool once the sort's steps are added:
+    ;; a later node's steps that write them run after it.
+    (define (lane-returned (b Build) (lane SortLane) (keys View) (values View)) (→ Build)
+      (given-back (given-back b (* 4 (element-count keys)) (● lane keys))
+                  (* 4 (element-count values))
+                  (● lane values)))
 
     ;; A count's buffer: a port of one u32, which the sort reads at its
     ;; start.

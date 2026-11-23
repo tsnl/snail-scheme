@@ -126,9 +126,10 @@
 ;; ---- Dispatches ----
 
 ;; The workgroups of each dispatch a frame of 300,000 gaussians records:
-;; the projection, then eight passes of the sort, each counting 1172
-;; blocks, scanning their 18,752 counts in two levels and adding the upper
-;; level back, and scattering.
+;; the projection, then four passes of the sort, each counting 1172
+;; blocks, a workgroup a block, scanning their 300,032 counts, 256 a
+;; workgroup, in three levels and adding the upper two back, and
+;; scattering.
 
 (define (frame (gpu Gpu)) (→ Unit)
   (let* ((splats (make-splats gpu "test" (Bgra8Unorm) 300000 2))

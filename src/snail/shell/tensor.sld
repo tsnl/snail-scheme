@@ -989,9 +989,11 @@
       (sorted-pairs (list keys values) bits))
 
     ;; The first `count` pairs sorted as `sort-pairs` sorts them, `count` a
-    ;; view of one u32, at most the keys' length, and the pairs after them
-    ;; as they are: the work is that of the pairs counted, whatever room the
-    ;; keys have. The sort reads its count from a buffer of its own.
+    ;; view of one u32, at most the keys' length: the work is that of the
+    ;; pairs counted, whatever room the keys have. The pairs after them are
+    ;; unspecified, since the sort writes none of them; the evaluator
+    ;; leaves them as they were. The sort reads its count from a buffer of
+    ;; its own.
     (define (sort-first-pairs (keys View) (values View) (count View) (bits I64))
       (→ (Pair View View))
       (unless (and (= (element-count count) 1) (same-etype? (etype-of count) (Unsigned)))
