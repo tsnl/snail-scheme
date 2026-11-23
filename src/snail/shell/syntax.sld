@@ -17,6 +17,7 @@
    BytesSyntax
    form
    library-syntax
+   linked-files
    syntax->bytes
    write-generated-library)
   (import
@@ -58,6 +59,32 @@
                     (form "export" (map SymbolSyntax exports))
                     (form "import" (map library-name imports))
                     (form "begin" definitions)))))
+
+    ;; The definition of `name`, each file of `files` by a path of its own,
+    ;; linked from where the file is, for a library that imports
+    ;; (snail shell resource):
+    ;;
+    ;;   (define name (→ (List (Pair String Resource)))
+    ;;     (list (new Pair (first "PATH") (second (link-file "FILE"))) ...))
+
+    (define (linked-files (name String) (files (List (Pair String String)))) (→ Syntax)
+      (form "define"
+            (list (SymbolSyntax name)
+                  (form "→"
+                        (list (form "List"
+                                    (list (form "Pair"
+                                                (list (SymbolSyntax "String")
+                                                      (SymbolSyntax "Resource")))))))
+                  (form "list"
+                        (map (lambda (file)
+                               (form "new"
+                                     (list (SymbolSyntax "Pair")
+                                           (form "first" (list (StringSyntax (● file first))))
+                                           (form "second"
+                                                 (list (form "link-file"
+                                                             (list
+                                                              (StringSyntax (● file second)))))))))
+                             files)))))
 
     ;; ---- Encoding ----
 

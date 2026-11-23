@@ -13,13 +13,16 @@ well, against two reference trainers on the same GPU:
 ## Running it
 
 ```sh
-scripts/fetch-mipnerf360 bicycle
 benches/splat-training/compare
 ```
 
-`compare` sets up the reference trainers (`setup`), trains each trainer
-twice, taking turns (`train`), then scores every run the same way and
-writes the table (`score`). Everything it makes is in
+The scene is Mip-NeRF 360's bicycle, the one the train app links
+([datasets](../../doc/book/libraries/datasets.md)). `setup` runs
+`dataset.scm`, which reads bicycle's files into the machine's cache as the
+train app's build does, its full-size photographs too, which gsplat lists,
+and links them into the bench's scene. `compare` sets up the reference
+trainers (`setup`), trains each trainer twice, taking turns (`train`), then
+scores every run the same way and writes the table (`score`). Everything it makes is in
 `build/benches/splat-training`: the trainers' sources and environments,
 the scene, each run's console, GPU samples and outputs under `runs/`, and
 `report.md`. Each script can also be run alone; its header says how.
@@ -159,6 +162,7 @@ after it was measured with one run of this bench:
 | A device-computed count sizes the tile sort ([#896](https://github.com/tsnl/snail-scheme/pull/896)) | 1094.4 | 195.6 | 13,118 | 25.274 |
 | The radix sort takes eight bits a pass ([#897](https://github.com/tsnl/snail-scheme/pull/897)) | 1077.8 | 191.1 | 13,697 | 25.274 |
 | A gradient's parts are joined, not placed ([#898](https://github.com/tsnl/snail-scheme/pull/898)) | 857.5 | 152.6 | 10,759 | 25.287 |
+| Adam's updates of a param are one kernel ([#911](https://github.com/tsnl/snail-scheme/pull/911)) | 797.9 | 144.8 | 10,792 | 25.275 |
 
 A run is not deterministic: the backward pass adds each gaussian's
 gradients in whatever order its threads arrive. Two runs of one trainer

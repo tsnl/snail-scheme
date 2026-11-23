@@ -16,6 +16,7 @@
    Svgf
    make-svgf
    resize-svgf
+   release-svgf
    filter-svgf)
   (import
    (snail core base)
@@ -99,10 +100,11 @@
                          (width I32)
                          (height I32))
       (→ Svgf)
-      (release gpu svgf)
+      (release-svgf gpu svgf)
       (planned gpu (● svgf kernels) inputs light width height))
 
-    (define (release (gpu Gpu) (svgf Svgf)) (→ Unit)
+    ;; The planes and groups let go; the kernels, which hold no size, stay.
+    (define (release-svgf (gpu Gpu) (svgf Svgf)) (→ Unit)
       (for-each (lambda (group) ((● gpu destroy) (BindGroupObject group)))
                 (Cons (● svgf remodulate-group)
                       (concatenate (list (● svgf temporal-groups)

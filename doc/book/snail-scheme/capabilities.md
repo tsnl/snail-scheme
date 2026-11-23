@@ -88,6 +88,7 @@ The standard libraries' capabilities:
 | `Files` | `(snail shell async-files)` | whole-file reads that wait as a task |
 | `Processes`, `Signals` | `(snail shell process)` | child processes; termination signals |
 | `Tcp`, `Udp` | `(snail shell socket)` | sockets |
+| `Web` | `(snail shell web)` | the files at URLs, a part at a time |
 | `Events`, `PageStorage` | `(snail shell page)` | a page's input; its saved state |
 | `Gpu` | `(snail shell gpu)` | the WebGPU device |
 | `Dom` | `(snail shell dom)` | a document |
@@ -146,7 +147,7 @@ A program names each thing it needs, and gets nothing it did not name.
 | Target | Provides |
 | --- | --- |
 | both | `Host`, `Arguments`, `ProcessEnvironment`, `OutputPort`, `Clock`, `Resources`, `Wasm` |
-| `node` | `InputPort`, `Fs`, `Files`, `Processes`, `Signals`, `Tcp`, `Udp` |
+| `node` | `InputPort`, `Fs`, `Files`, `Processes`, `Signals`, `Tcp`, `Udp`, `Web` |
 | `browser` | `Events`, `PageStorage`, `Gpu`, `Dom`, `Fetch`, `FilePicker` |
 
 An exposed function of the program asks the same way: each parameter whose

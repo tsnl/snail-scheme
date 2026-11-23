@@ -66,7 +66,9 @@ buffers by a compute pass; the materials in one storage buffer; and every
 image in one layer of one texture array with its mips, since WebGPU binds
 no unbounded table of textures. A layer is the same size whatever the
 image's, and a material names its textures by layer. Rasterizing and
-tracing read the same buffers, so what is drawn is what rays hit.
+tracing read the same buffers, so what is drawn is what rays hit. A
+scene's `blended` says whether any material is blended, so that the
+tracer makes its blended layer only for a scene that has one.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/trace/scene.sld)
 
@@ -88,7 +90,10 @@ A scene path traced to the canvas, composed of the libraries above: the
 first hits rasterized into a G-buffer, a wavefront of kernels for the
 bounces, each bounce's rays traced by `bvh`'s queries and lit by an
 `environment`, then `svgf` and `(snail shell graphics passes)`'s tone
-mapping and FXAA. `make-tracer` makes a `Tracer` once for a scene and the
+mapping and FXAA. A scene with blended materials also gets a blended
+layer: the nearest blended surface in front of the first hits, traced and
+filtered on its own, then blended over them by its alpha
+([the blended layer](../graphics/tracer.md#the-blended-layer)). `make-tracer` makes a `Tracer` once for a scene and the
 canvas, `resize-tracer` follows the canvas, `retrace` gives it another
 scene and environment with the same pipelines and targets, and
 `draw-traced` draws a frame; `tracer-frames` counts the frames since the

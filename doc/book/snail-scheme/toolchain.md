@@ -282,6 +282,51 @@ intercepted operations. [Networking work](https://github.com/tsnl/snail-scheme/i
 tracks this boundary. No transport hierarchy or generic provider framework
 is needed. TLS, HTTP/2 and deployment infrastructure are separate work.
 
+## Traces
+
+Measure performance from a trace: a file in Chrome's JSON trace format,
+which [Perfetto](https://ui.perfetto.dev) opens and `chrome://tracing`
+reads. A trace shows where a run's time goes among the program, the host
+and the device, and it measures every run the same way, so compare two
+runs by their traces, not with a timer added for the occasion.
+
+- A program on Node writes one as it ends when `SNAIL_TRACE` names the
+  file: `SNAIL_TRACE=run.json node build/.../main.mjs ARGUMENT ...`.
+  Node keeps every span until then, so trace a short run, such as a few
+  hundred of the trainer's steps.
+- A page traces when its URL's query has `trace`. `TRACE=page.json node
+  tests/browser/page.mjs URL SCREENSHOT SECONDS` opens the page so and
+  records Chromium's own trace of the visit: the page's spans beside its
+  main thread's tasks, V8's work and the GPU process's. `startTrace` and
+  `stopTrace` in `tests/browser/chromium.mjs` do the same for any test.
+
+The spans are the host's, in `host/browser/trace.mjs`, and they stay in
+the checked-in code, costing one test of a flag in a run that is not
+traced. On the `main` track, each `turn` is a turn of the scheduler, the
+time the program's own code ran, and each `gpu submit` is a submission;
+a `wait` is a host operation that a task waits on, such as `gpu read`,
+`gpu done` or `decode image`. On a device with `timestamp-query`, a
+traced run times every pass, and the `gpu` track shows each pass for as
+long as the device ran it, named for the pipelines it set. A pass the
+program times itself keeps its own queries. WebGPU puts timestamps only
+at the ends of passes, so a pass is the finest span the trace has, and
+the queries cost the device a little. The device's clock has an origin
+of its own, and a pass cannot start before its submit, so the host puts
+the device's clock as early as it can be with no pass before its submit.
+Durations are exact, and starts are exact once the device has been idle
+at some submit. A browser
+rounds the device's times to 100 μs unless its WebGPU developer features
+are on, as they are in `tests/browser/chromium.mjs`. On a page, a span is
+a `performance.measure`, which Chromium's trace records under
+`blink.user_timing`. Node's traces do not record measures, so Node's host
+writes its file itself, a thread for each track.
+
+A span marks a boundary where time passes from one party to another. When
+measuring something calls for a new one, add it with `span` or `traced`
+and keep it, so that later measurements see it too.
+`(profile-program gpu program)` (`(snail shell tensor lower)`) is the
+finer tool for a tensor program: it times each step in a pass of its own.
+
 ## Process boundaries and future debugging
 
 | Boundary | Information crossing it |

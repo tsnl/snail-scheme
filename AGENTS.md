@@ -160,6 +160,15 @@ run answers in minutes what CI answers in tens of minutes, and it reproduces
 a failure as many times as a fix needs; pushing to see what breaks spends
 that time for a worse report. Push when a change is verified, not to find out.
 
+Measure performance from traces ([Traces](doc/book/snail-scheme/toolchain.md#traces)):
+`SNAIL_TRACE=FILE` on Node, `TRACE=FILE node tests/browser/page.mjs ...`
+for a page, opened in Perfetto. Benchmark from the spans the code already
+has, not from timers added for one measurement. The host's spans stay in
+the checked-in code: the scheduler's turns, GPU submits and reads, and
+each pass on the device. Add a span with `span` or `traced`
+(`host/browser/trace.mjs`) where time passes from one party to another,
+and keep it.
+
 Relevant checks are `make test`, `make check`,
 `cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline`, and
 `cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check`.
@@ -189,6 +198,10 @@ producers of the `generate-library` recipes it reaches, so Hearsay builds
 too; its producers run every time. What matters when writing code:
 
 - Keep what should survive a page reload in the application's Save.
+- A dataset is a library to import, such as `(datasets mipnerf360 bicycle)`:
+  its recipe reads the files into the machine's cache, `~/.cache/snail-scheme`,
+  pinned by digest, and the build links them into the program
+  ([datasets](doc/book/libraries/datasets.md)).
 - A program's entry is its `main`, and the parameters of `main` are the
   capabilities it asks its target for: `(define (main (out OutputPort)
   (gpu Gpu)) ...)`. A top level holds definitions alone.

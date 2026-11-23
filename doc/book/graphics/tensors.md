@@ -58,7 +58,9 @@ arguments' shape, its port's axes followed by its span, and combines it
 over the span. The constructors choose between the two by size. `(matmul a
 b)`, of `(..., m, k)` by `(..., k, c)`, is a map of tiles when `k` and `c`
 are at most 16: the whole product at each matrix when it has at most 16
-elements, a row at a time otherwise. A larger product sees both at `(...,
+elements, a row at a time otherwise. An outer product, with `k` of 1, goes
+a row at a time too: its rows share nothing, so nothing is computed twice,
+and a kernel taking it in runs a thread for each row. A larger product sees both at `(...,
 m, c, k)` and sums their product over `k`. `sum`, `amax` and `amin` see
 their operand with the reduced axes last and keep those axes at size 1;
 over at most 16 elements each is a map folding a tile, and over more a
@@ -140,8 +142,8 @@ tiles a whole tile at a time becomes a map of those tiles to take it in,
 so Adam's moments of the harmonics' coefficients, whose gradient is
 computed a row of three colors at a time, are too. A body stays within 256
 expressions, since a producer read twice is inlined twice. A kernel binds
-at most seven buffers besides its port, so a sum of eight params is two
-maps. Types do not stop fusing: each expression carries its own. A
+at most eight buffers, its ports among them, so a sum of eight params is
+two maps. Types do not stop fusing: each expression carries its own. A
 reduction's body takes in maps as a map's does, so a large matrix product
 computes its products as it sums them, but nothing takes in a reduction.
 Any other node keeps the map that feeds it, so reductions, gathers,
@@ -173,6 +175,22 @@ rotations, which the backward pass reads by column, are written in the
 forward pass rather than kept as their parts until then. Since this weighs
 every node reading a producer, a program's sinks and updates are fused
 together.
+
+A producer whose port is kept anyway, such as an update's value or a sink,
+keeps its own kernel where a map reads it, since taking it in would only
+compute it twice. A map can write it instead: one that reads it whole and
+in order, at the elements each of its threads computes, and is its only
+reader but for the roots, takes it in and writes its port as one of its
+own. That makes a map of several ports, one kernel computing each of its
+bodies, which share every expression they have in common
+(`mapped-ports`). Adam's update of a param reads the two moments it updates
+whole, so the three updates of each param become one kernel of three
+ports. Each port counts toward the kernel's eight buffers. A param that a
+port writes in place shares that port's binding, but lowering decides
+which ports it writes in place, after fusing. So fusing counts the shared
+binding only for a param nothing else reads, as nothing but Adam reads its
+moments, where lowering is sure to write in place, and lowering refuses a
+map of more than eight.
 
 On bicycle, fusing took a training step from 779 dispatches to 348, and
 the splats viewer's frame from 272 to 80; with gradients' parts joined
@@ -258,7 +276,9 @@ each of its threads writes, and no later node, sink or other update reads
 the param. Then the map's port is the param's buffer, which its kernel
 binds once and reads the param from, since WebGPU lets a dispatch bind a
 buffer it writes no other way. Adam's updates are such maps, so a step
-holds no second copy of the cloud's params and moments.
+holds no second copy of the cloud's params and moments. A map of several
+ports writes each of its updates in place, each read through its own
+port.
 
 A caller gives a program buffers with `(lower-with gpu label sinks updates
 given)`. A `Given` holds buffers for params by name, which the program
@@ -283,6 +303,9 @@ are read once, after the last. It needs the device's `timestamp-query`
 feature. Node's times are not rounded; a browser's are, to 100 μs, so a
 program is best profiled on Node. A pass per step costs a little that one
 pass would not, so the sum is a little more than a run takes.
+A traced run ([Traces](../snail-scheme/toolchain.md#traces)) shows
+instead each pass a run makes for as long as the device ran it, with no
+passes added.
 
 `tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. On the device, which
@@ -444,11 +467,13 @@ three parts:
   `Photographs` for a view's photograph, a texture on the device, and is
   given how a step's image is shown: on the page's canvas, or nowhere.
 - **The dataset**, `(apps train dataset)`, is a COLMAP dataset as such a
-  scene: where its files are, the camera scaled to its photographs, the
-  decoding, and every eighth photograph held out.
-- **The entry points** say how a file's bytes are had and what is kept. A
-  page fetches them from the dataset's URL and keeps nothing; a program
-  on Node reads them from its folder and keeps the cloud.
+  scene: how its files are read, the camera scaled to its photographs,
+  the decoding, and every eighth photograph held out.
+- **The entry points** link the dataset, Mip-NeRF 360's bicycle as
+  `(datasets mipnerf360 bicycle)` gives it ([datasets](../libraries/datasets.md)),
+  and say what is kept. A page fetches the files from its store and keeps
+  nothing; a program on Node reads them from its package and keeps the
+  cloud.
 
 A program whose scene is made or embedded calls the trainer alone, with a
 `Scene` of its own and a texture for each view asked for.

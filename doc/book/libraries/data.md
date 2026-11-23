@@ -101,9 +101,43 @@ producer writes the form as bytes (`write-generated-library`), which the
 compiler decodes, so no text is printed or parsed in between and a byte
 array reaches the compiler as the bytes it holds. Generated syntax has no
 locations: the compiler places every generated form at the recipe
-([generated libraries](../snail-scheme/macros.md)).
+([generated libraries](../snail-scheme/macros.md)). `linked-files` is the
+definition of a list of files, each by a path of its own with the linked
+file it names, as a dataset's library holds them
+([datasets](datasets.md)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/syntax.sld)
+
+## `(snail shell inflate)`
+
+`inflate`, which decodes a DEFLATE stream (RFC 1951), the format a zip
+archive's members, gzip files and PNG images keep their bytes in, into the
+number of bytes it must make, as a zip archive's directory gives it. Its
+stored, fixed and dynamic blocks are each a section of the source. The
+input is read as a stream of bits whose place is threaded through every
+step as a number, so decoding allocates nothing but its output and each
+block's codes; a code of up to 10 bits is found in a table, and a longer
+one a bit at a time. A stream that breaks the format, or makes more or
+fewer bytes than it should, answers why. It decodes about 55 MB a second
+on Node.
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/inflate.sld)
+
+## `(snail shell zip)`
+
+Zip archives, read a member at a time, as from a server that answers any
+range of an archive's bytes: `zip-directory` finds the directory from the
+archive's last `end-bytes`, `zip-entries` reads it into `ZipEntry`
+records, each with its span of the archive, from its local header to the
+next member's, and `entry-contents` gives a member's bytes from its span,
+kept as they are or deflated, checked against the directory's length and
+CRC-32 (`crc32`). An archive past 4 GiB, or of more than 65,535 members,
+keeps its wide numbers in Zip64's records, which every function reads.
+Nothing here reads a file or the web: each function reads the bytes it is
+given. Encrypted members, other methods and names that are not UTF-8 are
+refused.
+
+[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/zip.sld)
 
 ## `(snail shell compiler sha256)`
 
