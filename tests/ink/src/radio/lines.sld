@@ -1,0 +1,13 @@
+(generate-library (radio lines)
+                  (import
+                   (snail core base)
+                   (only (snail core io) Arguments Fs)
+                   (only (snail shell process) Processes)
+                   (only (snail shell resource) Resources)
+                   (snail shell game ink))
+                  (lambda ((arguments Arguments)
+                           (fs Fs)
+                           (processes Processes)
+                           (resources Resources))
+                    (ink-library arguments fs processes resources (list "radio" "lines")
+                                 (max-turns 3) "./pickup.ink" "parts/till.ink")))

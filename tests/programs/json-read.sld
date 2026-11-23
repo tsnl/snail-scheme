@@ -24,6 +24,12 @@
                           (new Pair (first "a") (second (JsonBool #f)))))))
 
 (define (main (out OutputPort)) (→ Unit)
+  (unless (and (match (string->json-values " {} {\"x\":\"} {\"}[]  ")
+                 ((Some xs) (= (length xs) 3))
+                 (_ #f))
+               (match (string->json-values "  ") ((Some (Nil)) #t) (_ #f))
+               (match (string->json-values "{}{") ((None) #t) (_ #f)))
+    (panic "reading consecutive JSON values"))
   (for-each (lambda (value) (write-line out (read-back (json->string value)))) (written))
   (for-each (lambda (text) (write-line out (read-back text)))
             (list

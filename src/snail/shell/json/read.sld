@@ -4,6 +4,7 @@
 (define-library (snail shell json read)
   (export
    string->json
+   string->json-values
    json-member)
   (import
    (snail core base)
@@ -27,6 +28,15 @@
           ((Some (Pair value end))
            (if (= (skip-space chars end) (array-length chars)) (Some value) (None)))
           ((None) (None)))))
+
+    ;; A stream may put consecutive values on one line or across several.
+    (define (string->json-values (text String)) (→ (Option (List Json)))
+      (let ((chars (string->array text)))
+        (let loop ((i (skip-space chars 0)) (values (Nil)))
+          (if (= i (array-length chars)) (Some (reverse values))
+              (match (read-value chars i)
+                ((Some (Pair value end)) (loop (skip-space chars end) (Cons value values)))
+                ((None) (None)))))))
 
     ;; The value of an object's first member named `name`.
 
