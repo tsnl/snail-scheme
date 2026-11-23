@@ -35,6 +35,10 @@ gather dx: agrees
 gather dx: -1.0 -0.5 0.0 0.5 2.0 3.0
 empty beside one dx: 1.0 0.0 0.0
 empty port dx: 0x3, 0 values
+one map dx: agrees
+two ports, one read, dx: agrees
+two ports dx: agrees
+one map dx: 5 nodes, 4 in the loss
 chain: 4 nodes, fused 2, the same values
 transposed: 3 nodes, fused 2, the same values
 narrowed: 3 nodes, fused 2, the same values
