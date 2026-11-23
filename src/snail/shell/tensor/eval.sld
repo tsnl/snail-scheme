@@ -79,9 +79,12 @@
           ((Param name) (list (input-of inputs name)))
           ((Constant _ data) (list (bytes->values data out)))
           ((Fill value) (list (dense-of n default-port (lambda (_) (rounded out value)))))
-          ((Map body)
-           (list
-            (dense-of n default-port (lambda (index) (mapped-at body ports (● n args) index)))))
+          ((Map bodies)
+           (map-indexed (lambda (k body)
+                          (dense-of n
+                                    (map-port-name k)
+                                    (lambda (index) (mapped-at body ports (● n args) index))))
+                        bodies))
           ((Reduce op span body)
            (list (dense-of n
                            default-port

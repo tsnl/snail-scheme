@@ -331,7 +331,10 @@
     (define (single-port-adjoints (n Node) (g View)) (→ (List (Option View)))
       (let ((args (● n args)) (y (node-view n default-port)))
         (match (● n kind)
-          ((Map body) (map-adjoints body args y g))
+          ((Map bodies)
+           (match bodies
+             ((Cons body (Nil)) (map-adjoints body args y g))
+             (_ (panic "grad: a map of several ports is made by fusing, after gradients"))))
           ((Reduce op span body) (reduce-adjoints op span body args y g))
           ((Place accessor)
            (list (Some (View-accessor-set (if (identity? g) g (copy g)) accessor))))

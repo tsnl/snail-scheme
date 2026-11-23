@@ -588,11 +588,12 @@
 
     ;; The threads a node's own kernel runs: one an element of its port,
     ;; but a map's one an element of its leading axes, each computing a
-    ;; tile.
+    ;; tile of each port.
     (define (threads (n Node)) (→ I64)
       (let ((shape (● (port-of n default-port) shape)))
         (match (● n kind)
-          ((Map body) (product (take shape (- (length shape) (length (expr-tile body))))))
+          ((Map bodies)
+           (product (take shape (- (length shape) (length (expr-tile (list-ref bodies 0)))))))
           (_ (product shape)))))
 
     ;; The keys and values sorted into the ports: all of them, or as many
@@ -795,8 +796,9 @@
     ;; text); no later node reads the param, whose old value is gone once
     ;; the map runs, and neither does a sink or another update's copy,
     ;; which run after every node; and the param has its buffer before
-    ;; then. Training's Adam updates are such maps. Answered by the map's
-    ;; port, with the param it writes.
+    ;; then. Training's Adam updates are such maps, and fusing makes each
+    ;; param's three one map of three ports, each written in place.
+    ;; Answered by the map's port, with the param it writes.
     (define (in-place-ports (assignments (List (Pair View View)))
                             (sinks (List View))
                             (order (List Node))
@@ -843,19 +845,27 @@
         ((Some target) (string=? (● target node key) (● u first node key)))
         ((None) #f)))
 
-    ;; A map writing an update in place, as it is built: reading its param
-    ;; through its own port, which is the param's buffer, so its kernel
-    ;; binds the buffer once and loads the param from `out` (`load`).
-    ;; WebGPU forbids a dispatch to bind a buffer it writes any other way.
+    ;; A map writing updates in place, as it is built: reading each param
+    ;; through the port that writes it, which is the param's buffer, so its
+    ;; kernel binds the buffer once and loads the param from that port
+    ;; (`load`). WebGPU forbids a dispatch to bind a buffer it writes any
+    ;; other way. Fusing counted on these bindings (fuse.sld, `bindings`),
+    ;; so a map of more than eight is refused here, where it would fail.
     (define (reading-own-port (b Build) (n Node)) (→ Node)
-      (match (table-ref (● b in-place) (port-key n default-port))
+      (let ((read (fold-left (lambda (n port) (reading-port b n (● port name))) n (● n ports))))
+        (when (and (bodied? read) (> (+ (length (map-ports read)) (length (● read ports))) 8))
+          (panic "tensor lower: a fused map binds more than eight buffers"))
+        read))
+
+    (define (reading-port (b Build) (n Node) (port String)) (→ Node)
+      (match (table-ref (● b in-place) (port-key n port))
         ((Some target)
          (new Node
            (key (● n key))
            (kind (● n kind))
            (args (map (lambda (a)
                         (if (string=? (● a node key) (● target node key))
-                            (new View (node n) (port default-port) (accessor (● a accessor)))
+                            (new View (node n) (port port) (accessor (● a accessor)))
                             a))
                       (● n args)))
            (ports (● n ports))))
@@ -1217,7 +1227,7 @@
                        (match (● n kind)
                          ((Fill value)
                           (string-append "  out[i] = " (literal (● out etype) value) ";\n"))
-                         ((Map body) (map-statements n body))
+                         ((Map bodies) (map-statements n bodies))
                          ((Gather) (gather-text n))
                          ((Concat axis) (concat-text n axis))
                          ((Reduce op span _) (small-reduce-text n op span))
@@ -1247,35 +1257,58 @@
       ((statements (List String))
        (names (Table String))))
 
-    ;; A map's body as statements of element i of its leading axes: a
-    ;; `let` for each distinct load and operation, and for each element of
-    ;; its tile, numbered in the order the body needs them; then each
-    ;; element of the port's tile there. A load reads its argument's
-    ;; elements there, through the argument's accessor. An expression
-    ;; fusing copied into two places is computed once, and no expression
+    ;; A map's bodies as statements of element i of its leading axes: a
+    ;; `let` for each distinct load and operation of any of them, and for
+    ;; each element of its tile, numbered in the order the bodies need
+    ;; them; then each element of each port's tile there, body k's into
+    ;; port k, every store after every load, so that a port written in
+    ;; place has loaded its param. A load reads its argument's elements
+    ;; there, through the argument's accessor. An expression fusing copied
+    ;; into two places, or two bodies, is computed once, and no expression
     ;; nests another, so a fused body of hundreds stays within what a
     ;; shader compiler parses.
-    (define (map-statements (n Node) (body Expr)) (→ String)
-      (let ((done (body-text (lambda (k t) (operand n k t)) body))
-            (size (product (expr-tile body))))
+    (define (map-statements (n Node) (bodies (List Expr))) (→ String)
+      (let ((done (bodies-text (lambda (k t) (operand n k t)) bodies)))
         (string-append (string-join (● done first) "")
                        (string-join
-                        (map-indexed (lambda (j name) (stored size j name)) (● done second))
+                        (map (lambda (pair) (port-stores (● pair first) (● pair second)))
+                             (zip (● n ports) (● done second)))
                         ""))))
 
-    ;; Element j of a tile of `size` elements, at thread i's tile.
-    (define (stored (size I64) (j I64) (name String)) (→ String)
+    (define (port-stores (port Port) (names (List String))) (→ String)
+      (string-join
+       (map-indexed (lambda (j name) (stored (● port name) (length names) j name)) names)
+       ""))
+
+    ;; Element j of a tile of `size` elements of `port`, at thread i's tile.
+    (define (stored (port String) (size I64) (j I64) (name String)) (→ String)
       (if (= size 1)
-          (string-append "  out[i] = " name ";\n")
-          (string-append "  out[i * " (u size) " + " (u j) "] = " name ";\n")))
+          (string-append "  " port "[i] = " name ";\n")
+          (string-append "  " port "[i * " (u size) " + " (u j) "] = " name ";\n")))
 
     ;; A body's statements, in order, and the names of its value's
     ;; elements, each load of argument k at index t of its tile reading
     ;; what `element` answers for k and t.
     (define (body-text (element (Fn I64 (List I64) → String)) (body Expr))
       (→ (Pair (List String) (List String)))
-      (let ((done (named element body (new Lets (statements (Nil)) (names (empty-table))))))
-        (new Pair (first (reverse (● done first statements))) (second (● done second)))))
+      (let ((done (bodies-text element (list body))))
+        (new Pair (first (● done first)) (second (list-ref (● done second) 0)))))
+
+    ;; Bodies' statements, sharing every `let`, and each body's names.
+    (define (bodies-text (element (Fn I64 (List I64) → String)) (bodies (List Expr)))
+      (→ (Pair (List String) (List (List String))))
+      (let ((done (fold-left (lambda (state body)
+                               (let ((next (named element body (● state first))))
+                                 (new Pair
+                                   (first (● next first))
+                                   (second (Cons (● next second) (● state second))))))
+                             (new Pair
+                               (first (new Lets (statements (Nil)) (names (empty-table))))
+                               (second (Nil)))
+                             bodies)))
+        (new Pair
+          (first (reverse (● done first statements)))
+          (second (reverse (● done second))))))
 
     ;; What names each element of `e`'s value, with the lets that compute
     ;; them: a literal stands for itself.
