@@ -14,8 +14,12 @@
 ;; Depth is depth32float, which the tracer reads to place each pixel.
 ;;
 ;; A texture's colors are sRGB; its data, normals and metal-roughness,
-;; are linear. A masked material discards below its cutoff and a blended
-;; one at a hashed threshold, so both draw as cutouts.
+;; are linear. A masked material discards below its cutoff. A blended one
+;; draws only in the blended layer (`blended_fragment`), a second G-buffer of the
+;; same targets whose depth starts as the first hits': the nearest
+;; blended surface in front of them, its alpha in the albedo's, which the
+;; tracer lights as it lights the first hits and blends over them
+;; (render.sld). Its motion is its own, so each is filtered with its own.
 (struct Vertex
         (position vec3f)
         (u f32)
@@ -93,9 +97,6 @@
           (* (- 1.0 (abs (get p yx))) (select (vec2f -1.0) (vec2f 1.0) (>= p (vec2f 0.0)))))))
     (return p))
 
-(fn hashed ((p vec2f)) (-> f32)
-    (return (fract (* 52.9829189 (fract (dot p (vec2f 0.06711056 0.00583715)))))))
-
 ;; The normal map's normal in the frame of `normal` and the tangent, or,
 ;; without a tangent, a frame from the derivatives of position and uv, as
 ;; Schüler's cotangent frame.
@@ -118,18 +119,40 @@
                           (* across (* scale (get local y)))
                           (* normal (get local z))))))
 
-(fn (@fragment) surface_fragment ((in Varying)) (-> Targets)
+;; The footprint at a fragment, taken where control flow is uniform.
+(fn footprint ((in Varying)) (-> Footprint)
     (var (f Footprint))
     (= (get f uv) (get in uv))
     (= (get f uv_x) (dpdx (get in uv)))
     (= (get f uv_y) (dpdy (get in uv)))
     (= (get f p_x) (dpdx (get in world)))
     (= (get f p_y) (dpdy (get in world)))
+    (return f))
+
+;; An opaque or masked material's first hit; a masked one below its
+;; cutoff, and every blended one, leave it to what is behind.
+(fn (@fragment) surface_fragment ((in Varying)) (-> Targets)
+    (let f (footprint in))
     (let m (at materials (get in material)))
     (let base (texel (get m textures x) f))
     (let alpha (* (get m base_color w) (get base w)))
     (if ((and (== (get m factors w) 1.0) (< alpha (get m emissive w))) (discard))
-        ((and (== (get m factors w) 2.0) (< alpha (hashed (get in position xy)))) (discard)))
+        ((== (get m factors w) 2.0) (discard)))
+    (return (drawn in f m base 1.0)))
+
+;; A blended material's hit, for the blended layer: the depth test keeps the
+;; nearest in front of the first hits. A texel it barely covers is none,
+;; so it hides nothing behind it.
+(fn (@fragment) blended_fragment ((in Varying)) (-> Targets)
+    (let f (footprint in))
+    (let m (at materials (get in material)))
+    (let base (texel (get m textures x) f))
+    (let alpha (* (get m base_color w) (get base w)))
+    (if ((or (!= (get m factors w) 2.0) (< alpha (/ 1.0 255.0))) (discard)))
+    (return (drawn in f m base alpha)))
+
+;; What a hit writes, its albedo's alpha `alpha`.
+(fn drawn ((in Varying) (f Footprint) (m SurfaceMaterial) (base vec4f) (alpha f32)) (-> Targets)
     (let toward (normalize (- (get camera eye xyz) (get in world))))
     (var geometric (normalize (cross (get f p_y) (get f p_x))))
     (if ((< (dot geometric toward) 0.0) (= geometric (- geometric))))
@@ -143,7 +166,7 @@
     (= (get out normals) (vec4f (octahedral normal) (octahedral geometric)))
     (= (get out emission)
        (vec4f (* (get m emissive xyz) (decoded (get (texel (get m textures w) f) xyz))) 1.0))
-    (= (get out albedo) (vec4f (* (get m base_color xyz) (decoded (get base xyz))) 1.0))
+    (= (get out albedo) (vec4f (* (get m base_color xyz) (decoded (get base xyz))) alpha))
     (= (get out material)
        (vec4f (* (get m factors x) (get metal_rough z))
               (* (get m factors y) (get metal_rough y))

@@ -50,8 +50,9 @@
 
     ;; The vertices, 64 bytes each (unpack.wgsl.scm's Vertex), three
     ;; indices a triangle, the materials, the texture array with a view of
-    ;; all its levels and the sampler that repeats it, and the box around
-    ;; every vertex, low corner then high.
+    ;; all its levels and the sampler that repeats it, the box around
+    ;; every vertex, low corner then high, and whether any material is
+    ;; blended, which the tracer draws as a layer of its own.
     (record Scene
       ((vertices GpuBuffer)
        (indices GpuBuffer)
@@ -62,7 +63,8 @@
        (vertex-count I64)
        (triangle-count I64)
        (low (List F64))
-       (high (List F64))))
+       (high (List F64))
+       (blended Bool)))
 
     (define vertex-stride (→ I64) 64)
 
@@ -155,7 +157,8 @@
           (vertex-count (● counts first))
           (triangle-count (quotient (● counts second) 3))
           (low (● bounds first))
-          (high (● bounds second)))))
+          (high (● bounds second))
+          (blended (any? (lambda (m) (= (● m alpha) 2)) (scene-materials gltf))))))
 
     (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit)
       (for-each (lambda (buffer) ((● gpu destroy) (BufferObject buffer)))
