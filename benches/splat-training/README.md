@@ -164,6 +164,7 @@ after it was measured with one run of this bench:
 | A gradient's parts are joined, not placed ([#898](https://github.com/tsnl/snail-scheme/pull/898)) | 857.5 | 152.6 | 10,759 | 25.287 |
 | Adam's updates of a param are one kernel ([#911](https://github.com/tsnl/snail-scheme/pull/911)) | 797.9 | 144.8 | 10,792 | 25.275 |
 | A map writes what later kernels read ([#914](https://github.com/tsnl/snail-scheme/pull/914)) | 788.7 | 140.7 | 10,888 | 25.270 |
+| The harmonics' basis is one map, and so is its gradient ([#915](https://github.com/tsnl/snail-scheme/pull/915)) | 686.2 | 119.4 | 10,887 | 25.287 |
 
 A run is not deterministic: the backward pass adds each gaussian's
 gradients in whatever order its threads arrive. Two runs of one trainer
