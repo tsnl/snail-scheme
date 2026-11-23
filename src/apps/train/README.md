@@ -88,19 +88,19 @@ it, so a page's scene should be near, or cached.
 
 ## Results
 
-On bicycle at `images_4`, on an RTX 5090, 30,000 steps take 22.9 minutes
-on Node and reach a held-out PSNR of 25.27; the paper reports 25.25.
+On bicycle at `images_4`, on an RTX 5090, 30,000 steps take 21.6 minutes
+on Node and reach a held-out PSNR of 25.32; the paper reports 25.25.
 [`benches/splat-training`](../../../benches/splat-training/README.md)
 trains the reference implementation and gsplat beside it on the same GPU.
 
 At full resolution, `images=images`, the step's own buffers are the limit,
-not the photographs. With the default 4,194,304 gaussians, binning's
-entries reach 2^27 near step 6,500, and the larger programs no longer fit
-a 32 GB device beside the cloud's 14 GB. A smaller cloud leaves them room:
-with `gaussians=2097152`, the 30,000 steps took 48 minutes on Node, the
-entries grew to 2^27, and the held-out PSNR at 4946x3286 was 23.76. The
-paper trains this scene at a quarter of that width, so it has no number to
-set beside this one.
+not the photographs. Before binning kept to the tiles a gaussian reaches,
+with the default 4,194,304 gaussians, its entries reached 2^27 near step
+6,500, and the larger programs no longer fit a 32 GB device beside the
+cloud's 14 GB. A smaller cloud left them room: with `gaussians=2097152`,
+the 30,000 steps took 48 minutes on Node, the entries grew to 2^27, and
+the held-out PSNR at 4946x3286 was 23.76. The paper trains this scene at
+a quarter of that width, so it has no number to set beside this one.
 
 COLMAP's cameras must be pinholes: undistort the photographs first, as
 Mip-NeRF 360's are.

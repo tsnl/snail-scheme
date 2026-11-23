@@ -304,13 +304,23 @@ stands in the world and has none, so its graph is unchanged.
 - **Binning is custom kernels around the middleware's sorts.** The kernels
   are `splat-count`, `splat-keys` and `splat-ranges`. Gaussians are sorted
   by depth, and each one's tiles emitted in that order at the prefix sum of
-  their counts. A stable sort by tile then leaves each 16x16 tile's entries
-  near to far. The tile count itself marks padding. The radix sort includes
-  enough bits for that key, including on grids with 65,536 or more tiles.
-  Binning passes no gradient. The sensor's capacity bounds the entries;
-  past it the farthest gaussians' are dropped, so a rendering answers how
-  many entries its gaussians asked for, and a host lowers room for more
-  before they run out.
+  their counts. A gaussian's tiles are those it reaches: those with a pixel
+  center where its alpha is at least 1/255, the least the rasterizer
+  blends, so binning drops nothing the rasterizer would draw. Each tile in
+  the bounding box of the gaussian's ellipse at that alpha is tested where
+  its conic's quadratic is least over the tile's pixel centers, on the
+  side nearest the center across or down. Binning as the reference does,
+  every tile of the square three standard deviations along the widest
+  axis about the center, made 4.5 million entries for step 7,000's view
+  of bicycle where this makes 1.7 million, and cut an opaque gaussian at
+  three deviations, where its alpha passes 1/255 out to 3.33. A stable
+  sort by tile then leaves each 16x16 tile's entries near to far. The
+  tile count itself marks padding. The radix sort includes enough bits
+  for that key, including on grids with 65,536 or more tiles. Binning
+  passes no gradient. The sensor's capacity bounds the entries; past it
+  the farthest gaussians' are dropped, so a rendering answers how many
+  entries its gaussians asked for, and a host lowers room for more before
+  they run out.
 - **Rasterizing is a custom node** (`splat-forward`), a workgroup per tile.
   It blends as the paper does and hands each pixel's final transmittance
   and its count of entries to `keep`. The purpose chooses `keep`'s text:
@@ -438,8 +448,8 @@ with `write-ply`, as the `.ply` file the reference implementation writes,
 at `cloud=PATH`, and `src/apps/splats` flies through it.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
-outdoor scenes, on an RTX 5090, the 30,000 steps take 22.9 minutes on
-Node, to a held-out PSNR of 25.27 against the paper's 25.25. The cloud
+outdoor scenes, on an RTX 5090, the 30,000 steps take 21.6 minutes on
+Node, to a held-out PSNR of 25.32 against the paper's 25.25. The cloud
 fills its 4,194,304 gaussians by step 9,100 and stays full until
 densifying stops at 15,000, where the reference's grows to 4.9 million.
 [A bench](https://github.com/tsnl/snail-scheme/blob/main/benches/splat-training/README.md)
@@ -448,11 +458,11 @@ and 10.4 minutes, to 25.23 and 25.15. Their steps take longer as their
 clouds grow; the programs here have shapes fixed by their capacity, so a
 step takes as long with a million gaussians live as with four. At full
 resolution the photographs no longer limit a run, since they are streamed;
-the step's own buffers do. With the default cloud, binning's entries reach
-2^27 near step 6,500, and the programs for them no longer fit a 32 GB
-device beside the cloud's 14 GB. A cloud of 2,097,152 leaves them room: the
-30,000 steps then took 48 minutes on Node, and the held-out PSNR at 4946 by
-3286 was 23.76, which the paper, training at a quarter of that width, has
-no number to set beside. Until about step 9,000 a step waits on the
+the step's own buffers do. Before binning kept to the tiles a gaussian
+reaches, the default cloud's entries reached 2^27 near step 6,500, and the
+programs for them no longer fit a 32 GB device beside the cloud's 14 GB.
+A cloud of 2,097,152 left them room: the 30,000 steps took 48 minutes on
+Node, and the held-out PSNR at 4946 by 3286 was 23.76, which the paper,
+training at a quarter of that width, has no number to set beside. Until about step 9,000 a step waits on the
 program's thread, where each photograph's bytes arrive and its texels are
 read, and takes about 90 ms; after that it waits on the device.
