@@ -284,6 +284,60 @@
                                          names))))
     (fused-line out "eight params" (fold-left + (list-ref ps 0) (list-drop ps 1)) inputs)))
 
+;; Updates whose maps read each other's values whole, as Adam's do, fused:
+;; the map reading the others writes them too, so their ports are one
+;; kernel's. Read in another order, a value keeps its own kernel.
+(define (written-ports (out OutputPort)) (→ Unit)
+  (let* ((names (list "p" "m" "v" "g"))
+         (ps (map (lambda (name) (param name (list 4 3) (Float))) names))
+         (p (list-ref ps 0))
+         (m (list-ref ps 1))
+         (v (list-ref ps 2))
+         (g (list-ref ps 3))
+         (inputs (inputs-of (map-indexed (lambda (k name)
+                                           (new Pair
+                                             (first name)
+                                             (second (ramp 12 0.05 (* 0.1 (i64->f64 k))))))
+                                         names)))
+         (m2 (+ (* (scalar 0.9) m) (* (scalar 0.1) g)))
+         (v2 (+ (* (scalar 0.999) v) (* (scalar 0.001) (square g))))
+         (p2 (- p (/ (* (scalar 0.01) m2) (+ (sqrt v2) (scalar 1e-8)))))
+         (turned (concat (list (narrow m2 0 2 2) (narrow m2 0 0 2)) 0)))
+    (updates-line out
+                  "adam"
+                  (list (new Pair (first m) (second m2))
+                        (new Pair (first v) (second v2))
+                        (new Pair (first p) (second p2)))
+                  inputs)
+    (updates-line out
+                  "reordered"
+                  (list (new Pair (first m) (second m2)) (new Pair (first g) (second (- g turned))))
+                  inputs)))
+
+;; How many nodes the updates' values need before and after fusing, the
+;; ports of the node computing the last, and whether they agree.
+(define (updates-line (out OutputPort)
+                      (label String)
+                      (updates (List (Pair View View)))
+                      (inputs (Table (Array F64))))
+  (→ Unit)
+  (let* ((fused (● (fuse-program (Nil) updates) second))
+         (values (lambda (us) (map (lambda (u) (● u second)) us)))
+         (same (every? (lambda (pair)
+                         (every? (lambda (xy) (= (● xy first) (● xy second)))
+                                 (zip (array->list (● pair first)) (array->list (● pair second)))))
+                       (zip (evaluate (values updates) inputs) (evaluate (values fused) inputs))))
+         (last (list-ref (values fused) (- (length fused) 1))))
+    (write-line out (string-append label
+                                   ": "
+                                   (show (length (toposort (values updates))))
+                                   " nodes, fused "
+                                   (show (length (toposort (values fused))))
+                                   ", the last of "
+                                   (show (length (● last node ports)))
+                                   " ports"
+                                   (if same ", the same values" ", other values")))))
+
 (define (main (out OutputPort)) (→ Unit)
   (constants out)
   (views out)
@@ -293,4 +347,5 @@
   (empty-gradients out)
   (fusion out)
   (fusion-limits out)
+  (written-ports out)
   (unit))

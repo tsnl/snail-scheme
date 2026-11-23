@@ -30,6 +30,13 @@
 ;; where that reads and holds no more than its own kernel and buffer would
 ;; (`worth-taking?`). That weighs every node reading a producer, so a
 ;; program's sinks and updates are fused together.
+;;
+;; A producer whose port is kept anyway, an update's value or a sink, is
+;; computed by its own kernel even where a map reads it. A map reading
+;; it whole, at the elements each of its threads computes, takes it in
+;; and writes its port too, a port of its own, so the producer needs no
+;; kernel (`writable?`): Adam's update of a param reads the moments it
+;; updates, and the three become one kernel of three ports.
 (define-library (snail shell tensor fuse)
   (export
    fuse
@@ -42,48 +49,80 @@
 
     ;; ---- Rewriting ----
 
-    ;; A map or a reduction being fused: the axes its body is computed at,
-    ;; a map's port's leading axes or a reduction's port's and its span's;
-    ;; the body; and the arguments it loads.
+    ;; A map or a reduction being fused: the axes its bodies are computed
+    ;; at, a map's ports' leading axes or a reduction's port's and its
+    ;; span's; its own body, then one for each producer it writes too, in
+    ;; `written`'s order; the producers it took in that nothing else
+    ;; reads, whose reads are its own; and the arguments the bodies load.
     (record Fusing
       ((node Node)
        (lead (List I64))
-       (body Expr)
+       (bodies (List Expr))
+       (written (List Node))
+       (taken (List Node))
        (args (List View))))
 
     ;; What fusing decided, from the roots down: the nodes still read, by
-    ;; key, and what each such map or reduction took in.
+    ;; key, what each such map or reduction took in, and the producers a
+    ;; kernel writes, which have no kernel of their own.
     (record Plan
       ((read (Table Bool))
-       (bodies (Table Fusing))))
+       (bodies (Table Fusing))
+       (written (Table Bool))))
+
+    ;; A node as fusing built it, and the port of it that sees what a view
+    ;; of the old node's port saw: a producer a kernel writes is a port of
+    ;; that kernel's node.
+    (record Made
+      ((node Node)
+       (port (Option String))))
 
     ;; The roots, each a view of its node fused, in order: planned from the
     ;; roots down, then built from the leaves up.
-    (define (fuse (roots (List View))) (→ (List View))
-      (let* ((order (toposort roots))
-             (graph (graph-of order roots))
-             (plan (fold-left (lambda (plan n) (planned graph plan n))
-                              (new Plan (read (marked (empty-table) roots)) (bodies (empty-table)))
-                              (reverse order)))
-             (done (fold-left (lambda (done n) (built plan done n)) (empty-table) order)))
-        (map (lambda (r) (rewritten done r)) roots)))
+    (define (fuse (roots (List View))) (→ (List View)) (fused-with roots (empty-table)))
 
     ;; A program's sinks and updates fused as one graph: each update's
     ;; value fused, its param, a leaf, kept.
     (define (fuse-program (sinks (List View)) (updates (List (Pair View View))))
       (→ (Pair (List View) (List (Pair View View))))
-      (let ((fused (fuse (append sinks (map (lambda (u) (● u second)) updates)))))
+      (let ((fused (fused-with (append sinks (map (lambda (u) (● u second)) updates))
+                               (update-targets updates))))
         (new Pair
           (first (take fused (length sinks)))
           (second
            (map (lambda (pair) (new Pair (first (● pair first first)) (second (● pair second))))
                 (zip updates (list-drop fused (length sinks))))))))
 
+    (define (fused-with (roots (List View)) (targets (Table Node))) (→ (List View))
+      (let* ((order (toposort roots))
+             (graph (graph-of order roots targets))
+             (plan (fold-left (lambda (plan n) (planned graph plan n))
+                              (new Plan
+                                (read (marked (empty-table) roots))
+                                (bodies (empty-table))
+                                (written (empty-table)))
+                              (reverse order)))
+             (done (fold-left (lambda (done n) (built plan done n)) (empty-table) order)))
+        (map (lambda (r) (rewritten done r)) roots)))
+
+    ;; The param each update writes, by the key of the node whose whole
+    ;; port is its value: what a kernel writing that port may write in
+    ;; place (`bindings`).
+    (define (update-targets (updates (List (Pair View View)))) (→ (Table Node))
+      (fold-left (lambda (t u)
+                   (if (identity? (● u second))
+                       (table-set t (● u second node key) (● u first node))
+                       t))
+                 (empty-table)
+                 updates))
+
     ;; A node still read, planned after all that read it: a map or a
     ;; reduction takes in what its body can, and then what it reads is
-    ;; read; any other reads its arguments.
+    ;; read; any other reads its arguments. A producer a kernel writes was
+    ;; planned with that kernel.
     (define (planned (graph Graph) (plan Plan) (n Node)) (→ Plan)
-      (if (table-contains? (● plan read) (● n key))
+      (if (and (table-contains? (● plan read) (● n key))
+               (not (table-contains? (● plan written) (● n key))))
           (match (body-of n)
             ((Some body)
              (let ((taken (absorbed graph
@@ -92,18 +131,30 @@
                                     (new Fusing
                                       (node n)
                                       (lead (lead-of n))
-                                      (body body)
+                                      (bodies (list body))
+                                      (written (Nil))
+                                      (taken (Nil))
                                       (args (● n args))))))
                (new Plan
                  (read (marked (● plan read) (● taken args)))
-                 (bodies (table-set (● plan bodies) (● n key) taken)))))
+                 (bodies (table-set (● plan bodies) (● n key) taken))
+                 (written (fold-left (lambda (t w) (table-set t (● w key) #t))
+                                     (● plan written)
+                                     (● taken written))))))
             ((None) (Plan-read-set plan (marked (● plan read) (● n args)))))
           plan))
 
+    ;; The body a node fuses from: a map's, when it has one, or a
+    ;; reduction's. A map of several bodies is fusing's own making.
     (define (body-of (n Node)) (→ (Option Expr))
       (match (● n kind)
-        ((Map body) (Some body))
+        ((Map bodies) (one-body bodies))
         ((Reduce _ _ body) (Some body))
+        (_ (None))))
+
+    (define (one-body (bodies (List Expr))) (→ (Option Expr))
+      (match bodies
+        ((Cons body (Nil)) (Some body))
         (_ (None))))
 
     ;; The axes a body is computed at: a map's port's leading axes, before
@@ -111,7 +162,7 @@
     (define (lead-of (n Node)) (→ (List I64))
       (let ((shape (● (port-of n default-port) shape)))
         (match (● n kind)
-          ((Map body) (take shape (- (length shape) (length (expr-tile body)))))
+          ((Map bodies) (take shape (- (length shape) (length (expr-tile (list-ref bodies 0))))))
           ((Reduce _ span _) (append shape span))
           (_ shape))))
 
@@ -119,43 +170,69 @@
       (fold-left (lambda (t v) (table-set t (● v node key) #t)) read views))
 
     ;; A node still read, built after what it reads: a map or a reduction
-    ;; over the body it took in, any other over its arguments rebuilt.
-    (define (built (plan Plan) (done (Table Node)) (n Node)) (→ (Table Node))
-      (if (table-contains? (● plan read) (● n key))
-          (table-set done
-                     (● n key)
-                     (match (table-ref (● plan bodies) (● n key))
-                       ((Some taken)
-                        (rebuilt n
-                                 (● taken body)
-                                 (map (lambda (a) (rewritten done a)) (● taken args))))
-                       ((None) (with-args n (map (lambda (a) (rewritten done a)) (● n args))))))
-          done))
+    ;; over the bodies it took in, any other over its arguments rebuilt.
+    ;; A producer a kernel writes is read by nothing before that kernel,
+    ;; which makes it a port when it is built.
+    (define (built (plan Plan) (done (Table Made)) (n Node)) (→ (Table Made))
+      (cond ((table-contains? (● plan written) (● n key)) done)
+            ((not (table-contains? (● plan read) (● n key))) done)
+            (else
+             (match (table-ref (● plan bodies) (● n key))
+               ((Some taken) (built-fused done n taken))
+               ((None)
+                (table-set done
+                           (● n key)
+                           (new Made
+                             (node (with-args n (map (lambda (a) (rewritten done a)) (● n args))))
+                             (port (None)))))))))
 
-    ;; A map or a reduction as `n` is, over `body` and `args`: a map at
-    ;; its port's axes before the body's tile, which may now be larger.
-    (define (rebuilt (n Node) (body Expr) (args (List View))) (→ Node)
-      (let ((shape (● (port-of n default-port) shape)))
-        (● (match (● n kind)
-             ((Map _) (mapped body args (take shape (- (length shape) (length (expr-tile body))))))
-             ((Reduce op span _) (reduced op body args shape span))
-             (_ (panic "fuse: only a map or a reduction takes in a body")))
-           node)))
+    ;; A kernel's node, and each producer it writes as its port k + 1.
+    (define (built-fused (done (Table Made)) (n Node) (taken Fusing)) (→ (Table Made))
+      (let ((m (rebuilt n (● taken bodies) (map (lambda (a) (rewritten done a)) (● taken args)))))
+        (fold-left (lambda (done pair)
+                     (table-set done
+                                (● pair second key)
+                                (new Made (node m) (port (Some (map-port-name (● pair first)))))))
+                   (table-set done (● n key) (new Made (node m) (port (None))))
+                   (zip (map (lambda (k) (+ k 1)) (iota (length (● taken written))))
+                        (● taken written)))))
+
+    ;; A map or a reduction as `n` is, over `bodies` and `args`: a map at
+    ;; its port's axes before the first body's tile, which may now be
+    ;; larger, with a port for each body.
+    (define (rebuilt (n Node) (bodies (List Expr)) (args (List View))) (→ Node)
+      (let ((shape (● (port-of n default-port) shape)) (body (list-ref bodies 0)))
+        (match (● n kind)
+          ((Map _)
+           (mapped-ports bodies args (take shape (- (length shape) (length (expr-tile body))))))
+          ((Reduce op span _) (● (reduced op body args shape span) node))
+          (_ (panic "fuse: only a map or a reduction takes in a body")))))
 
     ;; A view of a node, now of its rewritten node: a rewritten map has
-    ;; the same port, so the view sees the same elements.
-    (define (rewritten (done (Table Node)) (view View)) (→ View)
+    ;; the same port, so the view sees the same elements, and a producer a
+    ;; kernel writes is that kernel's port.
+    (define (rewritten (done (Table Made)) (view View)) (→ View)
       (match (table-ref done (● view node key))
-        ((Some n) (new View (node n) (port (● view port)) (accessor (● view accessor))))
+        ((Some made)
+         (new View
+           (node (● made node))
+           (port (match (● made port)
+                   ((Some port) port)
+                   ((None) (● view port))))
+           (accessor (● view accessor))))
         ((None) (panic "fuse: a node rewritten before its arguments"))))
 
     ;; ---- The graph as given ----
 
     ;; Each node's place in the order lowering runs it, and what reads
-    ;; each, by key: what sharing weighs.
+    ;; each, by key: what sharing weighs. The roots are read at `end`,
+    ;; after every node, and `targets` holds the param each update writes,
+    ;; by its value's node.
     (record Graph
       ((places (Table I64))
-       (readers (Table (List Reader)))))
+       (readers (Table (List Reader)))
+       (end I64)
+       (targets (Table Node))))
 
     ;; A node reading another: its place, and how many of the other's
     ;; elements its views of it see. The roots are read whole at the end,
@@ -164,14 +241,18 @@
       ((place I64)
        (seen I64)))
 
-    (define (graph-of (order (List Node)) (roots (List View))) (→ Graph)
+    (define (graph-of (order (List Node)) (roots (List View)) (targets (Table Node))) (→ Graph)
       (let* ((places (fold-left (lambda (t pair) (table-set t (● pair second key) (● pair first)))
                                 (empty-table)
                                 (zip (iota (length order)) order)))
              (read (fold-left (lambda (t n) (read-by t (place-in places n) (● n args)))
                               (empty-table)
                               order)))
-        (new Graph (places places) (readers (read-by read (length order) roots)))))
+        (new Graph
+          (places places)
+          (readers (read-by read (length order) roots))
+          (end (length order))
+          (targets targets))))
 
     ;; `readers` with a node at `place` reading `views`, each distinct view
     ;; once.
@@ -210,60 +291,193 @@
         ((Some next) (absorbed graph kept place next))
         ((None) f)))
 
-    ;; The body with the first producer from argument k on that fits and
-    ;; is worth taking in taken in.
+    ;; The bodies with the first producer from argument k on taken in
+    ;; that the kernel can write, or that fits and is worth taking in.
     (define (first-taken (graph Graph) (kept (Table Bool)) (place I64) (f Fusing) (k I64))
       (→ (Option Fusing))
       (if (>= k (length (● f args)))
           (None)
-          (match (taking-in f k)
-            ((Some next)
-             (if (worth-taking? graph
-                                kept
-                                place
-                                (● (list-ref (● f args) k) node)
-                                (● f args)
-                                (● next args))
-                 (Some next)
-                 (first-taken graph kept place f (+ k 1))))
-            ((None) (first-taken graph kept place f (+ k 1))))))
+          (or-taken (taken-at graph kept place f k)
+                    (lambda () (first-taken graph kept place f (+ k 1))))))
 
-    ;; The body with argument k's producer inlined, each load of it a tile
-    ;; of the axes after the body's: computed a tile at a time first, when
-    ;; it reads a map of tiles a whole tile at a time (`at-tiles`).
-    (define (taking-in (f Fusing) (k I64)) (→ (Option Fusing))
-      (let* ((at (at-tiles f (list-ref (● f args) k)))
-             (tile (list-drop (shape-of (list-ref (● f args) k)) (length (● at lead)))))
-        (match (inlined (● at body) (● f args) k tile)
-          ((Some next) (Some (Fusing-args-set (Fusing-body-set at (● next first)) (● next second))))
+    ;; Argument k's producer written as well as taken in where the kernel
+    ;; can write it, which computes nothing twice and spares its kernel;
+    ;; else taken in where that fits and is worth it.
+    (define (taken-at (graph Graph) (kept (Table Bool)) (place I64) (f Fusing) (k I64))
+      (→ (Option Fusing))
+      (or-taken (if (writable? graph place f k) (written-in graph kept place f k) (None))
+                (lambda ()
+                  (match (taking-in graph place f k (None))
+                    ((Some next)
+                     (if (worth-taking? graph
+                                        kept
+                                        place
+                                        (● (list-ref (● f args) k) node)
+                                        (● f args)
+                                        (● next args))
+                         (Some next)
+                         (None)))
+                    ((None) (None))))))
+
+    ;; Argument k's producer taken in and written, fused first as its own
+    ;; kernel would be: what it takes in that nothing else reads comes in
+    ;; with it, so the kernel's limits weigh what the kernel will bind,
+    ;; and the reads of what it took in are the kernel's.
+    (define (written-in (graph Graph) (kept (Table Bool)) (place I64) (f Fusing) (k I64))
+      (→ (Option Fusing))
+      (let* ((v (list-ref (● f args) k))
+             (p (● v node))
+             (own (absorbed graph kept (place-in (● graph places) p) (unfused p))))
+        (taking-in graph
+                   place
+                   (if (null? (● own written))
+                       (new Fusing
+                         (node (● f node))
+                         (lead (● f lead))
+                         (bodies (● f bodies))
+                         (written (● f written))
+                         (taken (append (● f taken) (● own taken)))
+                         (args (map-indexed (lambda (j a)
+                                              (if (= j k)
+                                                  (new View
+                                                    (node (rebuilt p (● own bodies) (● own args)))
+                                                    (port (● v port))
+                                                    (accessor (● v accessor)))
+                                                  a))
+                                            (● f args))))
+                       f)
+                   k
+                   (Some p))))
+
+    ;; A map of one body as it is, before it takes anything in.
+    (define (unfused (n Node)) (→ Fusing)
+      (new Fusing
+        (node n)
+        (lead (lead-of n))
+        (bodies (match (body-of n)
+                  ((Some body) (list body))
+                  ((None) (panic "fuse: a producer written has no body"))))
+        (written (Nil))
+        (taken (Nil))
+        (args (● n args))))
+
+    (define (or-taken (taken (Option Fusing)) (otherwise (Fn → (Option Fusing))))
+      (→ (Option Fusing))
+      (match taken
+        ((Some _) taken)
+        ((None) (otherwise))))
+
+    ;; The bodies with argument k's producer inlined, each load of it a
+    ;; tile of the axes after the bodies': computed a tile at a time first,
+    ;; when it reads a map of tiles a whole tile at a time (`at-tiles`).
+    ;; Written, as `writes` says, the producer's body is one more, its port
+    ;; the kernel's; taken in and read by nothing else, its reads are the
+    ;; kernel's.
+    (define (taking-in (graph Graph) (place I64) (f Fusing) (k I64) (writes (Option Node)))
+      (→ (Option Fusing))
+      (let* ((v (list-ref (● f args) k))
+             (at (at-tiles f v))
+             (tile (list-drop (shape-of v) (length (● at lead)))))
+        (match (inlined (● at bodies) (● f args) k tile (some-node? writes))
+          ((Some next)
+           (let ((taken (new Fusing
+                          (node (● f node))
+                          (lead (● at lead))
+                          (bodies (● next first))
+                          (written (match writes
+                                     ((Some w) (append (● f written) (list w)))
+                                     ((None) (● f written))))
+                          (taken (if (and (not (some-node? writes))
+                                          (read-only-by? graph place f (● v node)))
+                                     (append (● f taken) (list (● v node)))
+                                     (● f taken)))
+                          (args (● next second)))))
+             (if (within-limits? graph place taken) (Some taken) (None))))
           ((None) (None)))))
 
-    ;; The body and arguments with argument k's producer inlined, when it
-    ;; is a map whose loads can be seen through the view of it, which is
-    ;; loaded as `tile`s, and the result keeps within the limits. Argument
-    ;; k's loads become the producer's body, whose loads read the
-    ;; producer's arguments as the view sees them, after the others.
-    (define (inlined (body Expr) (args (List View)) (k I64) (tile (List I64)))
-      (→ (Option (Pair Expr (List View))))
+    (define (some-node? (n (Option Node))) (→ Bool)
+      (match n
+        ((Some _) #t)
+        ((None) #f)))
+
+    ;; The bodies and arguments with argument k's producer inlined, when
+    ;; it is a map whose loads can be seen through the view of it, which
+    ;; is loaded as `tile`s. Argument k's loads become the producer's body,
+    ;; whose loads read the producer's arguments as the view sees them,
+    ;; after the others; `writing` adds that body as the last.
+    (define (inlined (bodies (List Expr))
+                     (args (List View))
+                     (k I64)
+                     (tile (List I64))
+                     (writing Bool))
+      (→ (Option (Pair (List Expr) (List View))))
       (let ((v (list-ref args k)))
-        (match (● v node kind)
-          ((Map inner)
+        (match (single-body (● v node))
+          ((Some inner)
            (match (as-loaded v inner tile)
              ((Some through)
               (let* ((base (- (length args) 1))
                      (moved (map-loads (● through first)
                                        (lambda (j etype tile) (Load (+ base j) etype tile))))
-                     (combined
-                      (distinct (map-loads body
-                                           (lambda (j etype tile)
-                                             (cond ((= j k) moved)
-                                                   ((> j k) (Load (- j 1) etype tile))
-                                                   (else (Load j etype tile)))))
+                     (renumbered (lambda (body)
+                                   (map-loads body
+                                              (lambda (j etype tile)
+                                                (cond ((= j k) moved)
+                                                      ((> j k) (Load (- j 1) etype tile))
+                                                      (else (Load j etype tile))))))))
+                (Some (distinct (append (map renumbered bodies) (if writing (list moved) (Nil)))
                                 (append (append (take args k) (list-drop args (+ k 1)))
-                                        (● through second)))))
-                (if (within-limits? combined) (Some combined) (None))))
+                                        (● through second))))))
              ((None) (None))))
-          (_ (None)))))
+          ((None) (None)))))
+
+    ;; A map's body, when it has one.
+    (define (single-body (n Node)) (→ (Option Expr))
+      (match (● n kind)
+        ((Map bodies) (one-body bodies))
+        (_ (None))))
+
+    ;; ---- Writing producers ----
+
+    ;; Whether the map at `place` can write argument k's producer as well
+    ;; as take it in, so that the producer needs no kernel of its own: a
+    ;; map of one body, read whole and in order, so that each thread
+    ;; computes the producer's elements it loads; through no other view;
+    ;; and read by nothing else but what the kernel writes already, and
+    ;; the roots, which read its port once every node ran, and for which
+    ;; it is kept.
+    (define (writable? (graph Graph) (place I64) (f Fusing) (k I64)) (→ Bool)
+      (let* ((v (list-ref (● f args) k))
+             (producer (● v node))
+             (readers (readers-of (● graph readers) producer)))
+        (and (map-kind? (● f node))
+             (some-body? producer)
+             (identity? v)
+             (every? (lambda (a)
+                       (or (string=? (view-key a) (view-key v))
+                           (not (string=? (● a node key) (● producer key)))))
+                     (● f args))
+             (every? (lambda (r)
+                       (or (= (● r place) (● graph end)) (in-kernel? graph place f (● r place))))
+                     readers)
+             (any? (lambda (r) (= (● r place) (● graph end))) readers))))
+
+    (define (some-body? (n Node)) (→ Bool)
+      (match (single-body n)
+        ((Some _) #t)
+        ((None) #f)))
+
+    ;; Whether a reader at `at` is the kernel at `place`: the kernel
+    ;; itself, a producer it writes, or one it took in that nothing else
+    ;; reads.
+    (define (in-kernel? (graph Graph) (place I64) (f Fusing) (at I64)) (→ Bool)
+      (or (= at place)
+          (any? (lambda (n) (= at (place-in (● graph places) n)))
+                (append (● f written) (● f taken)))))
+
+    ;; Whether nothing but the kernel at `place` reads a node.
+    (define (read-only-by? (graph Graph) (place I64) (f Fusing) (n Node)) (→ Bool)
+      (every? (lambda (r) (in-kernel? graph place f (● r place))) (readers-of (● graph readers) n)))
 
     ;; ---- Tiles ----
 
@@ -271,20 +485,20 @@
     ;; over its port's last axes, computed a tile of those axes at a time,
     ;; so that it can take that map in; any other body as it is.
     (define (at-tiles (f Fusing) (a View)) (→ Fusing)
-      (match (if (and (map-kind? (● f node)) (untiled? (● f body)))
+      (match (if (and (map-kind? (● f node)) (every? untiled? (● f bodies)))
                  (tile-reading (● f lead) a)
                  (None))
         ((Some tile)
-         (Fusing-body-set
+         (Fusing-bodies-set
           (Fusing-lead-set f (take (● f lead) (- (length (● f lead)) (length tile))))
-          (lifted (● f body) tile)))
+          (map (lambda (body) (lifted body tile)) (● f bodies))))
         ((None) f)))
 
     ;; The fewest of `lead`'s last axes at which a view of a map of tiles
     ;; reads whole tiles of it.
     (define (tile-reading (lead (List I64)) (a View)) (→ (Option (List I64)))
-      (match (● a node kind)
-        ((Map inner)
+      (match (single-body (● a node))
+        ((Some inner)
          (if (null? (expr-tile inner))
              (None)
              (find (lambda (tile)
@@ -293,7 +507,7 @@
                        ((None) #f)))
                    (map (lambda (j) (list-drop lead (- (length lead) (+ j 1))))
                         (iota (length lead))))))
-        (_ (None))))
+        ((None) (None))))
 
     ;; A producer's body as a load of `tile`s through `v` sees it, with
     ;; the producer's arguments as that load sees them. A body of values,
@@ -523,13 +737,42 @@
 
     ;; ---- Limits ----
 
-    ;; A body of at most 256 expressions, as Resin bounds a fused tree,
-    ;; since a producer read twice is inlined twice; and arguments in at
-    ;; most seven buffers, for the eight storage buffers every device
-    ;; lets a kernel bind, its port being the eighth.
+    ;; Bodies of at most 256 expressions in all, as Resin bounds a fused
+    ;; tree, since a producer read twice is inlined twice; and at most the
+    ;; eight storage buffers every device lets a kernel bind, its ports
+    ;; among them (`bindings`).
 
-    (define (within-limits? (fused (Pair Expr (List View)))) (→ Bool)
-      (and (<= (expr-size (● fused first)) 256) (<= (buffer-count (● fused second)) 7)))
+    (define (within-limits? (graph Graph) (place I64) (f Fusing)) (→ Bool)
+      (and (<= (fold-left + 0 (map expr-size (● f bodies))) 256) (<= (bindings graph place f) 8)))
+
+    ;; The buffers a kernel binds: one a port, and one for each buffer its
+    ;; arguments see, but for a param a port writes in place, which is
+    ;; that port's. Lowering writes an update's port into its param in
+    ;; place where the param is read only by that kernel, as it reads it
+    ;; here, at the elements each thread writes (lower.sld, "In place");
+    ;; counting on that only for a param nothing else reads, such as
+    ;; Adam's moments, keeps the count no lower than lowering's.
+    (define (bindings (graph Graph) (place I64) (f Fusing)) (→ I64)
+      (let ((owners (Cons (● f node) (● f written))))
+        (+ (length owners)
+           (buffer-count
+            (filter (lambda (a) (not (written-in-place? graph place f owners a))) (● f args))))))
+
+    ;; Whether argument `a` is a param one of the kernel's ports writes in
+    ;; place: the target of an update whose value is that port, seen whole
+    ;; in the port's shape, and read only by the kernel.
+    (define (written-in-place? (graph Graph) (place I64) (f Fusing) (owners (List Node)) (a View))
+      (→ Bool)
+      (and (whole-buffer? a)
+           (any? (lambda (owner)
+                   (match (table-ref (● graph targets) (● owner key))
+                     ((Some param)
+                      (and (string=? (● param key) (● a node key))
+                           (equal-lists? (shape-of a) (● (port-of owner default-port) shape))
+                           (read-only-by? graph place f param)))
+                     ((None) #f)))
+                 owners)))
+
 
     (define (expr-size (e Expr)) (→ I64)
       (match e
@@ -545,21 +788,23 @@
 
     ;; ---- Loads in order ----
 
-    ;; A body and its arguments with each view loaded once: equal views
-    ;; are one argument, numbered in the order the body first loads them,
+    ;; Bodies and their arguments with each view loaded once: equal views
+    ;; are one argument, numbered in the order the bodies first load them,
     ;; depth first, as Resin numbers a fused tree's free loads.
-    (define (distinct (body Expr) (args (List View))) (→ (Pair Expr (List View)))
-      (let* ((order (first-loads body args (Nil)))
+    (define (distinct (bodies (List Expr)) (args (List View))) (→ (Pair (List Expr) (List View)))
+      (let* ((order (fold-left (lambda (seen body) (first-loads body args seen)) (Nil) bodies))
              (index
               (fold-left (lambda (t pair) (table-set t (view-key (● pair second)) (● pair first)))
                          (empty-table)
                          (zip (iota (length order)) order))))
         (new Pair
-          (first (map-loads body
-                            (lambda (k etype tile)
-                              (match (table-ref index (view-key (list-ref args k)))
-                                ((Some j) (Load j etype tile))
-                                ((None) (panic "fuse: a load of no argument"))))))
+          (first (map (lambda (body)
+                        (map-loads body
+                                   (lambda (k etype tile)
+                                     (match (table-ref index (view-key (list-ref args k)))
+                                       ((Some j) (Load j etype tile))
+                                       ((None) (panic "fuse: a load of no argument"))))))
+                      bodies))
           (second order))))
 
     ;; The views a body loads, each once, in the order it first loads them.
