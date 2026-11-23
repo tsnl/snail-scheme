@@ -149,15 +149,19 @@ optionally a buffer whose first `u32` the device writes with how many pairs
 to sort. `dispatch-sort` encodes the sort into a compute pass.
 
 - **Lanes.** The passes alternate between `to` and a spare lane of the
-  sorter's own, so that the last writes `to`. So `from` may be `to`, a sort
-  in place, only for an even number of passes: 16 or 32 bits. A sort that
-  reads its input where it is copies nothing first.
+  sorter's own, so that the last writes `to`; a sort of 8 bits, one pass,
+  makes no spare. So `from` may be `to`, a sort in place, only for an even
+  number of passes: 16 or 32 bits. A sort that reads its input where it is
+  copies nothing first.
 - **Counts.** With a count, the sort writes nothing of `to` past it, and
-  its work is that of the pairs counted, whatever the capacity: each pass
-  runs at most 4,096 workgroups, which share the counted blocks of 256 keys
-  in runs. Dispatching exactly the workgroups the count needs would take an
-  indirect dispatch, which on Dawn costs half a millisecond of the host's
-  time, and costs the device more than the runs do
+  its work on keys is that of the pairs counted, whatever the capacity: each
+  pass runs at most 4,096 workgroups, which share the counted blocks of 256
+  keys in runs. The digit table is sized by the capacity, though: each pass
+  writes and scans 256 counts a workgroup, 1,048,576 for a capacity of a
+  million keys or more, even when the count is zero. Dispatching exactly the
+  workgroups the count needs would take an indirect dispatch, which with
+  Dawn's validation takes about half a millisecond of wall time, and costs
+  the device more than the runs do
   ([WebGPU on Node](../graphics/plan.md#webgpu-on-node)).
 - **The digit table** holds 256 counts a workgroup, laid out digit-major
   and scanned with `(snail shell graphics scan)`. Laid out by block instead,

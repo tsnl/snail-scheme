@@ -74,16 +74,20 @@
        (seen Accessor)))
 
     ;; The gradient `g` of a view, as its port sees it, among the port's
-    ;; shares.
+    ;; shares. A view reading no elements hands back nothing: the loss
+    ;; depends on none of the port through it. So every share below reads
+    ;; at least one element, and every port it reads has no empty axis.
     (define (accumulate (shares (Table Shares)) (view View) (g View)) (→ (Table Shares))
-      (let ((key (port-key (● view node) (● view port))))
-        (table-set shares
-                   key
-                   (with-share (match (table-ref shares key)
-                                 ((Some s) s)
-                                 ((None) (new Shares (whole (None)) (parts (Nil)))))
-                               view
-                               g))))
+      (if (= (product (● view accessor shape)) 0)
+          shares
+          (let ((key (port-key (● view node) (● view port))))
+            (table-set shares
+                       key
+                       (with-share (match (table-ref shares key)
+                                     ((Some s) s)
+                                     ((None) (new Shares (whole (None)) (parts (Nil)))))
+                                   view
+                                   g)))))
 
     ;; A view's gradient as its port sees it: summed over the axes the view
     ;; broadcasts, then the port's shape. A view that reads its whole port,
@@ -125,22 +129,45 @@
                ((Some whole) (+ whole joined))
                ((None) joined))))))
 
-    ;; Parts at the same addresses as one, their gradients added: in the
-    ;; first's shape, since a view may hold axes of 1 another lacks.
+    ;; Parts at the same addresses as one, their gradients added, in the
+    ;; order each first appears: in the first's shape, since a view may
+    ;; hold axes of 1 another lacks. A part finds its group by its
+    ;; addresses without those axes, so a port read in many parts costs
+    ;; one lookup a part.
     (define (by-addresses (parts (List Part))) (→ (List Part))
-      (fold-left (lambda (kept part)
-                   (if (any? (lambda (k) (same-run? k part)) kept)
-                       (map (lambda (k)
-                              (if (same-run? k part)
-                                  (Part-g-set k (+ (● k g) (shaped (● part g) (shape-of (● k g)))))
-                                  k))
-                            kept)
-                       (append kept (list part))))
-                 (Nil)
-                 parts))
+      (let ((groups (fold-left grouped (new Groups (order (Nil)) (found (empty-table))) parts)))
+        (map (lambda (key) (group-of groups key)) (reverse (● groups order)))))
 
-    (define (same-run? (a Part) (b Part)) (→ Bool)
-      (same-addresses? (without-ones (● a seen)) (without-ones (● b seen))))
+    ;; The groups so far: each one's key, the newest first, and its part.
+    (record Groups
+      ((order (List String))
+       (found (Table Part))))
+
+    (define (grouped (groups Groups) (part Part)) (→ Groups)
+      (let ((key (addresses-key (without-ones (● part seen)))))
+        (match (table-ref (● groups found) key)
+          ((Some k)
+           (Groups-found-set
+            groups
+            (table-set (● groups found)
+                       key
+                       (Part-g-set k (+ (● k g) (shaped (● part g) (shape-of (● k g))))))))
+          ((None)
+           (new Groups
+             (order (Cons key (● groups order)))
+             (found (table-set (● groups found) key part)))))))
+
+    (define (group-of (groups Groups) (key String)) (→ Part)
+      (match (table-ref (● groups found) key)
+        ((Some part) part)
+        ((None) (panic "grad: a group with no part"))))
+
+    (define (addresses-key (a Accessor)) (→ String)
+      (string-append (show (● a offset))
+                     " "
+                     (string-join (map show (● a shape)) ",")
+                     " "
+                     (string-join (map show (● a pitch)) ",")))
 
     (define (same-addresses? (a Accessor) (b Accessor)) (→ Bool)
       (and (= (● a offset) (● b offset))
@@ -226,25 +253,25 @@
          (and (<= (+ (● x start) (● x size)) (● y start)) (apart? (Cons y rest))))
         (_ #t)))
 
-    ;; The runs along `axis`, zeros before, between and after them.
+    ;; The runs along `axis`, zeros before, between and after them. The
+    ;; pieces gather last first, and are put in order once.
     (define (joined-runs (runs (List Run)) (axis I64) (shape (List I64))) (→ View)
       (let* ((etype (etype-of (● (list-ref runs 0) g)))
              (gap (lambda (size) (fill 0.0 (run-shape shape axis size) etype)))
              (end (fold-left (lambda (state run)
                                (new Pair
-                                 (first (append (● state first)
-                                                (if (> (● run start) (● state second))
-                                                    (list (gap (- (● run start) (● state second)))
-                                                          (● run g))
-                                                    (list (● run g)))))
+                                 (first (Cons (● run g)
+                                              (if (> (● run start) (● state second))
+                                                  (Cons (gap (- (● run start) (● state second)))
+                                                        (● state first))
+                                                  (● state first))))
                                  (second (+ (● run start) (● run size)))))
                              (new Pair (first (Nil)) (second 0))
                              runs))
              (pieces (if (< (● end second) (list-ref shape axis))
-                         (append (● end first)
-                                 (list (gap (- (list-ref shape axis) (● end second)))))
+                         (Cons (gap (- (list-ref shape axis) (● end second))) (● end first))
                          (● end first))))
-        (concat pieces axis)))
+        (concat (reverse pieces) axis)))
 
     ;; The order of an accessor's axes, largest pitch first, when in that
     ;; order it reads every element of a port of `shape` in order.

@@ -944,11 +944,15 @@
     (define (concat (views (List View)) (axis I64)) (→ View)
       (if (<= (length views) 6)
           (joined views axis)
-          (concat (map (lambda (k)
-                         (joined (take (list-drop views (* 6 k)) (min 6 (- (length views) (* 6 k))))
-                                 axis))
-                       (iota (quotient (+ (length views) 5) 6)))
-                  axis)))
+          (concat (map (lambda (six) (joined six axis)) (in-sixes views)) axis)))
+
+    ;; The views in order, six to a group, the last with what is left, in
+    ;; one pass: a gradient may join thousands.
+    (define (in-sixes (views (List View))) (→ (List (List View)))
+      (let loop ((rest views) (groups (Nil)))
+        (match rest
+          ((Nil) (reverse groups))
+          (_ (loop (list-drop rest 6) (Cons (take rest 6) groups))))))
 
     (define (joined (views (List View)) (axis I64)) (→ View)
       (let* ((first-view (list-ref views 0))

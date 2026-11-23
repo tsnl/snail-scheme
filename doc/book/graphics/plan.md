@@ -475,10 +475,13 @@ An indirect dispatch is the exception. Dawn checks its arguments on the
 device with a dispatch it adds before it, and gives that dispatch a new
 uniform buffer each time, written at creation through a staging buffer the
 host can map. Dawn's Vulkan backend gives every mappable buffer memory of
-its own (crbug.com/dawn/849), so making and releasing it cost about
-0.46 ms of the host's time for each indirect dispatch on the 5090, against
-1.5 μs for a direct one, and nothing with validation skipped. Chromium
-pays the same for a page.
+its own (crbug.com/dawn/849), and making one took about 0.23 ms on the
+5090. Submitted one at a time, a validated indirect dispatch took a median
+of 0.26 ms of wall time through submission and 0.22 ms more waiting for
+completion, against 9 and 11 μs for a direct one; with validation skipped
+it took what a direct one does. The wait may be the release of the staging
+buffer, but `onSubmittedWorkDone` waits for the device as well, and only a
+trace would tell them apart. Chromium takes about the same for a page.
 
 Nothing needs indirect dispatches. A kernel that a count the device
 computes sizes runs a fixed number of workgroups, at most 4,096, which
