@@ -1,6 +1,10 @@
-;; The default identity is the resolved start_url. An explicit id would
-;; resolve against the origin, not this directory.
-;; A project's own public/manifest.webmanifest replaces this default whole.
+;; A browser build's installable web-app manifest and the page's links to
+;; it: `web-app-manifest` is the default manifest, and `with-web-app`
+;; inserts into a page the manifest's link and the name of the program's
+;; module, keeping the rest of the page byte for byte. The default identity
+;; is the resolved start_url; an explicit id would resolve against the
+;; origin, not this directory. A project's own public/manifest.webmanifest
+;; replaces this default whole.
 (define-library (snail shell project web-app)
   (export web-app-manifest with-web-app
           PageMetadata
@@ -41,7 +45,7 @@
     ;; ---- Page metadata ----
 
     ;; The only markup the packager adds: the web-app manifest's link and the
-    ;; program manifest's name. Callers describe elements; this renderer owns
+    ;; program module's name. Callers describe elements; this renderer owns
     ;; quoting and HTML encoding, so a path containing </script> cannot
     ;; terminate an element.
     (enum PageMetadata
@@ -87,8 +91,8 @@
                        (if (● head second) added (string-append "<head>" added))
                        (substring text at (string-length text)))))
 
-    ;; A page links its web-app manifest and names the program's manifest,
-    ;; beside it, which the browser host links the program from.
+    ;; A page links its web-app manifest and names the program's module,
+    ;; beside it, which the browser host loads the program from.
 
     (define (with-web-app (text String) (program String)) (→ String)
       (insert-metadata text (list (WebManifest "./manifest.webmanifest")

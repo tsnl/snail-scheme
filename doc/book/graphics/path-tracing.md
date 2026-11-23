@@ -1,6 +1,6 @@
 # Path Tracing Theory Primer
 
-This primer gives a high-level overview of the physical and mathematical principles behind path tracing, derived from the Rendering Equation. It was written for the compute-shader path tracer of [resin](https://github.com/tsnl/resin/tree/archive/main-v3/src/resin), and describes the lighting the [graphics plan](plan.md) leaves for after rasterization.
+This primer gives a high-level overview of the physical and mathematical principles behind path tracing, derived from the Rendering Equation. It was written for the compute-shader path tracer of [resin](https://github.com/tsnl/resin/tree/archive/main-v3/src/resin), and describes the lighting [the path tracer](tracer.md) here computes.
 
 ## 1. The Rendering Equation
 

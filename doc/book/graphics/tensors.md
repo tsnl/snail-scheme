@@ -5,16 +5,10 @@
 nodes, rewrites it symbolically for gradients and optimizer steps, and
 lowers it explicitly to plain WebGPU objects the caller owns, which run as
 often as a training loop likes, on the page or on Node ([WebGPU on
-Node](plan.md#webgpu-on-node)). All six libraries are **implemented**:
-
-| Library | Provides |
-| --- | --- |
-| `(snail shell tensor)` | Nodes, ports and views; the operations that build them |
-| `(snail shell tensor grad)` | `grad`: reverse-mode gradients as more graph |
-| `(snail shell tensor adam)` | `adam-updates`: Adam's step as more graph |
-| `(snail shell tensor fuse)` | `fuse-program`: maps taken into the kernels that read them |
-| `(snail shell tensor lower)` | `lower`: buffers, kernels and their order, the caller's |
-| `(snail shell tensor eval)` | `evaluate`: the same graph on the CPU, the specification |
+Node](plan.md#webgpu-on-node)). Its six libraries, from `(snail shell
+tensor)` to `(snail shell tensor eval)`, are listed with their entry points
+in the [library reference](../libraries/tensors.md); this chapter explains
+how they work, and how 3D Gaussian Splatting trains on them.
 
 ## Graphs and views
 

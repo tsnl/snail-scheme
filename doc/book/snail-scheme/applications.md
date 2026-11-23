@@ -7,15 +7,10 @@ library, in the style of Rust's
 handler, a record of the application's functions, and calls the engine with
 it.
 
-```scheme
-(import (snail core base) (snail shell app) (snail shell wire) (apps siegework game) ...)
+Siegework's script, `src/apps/siegework/main.scm`, is the whole of it:
 
-(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock)) (→ Unit)
-  (run-scene gpu dom events storage clock
-             (new SceneHandler
-               (initialize new-game) (update update-game) (view view-game) (hud game-hud)
-               (save (lambda (game) (serialize (game-save game))))
-               (restore (lambda (bytes) (game-restore (deserialize bytes)))))))
+```scheme
+{{#include ../../../src/apps/siegework/main.scm}}
 ```
 
 ```sh
@@ -55,8 +50,9 @@ again with each page and each module, as the GPU's objects do.
 Serialization is chosen explicitly by the application; these examples use
 `(snail shell wire)`.
 
-`run-scene` takes the page's `Gpu`, `Dom`, `Events`, `PageStorage` and
-`Clock`, waits as a task, and never returns. `next-event` drains the host queue, then waits by ticket when it is
+`run-scene` takes the page's `Dom`, `Events` and `PageStorage` and the
+handler, whose `draw` closes over the `Gpu` the script was given; it waits
+as a task, and never returns. `next-event` drains the host queue, then waits by ticket when it is
 empty. `FrameEvent` carries elapsed milliseconds; `InputEvent` carries an
 `Input`. `Hidden` and `SaveRequested` save without stopping. A shared
 five-second host timer supplies `SaveRequested` to either engine, so saving
