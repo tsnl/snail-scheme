@@ -11,7 +11,17 @@
           v4
           unit-matrix
           matrix-from
-          sample-pose blend-poses blend-branch named-branch joint-palette clip-time rigid-influence
+          sample-pose
+          blend-poses
+          blend-branch
+          named-branch
+          named-node
+          posed-nodes
+          skin-palette
+          matrix-product
+          joint-palette
+          clip-time
+          rigid-influence
           shift-influence)
   (import
    (snail core base)
@@ -146,6 +156,9 @@
       (cond ((<= t 0.0) a) ((>= t 1.0) b)
             (else (array-generate (array-length a)
                                   (lambda (i) (blend-local (array-ref a i) (array-ref b i) t))))))
+    (define (named-node (rig Rig) (name String)) (→ (Option I64))
+      (match (find (lambda (link) (string=? (● link name) name)) (● rig hierarchy))
+        ((Some link) (Some (● link node))) (_ (None))))
     (define (named-branch (rig Rig) (name String)) (→ (List I64))
       (let ((selected (make-array (array-length (● rig rest)) #f)))
         (reverse (fold-left (lambda (found link)
@@ -166,7 +179,7 @@
 
     ;; Parents precede children, including ancestors which are not joints.
     ;; Applying the instance at each root keeps inverse binds in model space.
-    (define (joint-palette (rig Rig) (pose (Array Transform)) (instance Mat4x4f)) (→ (List Mat4x4f))
+    (define (posed-nodes (rig Rig) (pose (Array Transform)) (instance Mat4x4f)) (→ (Array Mat4x4f))
       (let ((world (make-array (array-length pose) unit-matrix)))
         (for-each (lambda (link)
                     (let ((parent (● link parent)) (i (● link node)))
@@ -176,9 +189,13 @@
                                              ((Some m) m)
                                              ((None) (matrix-of (array-ref pose i))))))))
                   (● rig hierarchy))
-        (map
-         (lambda (joint) (matrix-product (array-ref world (● joint node)) (● joint inverse-bind)))
-         (● rig joints))))
+        world))
+    (define (skin-palette (rig Rig) (world (Array Mat4x4f))) (→ (List Mat4x4f))
+      (map
+       (lambda (joint) (matrix-product (array-ref world (● joint node)) (● joint inverse-bind)))
+       (● rig joints)))
+    (define (joint-palette (rig Rig) (pose (Array Transform)) (instance Mat4x4f)) (→ (List Mat4x4f))
+      (skin-palette rig (posed-nodes rig pose instance)))
 
     (record Influence
       ((joints Vec4i)

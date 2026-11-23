@@ -1,4 +1,4 @@
-Sedan and palette from Kenney's Car Kit 3.1, CC0.
+Sedan (sedan.glb), delivery van (delivery.glb) and shared palette from Kenney's Car Kit 3.1, CC0.
 https://kenney.nl/assets/car-kit
 https://creativecommons.org/publicdomain/zero/1.0/
 

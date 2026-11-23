@@ -41,6 +41,7 @@
   - [Rasterized graphics](libraries/rendering.md)
   - [Gaussian splats](libraries/splats.md)
   - [Path tracing](libraries/tracing.md)
+  - [Game simulation and stories](libraries/games.md)
   - [Tensors](libraries/tensors.md)
   - [Tools](libraries/tools.md)
   - [Runtime interfaces and targets](libraries/runtime.md)

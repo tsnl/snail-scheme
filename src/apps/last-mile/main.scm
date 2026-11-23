@@ -4,7 +4,6 @@
  (snail shell app)
  (snail shell page)
  (snail shell fetch)
- (snail shell wire)
  (only (snail shell dom) Dom)
  (only (snail shell gpu) Gpu)
  (only (snail shell graphics gltf) attempt-reading unreadable)
@@ -26,14 +25,14 @@
   (new Controls (keys (Nil)) (pointer #f) (use #f) (shot #f) (paused #f) (carry 0)))
 
 (define (key-bit (key I32)) (→ I64)
-  (case key ((119 3) 1) ((115 4) 2) ((97 1) 4) ((100 2) 8) ((32) 16) (else 0)))
+  (case key ((119 3) 1) ((115 4) 2) ((97 1) 4) ((100 2) 8) ((32) 16) ((98) 32) (else 0)))
 
 (define (held (c Controls)) (→ I64)
   (fold-left (lambda (mask key) (i64-or mask (key-bit key)))
              (if (or (● c pointer) (● c shot)) 16 0)
              (● c keys)))
 
-(define (key-down! (c Controls) (w World) (key I32)) (→ World)
+(define (key-down! (c Controls) (w Game) (key I32)) (→ Game)
   (if (member? key (● c keys)) w
       (begin (set! (● c keys) (Cons key (● c keys)))
              (case key
@@ -44,10 +43,14 @@
                 w)
                ((101) (unless (● c paused) (set! (● c use) #t)) w)
                ((32) (unless (● c paused) (set! (● c shot) #t)) w)
-               ((114) (match (● w mission) ((Wrapped) (set! (● c paused) #f) (new-world)) (_ w)))
+               ((116) (unless (● c paused) (speak! w -1)) w)
+               ((49 50 51 52 53 54 55 56 57)
+                (unless (● c paused) (speak! w (- (i32->i64 key) 49)))
+                w)
+               ((114) (match (● w mission) ((Finished) (set! (● c paused) #f) (new-world)) (_ w)))
                (else w)))))
 
-(define (input! (c Controls) (w World) (input Input)) (→ World)
+(define (input! (c Controls) (w Game) (input Input)) (→ Game)
   (match input
     ((KeyDown key _) (key-down! c w key))
     ((KeyUp key) (set! (● c keys) (filter (lambda (k) (not (= k key))) (● c keys))) w)
@@ -56,7 +59,7 @@
     ((PointerCancel _) (set! (● c pointer) #f) w)
     (_ w)))
 
-(define (elapsed! (c Controls) (w World) (ms I32)) (→ Unit)
+(define (elapsed! (c Controls) (w Game) (ms I32)) (→ Unit)
   (unless (● c paused)
     (let loop ((carry (+ (● c carry) (min 250 (i32->i64 ms)))))
       (if (< carry tick-ms) (set! (● c carry) carry)
@@ -71,7 +74,7 @@
            ((Ok bytes) bytes) ((Err why) (unreadable (string-append path " " why))))) paths))
 
 (define (play (events Events) (gpu Gpu) (dom Dom) (renderer Renderer) (hud Hud)
-              (world World) (save (Fn World → Unit))) (→ Unit)
+              (world Game) (save (Fn Game → Unit))) (→ Unit)
               (let loop ((w world) (c (controls)) (since 100))
                 (match (next-event events)
                   ((FrameEvent ms)
@@ -82,6 +85,9 @@
                      ((● events report-ready))
                      (loop w c (if due 0 (+ since ms)))))
                   ((InputEvent event) (loop (input! c w event) c 100))
+                  ((HudEvent listener)
+                   (unless (● c paused) (click-reply! hud w listener))
+                   (loop w c 100))
                   ((Hidden) (save w) (loop w (controls) 100))
                   ((SaveRequested) (save w) (loop w c since))
                   (_ (loop w c since)))))
@@ -97,8 +103,8 @@
     (run-page events
               storage
               new-world
-              (lambda (w) (serialize w))
-              (lambda (bytes) (deserialize bytes))
+              save-game
+              restore-game
               (lambda (w save)
                 (match (attempt-reading
                         (lambda () (make-renderer gpu (lambda (paths) (read-files fetch paths)) w)))
