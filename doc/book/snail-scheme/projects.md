@@ -43,9 +43,12 @@ can be served or shipped on its own. Nothing reclaims the store: delete
 with it ([a Node package](#a-node-package)), and a page links it through
 `linkModule` in `load.mjs`.
 
-A release build, `--release`, differs in one thing: the module is then
+A release build, `--release`, differs in two things: the module is then
 optimized by Binaryen's `wasm-opt -O2`, which can inline the runtime's
-functions into the program. `wasm-opt` is found on `PATH`.
+functions into the program, and on Node its device skips Dawn's
+validation of each call, which a debug build's keeps
+([WebGPU on Node](../graphics/plan.md#webgpu-on-node)). `wasm-opt` is
+found on `PATH`.
 
 A browser build adds the shared browser host and recursively copies the
 `public/` folder beside the script, if there is one. Supply `index.html`
@@ -84,7 +87,7 @@ wherever it is copied:
 build/apps/hello/main/
   package.json      {"name": "main", "private": true,
                      "scripts": {"start": "node main.mjs"}, "bin": {"main": "main.mjs"}}
-  main.mjs          runs main.wasm with its arguments
+  main.mjs          runs main.wasm with its arguments, telling the runner the build's mode
   main.wasm
   store/            the files the program links, if any
   host/native/      the Node host, as the repository keeps it
