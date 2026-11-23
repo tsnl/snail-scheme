@@ -107,7 +107,7 @@ and 0.001 dB apart.
 | gsplat-2 | 626.1 | 6,395,089 | 14,540 | 25.187 | 0.7643 | 0.2055 | 25.189 |
 | inria-1 | 1027.0 | 4,896,996 | 14,948 | 25.208 | 0.7654 | 0.2085 | |
 | inria-2 | 1032.0 | 4,929,436 | 14,120 | 25.245 | 0.7653 | 0.2096 | |
-| ours | 857.5 | 4,194,304 | 10,759 | 25.287 | 0.7643 | 0.2119 | 25.289 |
+| ours, one run | 857.5 | 4,194,304 | 10,759 | 25.287 | 0.7643 | 0.2119 | 25.289 |
 
 | Run | Seconds to 7,000 | Gaussians at 7,000 |
 | --- | ---: | ---: |
@@ -115,7 +115,7 @@ and 0.001 dB apart.
 | gsplat-2 | 70.8 | 3,788,424 |
 | inria-1 | 132.0 | 3,250,034 |
 | inria-2 | 133.0 | 3,255,640 |
-| ours | 152.6 | 3,250,768 |
+| ours, one run | 152.6 | 3,250,768 |
 
 The INRIA code takes 1.20 times as long as the train app to train
 bicycle, to a held-out PSNR 0.06 dB lower: 25.23 on average, against

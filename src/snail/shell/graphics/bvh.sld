@@ -16,8 +16,8 @@
 ;; program can append to it with atomics. A query is dispatched over the
 ;; queue's capacity, and invocations past the count return: an indirect
 ;; dispatch would launch only what the count needs, but Chromium checks
-;; each one's arguments first, which measured half a millisecond a
-;; dispatch on an RTX 5090, more than the idle workgroups cost.
+;; each one's arguments first, which measured about half a millisecond of
+;; wall time a dispatch on an RTX 5090, more than the idle workgroups cost.
 (define-library (snail shell graphics bvh)
   (export
    Triangles

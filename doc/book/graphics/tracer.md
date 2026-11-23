@@ -57,9 +57,9 @@ atomic count kept per bounce, 256 bytes apart. Russian roulette may end a
 path after its third bounce.
 
 Every queue kernel is dispatched over the queue's capacity, and threads
-past its count return at once. Chromium validates each indirect dispatch at
-about half a millisecond, which made indirect dispatch slower than the
-wasted threads.
+past its count return at once. Chromium validates each indirect dispatch,
+which takes about half a millisecond of wall time, more than the wasted
+threads cost.
 
 ## The BVH and ray queries
 

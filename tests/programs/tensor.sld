@@ -177,6 +177,23 @@
     (check out "gather dx" loss x inputs)
     (show-values out "gather dx" (only-value (grad loss (list x)) inputs))))
 
+;; Views that read no elements hand back no share: an empty slice beside
+;; a one-element one at the same offset, and a slice of an empty port.
+(define (empty-gradients (out OutputPort)) (→ Unit)
+  (let* ((x (param "x" (list 3) (Float)))
+         (e (param "e" (list 0 3) (Float)))
+         (inputs (inputs-of (list (new Pair (first "x") (second (ramp 3 1.0 0.0)))
+                                  (new Pair (first "e") (second (ramp 0 1.0 0.0))))))
+         (beside (+ (sum-all (narrow x 0 0 0)) (sum-all (narrow x 0 0 1))))
+         (de (list-ref (grad (sum-all (narrow e 1 1 1)) (list e)) 0)))
+    (show-values out "empty beside one dx" (only-value (grad beside (list x)) inputs))
+    (write-line out
+                (string-append "empty port dx: "
+                               (string-join (map show (shape-of de)) "x")
+                               ", "
+                               (show (array-length (only-value (list de) inputs)))
+                               " values"))))
+
 ;; ---- Fusion ----
 
 ;; A fused graph computes exactly what it fused, since the evaluator rounds
@@ -273,6 +290,7 @@
   (rows out)
   (gradients out)
   (rows-gradient out)
+  (empty-gradients out)
   (fusion out)
   (fusion-limits out)
   (unit))

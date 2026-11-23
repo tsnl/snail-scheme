@@ -14,15 +14,19 @@
 ;; A sorter sorts the low `key-bits` bits of each key, 8, 16, 24 or 32. It
 ;; reads the lane `from` and leaves the pairs sorted in the lane `to`, its
 ;; passes alternating between `to` and a spare lane of its own so that the
-;; last writes `to`. So `from` may be `to`, a sort in place, only for an
-;; even number of passes: 16 or 32 bits. It sorts all `count` pairs, or as
-;; many as the first `u32` of a buffer it is given says, which the device
-;; may compute in the same pass, and writes nothing of `to` past them.
+;; last writes `to`; a sort of 8 bits, one pass, makes no spare. So `from`
+;; may be `to`, a sort in place, only for an even number of passes: 16 or
+;; 32 bits. It sorts all `count` pairs, or as many as the first `u32` of a
+;; buffer it is given says, which the device may compute in the same pass,
+;; and writes nothing of `to` past them.
 ;; Each pass dispatches a workgroup a block of the capacity, at most
-;; `most-groups`, and the workgroups share the blocks counted in runs.
+;; `most-groups`, and the workgroups share the blocks counted in runs. So
+;; the keys cost what the count says, but the digit table is sized by the
+;; capacity: each pass writes and scans 256 counts a workgroup, 1,048,576
+;; for a capacity of a million keys or more, even when none is counted.
 ;; Dispatching only the workgroups the count needs would take an indirect
-;; dispatch, which Dawn validates on the host at about half a millisecond
-;; each.
+;; dispatch, which with Dawn's validation takes about half a millisecond
+;; of wall time each.
 (define-library (snail shell graphics radix-sort)
   (export
    SortPass
@@ -74,8 +78,9 @@
 
     ;; The shader and its pipelines, a step a pass, the counts by digit and
     ;; run and their scan, and the spare lane the passes alternate with the
-    ;; sorted one; the buffer counting the keys sorted, whether the sorter
-    ;; made it, and the workgroups a pass takes.
+    ;; sorted one, when there is more than one pass; the buffer counting the
+    ;; keys sorted, whether the sorter made it, and the workgroups a pass
+    ;; takes.
     (record Sorter
       ((module GpuShaderModule)
        (count-pipeline GpuComputePipeline)
@@ -83,7 +88,7 @@
        (steps (List Step))
        (counts GpuBuffer)
        (scan Scan)
-       (spare SortLane)
+       (spare (Option SortLane))
        (counting GpuBuffer)
        (own-count Bool)
        (groups I64)))
@@ -101,7 +106,8 @@
     ;; A sorter of `count` keys and values from the lane `from` into the
     ;; lane `to`, whose buffers need the `Storage` usage, or of as many as
     ;; `counted` holds, a buffer of the `Storage` usage too. The counts
-    ;; take 256 words a workgroup, a million for 4096 workgroups.
+    ;; take 256 words a workgroup, a million for 4096 workgroups, and the
+    ;; spare lane two words a key.
 
     (define (make-sorter (gpu Gpu) (label String)
                          (from SortLane)
@@ -121,9 +127,12 @@
                           (code sort-code))))
                (groups (min (tiles count 256) most-groups))
                (counts (u32-buffer gpu (string-append label "/counts") (* 256 groups)))
-               (spare (new SortLane
-                        (keys (u32-buffer gpu (string-append label "/keys") count))
-                        (values (u32-buffer gpu (string-append label "/values") count))))
+               (spare (if (= passes 1)
+                          (None)
+                          (Some (new SortLane
+                                  (keys (u32-buffer gpu (string-append label "/keys") count))
+                                  (values
+                                   (u32-buffer gpu (string-append label "/values") count))))))
                (sorter (new Sorter
                          (module module)
                          (count-pipeline (sort-pipeline gpu module "count_digits"))
@@ -139,7 +148,10 @@
                                       ((Some _) #f)
                                       ((None) #t)))
                          (groups groups)))
-               (written (lambda (pass) (if (= (remainder (- passes pass) 2) 1) to spare))))
+               (written (lambda (pass)
+                          (match spare
+                            ((Some lane) (if (= (remainder (- passes pass) 2) 1) to lane))
+                            ((None) to)))))
           (Sorter-steps-set sorter
                             (map (lambda (pass)
                                    (step gpu label
@@ -257,10 +269,13 @@
                   ((● gpu destroy) (BindGroupObject (● step scatter-group))))
                 (● sorter steps))
       (when (● sorter own-count) ((● gpu destroy) (BufferObject (● sorter counting))))
+      (match (● sorter spare)
+        ((Some lane)
+         ((● gpu destroy) (BufferObject (● lane keys)))
+         ((● gpu destroy) (BufferObject (● lane values))))
+        ((None) (unit)))
       (for-each (lambda (object) ((● gpu destroy) object))
                 (list (BufferObject (● sorter counts))
-                      (BufferObject (● sorter spare keys))
-                      (BufferObject (● sorter spare values))
                       (ComputePipelineObject (● sorter count-pipeline))
                       (ComputePipelineObject (● sorter scatter-pipeline))
                       (ModuleObject (● sorter module)))))
