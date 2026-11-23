@@ -118,6 +118,7 @@ Node adds the local machine:
 | `Files` | `(snail shell async-files)` |
 | `Processes`, `Signals` | `(snail shell process)` |
 | `Tcp`, `Udp` | `(snail shell socket)` |
+| `Web` | `(snail shell web)` |
 
 A page adds itself:
 

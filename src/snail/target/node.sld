@@ -20,7 +20,8 @@
 ;; - Files, whole-file reads that wait as a task;
 ;; - Processes, child processes;
 ;; - Signals, the termination signals sent to the program;
-;; - Tcp and Udp, sockets.
+;; - Tcp and Udp, sockets;
+;; - Web, the files at URLs, a part at a time.
 (define-library (snail target node)
   (export
    start
@@ -37,7 +38,8 @@
    provide-processes
    provide-signals
    provide-tcp
-   provide-udp)
+   provide-udp
+   provide-web)
   (import
    (snail core base)
    (snail core io)
@@ -46,7 +48,8 @@
    (only (snail shell resource) Resources host-resources)
    (only (snail shell wasm) Wasm host-wasm)
    (only (snail shell process) Processes Signals host-processes host-signals)
-   (only (snail shell socket) Tcp Udp host-tcp host-udp))
+   (only (snail shell socket) Tcp Udp host-tcp host-udp)
+   (only (snail shell web) Web host-web))
   (begin
 
     (define (start (scheduler Scheduler) (main (Fn → Unit))) (→ Unit)
@@ -101,5 +104,8 @@
 
     (define (provide-udp) (→ Udp)
       (host-udp root))
+
+    (define (provide-web) (→ Web)
+      (host-web root))
 
     ))
