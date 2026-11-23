@@ -77,6 +77,13 @@ trainer alone: it builds the `Scene` with `make-scene`, and handles
   `profile=1 steps=1` for the first, `profile=7000` once the cloud has
   grown, the run going on after it.
 
+To see where a run's time goes, step by step, trace it: on Node,
+`SNAIL_TRACE=run.json` before the command writes a trace of the run, and
+on the page, `trace` in the query. Perfetto shows each step's passes on
+the device beside the host's work
+([Traces](../../../doc/book/snail-scheme/toolchain.md#traces)). Trace a
+few hundred steps: Node keeps every span until the run ends.
+
 ## Photographs
 
 A photograph is on the device only around the step that trains on it. It
