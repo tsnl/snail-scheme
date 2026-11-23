@@ -482,13 +482,15 @@ waits on the device often, as a training loop that reads its loss does,
 waits a thirtieth as long on Node. Chromium coarsens the page's clock to
 100 μs, which the last row's range shows.
 
-Node skips Dawn's validation of each call, which a page cannot
-(`enable-dawn-features=skip_validation`), and keeps the other guards a
-browser has: bounds checks on shaders' memory, and zeroed workgroup memory
-and resources. A program trusts its own calls. The GPU checks
-(`tests/gpu.mjs`) validate them, with `SNAIL_GPU_VALIDATION=1`, so misuse
-still fails a check rather than reaching the driver as undefined behaviour,
-and a program being debugged can set the same.
+A release build's program on Node skips Dawn's validation of each call,
+which a page cannot (`enable-dawn-features=skip_validation`), and keeps
+the other guards a browser has: bounds checks on shaders' memory, and
+zeroed workgroup memory and resources. A release build is where long
+training and benchmarks run, and it trusts its own calls. A debug build's
+program validates, so the GPU checks (`tests/gpu.mjs`), which build debug,
+and a program being debugged see misuse reported rather than reaching the
+driver as undefined behaviour. The package's `main.mjs` tells the runner
+which mode built it, and `snail-scheme run` runs a program through it.
 
 Validation costs little except for an indirect dispatch. Skipping it saved
 0.1 μs of the 1.4 that encoding a dispatch takes on the 5090, and training

@@ -130,7 +130,8 @@
                 (● (● job flags) platform)
                 (● (● job flags) mode)))
 
-;; The script built, then this process, replaced by its program on Node.
+;; The script built, then this process, replaced by its program on Node,
+;; run by its package's main.mjs, which tells the runner the build's mode.
 ;; A page has nothing to run here, so it is refused before it is built.
 
 (define (run-script (processes Processes) (fs Fs) (clock Clock) (job ScriptJob)) (→ Unit)
@@ -138,16 +139,9 @@
     (match (● (● job flags) platform)
       ((Node) (become processes (● tools node)
                       (Cons "--no-warnings"
-                            (Cons (string-append (● tools root) "/host/native/run-snail.mjs")
-                                  (Cons (built-program processes fs clock job)
-                                        (● job arguments))))))
+                            (Cons (string-append (build-job processes fs clock job) "/main.mjs")
+                                  (● job arguments)))))
       ((Browser) (panic "a page is not run here: build it, then serve its output")))))
-
-(define (built-program (processes Processes) (fs Fs) (clock Clock) (job ScriptJob))
-  (→ String)
-  (string-append (build-job processes fs clock job)
-                 "/"
-                 (program-name (script-name (● job script)))))
 
 (define (become (processes Processes) (program String) (arguments (List String))) (→ Unit)
   (let ((error
