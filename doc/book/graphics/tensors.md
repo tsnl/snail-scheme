@@ -95,7 +95,16 @@ through its body the same way, so a large matrix product's gradients are
 products summed again. A view's gradient reaches its port through the
 view's accessor: it is summed over the axes the view broadcasts, then seen
 back through the view when the view reads its whole port in some order of
-its axes, or placed at the addresses it reads otherwise. Sorts, prefix
+its axes. Otherwise it is a part, kept with the addresses it reads, and a
+port's parts are gathered once every node reading the port has handed one
+back. Parts that each read a run of one axis of the port, all of its other
+axes in the port's order, are joined along that axis in order, with zeros
+where none reads: a concat, which a kernel reading the gradient takes in
+when the axis is the last and at most 16 wide. Any other part is placed
+among zeros at the addresses it reads, and the places are added. Placing
+every part so, as this once did, wrote and read the whole port once a
+part: the harmonics' basis, 16 numbers a gaussian that each degree reads a
+run of, cost 2.5 ms of step 7,000 in three places and their sum. Sorts, prefix
 sums, comparisons and bit operations pass no gradient. A custom node's
 adjoint that needs the node's other ports, as a backward pass needs what
 its forward pass kept, builds the same node again from its arguments, and
@@ -162,16 +171,18 @@ for no more of the program's steps, than its own buffer would. What it
 reads is the buffers under the maps only it reads, which go with it, and
 any map others read too, which stays a buffer; one the kernel binds
 already, or one that a later node reads anyway, counts as nothing. So the
-quaternions' gradient, from fifteen places, is summed as they arrive and
-written once for Adam's moments to read, the projected covariances that
-some twenty kernels of the backward pass read are written once rather than
-computed from the rotations in each, and the rotations, which the backward
-pass reads by column, are written in the forward pass rather than kept as
-their parts until then. Since this weighs every node reading a producer, a
-program's sinks and updates are fused together.
+quaternions' gradient, gathered from the columns the rotation matrices
+read, is written once for Adam's moments to read; the projected
+covariances that some twenty kernels of the backward pass read are
+written once rather than computed from the rotations in each; and the
+rotations, which the backward pass reads by column, are written in the
+forward pass rather than kept as their parts until then. Since this weighs
+every node reading a producer, a program's sinks and updates are fused
+together.
 
-On bicycle, fusing takes a training step from 779 dispatches to 348, and
-the splats viewer's frame from 272 to 80. Of the viewer's 10 ms for 4
+On bicycle, fusing took a training step from 779 dispatches to 348, and
+the splats viewer's frame from 272 to 80; with gradients' parts joined
+since, the step is 197. Of the viewer's 10 ms for 4
 million gaussians, its sorts and its rasterizer take 4.5; of its generated
 kernels, the harmonics' color costs most, reading each gaussian's 48
 coefficients.
@@ -474,8 +485,8 @@ with `write-ply`, as the `.ply` file the reference implementation writes,
 at `cloud=PATH`, and `src/apps/splats` flies through it.
 
 On Mip-NeRF 360's bicycle at `images_4`, the paper's resolution for its
-outdoor scenes, on an RTX 5090, the 30,000 steps take 18.0 minutes on
-Node, to a held-out PSNR of 25.28 against the paper's 25.25. The cloud
+outdoor scenes, on an RTX 5090, the 30,000 steps take 14.3 minutes on
+Node, to a held-out PSNR of 25.29 against the paper's 25.25. The cloud
 fills its 4,194,304 gaussians by step 9,100 and stays full until
 densifying stops at 15,000, where the reference's grows to 4.9 million.
 [A bench](https://github.com/tsnl/snail-scheme/blob/main/benches/splat-training/README.md)

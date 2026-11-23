@@ -11,8 +11,11 @@
 ;; node answers its own.
 ;; A view's gradient reaches its port through the view's accessor: summed
 ;; over the axes it broadcasts, then a view of the port when the view
-;; reads all of it in some order of its axes, and placed at the addresses
-;; it reads otherwise.
+;; reads all of it in some order of its axes, and a part, with the
+;; addresses it reads, otherwise. Once every reader has handed back its
+;; share, parts that split one axis of the port between them are joined
+;; along it, zeros where none reads, as a concat; any other part is placed
+;; among zeros and added.
 (define-library (snail shell tensor grad)
   (export
    grad)
@@ -28,24 +31,25 @@
 
     (define (grad (loss View) (wrt (List View))) (→ (List View))
       (unless (null? (shape-of loss)) (panic "grad: the loss must be a scalar"))
-      (let ((grads (fold-left backward
-                              (accumulate (empty-table) loss (ones-like loss))
-                              (reverse (toposort (list loss))))))
-        (map (lambda (w) (gradient-of grads w)) wrt)))
+      (let ((shares (fold-left backward
+                               (accumulate (empty-table) loss (ones-like loss))
+                               (reverse (toposort (list loss))))))
+        (map (lambda (w) (gradient-of shares w)) wrt)))
 
     (define (port-key (n Node) (port String)) (→ String) (string-append (● n key) "." port))
 
-    ;; Each argument's share of a node's port gradients, added in.
+    ;; Each argument's share of a node's port gradients, handed back. Every
+    ;; node reading a port comes later, so its port's shares are all in.
 
-    (define (backward (grads (Table View)) (n Node)) (→ (Table View))
-      (let ((outs (map (lambda (port) (table-ref grads (port-key n (● port name)))) (● n ports))))
+    (define (backward (shares (Table Shares)) (n Node)) (→ (Table Shares))
+      (let ((outs (map (lambda (port) (port-gradient shares n port)) (● n ports))))
         (if (every? none? outs)
-            grads
-            (fold-left (lambda (grads pair)
+            shares
+            (fold-left (lambda (shares pair)
                          (match (● pair second)
-                           ((Some g) (accumulate grads (● pair first) g))
-                           ((None) grads)))
-                       grads
+                           ((Some g) (accumulate shares (● pair first) g))
+                           ((None) shares)))
+                       shares
                        (zip (● n args) (adjoints n outs))))))
 
     (define (none? (value (Option View))) (→ Bool)
@@ -53,23 +57,41 @@
         ((Some _) #f)
         ((None) #t)))
 
-    ;; The gradient `g` of a view, as its port sees it, added to the
-    ;; port's.
-    (define (accumulate (grads (Table View)) (view View) (g View)) (→ (Table View))
-      (let ((key (port-key (● view node) (● view port))) (share (through-accessor view g)))
-        (table-set grads
+    ;; ---- Shares ----
+
+    ;; What a port's readers have handed back: the sum of the shares of
+    ;; those that read all of it, and the shares of those that read part of
+    ;; it, each with the addresses it read. The port's gradient is made
+    ;; from them once all are in, so that parts splitting the port between
+    ;; them are joined, where each placed among zeros and the places added
+    ;; would write and read the whole port once a part.
+    (record Shares
+      ((whole (Option View))
+       (parts (List Part))))
+
+    (record Part
+      ((g View)
+       (seen Accessor)))
+
+    ;; The gradient `g` of a view, as its port sees it, among the port's
+    ;; shares.
+    (define (accumulate (shares (Table Shares)) (view View) (g View)) (→ (Table Shares))
+      (let ((key (port-key (● view node) (● view port))))
+        (table-set shares
                    key
-                   (match (table-ref grads key)
-                     ((Some existing) (+ existing share))
-                     ((None) share)))))
+                   (with-share (match (table-ref shares key)
+                                 ((Some s) s)
+                                 ((None) (new Shares (whole (None)) (parts (Nil)))))
+                               view
+                               g))))
 
-    ;; The gradient of a view's port given the view's: summed over the
-    ;; axes the view broadcasts, then the port's shape. A view that reads
-    ;; its whole port, in its port's order or another order of its axes,
-    ;; passes the gradient back as a view, its axes put back in the port's
-    ;; order; any other places it.
+    ;; A view's gradient as its port sees it: summed over the axes the view
+    ;; broadcasts, then the port's shape. A view that reads its whole port,
+    ;; in its port's order or another order of its axes, passes the
+    ;; gradient back as a view, its axes put back in the port's order; any
+    ;; other hands back a part.
 
-    (define (through-accessor (view View) (g View)) (→ View)
+    (define (with-share (s Shares) (view View) (g View)) (→ Shares)
       (let* ((a (● view accessor))
              (spread (filter (lambda (k)
                                (and (= (list-ref (● a pitch) k) 0) (> (list-ref (● a shape) k) 1)))
@@ -79,8 +101,150 @@
               (new Accessor (offset (● a offset)) (shape (shape-of summed)) (pitch (● a pitch))))
              (shape (● (port-of (● view node) (● view port)) shape)))
         (match (port-order seen shape)
-          ((Some order) (shaped (permute summed order) shape))
-          ((None) (place summed seen shape)))))
+          ((Some order)
+           (let ((share (shaped (permute summed order) shape)))
+             (Shares-whole-set s
+                               (Some (match (● s whole)
+                                       ((Some total) (+ total share))
+                                       ((None) share))))))
+          ((None) (Shares-parts-set s (Cons (new Part (g summed) (seen seen)) (● s parts)))))))
+
+    ;; A port's gradient, when any reader handed back a share.
+    (define (port-gradient (shares (Table Shares)) (n Node) (port Port)) (→ (Option View))
+      (match (table-ref shares (port-key n (● port name)))
+        ((Some s) (Some (gathered s (● port shape))))
+        ((None) (None))))
+
+    (define (gathered (s Shares) (shape (List I64))) (→ View)
+      (match (● s parts)
+        ((Nil) (match (● s whole)
+                 ((Some whole) whole)
+                 ((None) (panic "grad: a port with no shares"))))
+        (_ (let ((joined (parts-joined (by-addresses (● s parts)) shape)))
+             (match (● s whole)
+               ((Some whole) (+ whole joined))
+               ((None) joined))))))
+
+    ;; Parts at the same addresses as one, their gradients added: in the
+    ;; first's shape, since a view may hold axes of 1 another lacks.
+    (define (by-addresses (parts (List Part))) (→ (List Part))
+      (fold-left (lambda (kept part)
+                   (if (any? (lambda (k) (same-run? k part)) kept)
+                       (map (lambda (k)
+                              (if (same-run? k part)
+                                  (Part-g-set k (+ (● k g) (shaped (● part g) (shape-of (● k g)))))
+                                  k))
+                            kept)
+                       (append kept (list part))))
+                 (Nil)
+                 parts))
+
+    (define (same-run? (a Part) (b Part)) (→ Bool)
+      (same-addresses? (without-ones (● a seen)) (without-ones (● b seen))))
+
+    (define (same-addresses? (a Accessor) (b Accessor)) (→ Bool)
+      (and (= (● a offset) (● b offset))
+           (equal-lists? (● a shape) (● b shape))
+           (equal-lists? (● a pitch) (● b pitch))))
+
+    ;; Parts that split one axis of the port between them, joined along it
+    ;; in order with zeros where none reads: a concat, which a kernel reading
+    ;; the gradient takes in when the axis is the last and narrow. Any
+    ;; others are each placed among zeros and added.
+    (define (parts-joined (parts (List Part)) (shape (List I64))) (→ View)
+      (match (find (lambda (axis) (split-along? parts shape axis)) (iota (length shape)))
+        ((Some axis) (joined-runs (runs-along parts shape axis) axis shape))
+        ((None)
+         (let ((placed (map (lambda (p) (place (● p g) (● p seen) shape)) parts)))
+           (fold-left (lambda (total v) (+ total v)) (list-ref placed 0) (list-tail placed 1))))))
+
+    ;; A part's run of a port along one axis: where it starts on the axis,
+    ;; how far it goes, and its gradient.
+    (record Run
+      ((start I64)
+       (size I64)
+       (g View)))
+
+    (define (split-along? (parts (List Part)) (shape (List I64)) (axis I64)) (→ Bool)
+      (and (every? (lambda (p) (some-span? (span-of (● p seen) shape axis))) parts)
+           (apart? (runs-along parts shape axis))))
+
+    (define (some-span? (span (Option (Pair I64 I64)))) (→ Bool)
+      (match span
+        ((Some _) #t)
+        ((None) #f)))
+
+    ;; Where the run along `axis` that an accessor reads of a port of
+    ;; `shape` starts on the axis and how far it goes, when it reads one:
+    ;; all of every other axis, in the port's order. Axes of 1 address
+    ;; nothing, so they are left out of the comparison: a view may hold
+    ;; more of them than the port, unsqueezed or summed.
+    (define (span-of (a Accessor) (shape (List I64)) (axis I64)) (→ (Option (Pair I64 I64)))
+      (let* ((pitch (contiguous-pitch shape))
+             (start (quotient (● a offset) (list-ref pitch axis)))
+             (size
+              (quotient (product (● a shape)) (quotient (product shape) (list-ref shape axis))))
+             (run (new Accessor
+                    (offset (* start (list-ref pitch axis)))
+                    (shape (run-shape shape axis size))
+                    (pitch pitch))))
+        (if (and (> size 0)
+                 (<= (+ start size) (list-ref shape axis))
+                 (same-addresses? (without-ones run) (without-ones a)))
+            (Some (new Pair (first start) (second size)))
+            (None))))
+
+    (define (run-shape (shape (List I64)) (axis I64) (size I64)) (→ (List I64))
+      (map-indexed (lambda (k n) (if (= k axis) size n)) shape))
+
+    ;; An accessor without its axes of 1.
+    (define (without-ones (a Accessor)) (→ Accessor)
+      (let ((kept (filter (lambda (k) (> (list-ref (● a shape) k) 1)) (iota (length (● a shape))))))
+        (new Accessor
+          (offset (● a offset))
+          (shape (map (lambda (k) (list-ref (● a shape) k)) kept))
+          (pitch (map (lambda (k) (list-ref (● a pitch) k)) kept)))))
+
+    ;; Each part's run along `axis`, first to last, its gradient in the
+    ;; shape of the port's run.
+    (define (runs-along (parts (List Part)) (shape (List I64)) (axis I64)) (→ (List Run))
+      (list-sort (lambda (x y) (< (● x start) (● y start)))
+                 (map (lambda (p)
+                        (match (span-of (● p seen) shape axis)
+                          ((Some span)
+                           (new Run
+                             (start (● span first))
+                             (size (● span second))
+                             (g (shaped (● p g) (run-shape shape axis (● span second))))))
+                          ((None) (panic "grad: a part with no run"))))
+                      parts)))
+
+    ;; Whether each run ends before the next starts.
+    (define (apart? (runs (List Run))) (→ Bool)
+      (match runs
+        ((Cons x (Cons y rest))
+         (and (<= (+ (● x start) (● x size)) (● y start)) (apart? (Cons y rest))))
+        (_ #t)))
+
+    ;; The runs along `axis`, zeros before, between and after them.
+    (define (joined-runs (runs (List Run)) (axis I64) (shape (List I64))) (→ View)
+      (let* ((etype (etype-of (● (list-ref runs 0) g)))
+             (gap (lambda (size) (fill 0.0 (run-shape shape axis size) etype)))
+             (end (fold-left (lambda (state run)
+                               (new Pair
+                                 (first (append (● state first)
+                                                (if (> (● run start) (● state second))
+                                                    (list (gap (- (● run start) (● state second)))
+                                                          (● run g))
+                                                    (list (● run g)))))
+                                 (second (+ (● run start) (● run size)))))
+                             (new Pair (first (Nil)) (second 0))
+                             runs))
+             (pieces (if (< (● end second) (list-ref shape axis))
+                         (append (● end first)
+                                 (list (gap (- (list-ref shape axis) (● end second)))))
+                         (● end first))))
+        (concat pieces axis)))
 
     ;; The order of an accessor's axes, largest pitch first, when in that
     ;; order it reads every element of a port of `shape` in order.
@@ -118,8 +282,8 @@
     ;; A port's gradient seen through a view of it: the view's own
     ;; accessor over the gradient made dense; zeros when the loss does not
     ;; depend on it.
-    (define (gradient-of (grads (Table View)) (w View)) (→ View)
-      (match (table-ref grads (port-key (● w node) (● w port)))
+    (define (gradient-of (shares (Table Shares)) (w View)) (→ View)
+      (match (port-gradient shares (● w node) (port-of (● w node) (● w port)))
         ((Some g)
          (let ((dense (if (identity? g) g (copy g))))
            (if (identity? w) dense (View-accessor-set dense (● w accessor)))))
