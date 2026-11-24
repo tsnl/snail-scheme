@@ -1,7 +1,7 @@
 # The path tracer
 
 `(snail shell graphics trace render)` path traces a glTF scene into the
-canvas a frame at a time, with one path a pixel, filtered by SVGF and
+canvas a frame at a time, with one path a pixel by default, filtered by SVGF and
 tone-mapped. It is composed of graphics middleware, each a library usable
 on its own: a BVH and its ray queries, an environment light, a denoiser.
 The [primer](path-tracing.md) gives the physics; this chapter gives the
@@ -13,6 +13,7 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 | Stage | Library | What it does |
 | --- | --- | --- |
 | Surfaces | `trace/surface.wgsl.scm` | Rasterizes the first hits into a G-buffer: shading normal, albedo, material, motion, the triangle drawn, and depth. A scene with blended materials also gets the nearest blended surface in front of them, in a second G-buffer, the blended layer. |
+| Direct light | `restir`, `trace/restir.wgsl.scm` | Resamples environment directions at each first hit, using its light, the previous frame and a neighboring pixel. |
 | Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries, for each layer. |
 | Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure, for each layer. |
 | Compose | `trace/compose.wgsl.scm` | Blends the blended layer's light over the first hits', by its alpha. |
@@ -28,6 +29,15 @@ A camera that holds still keeps accumulating: `tracer-frames` counts the
 frames since it last moved or the bounces last changed, either of which
 starts the history again.
 
+For half a path sample per pixel (spp) per still frame, call
+`(draw-sampled-traced gpu tracer canvas camera spread exposure bounces moved (Checkerboard))`.
+The first frame, a resize, a replacement scene or environment, a change in
+camera or bounce count, and a reported geometry change (`moved`) each trace
+every pixel. Successive
+still frames alternate the two halves of the checkerboard on both layers.
+Three frames from a cold start therefore give each surface pixel two new paths.
+`(EveryPixel)` traces the full image on each draw.
+
 A `Tracer` holds a record for each lifetime: a `Kit` of what is made once,
 the pipelines and uniforms; a `World` of the scene, its BVH and the
 environment; `Targets` of what the canvas's size sets; and `Bindings`,
@@ -42,11 +52,11 @@ A path is not one long kernel but a sequence of small ones, each its own
 pipeline, so each stays simple and keeps its registers few:
 
 ```
-primary → [occlude → connect → intersect → shade] × bounces → gather
+temporal_reservoirs → primary → [occlude → connect → intersect → shade] × bounces → gather
 ```
 
-- `primary` turns each pixel's G-buffer surface into a ray
-  ([first hits](#first-hits)).
+- `temporal_reservoirs` draws fresh light candidates and merges reprojected history.
+- `primary` places the [first hit](#first-hits) on its triangle, merges a neighbor's reservoir, emits the selected shadow ray and scatters the BSDF ray.
 - `shade` samples the surface's BSDF for the next bounce and the
   environment for a shadow ray, appending each to its queue.
 - `occlude` and `intersect` are the BVH's queries over a queue.
@@ -62,8 +72,10 @@ under WebGPU's default eight storage buffers a stage. Rays append with an
 atomic count kept per bounce, 256 bytes apart. Russian roulette may end a
 path after its third bounce.
 
-Every queue kernel is dispatched over the queue's capacity, and threads
-past its count return at once. Chromium validates each indirect dispatch,
+A queue kernel is dispatched over the maximum number of paths for this draw.
+On a checkerboard, each row dispatches half its columns, rounded up, and a
+lane's column and row parity locate its pixel. Threads past the queue's
+actual count return at once. Chromium validates each indirect dispatch,
 which takes about half a millisecond of wall time, more than the wasted
 threads cost.
 
@@ -84,6 +96,44 @@ scene's indices, and writes the triangle it drew; `primary` moves the
 depth's point onto that triangle's plane and takes the triangle's normal,
 facing the eye, as the geometric one. The G-buffer keeps only the shading
 normal, so it is no larger for the triangle.
+
+## Biased ReSTIR direct lighting
+
+A sampled first hit draws four candidate directions on a full frame and two
+on a checkerboard frame, all from the environment's importance table. The
+RGB contribution of a direction is its radiance times the BSDF, cosine and
+the environment's power-heuristic weight. The BSDF ray
+that escapes to the environment still supplies the complementary weight.
+The scalar target `t` is the luminance of that unshadowed RGB contribution.
+
+A reservoir holds the selected direction and its target, a weight sum `S`
+and a count `M`. A fresh draw with proposal density `q` contributes `t / q`
+to the sum. Zero-weight draws still count. A draw of weight `w` replaces
+the selection with probability `w / S` after the addition. The selected
+sample's multiplier is `W = (S / M) / t`, or zero for an empty selection.
+
+The motion vector locates one previous pixel. Its normal must agree with
+the current normal (dot product at least 0.9), and the two depths must
+agree within 2% in the previous camera's projection. The donor represents
+up to 20 times the number of fresh candidates at the receiver. The spatial
+step chooses one of the four axial neighbors on a full frame or one of the
+four diagonal neighbors on a checkerboard. Each donor belongs to the
+completed temporal pass and uses the same surface test in the current
+projection. Each accepted donor contributes its represented count `m` and
+weight `target_here × W_donor × m`. The biased estimator
+divides by the total represented count even when a sample could have
+contributed at only some of those surfaces. This can lose energy at surface
+boundaries. [Bitterli et al., 2020](https://research.nvidia.com/publication/2020-07_spatiotemporal-reservoir-resampling-real-time-ray-tracing-dynamic-direct)
+
+Only the final direction needs a visibility test. Its shadow ray carries
+the receiving surface's RGB contribution times `W` into the usual BVH
+query. Each layer owns its final history and both take turns using one
+temporal scratch buffer. A sky or uncovered pixel writes empty history.
+Resizing or replacing the scene or environment starts a new history.
+A pixel skipped by the checkerboard keeps its reservoir and the last radiance
+in its layer's slot. `gather` marks that radiance with a negative alpha in the
+noisy texture. SVGF carries forward the pixel's illumination, moments and
+observation count, and runs its spatial filters at full resolution.
 
 ## The blended layer
 
@@ -229,7 +279,9 @@ Clicking one drops it on the page. So the site publishes none of them,
 and a model's license is its publisher's to state. The page's query
 chooses the same way: `?model=ADDRESS&env=ADDRESS`, each an address
 `fetch` reads, such as a path on the page's server, and
-`&eye=x,y,z,yaw,pitch` for the camera.
+`&eye=x,y,z,yaw,pitch` for the camera. Add `?spp=0.5` to the viewer URL
+to enable checkerboard sampling while the view is still. If the URL already
+has a query, append `&spp=0.5`.
 
 Files that cannot be shown leave the view as it was, and the page says why:
 a `.gltf` chosen without the files it names, an address that answers 404, a
@@ -246,7 +298,50 @@ before anything else of the scene.
 
 ## Performance
 
-On an RTX 5090 through Chromium on Vulkan, at 1280 by 657, a frame takes:
+On a matte white wall under a uniform environment, first-hit ReSTIR
+reduced the variance of unfiltered radiance from 0.0864 to 0.0491. Mean
+radiance was 0.984 before and 0.983 after. This measured 256 one-bounce
+frames after 16 warm-up frames, over the center 32 by 32 pixels of a
+96 by 96 image.
+
+On an RTX 5090 through Dawn, a 768 by 512 scene with two boxes on a ground
+plane took 0.264 ms for the four-bounce wavefront before ReSTIR, 0.390 ms
+with full-rate ReSTIR and 0.263 ms with the still-frame checkerboard.
+These are median GPU pass times over 405 frames per mode, after 15 warm-up
+frames in each of three runs. Each reservoir entry occupies 48 bytes,
+including the depth and normal used for reuse.
+
+### Fewer path samples
+
+The two boxes on a ground plane were lit by a sky with a sun and rendered
+at 384 by 256 from empty history, with four bounces. The reference averaged
+4,096 unfiltered samples from the original tracer using a separate range of
+random seeds. Error is linear RGB root-mean-square error (RMSE) on the 54,781 surface pixels
+across 32 cold starts. Each unfiltered average counts newly traced paths.
+The SVGF column measures the filtered light before tone mapping.
+
+| Tracer | Frames | Path spp | Raw RMSE | SVGF RMSE | GPU time to image |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Original | 8 | 8 | 0.1811 | 0.02085 | 2.312 ms |
+| ReSTIR, full rate | 2 | 2 | 0.1601 | 0.01580 | 0.846 ms |
+| ReSTIR, checkerboard | 3 | 2 | 0.1620 | 0.01629 | 1.094 ms |
+| ReSTIR, checkerboard | 8 | 4.5 average | 0.1138 | 0.01662 | 2.401 ms |
+
+GPU time sums the six pass durations from the G-buffer through FXAA
+over the indicated frames. The table gives the median of 93 cold starts
+on the RTX 5090 through Dawn, excluding scene setup. At 768 by 512, the
+median GPU pass time per still frame was 0.420 ms for the original tracer,
+0.547 ms for full-rate ReSTIR and 0.422 ms for the checkerboard across
+405 frames per mode.
+
+On the uniform white wall at 384 by 256 with one
+bounce, the same two-spp checkerboard budget gave 0.00646 filtered RMSE.
+The original tracer at eight spp reached 0.00541.
+
+### Browser scenes
+
+Before first-hit ReSTIR, the following frame times were measured on an
+RTX 5090 through Chromium on Vulkan at 1280 by 657.
 
 | Scene | Frame |
 | --- | --- |

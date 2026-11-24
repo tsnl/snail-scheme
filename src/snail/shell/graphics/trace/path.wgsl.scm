@@ -6,8 +6,9 @@
 ;; (tsnl/enlighten, archive/main-v1): metallic-roughness shading, Lambert
 ;; diffuse and GGX reflection sampled by visible normals, mixed with one
 ;; probability at every vertex; light from the environment
-;; (environment-light.wgsl.scm), sampled at every vertex by its light
-;; with a shadow ray and seen by rays that leave the scene, the two
+;; (environment-light.wgsl.scm), resampled at first hits by biased ReSTIR
+;; (restir.wgsl.scm), sampled at later hits with a shadow ray, and seen
+;; by rays that leave the scene, the two direct-light strategies
 ;; weighted by multiple importance sampling (the power heuristic);
 ;; emission wherever a path hits it; Russian roulette after the third
 ;; bounce; textures at the level of the ray cone's footprint.
@@ -28,10 +29,10 @@
 ;; after the first hits, from its own G-buffer into its own noisy plane,
 ;; its radiance a pixel count past theirs.
 ;;
-;; A frame runs primary, then for each bounce occlude, connect, intersect
-;; and shade, then gather. A pixel has at most one ray in a queue, so
-;; adding to its radiance needs no atomics. Rays are appended with an
-;; atomic count each: bounce b's rays and shadow rays count at `slots.y`
+;; A frame runs temporal_reservoirs and primary, then for each bounce
+;; occlude, connect, intersect and shade, then gather. A pixel has at most
+;; one ray in a queue, so adding to its radiance needs no atomics. Rays are
+;; appended with an atomic count each: bounce b's rays and shadow rays count at `slots.y`
 ;; and `slots.z` of `wave`, the rays a shade reads at `slots.x`. A step
 ;; over a queue is dispatched over its capacity, a ray a pixel, and
 ;; invocations past the count return (bvh.sld says why not indirectly).
@@ -133,7 +134,6 @@
     (= (get s normal) (unfolded (get (textureLoad normals pixel 0) xy)))
     (= (get s geometric) geometric)
     (= (get s albedo) (get (textureLoad albedo pixel 0) xyz))
-    (= (get s emission) (get (textureLoad emission pixel 0) xyz))
     (= (get s metallic) (get m x))
     (= (get s roughness) (get m y))
     (return s))
@@ -318,17 +318,13 @@
                  payload
                  more)))
 
-;; From `s`, seen along `v` by a path of `weight`: a shadow ray toward a
-;; direction in the sun's disc, and the scattered ray, unless the path
-;; ends there.
-(fn continued
-    ((s Surface)
-     (v vec3f)
-     (path_weight vec3f)
-     (pixel u32)
-     (width f32)
-     (spread f32)
-     (seed (ptr function u32)))
+(fn shadow_ray ((s Surface) (d vec3f) (light vec3f) (pixel u32) (seed u32))
+    (let slot (atomicAdd (address-of (at counts (u32 (get wave slots z)))) 1u))
+    (= (at shadows slot) (ray_from s d seed (vec4f light ((bitcast f32) pixel)) (vec4f 0.0))))
+
+;; The environment proposal at later bounces.
+(fn sample_environment
+    ((s Surface) (v vec3f) (path_weight vec3f) (pixel u32) (seed (ptr function u32)))
     (let chosen (environment_sample
                  (vec4f (random seed) (random seed) (random seed) (random seed))))
     (let toward (get chosen xyz))
@@ -337,13 +333,16 @@
          (let light (*
                      (environment_light toward)
                      (/ (balanced (get chosen w) (density s v toward)) (get chosen w))))
-         (let slot (atomicAdd (address-of (at counts (u32 (get wave slots z)))) 1u))
-         (= (at shadows slot)
-            (ray_from s
-                      toward
-                      (pcg (deref seed))
-                      (vec4f (* path_weight f light) ((bitcast f32) pixel))
-                      (vec4f 0.0)))))
+         (shadow_ray s toward (* path_weight f light) pixel (pcg (deref seed))))))
+
+(fn scatter_ray
+    ((s Surface)
+     (v vec3f)
+     (path_weight vec3f)
+     (pixel u32)
+     (width f32)
+     (spread f32)
+     (seed (ptr function u32)))
     (let l (scattered s v seed))
     (let p (density s v l))
     (if ((not (and (> p 1e-6) (finite3 l) (> (dot l (get s geometric)) 0.0))) (return)))
@@ -366,20 +365,23 @@
 (fn pixel_index ((pixel vec2i)) (-> u32)
     (return (+ (u32 (get pixel x)) (* (u32 (get pixel y)) (get (textureDimensions depth) x)))))
 
+(fn uncovered ((pixel vec2i)) (-> bool)
+    (return (and (> (get tracing frame y) 0) (== (get (textureLoad albedo pixel 0) w) 0.0))))
+
 ;; The first hits' paths, or the layer's: `tracing.frame.y` is where the
 ;; wave's radiance starts, 0 for the first hits and a pixel count past
 ;; them for the layer's, whose pixels with no blended surface, their
 ;; alpha 0, make no path.
 (fn (@compute) (@workgroup_size 8 8) primary (((@builtin global_invocation_id) id vec3u))
     (let size (textureDimensions depth))
-    (if ((or (>= (get id x) (get size x)) (>= (get id y) (get size y))) (return)))
-    (let pixel (vec2i (get id xy)))
-    (let index (+ (pixel_index pixel) (u32 (get tracing frame y))))
-    (if ((and (> (get tracing frame y) 0) (== (get (textureLoad albedo pixel 0) w) 0.0))
-         (= (at radiance index) (vec4f 0.0))
-         (return)))
-    (let z (textureLoad depth pixel 0))
-    (if ((>= z 1.0)
+    (let pixel (vec2i (sample_pixel (get id xy))))
+    (if ((any (>= (vec2u pixel) size)) (return)))
+    (let i (pixel_index pixel))
+    (let index (+ i (u32 (get tracing frame y))))
+    (var site (at reservoir_input i))
+    (if ((== (get site reservoir count) 0)
+         (= (at reservoir_output i) site)
+         (if ((uncovered pixel) (= (at radiance index) (vec4f 0.0)) (return)))
          (let ndc (- (* (/ (+ (vec2f pixel) 0.5) (vec2f size)) 2.0) 1.0))
          (let far (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) 1.0 1.0)))
          (= (at radiance index)
@@ -387,17 +389,21 @@
              (environment_light (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz))))
              1.0))
          (return)))
-    (let s (first_surface pixel z))
-    (= (at radiance index) (vec4f (get s emission) 1.0))
+    (let s (first_surface pixel (textureLoad depth pixel 0)))
+    (= (at radiance index) (textureLoad emission pixel 0))
     (var seed (seeded index 0u))
+    (let v (normalize (- (get camera eye xyz) (get s position))))
+    (= (get site reservoir) (spatial_reservoir s v pixel site (address-of seed)))
+    (= (at reservoir_output i) site)
+    (reservoir_shadow (get site reservoir) s v index (pcg seed))
     (let spread (get tracing view x))
-    (continued s
-               (normalize (- (get camera eye xyz) (get s position)))
-               (vec3f 1.0)
-               index
-               (* spread (distance (get camera eye xyz) (get s position)))
-               spread
-               (address-of seed)))
+    (scatter_ray s
+                 v
+                 (vec3f 1.0)
+                 index
+                 (* spread (distance (get camera eye xyz) (get s position)))
+                 spread
+                 (address-of seed)))
 
 (fn (@compute) (@workgroup_size 64) connect (((@builtin global_invocation_id) id vec3u))
     (let i (queue_item id))
@@ -425,11 +431,16 @@
     (+= (at radiance pixel) (vec4f (* weight (get s emission)) 0.0))
     (if ((!= (get wave step y) 0) (return)))
     (var seed (seeded pixel 1u))
-    (continued s (- l) weight pixel width (get ray more y) (address-of seed)))
+    (sample_environment s (- l) weight pixel (address-of seed))
+    (scatter_ray s (- l) weight pixel width (get ray more y) (address-of seed)))
 
 (fn (@compute) (@workgroup_size 8 8) gather (((@builtin global_invocation_id) id vec3u))
     (let size (textureDimensions depth))
     (if ((or (>= (get id x) (get size x)) (>= (get id y) (get size y))) (return)))
     (let pixel (vec2i (get id xy)))
     (let index (+ (pixel_index pixel) (u32 (get tracing frame y))))
-    (textureStore noisy pixel (vec4f (get (at radiance index) xyz) 1.0)))
+    ;; A held pixel still has its last radiance in this layer's slot.
+    ;; Mark it so SVGF keeps the sample count that produced its history.
+    (let held (and (!= (get tracing frame w) 0)
+                   (!= (bit-and (get id x) 1u) (column_parity (get id y)))))
+    (textureStore noisy pixel (vec4f (get (at radiance index) xyz) (select 1.0 -1.0 held))))

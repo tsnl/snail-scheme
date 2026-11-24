@@ -104,9 +104,15 @@
          (textureStore moments p (vec4f 0.0))
          (textureStore place p (vec4f 1e30 1e30 1e30 0.0))
          (return)))
-    (let radiance (get (textureLoad noisy p 0) xyz))
+    (let radiance (textureLoad noisy p 0))
+    ;; A negative alpha holds this still pixel's previous observation.
+    (if ((< (get radiance w) 0.0)
+         (textureStore integrated p (textureLoad past_color p 0))
+         (textureStore moments p (textureLoad past_moments p 0))
+         (textureStore place p (textureLoad past_place p 0))
+         (return)))
     (let sample (/
-                 (max (- radiance (get (textureLoad emission p 0) xyz)) (vec3f 0.0))
+                 (max (- (get radiance xyz) (get (textureLoad emission p 0) xyz)) (vec3f 0.0))
                  (demodulator p)))
     (let world (world_at p))
     (let normal (normal_at p))

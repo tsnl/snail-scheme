@@ -42,6 +42,21 @@ row a thread, and averages them down to the width asked for.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/environment.sld)
 
+## `(snail shell graphics restir)`
+
+`reservoir-shader` supplies the WGSL types and operations for weighted
+directional reservoir sampling. `LightSample` holds a direction and its
+scalar target. `Reservoir` exposes the selected sample, weight sum and
+represented proposal count. `reservoir_draw` adds a draw with its proposal
+density. `reservoir_merge` takes a donor, its target at the receiver and
+the count it contributes. Each accepts a uniform random draw for selection.
+`reservoir_weight` derives the final shading multiplier.
+
+`reservoir-buffer` allocates one readable `SurfaceReservoir` per pixel
+with the reservoir, surface normal and clip depth. The path tracer uses
+these buffers for temporal and spatial reuse at the first hit of each
+layer. [Biased ReSTIR direct lighting](../graphics/tracer.md#biased-restir-direct-lighting)
+
 ## `(snail shell graphics gltf)`
 
 A glTF 2.0 scene, a `.gltf` file's JSON or a `.glb` file, read by `read-gltf`
