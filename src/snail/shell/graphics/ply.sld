@@ -225,8 +225,13 @@
           (position (vec3 (v (● p position))))
           (transform transform)
           (rotation (quaternion (v (● p rotation))))
-          (scale (vec3 (map exp (v (● p scale)))))
-          (opacity (f64->f32 (/ 1.0 (+ 1.0 (exp (negate (f32->f64 (float (● p opacity))))))))))))
+          (scale-opacity
+           (let ((s (map exp (v (● p scale)))))
+             (new Vec4h
+               (x (f64->f32 (list-ref s 0)))
+               (y (f64->f32 (list-ref s 1)))
+               (z (f64->f32 (list-ref s 2)))
+               (w (f64->f32 (/ 1.0 (+ 1.0 (exp (negate (f32->f64 (float (● p opacity)))))))))))))))
 
     (define (vec3 (v (List F64))) (→ Vec3f)
       (new Vec3f
@@ -236,9 +241,9 @@
 
     ;; A file's w, x, y, z, normalized, as x, y, z, w.
 
-    (define (quaternion (q (List F64))) (→ Vec4f)
+    (define (quaternion (q (List F64))) (→ Vec4h)
       (let ((l (sqrt (fold-left (lambda (sum x) (+ sum (* x x))) 0.0 q))))
-        (new Vec4f
+        (new Vec4h
           (x (f64->f32 (/ (list-ref q 1) l)))
           (y (f64->f32 (/ (list-ref q 2) l)))
           (z (f64->f32 (/ (list-ref q 3) l)))

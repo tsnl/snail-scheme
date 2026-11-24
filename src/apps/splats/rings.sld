@@ -42,9 +42,8 @@
         (new Gaussian
           (position (vec3 (* r (cos u)) (* 0.3 (sin v)) (* r (sin u))))
           (transform transform)
-          (rotation (new Vec4f (x 0.0) (y (f64->f32 (sin turn))) (z 0.0) (w (f64->f32 (cos turn)))))
-          (scale (vec3 0.07 0.025 0.025))
-          (opacity 0.7))))
+          (rotation (new Vec4h (x 0.0) (y (f64->f32 (sin turn))) (z 0.0) (w (f64->f32 (cos turn)))))
+          (scale-opacity (new Vec4h (x 0.07) (y 0.025) (z 0.025) (w 0.7))))))
 
     (define (ring-colors (index I64)) (→ (List Vec3f))
       (let ((u (* 2.0 (* pi (hashed index 0)))) (c (lambda (x) (/ (- x 0.5) 0.2820948))))

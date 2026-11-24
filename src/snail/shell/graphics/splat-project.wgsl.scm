@@ -56,7 +56,12 @@
     (let sign (select 1.0 -1.0 (< (dot (at a 0) (at cofactors 0)) 0.0)))
     (return (normalize (* sign (* (transpose cofactors) direction)))))
 
-;; Gaussian i's coefficients are halves two to a word, 26 words a
+;; Four f16s two to a word, x and y in the first: a `Vec4h`, as a
+;; gaussian's rotation, and its scale with its opacity as w.
+(fn halves4 ((v vec2u)) (-> vec4f)
+    (return (vec4f (unpack2x16float (get v x)) (unpack2x16float (get v y)))))
+
+;; Gaussian i's coefficients are f16s two to a word, 26 words a
 ;; gaussian, low half first: color k's three start at half 3k + d, d its
 ;; degree, as each degree starts a word of its own (`harmonic-words` in
 ;; splat.sld).
@@ -122,7 +127,8 @@
     (= (at keys i) 4294967295u)
     (= (get (at projected i) radius) 0.0)
     (let g (at gaussians i))
-    (if ((< (get g opacity) (/ 1.0 255.0)) (return)))
+    (let size (halves4 (get g scale_opacity)))
+    (if ((< (get size w) (/ 1.0 255.0)) (return)))
     (let model (at transforms (get g transform)))
     (let world (* model (vec4f (get g position) 1.0)))
     (let view (get (* (get camera view) world) xyz))
@@ -132,8 +138,8 @@
     (if ((any (> (abs center) (* 0.65 (get camera viewport)))) (return)))
     (let a (linear model))
     (let local (*
-                (rotation (get g rotation))
-                (mat3x3f (get g scale x) 0.0 0.0 0.0 (get g scale y) 0.0 0.0 0.0 (get g scale z))))
+                (rotation (halves4 (get g rotation)))
+                (mat3x3f (get size x) 0.0 0.0 0.0 (get size y) 0.0 0.0 0.0 (get size z))))
     (let spread (screen_covariance (* (linear (get camera view)) a local) view z))
     (let det (-
               (* (at (at spread 0) 0) (at (at spread 1) 1))
@@ -147,7 +153,7 @@
                          (/ (- (at (at spread 0) 1)) det)
                          (/ (at (at spread 0) 0) det)
                          0.0)
-                  (vec4f (shade i toward) (get g opacity))
+                  (vec4f (shade i toward) (get size w))
                   center
                   (ceil (* 3.0 (sqrt largest)))))
     (= (at keys i) (bit-not ((bitcast u32) z))))

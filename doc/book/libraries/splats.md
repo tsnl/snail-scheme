@@ -21,7 +21,10 @@ for its gaussians and transforms, writes `Cloud`s where it likes
 their gaussians. A frame is `sort-splats` in a compute pass and
 `draw-splats` in a render pass, both the caller's.
 
-Each gaussian's 16 colors of coefficients are f16s two to a 32-bit word
+A `Gaussian` keeps its center as floats and its rotation and its scale
+with its opacity as f16s (`Vec4h`), 32 bytes a record; `cloud-gaussian`
+reads one back. Each gaussian's 16 colors of coefficients are f16s two to
+a 32-bit word
 (`harmonic-words`, 26 a gaussian), each degree from a word of its own,
 so that color k's three start at the word's half 3k plus its degree
 (`harmonic-half`). `write-harmonics!` rounds a gaussian's floats into

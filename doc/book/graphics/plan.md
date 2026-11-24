@@ -268,7 +268,11 @@ libraries are building blocks with no knowledge of what they order.
 `(snail shell graphics splat)` renders 3D Gaussian Splatting (Kerbl et
 al., 2023) with them. A `Gaussian` is a `Pod` record: its center, the row
 of the transforms table that places it, a unit quaternion, its standard
-deviations and its opacity, already activated; its 16 spherical-harmonic
+deviations and its opacity, already activated. Its quaternion and its
+deviations with its opacity are f16s (`Vec4h`), so a record is 32 bytes
+where floats took 48; its center stays a float, since f16s step by 0.004
+six units from the origin, more than a tenth of the size of three in four
+of bicycle's trained gaussians. Its 16 spherical-harmonic
 colors, to degree 3, sit beside it in a buffer of f16s two to a 32-bit
 word, 26 words a gaussian: 104 bytes where 48 floats took 192. Each degree
 starts a word of its own, so a kernel reading one degree reads only its

@@ -85,7 +85,9 @@ WGSL `declarations`, its `stride` and alignment, and its `vertex-layout`.
 ```
 
 A `vec3f` takes 12 bytes but aligns to 16, so an `F32` may follow it in the
-same 16. A shape is built by walking the record's fields, so a program
+same 16. A `Vec4h` is four floats kept as f16s, a WGSL `vec2u` of two
+words, which `unpack2x16float` reads two at a time, without the
+`shader-f16` some devices lack. A shape is built by walking the record's fields, so a program
 keeps each one it uses as a top-level value, made once. In WGSL a hyphen in
 a record's or field's name becomes an underscore: `Paint-uniform` is
 `Paint_uniform`.

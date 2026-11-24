@@ -34,6 +34,7 @@
    Vec2f
    Vec3f
    Vec4f
+   Vec4h
    Vec2i
    Vec4i
    Mat4x4f
@@ -44,6 +45,7 @@
    vertex-layout)
   (import
    (snail core base)
+   (only (snail shell math) half-bits)
    (snail shell gpu))
   (begin
 
@@ -280,6 +282,15 @@
        (w F32))
       (deriving Repr))
 
+    ;; Four floats kept as f16s two to a word, x and y in the first: a
+    ;; WGSL `vec2u`, each of whose words `unpack2x16float` reads as two.
+    (record Vec4h
+      ((x F32)
+       (y F32)
+       (z F32)
+       (w F32))
+      (deriving Repr))
+
     (record Vec2i
       ((x I32)
        (y I32))
@@ -325,6 +336,20 @@
       (define pod-write
         (lambda (value bytes at)
           (floats bytes at (list (● value x) (● value y) (● value z) (● value w))))))
+
+    (instance (Pod Vec4h)
+      (define shape (lambda () (scalar-shape "vec2u" 8 8 (Uint32x2))))
+      (define pod-align (lambda (value) 8))
+      (define pod-write
+        (lambda (value bytes at)
+          (words bytes
+                 at
+                 (list (halves-word (● value x) (● value y))
+                       (halves-word (● value z) (● value w)))))))
+
+    ;; Two floats rounded to f16s in one word, the first in its low half.
+    (define (halves-word (low F32) (high F32)) (→ I32)
+      (i64->i32 (i64-or (half-bits low) (i64-shift-left (half-bits high) 16))))
 
     (instance (Pod Vec2i)
       (define shape (lambda () (scalar-shape "vec2i" 8 8 (Sint32x2))))
