@@ -135,6 +135,8 @@ the caller's, as often as it likes; `write-param`, `read-param` and
   too, with no buffer. A choice of zero, `(where condition value 0)` with
   one condition a row, computes its value inside an `if`, so the rows the
   condition culls skip what the value computes in that kernel: a mask.
+  A kernel computes each choice once, however many places fusing copied
+  it to.
   A filter packs the rows it keeps, so a choice by its `live` skips the
   rest together.
 - **Buffers** return to a pool once the last node reading them has run;
