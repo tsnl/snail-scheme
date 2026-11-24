@@ -1253,11 +1253,14 @@
     ;; ---- Map text ----
 
     ;; The statements so far, the last first; each expression's name by
-    ;; its text; and how many names were made, which numbers the next.
+    ;; its text; how many names were made, which numbers the next; and the
+    ;; names of each choice of zero computed in an `if`, by its
+    ;; condition's name and its value's text.
     (record Lets
       ((statements (List String))
        (names (Table String))
-       (count I64)))
+       (count I64)
+       (choices (Table (List String)))))
 
     ;; A map's bodies as statements of element i of its leading axes: a
     ;; `let` for each distinct load and operation of any of them, and for
@@ -1305,7 +1308,11 @@
                                    (first (● next first))
                                    (second (Cons (● next second) (● state second))))))
                              (new Pair
-                               (first (new Lets (statements (Nil)) (names (empty-table)) (count 0)))
+                               (first (new Lets
+                                        (statements (Nil))
+                                        (names (empty-table))
+                                        (count 0)
+                                        (choices (empty-table))))
                                (second (Nil)))
                              bodies)))
         (new Pair
@@ -1320,15 +1327,9 @@
         ((Load k _ tile) (lets-for lets (map (lambda (t) (element k t)) (tile-indices tile))))
         ((Literal value etype) (new Pair (first lets) (second (list (literal etype value)))))
         ((Apply op operands etype tile)
-         (let ((tested (if (guardable? op operands)
-                           (Some (named element (list-ref operands 0) lets))
-                           (None))))
-           (match tested
-             ((Some done)
-              (if (one-name? (● done second))
-                  (guarded element done (list-ref operands 0) (list-ref operands 1) etype)
-                  (applied element op operands etype tile lets)))
-             ((None) (applied element op operands etype tile lets)))))))
+         (if (guardable? op operands)
+             (choice element op operands etype tile lets)
+             (applied element op operands etype tile lets)))))
 
     ;; An operation's elements' names, its operands named first.
     (define (applied (element (Fn I64 (List I64) → String))
@@ -1363,6 +1364,35 @@
     (define (one-name? (names (List String))) (→ Bool)
       (every? (lambda (n) (string=? n (list-ref names 0))) names))
 
+    ;; A choice of zero whose condition is one value takes the names a
+    ;; choice of that condition and value already has, or a guard's. Fusing
+    ;; copies a map into each place that reads it, as each degree of the
+    ;; splats' harmonics reads their basis, so one choice can meet lowering
+    ;; several times, and what one guard names inside its `if` the next
+    ;; cannot see. Any other choice selects each element.
+    (define (choice (element (Fn I64 (List I64) → String))
+                    (op Op)
+                    (operands (List Expr))
+                    (etype Etype)
+                    (tile (List I64))
+                    (lets Lets))
+      (→ (Pair Lets (List String)))
+      (let ((tested (named element (list-ref operands 0) lets))
+            (value (list-ref operands 1)))
+        (if (one-name? (● tested second))
+            (let ((key (string-append (list-ref (● tested second) 0) " ? " (expr-text value))))
+              (match (table-ref (● tested first choices) key)
+                ((Some names) (new Pair (first (● tested first)) (second names)))
+                ((None) (chosen key (guarded element tested (list-ref operands 0) value etype)))))
+            (applied element op operands etype tile lets))))
+
+    ;; `done`, its names kept as those of the choice `key`.
+    (define (chosen (key String) (done (Pair Lets (List String)))) (→ (Pair Lets (List String)))
+      (new Pair
+        (first (Lets-choices-set (● done first)
+                                 (table-set (● done first choices) key (● done second))))
+        (second (● done second))))
+
     (define (zero-expr? (e Expr)) (→ Bool)
       (match e
         ((Literal value _) (= value 0.0))
@@ -1371,8 +1401,9 @@
 
     ;; The choice's statements: the condition's lets where they were, a
     ;; `var` of zero for each element of the value, and an `if` holding the
-    ;; value's lets and setting the vars. The names made inside the `if`
-    ;; are its own, so what comes after makes its own again.
+    ;; value's lets and setting the vars. The names made inside the `if`,
+    ;; and the choices, are its own, so what comes after makes its own
+    ;; again; only the vars are seen after it.
     (define (guarded (element (Fn I64 (List I64) → String))
                      (tested (Pair Lets (List String)))
                      (condition Expr)
@@ -1385,7 +1416,8 @@
                            (new Lets
                              (statements (Nil))
                              (names (● outer names))
-                             (count (● outer count)))))
+                             (count (● outer count))
+                             (choices (● outer choices)))))
              (results (map (lambda (j) (string-append "v" (show (+ (● inner first count) j))))
                            (iota (length (● inner second)))))
              (type (etype-wgsl etype)))
@@ -1414,7 +1446,8 @@
                                       "  }\n")
                                      (● outer statements)))
                    (names (● outer names))
-                   (count (+ (● inner first count) (length results)))))
+                   (count (+ (● inner first count) (length results)))
+                   (choices (● outer choices))))
           (second results))))
 
     ;; An operation's elements' names: a tile's own operations rearrange
@@ -1493,7 +1526,8 @@
                       (statements (Cons (string-append "  let " name " = " text ";\n")
                                         (● lets statements)))
                       (names (table-set (● lets names) text name))
-                      (count (+ (● lets count) 1))))
+                      (count (+ (● lets count) 1))
+                      (choices (● lets choices))))
              (second name))))))
 
     ;; An operation on its operands' text, of type `from-etype`, answering

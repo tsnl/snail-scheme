@@ -80,6 +80,7 @@
    expr-etype
    expr-tile
    op-text
+   expr-text
    tile-indices
    map-loads
    Reduction
