@@ -335,7 +335,8 @@
                       (y (i64->i32 (● m metal-rough-texture)))
                       (z (i64->i32 (● m normal-texture)))
                       (w (i64->i32 (● m emissive-texture)))))
-          (flags (new Vec4i (x (if (● m double-sided) 1 0)) (y 0) (z 0) (w 0))))))
+          (flags
+           (new Vec4i (x (if (● m double-sided) 1 0)) (y (if (● m water) 1 0)) (z 0) (w 0))))))
 
     ;; ---- Geometry ----
 

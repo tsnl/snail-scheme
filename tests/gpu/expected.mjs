@@ -23,7 +23,10 @@ export const deviceLines = [
   // The same light through Hable's curve and sRGB encoding: the grey
   // tile's 0.6 is 159, as the curve computed by hand gives.
   'filmic: 186 0 0 255 186 0 0 255 159 159 159 255 159 159 159 255',
+  'photographic: 216 49 49 255 216 49 49 255 194 194 194 255 194 194 194 255',
+  'coastal sky: blue noon, warm sunset, cloud extinction, dark night',
   'squares: 1 4 9 16 10000',
+  'water normals: 1 1 1 1',
   'planes: -0.25 -0.0 16777217 -1 0',
   'billboard: 73 stationary',
   // An exclusive scan of i mod 3 over three levels of tiles, checked at
@@ -74,7 +77,7 @@ export const trainingLines = [
 // The page's own first bytes, and the server's 404 for a file it lacks.
 export const fetchedLine = 'fetched: <!doctype 404 fetching missing.bin';
 
-const slack = {scene: 2, filmic: 2, splats: 2, turned: 2, 'viewed splats': 2, 'viewed turned': 2, planes: 1e-3};
+const slack = {scene: 2, filmic: 2, photographic: 2, splats: 2, turned: 2, 'viewed splats': 2, 'viewed turned': 2, planes: 1e-3};
 
 // The printed lines, each as its expected line says.
 export function assertLines(printed, expected) {

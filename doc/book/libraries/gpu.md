@@ -12,9 +12,9 @@ way, and how Node gets a device.
 like WebGPU, and a `Gpu` parameter says exactly which functions touch the
 device:
 
-- **The device**: `request-device` answers a `DeviceInfo` with the canvas's
-  format and the optional features the device got; `work-done` waits until
-  it has done what was submitted.
+- **Device access** starts with `request-device`. Its `DeviceInfo` reports the
+  canvas format, enabled optional features and maximum storage-buffer binding size
+  in bytes. `work-done` waits for submitted commands to finish.
 - **Objects**: `create-buffer`, `create-texture`, `create-view`,
   `create-sampler`, `create-shader-module`, `create-render-pipeline`,
   `create-compute-pipeline`, `create-bind-group` and `create-query-set`,

@@ -48,6 +48,8 @@ pkgs.mkShell {
       git
       git-filter-repo
       chez
+      coreutils
+      inklecate
       gnumake
       nixfmt
       npins

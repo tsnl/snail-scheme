@@ -9,7 +9,7 @@
 ;;   0 normals, rg16float: the shading normal, octahedral, facing the eye;
 ;;   1 emission, rgba16float, linear;
 ;;   2 albedo, rgba8unorm-srgb, so 8 bits keep its darks;
-;;   3 material, rgba8unorm: metalness and roughness;
+;;   3 material, rgba8unorm: metalness, filtered roughness and a water flag;
 ;;   4 motion, rg16float, in texture coordinates from the last frame;
 ;;   5 triangle, r32uint: the triangle drawn there.
 ;; Depth is depth32float. The tracer places each pixel by its depth, then
@@ -169,8 +169,15 @@
     (if ((< (dot normal normal) 1e-12) (= normal geometric)))
     (= normal (normalize normal))
     (if ((< (dot normal geometric) 0.0) (= normal (- normal))))
-    (= normal (mapped m f (get in tangent) normal))
     (let metal_rough (texel (get m textures y) f))
+    (var rough (* (get m factors y) (get metal_rough y)))
+    (let water (!= (get m flags y) 0))
+    (if (water
+         (let waves (water_surface (get in world) geometric (get camera scene_time)
+                                   (mat2x2f (get f p_x xz) (get f p_y xz)) rough))
+         (= normal (get waves xyz))
+         (= rough (get waves w)))
+        (else (= normal (mapped m f (get in tangent) normal))))
     (var (out Targets))
     (= (get out normals) (octahedral normal))
     (= (get out emission)
@@ -178,8 +185,8 @@
     (= (get out albedo) (vec4f (* (get m base_color xyz) (decoded (get base xyz))) alpha))
     (= (get out material)
        (vec4f (* (get m factors x) (get metal_rough z))
-              (* (get m factors y) (get metal_rough y))
-              0.0
+              rough
+              (select 0.0 1.0 water)
               1.0))
     (let now (/ (get in clip_now xy) (get in clip_now w)))
     (let before (/ (get in clip_before xy) (get in clip_before w)))

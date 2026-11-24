@@ -15,5 +15,11 @@
                                             (first "inspect-reservoir")
                                             (second (link-file "reservoir.wgsl.scm")))
                                           (new Pair
+                                            (first "sky-probe")
+                                            (second (link-file "sky.wgsl.scm")))
+                                          (new Pair
+                                            (first "water-probe")
+                                            (second (link-file "water.wgsl.scm")))
+                                          (new Pair
                                             (first "square")
                                             (second (link-file "square.wgsl.scm")))))))

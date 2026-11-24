@@ -35,6 +35,8 @@
 
 (var (@group 0) (@binding 7) (table (texture_storage_2d r32float write)))
 
+(var (@group 0) (@binding 8) (disc (texture_storage_2d rgba32float write)))
+
 (const PI 3.14159265358979)
 
 ;; ---- Decoding ----

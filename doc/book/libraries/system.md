@@ -51,7 +51,7 @@ Python's `importlib.resources` names a package's data. `(link-file
 build copies it beside the program's module and gives the program a
 `Resource`. `read-resource` reads one through a `Resources`, waiting as a
 task does, since a page can only fetch it, and `read-resources` reads
-several at once.
+several at once. The browser caches successful reads in IndexedDB. On secure origins it verifies the SHA-256 digest before storing the bytes. The page looks up the digest before fetching. Apps on the same origin can reuse a file, and a changed file has a new digest. If the browser evicts the entry or storage is unavailable, the next read can download it again.
 
 `Resource` is exported without its constructor, so holding one is evidence
 that its file ships ([linked files](../snail-scheme/types.md#linked-files)).
