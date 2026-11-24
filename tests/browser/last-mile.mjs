@@ -93,8 +93,9 @@ try {
   }, 'high resolution on a portrait display', 65);
   await tap('q');
   await expect('.quality', 'Auto ');
-  // Keep the longer gameplay check affordable on Chromium's software GPU.
-  await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 1, mobile: false});
+  // The high-density check above exercises the display resolution. Render the
+  // keyboard drive at 300 × 190 so the software GPU can present each manoeuvre.
+  await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 0.5, mobile: false});
   const activation = {x: 550, y: 290, button: 'left', clickCount: 1};
   await browser.send('Input.dispatchMouseEvent', {type: 'mousePressed', ...activation});
   await browser.send('Input.dispatchMouseEvent', {type: 'mouseReleased', ...activation});
