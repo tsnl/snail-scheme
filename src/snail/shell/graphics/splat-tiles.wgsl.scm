@@ -42,7 +42,7 @@
 ;; both sides are the center's own lines and q is 0.
 (fn reaches ((center vec2f) (conic vec3f) (limit f32) (tile vec2u)) (-> bool)
     (let low (+ (* (vec2f tile) (f32 TILE)) 0.5))
-    (let high (+ low 15.0))
+    (let high (+ low (- (f32 TILE) 1.0)))
     (let near (- (clamp center low high) center))
     (let down (- (clamp (- (get center y) (/ (* (get conic y) (get near x)) (get conic z)))
                         (get low y)

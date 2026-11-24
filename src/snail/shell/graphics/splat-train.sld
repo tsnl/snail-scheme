@@ -425,11 +425,16 @@
        (entries View)))
 
     ;; Binning reads the gaussians as the rasterizer does, from `splats`,
-    ;; and the radii of their squares from `p`. The entries asked for, at
-    ;; most the capacity, are counted on the device, and the tile sort and
-    ;; the ranges cover only those, the ranges' workgroups taking the
-    ;; entries in turn as the sort's do: the capacity costs memory, not
-    ;; time.
+    ;; and the radii of their squares from `p`. Only the gaussians that
+    ;; reach a tile, about a quarter of a trained cloud in a view, are
+    ;; sorted by depth and walked for their entries: a filter packs them,
+    ;; in order, and the sort and `emit_keys` take its count, so a gaussian
+    ;; reaching none costs only the count of its tiles. Ties in depth stay
+    ;; in the gaussians' order, as when every gaussian was sorted. The
+    ;; entries asked for, at most the capacity, are counted on the device,
+    ;; and the tile sort and the ranges cover only those, the ranges'
+    ;; workgroups taking the entries in turn as the sort's do: the capacity
+    ;; costs memory, not time.
     (define (binned (p Projection) (splats View) (sensor Sensor)) (→ Bins)
       (let* ((count (list-ref (shape-of (● p centers)) 0))
              (code (lambda (text) (string-append (constants sensor count) splat-tiles-shader text)))
@@ -444,21 +449,24 @@
                                           (adjoint no-gradient))
                                         (list splats radii)
                                         (list (u32-port "counts" count)))))
-             (order (● (sort-pairs (bitcast (reshape (● p depths) (list count)) (Unsigned))
-                                   (exclusive-scan (ones-like counts))
-                                   32)
+             (reaching (filter-rows counts))
+             (depths (bitcast (reshape (● p depths) (list count)) (Unsigned)))
+             (order (● (sort-first-pairs (gather depths (● reaching ids))
+                                         (● reaching ids)
+                                         (● reaching count)
+                                         32)
                        second))
-             (sorted-counts (gather counts order))
+             (sorted-counts (where (● reaching live) (gather counts order) (zeros-like counts)))
              (offsets (exclusive-scan sorted-counts))
              (capacity (● sensor capacity))
              (entries (custom (new Custom
                                 (name (label "splat-keys"))
                                 (kernels (list (kernel (code splat-keys-shader)
                                                        "emit_keys"
-                                                       (list 0 1 2 3 4 5)
+                                                       (list 0 1 2 3 4 5 6)
                                                        (tiles count 256))))
                                 (adjoint no-gradient))
-                              (list splats radii order offsets)
+                              (list splats radii order offsets (● reaching count))
                               (list (u32-port "keys" capacity) (u32-port "ids" capacity))))
              (asked (+ (narrow offsets 0 (- count 1) 1) (narrow sorted-counts 0 (- count 1) 1)))
              (total (minimum asked (fill (i64->f64 capacity) (list 1) (Unsigned))))

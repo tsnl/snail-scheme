@@ -397,9 +397,12 @@ stands in the world and has none, so its graph is unchanged.
   diluted their mean gradient on bicycle's 360° views, and the cloud grew
   to 750,000 gaussians where the reference's grows to millions.
 - **Binning is custom kernels around the middleware's sorts.** The kernels
-  are `splat-count`, `splat-keys` and `splat-ranges`. Gaussians are sorted
-  by depth, and each one's tiles emitted in that order at the prefix sum of
-  their counts. A gaussian's tiles are those it reaches: those with a pixel
+  are `splat-count`, `splat-keys` and `splat-ranges`. A filter keeps the
+  gaussians that reach a tile, in order, about a quarter of bicycle's
+  trained cloud in a view; only they are sorted by depth, and each one's
+  tiles emitted in that order at the prefix sum of their counts, so a
+  gaussian off the image costs no more than the count of its tiles. A
+  gaussian's tiles are those it reaches: those with a pixel
   center where its alpha is at least 1/255, the least the rasterizer
   blends, so binning drops nothing the rasterizer would draw. Each tile in
   the bounding box of the gaussian's ellipse at that alpha is tested where
