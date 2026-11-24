@@ -24,6 +24,7 @@ export const deviceLines = [
   // tile's 0.6 is 159, as the curve computed by hand gives.
   'filmic: 186 0 0 255 186 0 0 255 159 159 159 255 159 159 159 255',
   'squares: 1 4 9 16 10000',
+  'water normals: 1 1 1 1',
   'planes: -0.25 -0.0 16777217 -1 0',
   'billboard: 73 stationary',
   // An exclusive scan of i mod 3 over three levels of tiles, checked at

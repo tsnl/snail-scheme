@@ -19,6 +19,7 @@
    finish-device
    device-format
    device-features
+   storage-binding-size
    reply-scalar
    create
    create-view
@@ -72,6 +73,7 @@
     (extern finish-device "snail.runtime.gpu" "finish-device" (Fn I64 → I32))
     (extern device-format "snail.runtime.gpu" "device-format" (Fn → I32))
     (extern device-features "snail.runtime.gpu" "device-features" (Fn → I32))
+    (extern storage-binding-size "snail.runtime.gpu" "storage-binding-size" (Fn → I32))
     (extern reply-scalar "snail.runtime.gpu" "reply-scalar" (Fn I32 → I32))
     (extern create "snail.runtime.gpu" "create" (Fn I32 Bytes → I32))
     (extern create-view "snail.runtime.gpu" "create-view" (Fn I32 Bytes → I32))

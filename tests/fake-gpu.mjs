@@ -14,6 +14,7 @@ export function fakeGpu() {
     draw() {}, drawIndexed() {}, drawIndexedIndirect() {}, end() {},
   });
   const device = {
+    limits: {maxStorageBufferBindingSize: 128 * 1024 * 1024},
     createBuffer: object, createTexture: object, createSampler: object, createShaderModule: object,
     createRenderPipeline: object, createBindGroup: object,
     createCommandEncoder: () => ({beginRenderPass: pass, copyBufferToBuffer() {}, copyTextureToBuffer() {},

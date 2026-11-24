@@ -18,7 +18,7 @@ import {startPage, reportApplicationError} from './application.mjs';
 // Input kinds and named keys match `decode-input` and the key constants in
 // src/snail/shell/app.sld.
 const KEY_DOWN = 1, KEY_UP = 2, POINTER_DOWN = 3, POINTER_MOVE = 4, POINTER_UP = 5, POINTER_CANCEL = 6;
-const WHEEL = 7, RESIZE = 8;
+const WHEEL = 7, RESIZE = 8, POINTER_DELTA = 18, POINTER_LOCK = 19;
 const namedKeys = {ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3, ArrowDown: 4, Escape: 27, Enter: 13, ' ': 32};
 
 function keyCode(event) {
@@ -28,7 +28,7 @@ function keyCode(event) {
 
 // ---- Application ----
 
-export async function startApplication({url, canvas, overlay, storageKey}) {
+export async function startApplication({url, canvas, overlay, storageKey, pointerLock = false}) {
   const runtime = createRuntime({size: () => [canvas.clientWidth, canvas.clientHeight], seed: (Math.random() * 65536) | 0,
     load: () => loadSave(storageKey), store: bytes => storeSave(storageKey, bytes),
     frames: {request: requestAnimationFrame.bind(globalThis), cancel: cancelAnimationFrame.bind(globalThis)},
@@ -36,7 +36,7 @@ export async function startApplication({url, canvas, overlay, storageKey}) {
     reportError: reportApplicationError});
   const dom = createDom(overlay, runtime), gpu = createGpu(canvas, runtime), requests = createFetch(runtime);
   const files = createFiles(runtime);
-  attachInput(canvas, runtime);
+  attachInput(canvas, runtime, pointerLock);
   return startPage({runtime,
     imports: {...runtime.imports, 'snail.runtime.browser.dom': dom.imports, 'snail.runtime.gpu': gpu.imports,
       'snail.runtime.browser.fetch': requests.imports, 'snail.runtime.browser.files': files.imports},
@@ -48,23 +48,42 @@ function wheelPixels(event) {
   return Math.round(event.deltaY * [1, 16, innerHeight][event.deltaMode]);
 }
 
-function attachInput(canvas, runtime) {
+function attachInput(canvas, runtime, pointerLock) {
+  const locked = () => document.pointerLockElement === canvas;
   const send = (kind, a = 0, b = 0, c = 0, d = 0) => runtime.send(kind, a | 0, b | 0, c | 0, d | 0);
   // A key held with Ctrl, Alt or Meta belongs to the browser, so shortcuts
   // such as reloading keep working; Shift travels with the key. Keys typed
   // into a field stay there.
   addEventListener('keydown', event => {
-    if (event.ctrlKey || event.altKey || event.metaKey) return;
+    if (event.ctrlKey || event.altKey || event.metaKey || (event.key === 'Escape' && locked())) return;
     if (event.target.closest?.('input, textarea, select') || (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' '))) return;
     const code = keyCode(event);
+    if (pointerLock && event.repeat) return;
+    if (code === 112 && pointerLock && locked()) document.exitPointerLock();
     if (code) { send(KEY_DOWN, code, event.shiftKey ? 1 : 0); event.preventDefault(); }
   });
   addEventListener('keyup', event => { const code = keyCode(event); if (code) send(KEY_UP, code); });
   canvas.addEventListener('pointerdown', event => {
-    canvas.setPointerCapture?.(event.pointerId);
+    if (pointerLock && event.pointerType === 'mouse' && event.button === 0 && !locked() && canvas.requestPointerLock) {
+      canvas.focus();
+      canvas.requestPointerLock()?.catch(() => {});
+      return; // The activation click only captures. The next click reaches the game.
+    }
+    if (!locked()) canvas.setPointerCapture?.(event.pointerId);
     send(POINTER_DOWN, event.pointerId, event.offsetX, event.offsetY, event.button);
   });
-  canvas.addEventListener('pointermove', event => send(POINTER_MOVE, event.pointerId, event.offsetX, event.offsetY));
+  canvas.addEventListener('pointermove', event => {
+    if (pointerLock && event.pointerType === 'mouse' && (locked() || (event.buttons & 2))) {
+      send(POINTER_DELTA, event.movementX, event.movementY);
+    } else send(POINTER_MOVE, event.pointerId, event.offsetX, event.offsetY);
+  });
+  if (pointerLock) {
+    document.addEventListener('pointerlockchange', () => send(POINTER_LOCK, Number(locked())));
+    addEventListener('blur', () => {
+      if (locked()) document.exitPointerLock();
+      send(POINTER_LOCK, 0);
+    });
+  }
   canvas.addEventListener('pointerup', event => send(POINTER_UP, event.pointerId, event.offsetX, event.offsetY));
   canvas.addEventListener('pointercancel', event => send(POINTER_CANCEL, event.pointerId));
   canvas.addEventListener('wheel', event => { send(WHEEL, wheelPixels(event)); event.preventDefault(); }, {passive: false});

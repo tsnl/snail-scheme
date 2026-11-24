@@ -36,6 +36,8 @@
    KeyUp
    PointerDown
    PointerMove
+   PointerDelta
+   PointerLock
    PointerUp
    PointerCancel
    Wheel
@@ -175,6 +177,8 @@
       (KeyUp ((key I32)))
       (PointerDown ((pointer I32) (x I32) (y I32) (button I32)))
       (PointerMove ((pointer I32) (x I32) (y I32)))
+      (PointerDelta ((dx I32) (dy I32)))
+      (PointerLock ((locked Bool)))
       (PointerUp ((pointer I32) (x I32) (y I32)))
       (PointerCancel ((pointer I32)))
       (Wheel ((pixels I32)))
@@ -210,6 +214,8 @@
         ((6) (PointerCancel a))
         ((7) (Wheel a))
         ((8) (Resize a b))
+        ((18) (PointerDelta a b))
+        ((19) (PointerLock (= a 1)))
         (else (Elapsed a))))
 
     ;; ---- Gestures ----

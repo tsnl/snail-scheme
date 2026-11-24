@@ -7,7 +7,8 @@
           Striding
           Bracing
           Riding
-          Gait
+          Gait Gait-seat-set
+          between-gaits
           resting
           animate
           Pose
@@ -29,6 +30,11 @@
       (deriving Serialize Deserialize))
 
     (define resting (→ Gait) (new Gait (phase 0.0) (stride 0.0) (arm 0.0) (seat 0.0)))
+
+    (define (between-gaits (a Gait) (b Gait) (t F64)) (→ Gait)
+      (let ((mix (lambda ((x F64) (y F64)) (→ F64) (+ x (* t (- y x))))))
+        (new Gait (phase (mix (● a phase) (● b phase))) (stride (mix (● a stride) (● b stride)))
+             (arm (mix (● a arm) (● b arm))) (seat (mix (● a seat) (● b seat))))))
 
     (define (approach (v F64) (target F64) (amount F64)) (→ F64)
       (+ v (max (negate amount) (min amount (- target v)))))

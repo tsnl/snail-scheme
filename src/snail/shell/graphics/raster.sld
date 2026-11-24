@@ -24,6 +24,7 @@
    Pinhole
    Parallel
    Camera3D
+   Camera3D-scene-time-set
    camera-3d
    Style
    solid
@@ -75,6 +76,7 @@
        (forward Vec4f)
        (previous Mat4x4f)
        (previous-motion F32)
+       (scene-time F32)
        (previous-heading Vec2f))
       (deriving Pod))
 
@@ -96,6 +98,7 @@
           (inverse (matrix (multiply (● view second) (● projection second))))
           (previous (matrix vp))
           (previous-motion motion)
+          (scene-time 0.0)
           (previous-heading (horizontal-direction direction))
           (eye (new Vec4f
                  (x (● eye x))

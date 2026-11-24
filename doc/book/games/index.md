@@ -13,4 +13,4 @@ save.
   **[Play them](../play/hearsay/)**. Its characters are drawn from
   Liberated Pixel Cup art, credited on the Credits screen of its menu.
 
-- Take the wheel of a film crew’s sedan on Mercer Street, hit a prop with a paint marker and deliver the film can. [Last Mile](last-mile.md) · [Play](../play/last-mile/).
+- Pick up Rosa on Russian Hill, follow the GPS, and work a taxi shift across San Francisco. [Last Mile Taxi](last-mile.md) · [Play](../play/last-mile/).

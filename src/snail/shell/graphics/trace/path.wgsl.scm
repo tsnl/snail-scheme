@@ -168,6 +168,12 @@
     (if ((< (dot normal normal) 1e-12) (= normal geometric)))
     (= normal (normalize normal))
     (if ((< (dot normal geometric) 0.0) (= normal (- normal))))
+    (if ((!= (get m flags y) 0)
+         (let position (+
+                        (+ (* (get a position) w) (* (get bb position) (get b x)))
+                        (* (get c position) (get b y))))
+         (= normal (water_normal position geometric (get camera scene_time)
+                                 (/ width (max 0.05 (abs (dot geometric toward))))))))
     (let uv (+ (* (uv_of a) w) (* (uv_of bb) (get b x)) (* (uv_of c) (get b y))))
     (let level (level_at a bb c width (abs (dot geometric toward))))
     (let base (texel (get m textures x) uv level))

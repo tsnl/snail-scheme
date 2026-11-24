@@ -486,6 +486,7 @@
            (forward (● camera forward))
            (previous (● last view-projection))
            (previous-motion (● camera previous-motion))
+           (scene-time (● camera scene-time))
            (previous-heading (new Vec2f (x (● last forward x)) (y (● last forward z))))))
         ((None) camera)))
 
@@ -870,7 +871,8 @@
           (intersect
            (ray-group gpu (● kit rays intersect) bvh from counts (count-at (rays-word bounce))))
           (shade (step-group gpu (● steps shade)
-                             (append (list (BufferEntry 1 (● kit tracing) 0 0)
+                             (append (list (BufferEntry 0 (● kit camera) 0 0)
+                                           (BufferEntry 1 (● kit tracing) 0 0)
                                            (slot-entry 2 (● kit wave) (+ bounce 1))
                                            (BufferEntry 3 from 0 0)
                                            (BufferEntry 4 to 0 0))
@@ -943,6 +945,7 @@
                                             environment-light-shader
                                             reservoir-shader
                                             restir-shader
+                                            water-shader
                                             path-shader))))))
         (new Steps
           (temporal (compute-kernel gpu module "restir" "temporal_reservoirs"))
@@ -963,6 +966,7 @@
                                                   (string-append
                                                    (declarations camera-shape)
                                                    (declarations material-shape)
+                                                   water-shader
                                                    surface-shader)))))
          (vertex-entry "surface_vertex")
          (buffers (Nil))

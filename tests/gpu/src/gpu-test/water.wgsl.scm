@@ -1,0 +1,12 @@
+;; The same point on the mapped surface across time, distance and face orientation.
+((var storage read_write) (@group 0) (@binding 0) (results (array u32)))
+(fn (@compute) (@workgroup_size 1) water_main ()
+    (let pos (vec3f 63.0 0.0 26.0))
+    (let up (vec3f 0.0 1.0 0.0))
+    (let first (water_normal pos up 0.0 0.05))
+    (let later (water_normal pos up 1.0 0.05))
+    (= (at results 0) (select 0u 1u (> (distance first later) 0.02)))
+    (= (at results 1) (select 0u 1u (< (abs (- (length first) 1.0)) 0.0001)))
+    (= (at results 2) (select 0u 1u (< (distance (water_normal pos up 0.0 20.0) up) 0.0001)))
+    (= (at results 3)
+       (select 0u 1u (< (distance (- first) (water_normal pos (- up) 0.0 0.05)) 0.0001))))

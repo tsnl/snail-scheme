@@ -132,8 +132,8 @@ function resourceImports(files, tasks) {
   return {
     read(ticket, handle) {
       const file = files[handle];
-      file.bytes ??= readLinked(file);
-      tasks().start(Number(ticket), () => file.bytes, bytes => { held = bytes; return bytes.length; });
+      const pending = file.bytes ??= readLinked(file).catch(error => { file.bytes = null; throw error; });
+      tasks().start(Number(ticket), () => pending, bytes => { held = bytes; return bytes.length; });
     },
     finish: ticket => tasks().finish(Number(ticket)),
     byte: index => held[index],
@@ -147,9 +147,9 @@ const noTasks = () => { throw new Error('this host runs no tasks to read a linke
 // What a single linked module needs for the files it links, objects of
 // store/ beside it, read through `read` by their paths beside the payload
 // in the tasks `tasks` gives.
-export function linkedFileImports(read, module, tasks = noTasks) {
+export function linkedFileImports(read, module, tasks = noTasks, readObject = objectReader(read)) {
   const files = [];
-  return {'snail.runtime.link': linkImports(objectReader(read), [module], files), 'snail.runtime.resource': resourceImports(files, tasks)};
+  return {'snail.runtime.link': linkImports(readObject, [module], files), 'snail.runtime.resource': resourceImports(files, tasks)};
 }
 
 // ---- Linking ----
@@ -161,9 +161,9 @@ export function linkedFileImports(read, module, tasks = noTasks) {
 // The module holds every function of its libraries, so it may import host
 // services, such as the screen, that this host lacks and the program never
 // calls: such an import links to a function that fails if called.
-export async function linkModule(read, name, wasi, host, tasks = noTasks) {
+export async function linkModule(read, name, wasi, host, tasks = noTasks, readObject) {
   const module = await WebAssembly.compile(await read(name));
-  const imports = {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)};
+  const imports = {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks, readObject)};
   const hosted = WebAssembly.Module.imports(module).map(entry => entry.module).filter(hostProvided);
   const runtime = await instantiate(module, withStubs(module, imports, hosted, missingHost));
   wasi.initialize(runtime);

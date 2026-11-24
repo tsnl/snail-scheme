@@ -28,6 +28,8 @@ async function checkQueue() {
   queue.push(MOVE, 2, 40); queue.push(RESIZE, 10, 20); queue.push(RESIZE, 30, 40);
   assert.deepEqual(Array.from({length: 5}, () => queue.poll()),
                    [[MOVE, 1, 20], [PRESS, 1], [MOVE, 1, 30], [MOVE, 2, 40], [RESIZE, 30, 40]]);
+  queue.push(18, 4, 7); queue.push(18, -1, 2); queue.push(19, 0); queue.push(18, 2, -2);
+  assert.deepEqual([queue.poll(), queue.poll(), queue.poll()], [[18, 3, 9], [19, 0], [18, 2, -2]]);
   const waiting = queue.wait();
   queue.push(PRESS, 2);
   await waiting;

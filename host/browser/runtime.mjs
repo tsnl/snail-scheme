@@ -7,7 +7,7 @@ import {byteSnapshot} from './load.mjs';
 import {createTasks, taskExports} from './tasks.mjs';
 
 export const FRAME = 11, HIDDEN = 12, SAVE = 16;
-const MOVE = 4, RESIZE = 8;
+const MOVE = 4, RESIZE = 8, POINTER_DELTA = 18;
 
 // A queue has one frame scheduled or queued. Only consuming a frame permits
 // another RAF; a slow application cannot accumulate a backlog of clock ticks.
@@ -28,7 +28,9 @@ export function createEventQueue(frames = null) {
     if (!open) return false;
     const event = [kind, ...fields];
     const previous = events.at(-1);
-    if ((kind === RESIZE && previous?.[0] === RESIZE) ||
+    if (kind === POINTER_DELTA && previous?.[0] === POINTER_DELTA) {
+      previous[1] += fields[0]; previous[2] += fields[1];
+    } else if ((kind === RESIZE && previous?.[0] === RESIZE) ||
         (kind === MOVE && previous?.[0] === MOVE && previous[1] === fields[0])) events[events.length - 1] = event;
     else if (kind !== FRAME || !events.some(event => event[0] === FRAME)) events.push(event);
     wake();

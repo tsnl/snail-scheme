@@ -117,6 +117,7 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'finish-done': ticket => tasks().finish(Number(ticket)),
     'device-format': () => answer(gpu.format),
     'device-features': () => answer(gpu.optional.join(' ')),
+    'storage-binding-size': () => gpu.device.limits.maxStorageBufferBindingSize,
     'reply-scalar': index => reply[index].codePointAt(0),
     create: (kind, address) => keep(made[kind](gpu.device, fields(byteView(memory(), address)), object)),
     'create-view'(texture, address) {

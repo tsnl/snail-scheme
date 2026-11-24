@@ -197,6 +197,8 @@ spans, and the rows' distribution in the last column.
 `environment-light.wgsl.scm` gives kernels the radiance of a direction, the
 density it is sampled with, and a sampled direction.
 
+For a changing sun, `make-sky-light` keeps the radiance texture, importance table, kernels and scratch buffer together. `update-sky!` rewrites both textures using the new sky parameters. The tracer keeps its existing bindings. Last Mile updates this light each game minute. Release the light with `release-sky-light` when the scene closes.
+
 ## Scenes
 
 `(snail shell graphics gltf)` reads a scene's file, a `.gltf` file's JSON
@@ -237,7 +239,7 @@ Start with a mesh and one joint. A vertex fully weighted to that joint follows i
 
 1. Call `read-rigged-gltf` in `(snail shell graphics gltf animation)`. It reads the buffers once and returns the mesh, its per-vertex influences, a parent-first hierarchy, inverse binds and named clips. A primitive with a skin starts in mesh coordinates. A rigid attachment gets a slot for its own node. Multiple skins can order their joints differently.
 2. Use `sample-pose` in `(snail shell graphics animation)` at the desired clip time. Untargeted local transforms keep their authored values. STEP holds a key until the next key. LINEAR interpolates translations and scales and takes the shortest quaternion arc for rotations. `clip-time` wraps or clamps a clock. `blend-poses` crossfades local poses and `blend-branch` restricts a blend to chosen nodes.
-3. Call `joint-palette` with the pose and the instance placement. It walks the hierarchy, including non-joint ancestors, and multiplies each joint’s world matrix by its inverse bind. Instances share the rig and clips and sample their own poses.
+3. Call `joint-palette` with the pose and the instance placement. It walks the hierarchy, including non-joint ancestors, and multiplies each joint’s world matrix by its inverse bind. For a prop attached to a hand, resolve its index with `named-node`, call `posed-nodes` once, and compose the prop with that node’s world matrix. Pass the same array to `skin-palette` for deforming the mesh. A joint’s inverse bind belongs only in the skin palette. Instances share the rig and clips and sample their own poses.
 4. Give `skin-scene` the fixed topology and vertex influences once. At each draw, `deform-scene!` blends the palette matrices on the GPU, transforms positions, normals and tangents, and records the displacement back to the preceding draw. Refit the BVH after a pose changes. Camera visibility and Monte Carlo shadow queries then use the same triangles. SVGF receives their motion vectors and FXAA runs after tone mapping.
 
 The reader supports floating-point transform keys, unsigned byte or unsigned short joint indices, and floating-point or normalized unsigned integer weights. It reports unsupported cubic samplers, morph-weight channels, sparse accessors and additional vertex influence sets. The mechanical hinge fixture in `tests/programs/data/hinge.gltf` has a non-joint ancestor, reversed node order and mixed weights. [glTF skins and animations](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#skins)
@@ -295,6 +297,10 @@ left on the device, by the order of the work rather than by cleaning up:
 the viewer reads the HDR file (`read-hdr`) before it loads the scene, and
 `load-scene` loads the layers, the one step on the device that can refuse,
 before anything else of the scene.
+
+## Water surfaces
+
+A glTF material can opt into the tracer’s water shading with `"extras": { "snailWater": true }`. Its base color, roughness and metallic factor still set the PBR response. Set `Camera3D.scene-time` in seconds to move three wave trains in world space. Both rasterized first hits and traced secondary hits use their slopes as the shading normal. Each pass fades waves finer than its sample footprint. The original geometry supplies depth, visibility and ray origins, so adjacent pieces of a shoreline stay fixed.
 
 ## Performance
 
