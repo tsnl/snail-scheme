@@ -2,8 +2,9 @@
 ;; graph: elementwise operations through views, reductions small and in
 ;; levels, a matrix product, gathers and float scatters, sorts of every
 ;; pair and of as many as the device counts, scans, f16s unpacked from
-;; words, and a gradient through slices, unfused and fused, and the same
-;; program profiled; params
+;; words, choices of zero, which lowering computes inside an `if`, and a
+;; gradient through slices, unfused and fused, and the same program
+;; profiled; params
 ;; swapped and assigned, and one bound to the caller's buffer, in the
 ;; caller's pass. Then a line fitted by Adam, its loss read back after 300
 ;; steps of one lowered program.
@@ -81,6 +82,14 @@
 
     ;; ---- Sinks ----
 
+    ;; Choices of zero, which lowering computes inside an `if`: one a
+    ;; value an element, and one a row's condition over its elements.
+    (define (guarded (x View)) (→ (List View))
+      (list (where (greater x (scalar 0.2)) (tensor-exp (* (scalar 0.1) x)) (scalar 0.0))
+            (where (greater (narrow x 1 0 1) (scalar 0.0))
+                   (* (tensor-sin x) (narrow x 1 1 1))
+                   (scalar 0.0))))
+
     (define (sinks) (→ (List View))
       (let* ((x (list-ref (params) 0))
              (w (list-ref (params) 1))
@@ -98,28 +107,30 @@
                                              8))
              (m (reshape (narrow x 1 0 9) (list 64 3 3)))
              (gram (matmul m (transpose (reshape (narrow x 1 9 9) (list 64 3 3))))))
-        (list (* (tensor-exp (* (scalar 0.1) x)) (tensor-sin x))
-              (where (greater x (scalar 0.5)) x (negate (absolute x)))
-              (sum (transpose x) (list 1))
-              (sum-all big)
-              (amax big (list 0))
-              (matmul x w)
-              (stack (list (narrow x 1 0 8) (matmul x w) (absolute (narrow x 1 8 8))) 1)
-              (scatter-add (gather x rows) rows 64)
-              (list-ref (grad loss (list x)) 0)
-              (● sorted first)
-              (● sorted second)
-              (amax (fill -2147483648.0 (list 512) (Signed)) (list 0))
-              gram
-              (+ (narrow (reshape gram (list 64 9)) 1 4 1) (sum (narrow x 1 0 5) (list 1)))
-              (concat (list (narrow x 1 0 1) (tensor-exp (narrow x 1 1 2)) (narrow x 1 5 3)) 1)
-              (amin (narrow x 1 3 7) (list 1))
-              (matmul (narrow x 1 0 12) (narrow (narrow w 0 0 12) 1 0 3))
-              (list-ref (grad (sum-all (square (matmul m (transpose m)))) (list x)) 0)
-              (narrow (● first-sorted first) 0 0 1000)
-              (narrow (● first-sorted second) 0 0 1000)
-              (halves packed)
-              (sum (narrow (halves packed) 1 3 7) (list 1)))))
+        (append (list (* (tensor-exp (* (scalar 0.1) x)) (tensor-sin x))
+                      (where (greater x (scalar 0.5)) x (negate (absolute x)))
+                      (sum (transpose x) (list 1))
+                      (sum-all big)
+                      (amax big (list 0))
+                      (matmul x w)
+                      (stack (list (narrow x 1 0 8) (matmul x w) (absolute (narrow x 1 8 8))) 1)
+                      (scatter-add (gather x rows) rows 64)
+                      (list-ref (grad loss (list x)) 0)
+                      (● sorted first)
+                      (● sorted second)
+                      (amax (fill -2147483648.0 (list 512) (Signed)) (list 0))
+                      gram
+                      (+ (narrow (reshape gram (list 64 9)) 1 4 1) (sum (narrow x 1 0 5) (list 1)))
+                      (concat (list (narrow x 1 0 1) (tensor-exp (narrow x 1 1 2)) (narrow x 1 5 3))
+                              1)
+                      (amin (narrow x 1 3 7) (list 1))
+                      (matmul (narrow x 1 0 12) (narrow (narrow w 0 0 12) 1 0 3))
+                      (list-ref (grad (sum-all (square (matmul m (transpose m)))) (list x)) 0)
+                      (narrow (● first-sorted first) 0 0 1000)
+                      (narrow (● first-sorted second) 0 0 1000)
+                      (halves packed)
+                      (sum (narrow (halves packed) 1 3 7) (list 1)))
+                (guarded x))))
 
     ;; ---- Agreement ----
 

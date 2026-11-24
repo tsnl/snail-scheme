@@ -161,7 +161,10 @@
     ;; plane, degenerate, or with its square of the radius about its center
     ;; off the image, as the reference culls. Densification counts the
     ;; views that drew a gaussian by this radius, so one merely in front of
-    ;; the camera must not count.
+    ;; the camera must not count. A culled gaussian's color is 0, chosen
+    ;; by `where`, which lowering computes only where it is drawn: about
+    ;; seven in ten of bicycle's gaussians are off a training view, and the
+    ;; harmonics read 104 bytes a gaussian.
     (record Projection
       ((centers View)
        (conics View)
@@ -183,15 +186,16 @@
                                        (camera-scalar camera 15)))
                               1))
              (r (radius screen (● conic second)))
-             (visible (* (* (greater depth (scalar 0.2)) (greater (● conic second) (scalar 0.0)))
-                         (on-sensor centers r sensor))))
+             (drawn (* (* (* (greater depth (scalar 0.2)) (greater (● conic second) (scalar 0.0)))
+                          (on-sensor centers r sensor))
+                       (● cloud live))))
         (new Projection
           (centers centers)
           (conics (● conic first))
-          (colors (shaded cloud camera))
+          (colors (where drawn (shaded cloud camera drawn) (scalar 0.0)))
           (opacities (sigmoid (● cloud opacities)))
           (depths near)
-          (radii (* (* visible (● cloud live)) r)))))
+          (radii (* drawn r)))))
 
     ;; 1 where the square of `r` pixels about a center overlaps the image.
     (define (on-sensor (centers View) (r View) (sensor Sensor)) (→ View)
@@ -294,20 +298,24 @@
     ;; Each gaussian's harmonics in the direction from the eye, -R^T t, as
     ;; its own frame sees it, offset by 0.5 and kept from going below 0:
     ;; each degree's basis, a row, times its coefficients, as a matrix
-    ;; product.
-    (define (shaded (cloud Cloud) (camera View)) (→ View)
+    ;; product. Only where `drawn` is the basis or its products computed,
+    ;; each chosen by `where` at its root, so whichever kernels fusing
+    ;; puts them in skip a culled gaussian; elsewhere they are 0.
+    (define (shaded (cloud Cloud) (camera View) (drawn View)) (→ View)
       (let* ((rotation (reshape (narrow camera 0 0 9) (list 3 3)))
              (eye (negate (matmul (reshape (narrow camera 0 9 3) (list 1 3)) rotation)))
              (d (own-directions cloud (normalized-rows (- (world-means cloud) eye))))
-             (basis (harmonic-basis d))
              (count (list-ref (shape-of d) 0))
+             (basis (harmonic-basis d (reshape drawn (list count))))
              (degree (lambda (k coefficients)
                        (* (narrow (● cloud degrees) 0 (- k 1) 1)
                           (matmul (unsqueeze (narrow basis 1 (* k k) (+ (* 2 k) 1)) 1)
                                   coefficients))))
-             (shade (+ (* (scalar 0.28209479177387814) (● cloud dc))
-                       (+ (degree 1 (● cloud degree1))
-                          (+ (degree 2 (● cloud degree2)) (degree 3 (● cloud degree3)))))))
+             (shade (where (unsqueeze drawn 2)
+                           (+ (* (scalar 0.28209479177387814) (● cloud dc))
+                              (+ (degree 1 (● cloud degree1))
+                                 (+ (degree 2 (● cloud degree2)) (degree 3 (● cloud degree3)))))
+                           (scalar 0.0))))
         (maximum (+ (reshape shade (list count 3)) (scalar 0.5)) (scalar 0.0))))
 
     ;; The real spherical harmonics of degrees 1 to 3, with the reference's
@@ -315,8 +323,9 @@
     ;; columns k^2 to k^2 + 2k. Column 0, degree 0's constant, is unused.
     ;; They are one map of each direction's row, so that their gradient
     ;; is one map too, which `grad` carries back through all sixteen at
-    ;; once.
-    (define (harmonic-basis (d View)) (→ View)
+    ;; once, and the map chooses them only where `drawn` is, 0 elsewhere,
+    ;; at its root, so that its kernel skips a culled gaussian.
+    (define (harmonic-basis (d View) (drawn View)) (→ View)
       (let* ((row (Load 0 (Float) (list 3)))
              (at (lambda (i) (Apply (Pick (list i)) (list row) (Float) (Nil))))
              (x (at 0))
@@ -330,31 +339,41 @@
              (xx (times x x))
              (yy (times y y))
              (zz (times z z)))
-        (mapped (Apply (Pack)
-                       (list (k 0.0)
-                             (times (k -0.4886025119029199) y)
-                             (times (k 0.4886025119029199) z)
-                             (times (k -0.4886025119029199) x)
-                             (times (k 1.0925484305920792) (times x y))
-                             (times (k -1.0925484305920792) (times y z))
-                             (times (k 0.31539156525252005) (minus (times (k 2.0) zz) (plus xx yy)))
-                             (times (k -1.0925484305920792) (times x z))
-                             (times (k 0.5462742152960396) (minus xx yy))
-                             (times (k -0.5900435899266435) (times y (minus (times (k 3.0) xx) yy)))
-                             (times (k 2.890611442640554) (times (times x y) z))
-                             (times (k -0.4570457994644658)
-                                    (times y (minus (times (k 4.0) zz) (plus xx yy))))
-                             (times (k 0.3731763325901154)
-                                    (times z
-                                           (minus (times (k 2.0) zz) (times (k 3.0) (plus xx yy)))))
-                             (times (k -0.4570457994644658)
-                                    (times x (minus (times (k 4.0) zz) (plus xx yy))))
-                             (times (k 1.445305721320277) (times z (minus xx yy)))
-                             (times (k -0.5900435899266435)
-                                    (times x (minus xx (times (k 3.0) yy)))))
-                       (Float)
-                       (list 16))
-                (list d)
+        (mapped (Apply
+                 (Select)
+                 (list
+                  (Load 1 (Float) (Nil))
+                  (Apply (Pack)
+                         (list (k 0.0)
+                               (times (k -0.4886025119029199) y)
+                               (times (k 0.4886025119029199) z)
+                               (times (k -0.4886025119029199) x)
+                               (times (k 1.0925484305920792) (times x y))
+                               (times (k -1.0925484305920792) (times y z))
+                               (times (k 0.31539156525252005)
+                                      (minus (times (k 2.0) zz) (plus xx yy)))
+                               (times (k -1.0925484305920792) (times x z))
+                               (times (k 0.5462742152960396) (minus xx yy))
+                               (times (k -0.5900435899266435)
+                                      (times y (minus (times (k 3.0) xx) yy)))
+                               (times (k 2.890611442640554) (times (times x y) z))
+                               (times (k -0.4570457994644658)
+                                      (times y (minus (times (k 4.0) zz) (plus xx yy))))
+                               (times (k 0.3731763325901154)
+                                      (times z
+                                             (minus (times (k 2.0) zz)
+                                                    (times (k 3.0) (plus xx yy)))))
+                               (times (k -0.4570457994644658)
+                                      (times x (minus (times (k 4.0) zz) (plus xx yy))))
+                               (times (k 1.445305721320277) (times z (minus xx yy)))
+                               (times (k -0.5900435899266435)
+                                      (times x (minus xx (times (k 3.0) yy)))))
+                         (Float)
+                         (list 16))
+                  (Literal 0.0 (Float)))
+                 (Float)
+                 (list 16))
+                (list d drawn)
                 (list (list-ref (shape-of d) 0)))))
 
     ;; ---- Binning ----
