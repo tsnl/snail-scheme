@@ -202,7 +202,7 @@
 
     (define (cloud-of (bytes Bytes) (p Properties) (transform I32)) (→ Cloud)
       (let* ((gaussians (make-array (* (● p count) (stride gaussian-shape)) (i32->u8 0)))
-             (harmonics (make-array (* (● p count) (* 4 harmonic-floats)) (i32->u8 0))))
+             (harmonics (make-array (* (● p count) (* 4 harmonic-words)) (i32->u8 0))))
         (for-each (lambda (i)
                     (let ((float (lambda (property) (float-at bytes p i property))))
                       (pod-write (gaussian-of float p transform)
@@ -256,12 +256,6 @@
                                      (lambda (c) (float (list-ref (● p rest) (+ (* c above) k))))
                                      (iota 3)))
                                   (iota above))))))
-
-    (define (write-harmonics! (harmonics Bytes) (i I64) (floats (List F32))) (→ Unit)
-      (fold-left (lambda (at value) (pod-write value harmonics at))
-                 (* i (* 4 harmonic-floats))
-                 floats)
-      (unit))
 
     ;; ---- Writing ----
 

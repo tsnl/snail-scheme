@@ -24,10 +24,13 @@
    SplatCamera
    Projected
    gaussian-shape
-   harmonic-floats
+   harmonic-words
+   harmonic-half
+   write-harmonics!
    Cloud
    pack-cloud
    cloud-center
+   cloud-coefficient
    splat-camera
    Splats
    make-splats
@@ -38,7 +41,7 @@
    release-splats)
   (import
    (snail core base)
-   (only (snail shell math) tan)
+   (only (snail shell math) tan half-bits half-value)
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics radix-sort)
@@ -88,9 +91,67 @@
 
     (define transform-shape (→ (Shape Mat4x4f)) (shape))
 
-    ;; Each gaussian's coefficients, 16 colors, are 48 floats: coefficient
-    ;; k's red, green and blue at 3k, 3k + 1 and 3k + 2.
-    (define harmonic-floats (→ I64) 48)
+    ;; ---- Coefficients ----
+
+    ;; Each gaussian's coefficients, 16 colors of red, green and blue, are
+    ;; binary16 halves two to a 32-bit word, low half first, as WGSL's
+    ;; `unpack2x16float` reads them: 26 words, 104 bytes, where 48 floats
+    ;; took 192. Each degree starts a word of its own, so that a reader of
+    ;; one degree unpacks only its words; the half after each degree's last
+    ;; color is padding. So color k's halves start at 3k plus its degree.
+    (define harmonic-words (→ I64) 26)
+
+    (define (harmonic-half (k I64)) (→ I64) (+ (* 3 k) (color-degree k)))
+
+    (define (color-degree (k I64)) (→ I64)
+      (cond ((= k 0) 0)
+            ((< k 4) 1)
+            ((< k 9) 2)
+            (else 3)))
+
+    ;; Gaussian i's words from up to 48 floats of coefficients from color
+    ;; 0, each rounded to the nearest half; those missing are 0.
+    (define (write-harmonics! (bytes Bytes) (i I64) (floats (List F32))) (→ Unit)
+      (let ((values (list->array floats)))
+        (for-each (lambda (w)
+                    (write-word! bytes
+                                 (* 4 (+ (* i harmonic-words) w))
+                                 (i64-or (half-at values (* 2 w))
+                                         (i64-shift-left (half-at values (+ (* 2 w) 1)) 16))))
+                  (iota harmonic-words))))
+
+    ;; The bits of the half at place h of a gaussian's words: the float of
+    ;; its degree's colors there, or 0 for the padding and for floats not
+    ;; given.
+    (define (half-at (values (Array F32)) (h I64)) (→ I64)
+      (let* ((d (cond ((< h 4) 0)
+                      ((< h 14) 1)
+                      ((< h 30) 2)
+                      (else 3)))
+             (offset (- h (harmonic-half (* d d))))
+             (f (+ (* 3 (* d d)) offset)))
+        (if (or (>= offset (* 3 (+ (* 2 d) 1))) (>= f (array-length values)))
+            0
+            (half-bits (array-ref values f)))))
+
+    (define (write-word! (bytes Bytes) (at I64) (word I64)) (→ Unit)
+      (for-each (lambda (k)
+                  (array-set! bytes
+                              (+ at k)
+                              (i32->u8 (i64->i32 (i64-and (i64-shift-right/logical word (* 8 k))
+                                                          255)))))
+                (iota 4)))
+
+    ;; Channel c of color k of gaussian i's coefficients, as its half holds
+    ;; it.
+    (define (cloud-coefficient (cloud Cloud) (i I64) (k I64) (c I64)) (→ F64)
+      (let* ((h (+ (harmonic-half k) c))
+             (at (* 4 (+ (* i harmonic-words) (quotient h 2))))
+             (byte (lambda (j)
+                     (i64-shift-left (i32->i64 (u8->i32 (array-ref (● cloud harmonics) (+ at j))))
+                                     (* 8 j))))
+             (word (i64-or (i64-or (byte 0) (byte 1)) (i64-or (byte 2) (byte 3)))))
+        (half-value (i64-and (i64-shift-right/logical word (* 16 (remainder h 2))) 65535))))
 
     (define project-code
       (→ String)
@@ -106,7 +167,8 @@
     ;; ---- Clouds ----
 
     ;; Gaussians packed for the GPU: `count` of them, their records at the
-    ;; stride of `gaussian-shape`, and their coefficients, 48 floats each.
+    ;; stride of `gaussian-shape`, and their coefficients, `harmonic-words`
+    ;; each.
     (record Cloud
       ((count I64)
        (gaussians Bytes)
@@ -116,16 +178,16 @@
     ;; from degree 0; those missing are 0.
 
     (define (pack-cloud (gaussians (List Gaussian)) (harmonics (List (List Vec3f)))) (→ Cloud)
-      (new Cloud
-        (count (length gaussians))
-        (gaussians (pack gaussian-shape gaussians))
-        (harmonics (pack (shape)
-                         (concatenate (map (lambda (colors)
-                                             (take (append (concatenate (map color-floats colors))
-                                                           (map (lambda (_) 0.0)
-                                                                (iota harmonic-floats)))
-                                                   harmonic-floats))
-                                           harmonics))))))
+      (let ((bytes (make-array (* (length gaussians) (* 4 harmonic-words)) (i32->u8 0))))
+        (for-each (lambda (pair)
+                    (write-harmonics! bytes
+                                      (● pair first)
+                                      (concatenate (map color-floats (● pair second)))))
+                  (zip (iota (length harmonics)) harmonics))
+        (new Cloud
+          (count (length gaussians))
+          (gaussians (pack gaussian-shape gaussians))
+          (harmonics bytes))))
 
     ;; Gaussian `i`'s center, read back from its packed record, whose
     ;; first field it is.
@@ -243,7 +305,7 @@
       (let* ((buffer (lambda (name size) (storage-buffer gpu (string-append label "/" name) size)))
              (camera (camera-buffer gpu label))
              (gaussians (buffer "gaussians" (* capacity (stride gaussian-shape))))
-             (harmonics (buffer "harmonics" (* capacity (* 4 harmonic-floats))))
+             (harmonics (buffer "harmonics" (* capacity (* 4 harmonic-words))))
              (transforms (buffer "transforms" (* transform-capacity 64)))
              (projected (buffer "projected" (* capacity (stride projected-shape))))
              (keys (buffer "keys" (* capacity 4)))
@@ -359,7 +421,7 @@
                                 from
                                 to)
                     (write-rows gpu (● splats harmonics)
-                                (* 4 harmonic-floats)
+                                (* 4 harmonic-words)
                                 (+ first from)
                                 (● cloud harmonics)
                                 from

@@ -15,7 +15,7 @@
   (import
    (snail core base)
    (snail core table)
-   (only (snail shell math) exp log sin cos expt)
+   (only (snail shell math) exp log sin cos expt half-value)
    (rename (snail shell tensor)
            (exp tensor-exp)
            (log tensor-log)
@@ -265,6 +265,13 @@
         (match op
           ((Pack) (concatenate values))
           ((Pick indices) (map (lambda (j) (list-ref (car-of values) j)) indices))
+          ((Halves)
+           (concatenate (map (lambda (value)
+                               (let ((word (f64->i64 value)))
+                                 (list (half-value (i64-and word 65535))
+                                       (half-value
+                                        (i64-and (i64-shift-right/logical word 16) 65535)))))
+                             (car-of values))))
           ((Product)
            (multiplied to (car-of values) (list-ref values 1) (expr-tile (list-ref operands 1))))
           ((Fold combining) (list (folded combining to (car-of values))))
