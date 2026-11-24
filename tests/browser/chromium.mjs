@@ -1,6 +1,7 @@
 // Headless Chromium with software WebGPU, driven through the DevTools
 // protocol: one page, whose console output and exceptions are printed.
-// CHROMIUM names the browser's executable. The tests that drive it wait
+// CHROMIUM names the browser's executable, `chromium` by default, which
+// shell.nix provides on Linux. The tests that drive it wait
 // for what they expect with `until`.
 import {spawn} from 'node:child_process';
 import {rmSync} from 'node:fs';

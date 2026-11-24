@@ -220,6 +220,6 @@ too; its producers run every time. What matters when writing code:
   takes an exclusive lock on `build/lock`, so `make test` may run beside a
   build.
 - The script suites (in `make test`) cover builds, and `tests/browser/`
-  (`make test-browser`, needs `CHROMIUM`) covers the pages. `tests/lsp.mjs`
+  (`make test-browser`, in the shell's Chromium on Linux) covers the pages. `tests/lsp.mjs`
   and `tests/tree-sitter.mjs` cover the editor support. See
   [the development toolchain](doc/book/snail-scheme/toolchain.md).

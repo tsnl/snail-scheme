@@ -21,7 +21,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | mdBook | 0.5.4 | `make pages`, the book. |
 | Binaryen | 132 | `wasm-opt`, which optimizes a release build (`--release`, `make site`). |
 | tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
-| Chromium | | `make test-browser` and `tests/browser/page.mjs`. Set `CHROMIUM` to its path when it isn't `chromium`. |
+| Chromium | | `make test-browser` and `tests/browser/page.mjs`. The shell provides it on Linux; elsewhere, set `CHROMIUM` to a Chromium or Chrome. |
 | The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `package.json` pins and `make fetch` installs from npm, for `host/native/gpu.mjs` and `make test-gpu`. On Linux it needs the Vulkan loader and a Vulkan driver for the GPU. |
 | The `@napi-rs/canvas` package | 1.1.1 | Images on Node: a 2D canvas over Skia, which `package.json` pins and `make fetch` installs from npm, for `decode-image` in `host/native/gpu.mjs`. It is MIT, and asks nothing of the system. |
 
@@ -41,13 +41,13 @@ nix-shell
 
 `shell.nix` takes its nixpkgs from the revision pinned in
 `npins/sources.json`, which CI and the devcontainer also use, and provides
-every tool above except Chromium and the GPU's driver, which is the
-system's. `npins update nixpkgs` moves the pin.
+every tool above except the GPU's driver, which is the system's, and, on
+macOS, Chromium, which nixpkgs builds for Linux alone. `npins update
+nixpkgs` moves the pin.
 
 ## With the devcontainer
 
-`.devcontainer/` builds that environment with Chromium added, from the
-`nixos/nix` image. With rootless podman, the container's root is your own
+`.devcontainer/` builds that environment from the `nixos/nix` image. With rootless podman, the container's root is your own
 user, so files written in the mounted checkout stay yours:
 
 ```sh
