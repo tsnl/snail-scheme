@@ -122,6 +122,22 @@
                                                   (only-value (list (halves w)) inputs)))
                                             " ")))))
 
+;; Rows kept by a filter: their indices packed to the front, 1 for each
+;; live row, the count, and the kept rows gathered, zero past the count.
+(define (filtered-rows (out OutputPort)) (→ Unit)
+  (let* ((keep (param "keep" (list 6) (Float)))
+         (x (param "x" (list 6 2) (Float)))
+         (inputs (inputs-of (list (new Pair
+                                    (first "keep")
+                                    (second (list->array (list 0.0 1.0 2.0 0.0 -1.0 0.0))))
+                                  (new Pair (first "x") (second (ramp 12 1.0 0.0))))))
+         (f (filter-rows keep))
+         (rows (kept-rows f x)))
+    (show-values out "kept ids" (only-value (list (● f ids)) inputs))
+    (show-values out "kept live" (only-value (list (● f live)) inputs))
+    (show-values out "kept count" (only-value (list (● f count)) inputs))
+    (show-values out "kept rows" (only-value (list rows) inputs))))
+
 ;; ---- Gradients ----
 
 ;; Each element of `x`'s gradient beside the central difference of the
@@ -447,6 +463,7 @@
   (views out)
   (rows out)
   (halves-line out)
+  (filtered-rows out)
   (gradients out)
   (rows-gradient out)
   (empty-gradients out)

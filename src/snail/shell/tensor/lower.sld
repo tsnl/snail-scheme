@@ -583,6 +583,7 @@
                       (tiles (element-count (arg 0)) 256)))
           ((Sort bits) (sort-steps gpu b n bits))
           ((PrefixSum) (scan-steps gpu b n))
+          ((Compact) (generated gpu b n (compact-code n) (tiles (element-count (arg 0)) 256)))
           ((CustomKind c) (custom-steps gpu b n c))
           (_ (generated gpu b n (thread-code n) (tiles (threads n) 256))))))
 
@@ -1542,6 +1543,25 @@
           (_ (panic "tensor lower: a tile's own operation applied to each element")))))
 
     ;; ---- Row text ----
+
+    ;; Thread i a row: a kept row writes its index at its place, the
+    ;; flags' exclusive sum there, and a row at or past the count writes
+    ;; 0 at its own; the last row's place and flag give the count, which
+    ;; the first thread writes.
+    (define (compact-code (n Node)) (→ String)
+      (let* ((flags (list-ref (● n args) 0))
+             (sums (list-ref (● n args) 1))
+             (rows (element-count flags))
+             (flag (lambda (at) (load n 0 (address (● flags accessor) (list at)))))
+             (place (lambda (at) (load n 1 (address (● sums accessor) (list at))))))
+        (thread-kernel (declared n)
+                       rows
+                       (string-append "  let kept = " (place (u (- rows 1)))
+                                      " + " (flag (u (- rows 1))) ";\n"
+                                      "  if (i == 0u) { count[0] = kept; }\n"
+                                      "  if (" (flag "i") " != 0u) { ids[" (place "i") "] = i; }\n"
+                                      "  if (i >= kept) { ids[i] = 0u; }\n"
+                                      "  live[i] = select(0.0, 1.0, i < kept);\n"))))
 
     ;; Output row r is source row indices[r].
     (define (gather-text (n Node)) (→ String)
