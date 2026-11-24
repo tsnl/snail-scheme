@@ -39,16 +39,18 @@
 
 ((var storage read_write) (@group 0) (@binding 6) (grads (array (atomic u32))))
 
-((var workgroup) (batch_ids (array u32 256)))
+((var workgroup) (batch_ids (array u32 TILE_PIXELS)))
 
-((var workgroup) (batch_centers (array vec2f 256)))
+((var workgroup) (batch_centers (array vec2f TILE_PIXELS)))
 
-((var workgroup) (batch_conics (array vec4f 256)))
+((var workgroup) (batch_conics (array vec4f TILE_PIXELS)))
 
-((var workgroup) (batch_colors (array vec3f 256)))
+((var workgroup) (batch_colors (array vec3f TILE_PIXELS)))
 
 ;; The batch's sums, nine a gaussian, as float bits.
-((var workgroup) (batch_grads (array (atomic u32) 2304)))
+(const GRAD_SLOTS (* 9u TILE_PIXELS))
+
+((var workgroup) (batch_grads (array (atomic u32) GRAD_SLOTS)))
 
 ((var workgroup) (deepest (atomic u32)))
 
@@ -88,15 +90,15 @@
      (= old (get swapped old_value))))
 
 (fn (@compute)
-    (@workgroup_size 256)
+    (@workgroup_size TILE_PIXELS)
     rasterize_backward
     (((@builtin workgroup_id) wid vec3u)
      ((@builtin num_workgroups) nwg vec3u)
      ((@builtin local_invocation_index) t u32))
     (let tile (+ (* (get wid y) (get nwg x)) (get wid x)))
     (if ((>= tile (* TILES_X TILES_Y)) (return)))
-    (let px (+ (* (% tile TILES_X) 16u) (% t 16u)))
-    (let py (+ (* (/ tile TILES_X) 16u) (/ t 16u)))
+    (let px (+ (* (% tile TILES_X) TILE) (% t TILE)))
+    (let py (+ (* (/ tile TILES_X) TILE) (/ t TILE)))
     (let inside (and (< px WIDTH) (< py HEIGHT)))
     (let p (select 0u (+ (* py WIDTH) px) inside))
     (let pixel (vec2f (+ (f32 px) 0.5) (+ (f32 py) 0.5)))
@@ -116,13 +118,13 @@
     (var behind (vec3f 0.0))
     (var last_alpha 0.0)
     (var last_color (vec3f 0.0))
-    (for ((var batch 0u) (< (* batch 256u) count) (+= batch 1u))
-         (let walked (* batch 256u))
+    (for ((var batch 0u) (< (* batch TILE_PIXELS) count) (+= batch 1u))
+         (let walked (* batch TILE_PIXELS))
          (if ((< (+ walked t) count) (load_entry t (at ids (- (+ start count) (+ walked t 1u))))))
          (for ((var k 0u) (< k 9u) (+= k 1u))
               (atomicStore (address-of (at batch_grads (+ (* t 9u) k))) 0u))
          (workgroupBarrier)
-         (let size (min 256u (- count walked)))
+         (let size (min TILE_PIXELS (- count walked)))
          (for ((var j 0u) (< j size) (+= j 1u))
               (let d (- (at batch_centers j) pixel))
               (let conic (at batch_conics j))

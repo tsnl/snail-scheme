@@ -22,11 +22,11 @@
 
 ((var storage read_write) (@group 0) (@binding 3) (image (array f32)))
 
-((var workgroup) (batch_centers (array vec2f 256)))
+((var workgroup) (batch_centers (array vec2f TILE_PIXELS)))
 
-((var workgroup) (batch_conics (array vec4f 256)))
+((var workgroup) (batch_conics (array vec4f TILE_PIXELS)))
 
-((var workgroup) (batch_colors (array vec3f 256)))
+((var workgroup) (batch_colors (array vec3f TILE_PIXELS)))
 
 ;; A gaussian's center, conic with its opacity, and color.
 (fn load_entry ((slot u32) (g u32))
@@ -38,15 +38,15 @@
        (vec3f (at splats (+ b 5u)) (at splats (+ b 6u)) (at splats (+ b 7u)))))
 
 (fn (@compute)
-    (@workgroup_size 256)
+    (@workgroup_size TILE_PIXELS)
     rasterize
     (((@builtin workgroup_id) wid vec3u)
      ((@builtin num_workgroups) nwg vec3u)
      ((@builtin local_invocation_index) t u32))
     (let tile (+ (* (get wid y) (get nwg x)) (get wid x)))
     (if ((>= tile (* TILES_X TILES_Y)) (return)))
-    (let px (+ (* (% tile TILES_X) 16u) (% t 16u)))
-    (let py (+ (* (/ tile TILES_X) 16u) (/ t 16u)))
+    (let px (+ (* (% tile TILES_X) TILE) (% t TILE)))
+    (let py (+ (* (/ tile TILES_X) TILE) (/ t TILE)))
     (let inside (and (< px WIDTH) (< py HEIGHT)))
     (let pixel (vec2f (+ (f32 px) 0.5) (+ (f32 py) 0.5)))
     (let start (at ranges (* 2u tile)))
@@ -55,11 +55,11 @@
     (var color (vec3f 0.0))
     (var last 0u)
     (var done (not inside))
-    (for ((var batch 0u) (< (+ start (* batch 256u)) end) (+= batch 1u))
-         (let base (+ start (* batch 256u)))
+    (for ((var batch 0u) (< (+ start (* batch TILE_PIXELS)) end) (+= batch 1u))
+         (let base (+ start (* batch TILE_PIXELS)))
          (if ((< (+ base t) end) (load_entry t (at ids (+ base t)))))
          (workgroupBarrier)
-         (for ((var j 0u) (< j (min 256u (- end base))) (+= j 1u))
+         (for ((var j 0u) (< j (min TILE_PIXELS (- end base))) (+= j 1u))
               (if (done (continue)))
               (let d (- (at batch_centers j) pixel))
               (let conic (at batch_conics j))
@@ -75,7 +75,7 @@
               (if ((< next 0.0001) (= done true) (continue)))
               (+= color (* (at batch_colors j) (* alpha transmittance)))
               (= transmittance next)
-              (= last (+ (* batch 256u) j 1u)))
+              (= last (+ (* batch TILE_PIXELS) j 1u)))
          (workgroupBarrier))
     (if (inside
          (let p (+ (* py WIDTH) px))
