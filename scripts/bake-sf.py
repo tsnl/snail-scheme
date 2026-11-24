@@ -46,7 +46,7 @@ BASE = {
     "walk": (0.54, 0.50, 0.43),
     "land": (0.32, 0.36, 0.23),
     "park": (0.20, 0.38, 0.19),
-    "water": (0.016, 0.09, 0.105),
+    "water": (0.015, 0.049, 0.041),
     "line": (0.91, 0.69, 0.25),
     "roof": (0.26, 0.28, 0.29),
     "trunk": (0.23, 0.16, 0.10),
@@ -874,15 +874,44 @@ def distant_city(buildings):
     # the detailed streets. The lower surface sits beneath nearby contact meshes.
     groups = collections.defaultdict(list)
     step = 128
-    for z in range(north, south, step):
-        for x in range(west, east, step):
-            dry = shapely.contains_xy(land, x + step / 2, z + step / 2)
-            vs = [
-                (a, height(a, b) - 4.0 if dry else -0.15, b)
-                for a, b in ((x, z), (x + step, z), (x + step, z + step), (x, z + step))
-            ]
-            g = groups["land" if dry else "water"]
-            g.extend([vs[0], vs[2], vs[1], vs[0], vs[3], vs[2]])
+    xs, zs = np.meshgrid(np.arange(west, east, step), np.arange(north, south, step))
+    dry_cells = shapely.contains_xy(land, xs + step / 2, zs + step / 2)
+    # All cells meeting an ocean corner share its sea level. From a bluff,
+    # a coarse island with an open edge otherwise shows its own underside.
+    wet_corners = {
+        (int(x) + dx, int(z) + dz)
+        for x, z in zip(xs[~dry_cells], zs[~dry_cells])
+        for dx, dz in ((0, 0), (step, 0), (step, step), (0, step))
+    }
+    for row, z in enumerate(range(north, south, step)):
+        for col, x in enumerate(range(west, east, step)):
+            x0, x1, z0, z1 = x, x + step, z, z + step
+            if dry_cells[row, col]:
+                corners = [(x0, z0), (x1, z0), (x1, z1), (x0, z1)]
+                vs = [
+                    (a, -0.15 if (a, b) in wet_corners else height(a, b) - 4.0, b)
+                    for a, b in corners
+                ]
+                ground = groups["land"]
+                if any(corner in wet_corners for corner in corners):
+                    cx, cz = x + step / 2, z + step / 2
+                    center = (cx, max(-0.15, height(cx, cz) - 4.0), cz)
+                    for a, b in zip(vs, vs[1:] + vs[:1]):
+                        ground.extend((center, b, a))
+                    continue
+            else:
+                # Continue seaward cells across the optical horizon. Driving
+                # and collision still use the original survey bounds.
+                reach = 32000
+                x0 -= reach if x == west else 0
+                x1 += reach if x1 == east else 0
+                z0 -= reach if z == north else 0
+                z1 += reach if z1 == south else 0
+                vs = [
+                    (a, -0.15, b) for a, b in ((x0, z0), (x1, z0), (x1, z1), (x0, z1))
+                ]
+                ground = groups["water"]
+            ground.extend((vs[0], vs[2], vs[1], vs[0], vs[3], vs[2]))
     for lake, level in water_idx[0]:
         if level > 0:
             for t in triangle_coords(lake.simplify(3)):

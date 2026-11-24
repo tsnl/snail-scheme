@@ -104,6 +104,9 @@
                                             (first "svgf-shader")
                                             (second (link-file "svgf.wgsl.scm")))
                                           (new Pair
+                                            (first "atmosphere-shader")
+                                            (second (link-file "atmosphere.wgsl.scm")))
+                                          (new Pair
                                             (first "environment-shader")
                                             (second (link-file "environment.wgsl.scm")))
                                           (new Pair

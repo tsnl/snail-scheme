@@ -100,7 +100,8 @@
         (albedo vec3f)
         (emission vec3f)
         (metallic f32)
-        (roughness f32))
+        (roughness f32)
+        (f0 f32))
 
 (fn unfolded ((e vec2f)) (-> vec3f)
     (var n (vec3f (get e x) (get e y) (- 1.0 (abs (get e x)) (abs (get e y)))))
@@ -136,6 +137,7 @@
     (= (get s albedo) (get (textureLoad albedo pixel 0) xyz))
     (= (get s metallic) (get m x))
     (= (get s roughness) (get m y))
+    (= (get s f0) (dielectric_f0 (> (get m z) 0.5)))
     (return s))
 
 ;; The texture level a ray cone of width `width` at a hit covers: the
@@ -168,16 +170,21 @@
     (if ((< (dot normal normal) 1e-12) (= normal geometric)))
     (= normal (normalize normal))
     (if ((< (dot normal geometric) 0.0) (= normal (- normal))))
-    (if ((!= (get m flags y) 0)
-         (let position (+
-                        (+ (* (get a position) w) (* (get bb position) (get b x)))
-                        (* (get c position) (get b y))))
-         (= normal (water_normal position geometric (get camera scene_time)
-                                 (/ width (max 0.05 (abs (dot geometric toward))))))))
     (let uv (+ (* (uv_of a) w) (* (uv_of bb) (get b x)) (* (uv_of c) (get b y))))
     (let level (level_at a bb c width (abs (dot geometric toward))))
     (let base (texel (get m textures x) uv level))
     (let metal_rough (texel (get m textures y) uv level))
+    (var rough (* (get m factors y) (get metal_rough y)))
+    (let water (!= (get m flags y) 0))
+    (if (water
+         (let pos (+
+                   (* (get a position) w)
+                   (* (get bb position) (get b x))
+                   (* (get c position) (get b y))))
+         (let waves (water_surface pos geometric (get camera scene_time)
+                                   (water_cone toward width) rough))
+         (= normal (get waves xyz))
+         (= rough (get waves w))))
     (var (s Surface))
     (= (get s normal) normal)
     (= (get s geometric) geometric)
@@ -185,7 +192,8 @@
     (= (get s emission)
        (* (get m emissive xyz) (decoded (get (texel (get m textures w) uv level) xyz))))
     (= (get s metallic) (* (get m factors x) (get metal_rough z)))
-    (= (get s roughness) (* (get m factors y) (get metal_rough y)))
+    (= (get s roughness) rough)
+    (= (get s f0) (dielectric_f0 water))
     (return s))
 
 ;; The ray leaves `s` from just above its surface, on the side it goes.
@@ -223,7 +231,7 @@
     (return (max (* (get s roughness) (get s roughness)) 0.002)))
 
 (fn reflectance ((s Surface)) (-> vec3f)
-    (return (mix (vec3f 0.04) (get s albedo) (get s metallic))))
+    (return (mix (vec3f (get s f0)) (get s albedo) (get s metallic))))
 
 (fn ggx ((alpha f32) (nh f32)) (-> f32)
     (let a2 (* alpha alpha))
@@ -253,11 +261,13 @@
     (let diffuse (* (- (vec3f 1.0) fresnel) (- 1.0 (get s metallic)) (/ (get s albedo) PI)))
     (return (* (+ diffuse specular) nl)))
 
-;; How often reflection is sampled rather than diffusion.
-(fn specular_odds ((s Surface)) (-> f32)
-    (let f (dot (reflectance s) (vec3f 0.3333)))
+;; At grazing incidence even a dark dielectric carries most of its light
+;; through reflection. Spend samples in proportion to those lobe energies.
+(fn specular_odds ((s Surface) (v vec3f)) (-> f32)
+    (let f0 (dot (reflectance s) (vec3f 0.3333)))
+    (let f (mix f0 1.0 (pow (- 1.0 (clamp (dot (get s normal) v) 0.0 1.0)) 5.0)))
     (let d (* (dot (get s albedo) (vec3f 0.3333)) (- 1.0 (get s metallic))))
-    (return (clamp (/ f (+ f d 1e-4)) 0.1 0.9)))
+    (return (clamp (/ f (+ f (* (- 1.0 f) d) 1e-4)) 0.1 0.9)))
 
 (fn density ((s Surface) (v vec3f) (l vec3f)) (-> f32)
     (let nl (dot (get s normal) l))
@@ -266,7 +276,7 @@
     (let h (normalize (+ v l)))
     (let alpha (alpha_of s))
     (let reflect (/ (* (ggx alpha (max (dot (get s normal) h) 0.0)) (masking alpha nv)) (* 4.0 nv)))
-    (let odds (specular_odds s))
+    (let odds (specular_odds s v))
     (return (+ (* odds reflect) (* (- 1.0 odds) (/ nl PI)))))
 
 ;; A visible normal of GGX (Heitz 2018), in the frame where z is n.
@@ -289,7 +299,7 @@
 (fn scattered ((s Surface) (v vec3f) (seed (ptr function u32))) (-> vec3f)
     (let frame (frame_of (get s normal)))
     (let r (vec2f (random seed) (random seed)))
-    (if ((< (random seed) (specular_odds s))
+    (if ((< (random seed) (specular_odds s v))
          (let local_v (* (transpose frame) v))
          (let m (visible_normal local_v (alpha_of s) r))
          (return (reflect (- v) (* frame m)))))
@@ -396,20 +406,19 @@
              1.0))
          (return)))
     (let s (first_surface pixel (textureLoad depth pixel 0)))
-    (= (at radiance index) (textureLoad emission pixel 0))
+    (let sight (- (get s position) (get camera eye xyz)))
+    (let air (aerial_transmission (length sight)))
+    (= (at radiance index)
+       (vec4f
+        (+ (* air (get (textureLoad emission pixel 0) xyz)) (aerial_light (normalize sight) air))
+        1.0))
     (var seed (seeded index 0u))
-    (let v (normalize (- (get camera eye xyz) (get s position))))
+    (let v (- (normalize sight)))
     (= (get site reservoir) (spatial_reservoir s v pixel site (address-of seed)))
     (= (at reservoir_output i) site)
-    (reservoir_shadow (get site reservoir) s v index (pcg seed))
+    (reservoir_shadow (get site reservoir) s v air index (pcg seed))
     (let spread (get tracing view x))
-    (scatter_ray s
-                 v
-                 (vec3f 1.0)
-                 index
-                 (* spread (distance (get camera eye xyz) (get s position)))
-                 spread
-                 (address-of seed)))
+    (scatter_ray s v air index (* spread (length sight)) spread (address-of seed)))
 
 (fn (@compute) (@workgroup_size 64) connect (((@builtin global_invocation_id) id vec3u))
     (let i (queue_item id))

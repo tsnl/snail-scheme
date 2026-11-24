@@ -197,7 +197,11 @@ spans, and the rows' distribution in the last column.
 `environment-light.wgsl.scm` gives kernels the radiance of a direction, the
 density it is sampled with, and a sampled direction.
 
-For a changing sun, `make-sky-light` keeps the radiance texture, importance table, kernels and scratch buffer together. `update-sky!` rewrites both textures using the new sky parameters. The tracer keeps its existing bindings. Last Mile updates this light each game minute. Release the light with `release-sky-light` when the scene closes.
+For an art-directed sky, `make-sky-light` and `update-sky!` take a `Sky`. For outdoor light, `make-atmosphere-light` and `update-atmosphere!` take an `Atmosphere` with a sun direction, horizontal wind displacement in kilometres, and cloud cover from zero to one. Each update refreshes the same GPU resources and their sampling distribution. Release them with `release-sky-light`.
+
+The outdoor sky integrates molecular and aerosol scattering along a ray through a spherical atmosphere. Slant paths through the air and ozone change the colour of the setting sun. A diffuse term approximates higher orders of scattering. A second ray march integrates extinction and in-scattering through a marine cloud layer from 650 to 1,850 metres. Short marches toward the sun give the banks self-shadowing. Overhead density governs how much skylight reaches their undersides. The directional environment represents the view from street level. Buildings share the cloud cover above that reference point. [Atmospheric transport and spherical geometry](https://ebruneton.github.io/precomputed_atmospheric_scattering/atmosphere/functions.glsl.html) · [Real-time volumetric clouds](https://www.guerrilla-games.com/read/the-real-time-volumetric-cloudscapes-of-horizon-zero-dawn)
+
+The sky texture contains scattered radiance. Two additional texels hold the solar disc's direction, angular radius and cloud-attenuated irradiance. The sampler chooses between the sky and the disc by their integrated luminance, then samples solid angle inside the chosen region. This keeps the sun round at its apparent diameter of 0.53° even in a small environment map. Camera rays, water reflections and shadow rays see the same light. The outdoor environment also adds distance haze to long camera sightlines. A `PinholeRange` lens takes the vertical field of view in radians and the near and far clip distances in world units. Last Mile sets them to 0.35 metres and 32 kilometres so the Pacific horizon is visible from a bluff.
 
 ## Scenes
 
@@ -228,7 +232,9 @@ consume the same world-space triangles. Mesh topology and materials stay fixed.
 `make-moving-tracer` keeps the leaf order and binary tree for those triangles.
 After a simulation tick, `refit-tracer!` refreshes the leaf boxes, propagates
 their bounds and packs them into the original query buffer. Bindings survive
-a refit. The viewer can discard this build scratch for static scenes. Last
+a refit. An application can choose a tone curve at construction with `make-graded-moving-tracer`.
+Last Mile uses `Photographic` for a hue-preserving shoulder followed by sRGB encoding.
+The viewer can discard this build scratch for static scenes. Last
 Mile asks each frame for two bounces, and the final FXAA pass samples
 normalized screen coordinates so a small traced image fills a larger browser
 canvas. [Last Mile](../games/last-mile.md)
@@ -300,7 +306,9 @@ before anything else of the scene.
 
 ## Water surfaces
 
-A glTF material can opt into the tracer’s water shading with `"extras": { "snailWater": true }`. Its base color, roughness and metallic factor still set the PBR response. Set `Camera3D.scene-time` in seconds to move three wave trains in world space. Both rasterized first hits and traced secondary hits use their slopes as the shading normal. Each pass fades waves finer than its sample footprint. The original geometry supplies depth, visibility and ray origins, so adjacent pieces of a shoreline stay fixed.
+A glTF material can opt into the tracer’s water shading with `"extras": { "snailWater": true }`. Use a nonmetallic material and a dark linear base colour for light returned by the water body. The dielectric interface reflects about 2% of the light at normal incidence and approaches full reflection at grazing angles. A ray can reflect geometry as well as the sky.
+
+Set `Camera3D.scene-time` in seconds to move wave trains in world metres. Rasterized first hits and traced secondary hits share their normals. Each wave is filtered along its direction across the pixel footprint. Unresolved waves contribute their slope variance to the material roughness. The mapped surface supplies depth, visibility and ray origins. The model represents deep water with a fixed shoreline and a bulk colour.
 
 ## Performance
 

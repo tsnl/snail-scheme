@@ -21,7 +21,7 @@
                                         (paint 0.32 0.36 0.23 -1 0.0)
                                         (paint 0.2 0.38 0.19 -1 0.0)
                                         (new Material
-                                          (base-color (list 0.016 0.09 0.105 1.0))
+                                          (base-color (list 0.015 0.049 0.041 1.0))
                                           (base-texture -1)
                                           (metallic 0.0)
                                           (roughness 0.13)

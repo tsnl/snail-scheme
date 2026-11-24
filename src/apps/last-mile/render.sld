@@ -6,14 +6,15 @@
    (snail shell math)
    (snail shell app)
    (only (snail shell gpu) Gpu view-of ViewObject)
-   (only (snail shell graphics pod) Vec4f Vec3f Mat4x4f)
+   (only (snail shell graphics pod) Vec4f Vec3f Vec2f Mat4x4f)
    (only (snail shell graphics animation) posed-nodes skin-palette rigid-binding named-branch)
    (snail shell graphics gltf animation)
    (snail shell graphics gltf)
-   (only (snail shell graphics raster) camera-3d Pinhole Camera3D Camera3D-scene-time-set)
+   (only (snail shell graphics raster) camera-3d PinholeRange Camera3D Camera3D-scene-time-set)
    (only (snail shell graphics bvh) ray-size)
    (snail shell graphics trace scene)
    (snail shell graphics trace render)
+   (only (snail shell graphics passes) Photographic)
    (snail shell graphics environment)
    (snail shell game physics)
    (snail shell game atlas)
@@ -47,30 +48,28 @@
        (streak-frames I32)
        (eye XZ)))
     (define (rgba (x F32) (y F32) (z F32) (w F32)) (→ Vec4f) (new Vec4f (x x) (y y) (z z) (w w)))
-    (define (color (x F64) (y F64) (z F64) (w F64))
-      (→ Vec4f)
-      (rgba (f64->f32 x) (f64->f32 y) (f64->f32 z) (f64->f32 w)))
-    ;; An equinox sun at SF's latitude in the rotated street frame. Twilight
-    ;; blends continuously into a readable blue night and a weaker moon.
-    (define (sky-at (minute I64)) (→ Sky)
-      (let* ((angle (* (/ (- (i64->f64 minute) 360.0) 720.0) pi))
-             (s (sin angle)) (east (cos angle)) (alt (* 0.79 s))
-             (toward (if (< alt -0.08) -1.0 1.0))
-             (day (max 0.0 (min 1.0 (/ (+ alt 0.11) 0.41))))
-             (warm (* day (- 1.0 (min 1.0 (* 1.8 (max 0.0 alt))))))
-             (light (if (< alt -0.08) 0.16 (* 8.0 (max 0.0 (min 1.0 (* 6.0 alt)))))))
-        (new Sky (sun (color (* toward (- (* 0.9876 east) (* 0.0964 s))) (* toward alt)
-                             (* toward (+ (* 0.1573 east) (* 0.6047 s))) 0.9992))
-             (sun-light
-              (color light (* light (- 0.91 (* 0.31 warm))) (* light (- 0.83 (* 0.47 warm))) 0.0))
-             (zenith
-              (color (+ 0.038 (* day 0.24)) (+ 0.060 (* day 0.40)) (+ 0.11 (* day 0.66)) 1.0))
-             (horizon (color (+ (+ 0.095 (* day 0.77)) (* warm 0.22))
-                             (+ 0.13 (* day 0.69))
-                             (+ 0.20 (* day 0.51))
-                             1.0))
-             (ground
-              (color (+ 0.040 (* day 0.17)) (+ 0.048 (* day 0.15)) (+ 0.067 (* day 0.10)) 1.0)))))
+    ;; Equinox sunlight at San Francisco's latitude in the rotated street
+    ;; frame. Wind follows elapsed simulation time through midnight and saves.
+    (define (solar-angle (minute I64)) (→ F64)
+      (* (/ (- (i64->f64 minute) 360.0) 720.0) pi))
+
+    (define (sky-at (minute I64) (tick I64)) (→ Atmosphere)
+      (let* ((angle (solar-angle minute)) (s (sin angle)) (east (cos angle))
+             (seconds (* (i64->f64 tick) (* 0.001 (i64->f64 tick-ms)))))
+        (new Atmosphere
+          (sun (new Vec3f (x (f64->f32 (- (* 0.9876 east) (* 0.0964 s))))
+                    (y (f64->f32 (* 0.79 s)))
+                    (z (f64->f32 (+ (* 0.1573 east) (* 0.6047 s))))))
+          (wind (new Vec2f (x (f64->f32 (* -0.006 seconds))) (y (f64->f32 (* 0.0015 seconds)))))
+          (cover 0.54))))
+
+    ;; Daylight is the white reference. Open up smoothly by five stops
+    ;; as the sun sets, preserving a distinctly darker night.
+    (define (street-exposure (minute I64)) (→ F32)
+      (let* ((up (* 0.79 (sin (solar-angle minute))))
+             (t (max 0.0 (min 1.0 (/ (- 0.20 up) 0.34)))))
+        (f64->f32 (* 1.10 (expt 2.0 (* (* 5.0 (* t t)) (- 3.0 (* 2.0 t))))))))
+
     (define (column (x F64) (y F64) (z F64) (scale F64)) (→ Vec4f)
       (rgba (f64->f32 (* x scale)) (f64->f32 (* y scale)) (f64->f32 (* z scale)) 0.0))
 
@@ -190,7 +189,9 @@
                                   (horizon (read-gltf (list-ref models 3) "./"))
                                   (actor (crew people))
                                   (stage (build-stage gpu read g horizon taxi car people w))
-                                  (light (make-sky-light gpu (sky-at (clock-minute w)) 256))
+                                  (light (make-atmosphere-light gpu
+                                                                (sky-at (clock-minute w) (● w tick))
+                                                                1024))
                                   (canvas ((● gpu current-texture)))
                                   (size (size-at (● canvas width) (● canvas height) 720 limit))
                                   (palette (world-palette g roads actor w w 1.0 0.0)))
@@ -215,13 +216,13 @@
                                (eye (offset (● (carrier w) position)
                                             (forward (● (carrier w) heading))
                                             -7.0))
-                               (tracer (make-moving-tracer gpu
-                                                           (● stage scene)
-                                                           (● light environment)
-                                                           format
-                                                           (● size first)
-                                                           (● size second)
-                                                           128)))))
+                               (tracer (make-graded-moving-tracer gpu
+                                                                  (● stage scene)
+                                                                  (● light environment)
+                                                                  format
+                                                                  (● size first)
+                                                                  (● size second)
+                                                                  128 (Photographic))))))
     (define (refresh! (r Renderer) (gpu Gpu) (w Game)) (→ Unit)
       (when (not (= (● r sector) (● r ground center)))
         (let* ((old (● r stage))
@@ -237,7 +238,8 @@
           (set! (● r stage) s) (set! (● r sector) (● r ground center)) (set! (● r time) -1.0)
           (release-moving-scene gpu old)))
       (unless (= (clock-minute w) (● r minute))
-        (update-sky! gpu (● r sky) (sky-at (clock-minute w))) (set! (● r minute) (clock-minute w))))
+        (update-atmosphere! gpu (● r sky) (sky-at (clock-minute w) (● w tick)))
+        (set! (● r minute) (clock-minute w))))
     ;; Clip the boom around the focus, and lift the eye over the measured
     ;; slope. Mouse orbit and the car use the same interpolated focus.
     (define (camera! (r Renderer) (b Body) (seated Bool) (yaw F64) (pitch F64)
@@ -267,7 +269,7 @@
                           (x (f64->f32 (● at x)))
                           (y (f64->f32 (+ h 1.38)))
                           (z (f64->f32 (● at z))))
-                        (Pinhole 1.0) aspect 1.0)))
+                        (PinholeRange 1.0 0.35 32000.0) aspect 1.0)))
 
     ;; Adjust only after a run of slow or fast frames so resizing does not
     ;; repeatedly throw away the filter's history near a threshold.
@@ -322,7 +324,7 @@
                                     view
                                     (Camera3D-scene-time-set camera (f64->f32 (* time 0.05)))
                                     (/ 1.0 (i32->f32 (● size second)))
-                                    1.3
+                                    (street-exposure (clock-minute w))
                                     2
                                     changed))
           ((● gpu destroy) (ViewObject view))

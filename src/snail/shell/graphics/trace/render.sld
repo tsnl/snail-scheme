@@ -32,6 +32,7 @@
    draw-sampled-traced
    make-tracer
    make-moving-tracer
+   make-graded-moving-tracer
    refit-tracer!
    draw-moving-traced
    resize-tracer
@@ -172,7 +173,7 @@
                          (height I32)
                          (layer-size I32))
       (→ Tracer)
-      (tracer-over gpu (world-of gpu scene environment #f) format width height layer-size))
+      (tracer-over gpu (world-of gpu scene environment #f) format width height layer-size (Filmic)))
 
     (define (make-moving-tracer (gpu Gpu) (scene Scene) (environment Environment)
                                 (format TextureFormat)
@@ -180,16 +181,22 @@
                                 (height I32)
                                 (layer-size I32))
       (→ Tracer)
-      (tracer-over gpu (world-of gpu scene environment #t) format width height layer-size))
+      (make-graded-moving-tracer gpu scene environment format width height layer-size (Filmic)))
+
+    (define (make-graded-moving-tracer (gpu Gpu) (scene Scene) (environment Environment)
+                                       (format TextureFormat) (width I32) (height I32)
+                                       (layer-size I32) (tone Tone))
+      (→ Tracer)
+      (tracer-over gpu (world-of gpu scene environment #t) format width height layer-size tone))
 
     (define (refit-tracer! (gpu Gpu) (tracer Tracer)) (→ Unit)
       (refit-bvh! gpu (● tracer world bvh)))
 
     (define (tracer-over (gpu Gpu) (world World) (format TextureFormat) (width I32) (height I32)
-                         (layer-size I32)) (→ Tracer)
+                         (layer-size I32) (tone Tone)) (→ Tracer)
                          (let* ((kit (make-kit gpu layer-size))
                                 (targets (targets-for gpu width height (● world scene blended)))
-                                (post (make-post gpu format width height (Filmic))))
+                                (post (make-post gpu format width height tone)))
                            (new Tracer
                              (kit kit)
                              (world world)

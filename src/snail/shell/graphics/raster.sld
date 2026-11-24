@@ -22,6 +22,7 @@
   (export
    Lens
    Pinhole
+   PinholeRange
    Parallel
    Camera3D
    Camera3D-scene-time-set
@@ -63,6 +64,7 @@
     ;; world units a parallel one shows up the screen.
     (enum Lens
       (Pinhole ((fov F64)))
+      (PinholeRange ((fov F64) (near F64) (far F64)))
       (Parallel ((height F64))))
 
     ;; The view-projection and its inverse, the eye with 1 in w for a
@@ -104,7 +106,7 @@
                  (x (● eye x))
                  (y (● eye y))
                  (z (● eye z))
-                 (w (match lens ((Pinhole _) 0.0) ((Parallel _) 1.0)))))
+                 (w (match lens ((Parallel _) 1.0) (_ 0.0)))))
           (forward direction))))
 
     (define (horizontal-direction (direction Vec4f)) (→ Vec2f)
@@ -127,36 +129,23 @@
                         (negate (list-ref f 0)) (negate (list-ref f 1)) (negate (list-ref f 2)) 0.0
                         (list-ref eye 0) (list-ref eye 1) (list-ref eye 2) 1.0)))))
 
+    (define (perspective (fov F64) (aspect F64) (near F64) (far F64))
+      (→ (Pair (List F64) (List F64)))
+      (unless (and (> near 0.0) (> far near)) (panic "perspective needs 0 < near < far"))
+      (let* ((f (/ 1.0 (tan (/ fov 2.0)))) (a (/ far (- near far))) (b (* near a)))
+        (new Pair
+          (first (list (/ f aspect) 0.0 0.0 0.0 0.0 f 0.0 0.0 0.0 0.0 a -1.0 0.0 0.0 b 0.0))
+          (second (list (/ aspect f) 0.0 0.0 0.0 0.0 (/ 1.0 f) 0.0 0.0 0.0 0.0 0.0 (/ 1.0 b)
+                        0.0 0.0 -1.0 (/ a b))))))
+
     ;; The projection and its inverse; depth runs from 0 at the near plane
     ;; to 1 at the far one, as WebGPU expects. A parallel lens sees from a
     ;; plane as far behind the eye as the target is ahead of it to four
     ;; times as far, so zooming never clips the ground.
     (define (projected (lens Lens) (aspect F64) (distance F64)) (→ (Pair (List F64) (List F64)))
       (match lens
-        ((Pinhole fov)
-         (let* ((f (/ 1.0 (tan (/ fov 2.0))))
-                (near 0.1)
-                (far 500.0)
-                (a (/ far (- near far)))
-                (b (/ (* near far) (- near far))))
-           (new Pair
-             (first (list (/ f aspect) 0.0 0.0 0.0 0.0 f 0.0 0.0 0.0 0.0 a -1.0 0.0 0.0 b 0.0))
-             (second (list (/ aspect f)
-                           0.0
-                           0.0
-                           0.0
-                           0.0
-                           (/ 1.0 f)
-                           0.0
-                           0.0
-                           0.0
-                           0.0
-                           0.0
-                           (/ 1.0 b)
-                           0.0
-                           0.0
-                           -1.0
-                           (/ a b))))))
+        ((Pinhole fov) (perspective fov aspect 0.1 500.0))
+        ((PinholeRange fov near far) (perspective fov aspect near far))
         ((Parallel height)
          (let* ((y (/ 2.0 height))
                 (x (/ y aspect))
