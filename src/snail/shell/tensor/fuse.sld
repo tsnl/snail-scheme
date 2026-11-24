@@ -13,8 +13,8 @@
 ;; to the port's axes (`seen-through`). A map of tiles, as a small matrix
 ;; product is, computes a tile once, so the view must read whole tiles of
 ;; it, and a map of values reading one so becomes a map of those tiles to
-;; take it in (`at-tiles`). Bodies stay within 256 expressions, and a
-;; kernel within the eight storage buffers every device allows. A
+;; take it in (`at-tiles`). Bodies stay within 256 distinct expressions,
+;; and a kernel within the eight storage buffers every device allows. A
 ;; reduction's body takes in maps as a map's does, so a large matrix
 ;; product computes its products as it sums them; but nothing takes in a
 ;; reduction, whose port is written. Any other node reads its arguments'
@@ -740,13 +740,16 @@
 
     ;; ---- Limits ----
 
-    ;; Bodies of at most 256 expressions in all, as Resin bounds a fused
-    ;; tree, since a producer read twice is inlined twice; and at most the
+    ;; Bodies of at most 256 distinct expressions in all, an expression
+    ;; inlined twice counted once, since lowering names each once: so the
+    ;; text a kernel holds is bounded, as Resin bounds a fused tree, and a
+    ;; producer read by several of a body's expressions, as the harmonics'
+    ;; basis by each degree's product, is still taken in. And at most the
     ;; eight storage buffers every device lets a kernel bind, its ports
     ;; among them (`bindings`).
 
     (define (within-limits? (graph Graph) (place I64) (f Fusing)) (→ Bool)
-      (and (<= (fold-left + 0 (map expr-size (● f bodies))) 256) (<= (bindings graph place f) 8)))
+      (and (<= (distinct-size (● f bodies)) 256) (<= (bindings graph place f) 8)))
 
     ;; The buffers a kernel binds: one a port, and one for each buffer its
     ;; arguments see, but for a param a port writes in place, which is
@@ -777,10 +780,52 @@
                  owners)))
 
 
-    (define (expr-size (e Expr)) (→ I64)
+    ;; The expressions of the bodies, each counted once however often it
+    ;; occurs, as lowering names each distinct value once.
+    (define (distinct-size (bodies (List Expr))) (→ I64)
+      (● (fold-left (lambda (names body) (● (expression-name body names) first))
+                    (new Names (numbers (empty-table)) (count 0))
+                    bodies)
+         count))
+
+    ;; The distinct expressions met so far, each numbered by its text.
+    (record Names
+      ((numbers (Table I64))
+       (count I64)))
+
+    ;; An expression's name among `names`, which knows each distinct
+    ;; expression by its operation and its operands' names: a new number
+    ;; the first time, so a name stays short however deep the expression.
+    (define (expression-name (e Expr) (names Names)) (→ (Pair Names String))
       (match e
-        ((Apply _ operands _ _) (+ 1 (fold-left + 0 (map expr-size operands))))
-        (_ 1)))
+        ((Apply op operands _ tile)
+         (let ((inner (fold-left (lambda (state o)
+                                   (let ((next (expression-name o (● state first))))
+                                     (new Pair
+                                       (first (● next first))
+                                       (second (Cons (● next second) (● state second))))))
+                                 (new Pair (first names) (second (Nil)))
+                                 operands)))
+           (named-once (● inner first)
+                       (string-append (op-text op)
+                                      " "
+                                      (string-join (reverse (● inner second)) " ")
+                                      ":"
+                                      (string-join (map show tile) "x")))))
+        ((Load k _ tile)
+         (named-once names (string-append "$" (show k) ":" (string-join (map show tile) "x"))))
+        ((Literal value etype)
+         (named-once names (string-append (f64->string value) (etype-wgsl etype))))))
+
+    (define (named-once (names Names) (text String)) (→ (Pair Names String))
+      (match (table-ref (● names numbers) text)
+        ((Some number) (new Pair (first names) (second (string-append "#" (show number)))))
+        ((None)
+         (new Pair
+           (first (new Names
+                    (numbers (table-set (● names numbers) text (● names count)))
+                    (count (+ (● names count) 1))))
+           (second (string-append "#" (show (● names count))))))))
 
     (define (buffer-count (args (List View))) (→ I64)
       (length

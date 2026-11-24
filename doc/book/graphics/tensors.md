@@ -150,7 +150,11 @@ tiles, the same places of each, which a pick takes: a column of a map of
 tiles a whole tile at a time becomes a map of those tiles to take it in,
 so Adam's moments of the harmonics' coefficients, whose gradient is
 computed a row of three colors at a time, are too. A body stays within 256
-expressions, since a producer read twice is inlined twice. A kernel binds
+distinct expressions, each counted once however many times fusing inlined
+it, since lowering names each once: counted as a tree, the harmonics'
+basis, which each degree's product reads, was too large to take into the
+color's kernel, so the viewer's frame wrote 16 floats a gaussian and read
+them back, 6.7 ms where it is now 5.9. A kernel binds
 at most eight buffers, its ports among them, so a sum of eight params is
 two maps. Types do not stop fusing: each expression carries its own. A
 reduction's body takes in maps as a map's does, so a large matrix product
