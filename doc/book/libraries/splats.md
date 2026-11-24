@@ -90,21 +90,23 @@ floats in COLMAP's convention) into an image of a `Sensor`'s size, for
 param (`cloud-views`); `photometric-loss` is L1 with D-SSIM.
 
 Projection is ordinary tensor operations, so its gradient is derived.
-Binning into 16x16-pixel tiles is custom kernels around a sort by depth and
-a stable sort by tile, and passes no gradient; rasterizing and SSIM are
+Binning into 16x16-pixel tiles is custom kernels around a filter of the
+gaussians that reach a tile, a sort of those by depth and a stable sort by
+tile, and passes no gradient; rasterizing and SSIM are
 custom nodes with hand-written adjoints. The sensor's capacity bounds the
 tile entries, and the entries asked for are counted on the device, so the
 tile sort and the ranges cover only those
 ([differentiable splatting](../graphics/tensors.md#differentiable-splatting)).
 
 Tiles are `tile-side`, 16, pixels a side, as gsplat's are. Smaller tiles
-spend less blending on pixels a gaussian misses, but on bicycle on an RTX
-5090 they cost more than they saved. 8-pixel tiles took the backward
-rasterizer at step 7,000 from 4.26 ms to 3.39, but the run reached that
-step in 136 s against 117, since early gaussians are large and binning
-walks every tile each one reaches, a thread a gaussian. 4-pixel tiles took
-302 s, and slowed the viewer's frame from 6.7 ms to 11.0, of which
-binning's two kernels took 6.3.
+spend less blending on pixels a gaussian misses, but bin each gaussian
+into more tiles. On bicycle on an RTX 5090, 8-pixel tiles made training's
+step 7,000 faster on the device, 19.6 ms against 20.6, but the run reached
+that step in 130 s against 112, since early gaussians are large and
+binning walks every tile each one reaches, a thread a gaussian. They
+slowed the viewer's frame from 5.6 ms to 6.2. 4-pixel tiles, measured
+before binning kept to the gaussians that reach a tile, slowed it from
+6.0 ms to 9.8.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/splat-train.sld)
 

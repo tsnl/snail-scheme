@@ -1,8 +1,9 @@
 ;; An entry a tile each gaussian reaches, keyed by the tile: gaussians in
 ;; order of depth, each from the scanned offset of its count, so a stable
-;; sort by tile leaves each tile's entries near to far. Entries past
-;; CAPACITY are dropped, and nothing reads the entries past those asked
-;; for.
+;; sort by tile leaves each tile's entries near to far. Only the first
+;; `reaching[0]` of `order` reach a tile, and its rest is unspecified, so
+;; a thread past them writes nothing. Entries past CAPACITY are dropped,
+;; and nothing reads the entries past those asked for.
 ((var storage read) (@group 0) (@binding 0) (splats (array f32)))
 
 ((var storage read) (@group 0) (@binding 1) (radii (array f32)))
@@ -11,16 +12,18 @@
 
 ((var storage read) (@group 0) (@binding 3) (offsets (array u32)))
 
-((var storage read_write) (@group 0) (@binding 4) (keys (array u32)))
+((var storage read) (@group 0) (@binding 4) (reaching (array u32)))
 
-((var storage read_write) (@group 0) (@binding 5) (ids (array u32)))
+((var storage read_write) (@group 0) (@binding 5) (keys (array u32)))
+
+((var storage read_write) (@group 0) (@binding 6) (ids (array u32)))
 
 (fn (@compute)
     (@workgroup_size 256)
     emit_keys
     (((@builtin global_invocation_id) gid vec3u) ((@builtin num_workgroups) nwg vec3u))
     (let j (invocation gid nwg))
-    (if ((< j COUNT)
+    (if ((< j (at reaching 0))
          (let g (at order j))
          (let b (* 9u g))
          (let center (vec2f (at splats b) (at splats (+ b 1u))))
