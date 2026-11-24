@@ -127,7 +127,10 @@ the caller's, as often as it likes; `write-param`, `read-param` and
 
 - **Kernels** are generated per node with every size a literal, so two
   nodes computing alike share a pipeline. A `Fill` argument is a literal
-  too, with no buffer.
+  too, with no buffer. A choice of zero, `(where condition value 0)` with
+  one condition a row, computes its value inside an `if`, so the rows the
+  condition culls read nothing for it: a mask, where `gather` by computed
+  indices would be a filter.
 - **Buffers** return to a pool once the last node reading them has run;
   params, constants, sinks and updates keep theirs. An update that a map
   computes whole is written in place, into its param's buffer, each port
