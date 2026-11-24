@@ -25,8 +25,8 @@
     (let det (- (* (get conic x) (get conic z)) (* (get conic y) (get conic y))))
     (let half (sqrt (/ (* limit (vec2f (get conic z) (get conic x))) det)))
     (let tiles (vec2f (f32 TILES_X) (f32 TILES_Y)))
-    (let low (clamp (floor (/ (- center half) 16.0)) (vec2f 0.0) tiles))
-    (let high (clamp (ceil (/ (+ center half) 16.0)) (vec2f 0.0) tiles))
+    (let low (clamp (floor (/ (- center half) (f32 TILE))) (vec2f 0.0) tiles))
+    (let high (clamp (ceil (/ (+ center half) (f32 TILE))) (vec2f 0.0) tiles))
     (return (vec4u (u32 (get low x)) (u32 (get low y)) (u32 (get high x)) (u32 (get high y)))))
 
 (fn conic_power ((conic vec3f) (d vec2f)) (-> f32)
@@ -41,7 +41,7 @@
 ;; where its slope is zero, clamped to the side. With the center inside,
 ;; both sides are the center's own lines and q is 0.
 (fn reaches ((center vec2f) (conic vec3f) (limit f32) (tile vec2u)) (-> bool)
-    (let low (+ (* (vec2f tile) 16.0) 0.5))
+    (let low (+ (* (vec2f tile) (f32 TILE)) 0.5))
     (let high (+ low 15.0))
     (let near (- (clamp center low high) center))
     (let down (- (clamp (- (get center y) (/ (* (get conic y) (get near x)) (get conic z)))

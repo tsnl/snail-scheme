@@ -359,9 +359,12 @@
 
     ;; ---- Binning ----
 
-    ;; The tiles of the sensor, 16 pixels a side.
-    (define (tiles-x (sensor Sensor)) (→ I64) (tiles (● sensor width) 16))
-    (define (tiles-y (sensor Sensor)) (→ I64) (tiles (● sensor height) 16))
+    ;; The tiles of the sensor, `tile-side` pixels a side: binning gives a
+    ;; gaussian an entry for each tile it reaches, and the rasterizers run
+    ;; a workgroup a tile and an invocation a pixel.
+    (define tile-side (→ I64) 16)
+    (define (tiles-x (sensor Sensor)) (→ I64) (tiles (● sensor width) tile-side))
+    (define (tiles-y (sensor Sensor)) (→ I64) (tiles (● sensor height) tile-side))
     (define (tile-count (sensor Sensor)) (→ I64) (* (tiles-x sensor) (tiles-y sensor)))
 
     ;; Sort enough whole bytes of a key to tell every tile on this sensor
@@ -379,6 +382,8 @@
                      "const TILES_X = " (show (tiles-x sensor)) "u;\n"
                      "const TILES_Y = " (show (tiles-y sensor)) "u;\n"
                      "const TILE_COUNT = TILES_X * TILES_Y;\n"
+                     "const TILE = " (show tile-side) "u;\n"
+                     "const TILE_PIXELS = TILE * TILE;\n"
                      "const COUNT = " (show count) "u;\n"
                      "const CAPACITY = " (show (● sensor capacity)) "u;\n"))
 
