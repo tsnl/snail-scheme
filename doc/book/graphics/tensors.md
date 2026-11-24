@@ -29,6 +29,7 @@ nodes.
 | `Gather`, `ScatterAdd` | Rows by `u32` index, and their adjoint |
 | `Concat` | Views joined along an axis; `stack` joins them along a new one |
 | `Sort`, `PrefixSum` | `u32` keys and values sorted stably, all or as many as a count says; an exclusive prefix sum |
+| `Compact` | The rows whose flag is not 0: their indices packed to the front, which rows are below their count, and the count |
 | `CustomKind` | Kernels a library writes in WGSL, with their own adjoint |
 
 A map's body is an `Expr`: `Load k`, argument k's element at the map's
@@ -256,8 +257,12 @@ computed once and no expression nests another, and a map binds each port
 its arguments see once. A choice of zero, `(where condition value 0)`
 whose condition is one value however wide the value, is an `if`: the
 value's lets run only where the condition holds, so a row it culls reads
-and computes nothing for it, wherever fusing put the choice. The splat
-renderer chooses a culled gaussian's harmonics so. A reduction computes its body as it combines it: a
+and computes nothing for it in the kernel the choice is in. What fusing
+left in a kernel of its own runs for every row. The splat renderer
+chooses a culled gaussian's harmonics so, which in a training step skips
+a quarter of their kernels' time. The viewer's frame is no faster: its
+sum of the harmonics' products, which reads their coefficients, is a
+kernel apart from the choice. A reduction computes its body as it combines it: a
 thread an output element when its span is at most 256 elements, and in
 levels otherwise, a workgroup combining each part of 4,096 elements in
 shared memory, the first level computing the body, until one part is left.
@@ -279,6 +284,16 @@ workgroups a count needs would take an indirect dispatch, which with
 Dawn's validation takes about half a millisecond of wall time each, against
 microseconds for a direct dispatch
 ([WebGPU on Node](plan.md#webgpu-on-node)).
+
+A filter is a `Compact` after an exclusive scan of its flags, which gives
+each kept row its place among them. Its kernel runs a thread a row: a
+kept row writes its index at its place, a thread at or past the count
+writes 0 at its own, and the first thread writes the count, the last
+row's place plus its flag. So `kept-rows`, a gather by those indices
+chosen by `live`, packs the kept rows to the front, and a choice by
+`live` after it skips the rows past the count together, where a mask's
+culled rows sit among the kept ones, and nearly every group of threads
+the device runs at once holds one it keeps.
 
 A sort's first pass reads its keys and values where they are, and its last
 writes its ports, so a sort copies nothing. A fill or a part of a buffer is

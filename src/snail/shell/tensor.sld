@@ -100,6 +100,7 @@
    ScatterAdd
    Sort
    PrefixSum
+   Compact
    CustomKind
    Node
    View
@@ -171,6 +172,9 @@
    sort-pairs
    sort-first-pairs
    exclusive-scan
+   Filtered
+   filter-rows
+   kept-rows
    custom
    node-view
    with-args
@@ -436,7 +440,11 @@
     ;; `Concat` joins its arguments along an axis; a `Sort` sorts u32 keys
     ;; and values on their low `bits` bits, stably, all of them or as many
     ;; as a third argument counts; a `PrefixSum` replaces each u32 number
-    ;; by the sum of those before it.
+    ;; by the sum of those before it; a `Compact` packs the rows whose
+    ;; flag, its first argument, is not 0, given its second, the flags'
+    ;; exclusive sums: port `ids` holds their indices in order and 0 past
+    ;; them, `live` 1 below their count and 0 from it, and `count` the
+    ;; count.
     (enum Kind
       (Param ((name String)))
       (Constant ((name String) (data Bytes)))
@@ -449,6 +457,7 @@
       (Concat ((axis I64)))
       (Sort ((bits I64)))
       (PrefixSum)
+      (Compact)
       (CustomKind ((custom Custom))))
 
     (define (kind-text (kind Kind)) (→ String)
@@ -469,6 +478,7 @@
         ((Concat axis) (string-append "concat " (show axis)))
         ((Sort bits) (string-append "sort " (show bits)))
         ((PrefixSum) "scan")
+        ((Compact) "compact")
         ((CustomKind c) (string-append "custom " (● c name)))))
 
     ;; A port: what one buffer of a node holds.
@@ -1075,6 +1085,47 @@
     ;; Each u32 number replaced by the sum of those before it.
     (define (exclusive-scan (a View)) (→ View)
       (single (PrefixSum) (list a) (shape-of a) (Unsigned)))
+
+    ;; ---- Filters ----
+
+    ;; The rows a filter keeps, on the device: `ids`, their indices in
+    ;; order, packed to the front, and 0 past them; `live`, 1 for each row
+    ;; below their count and 0 from it; and `count`, one u32. A `gather`
+    ;; by `ids` takes the kept rows, and `(where live value 0)` computes a
+    ;; value only for them (lowering's `if`), so work after a filter runs
+    ;; for as many rows as it kept.
+    (record Filtered
+      ((ids View)
+       (live View)
+       (count View)))
+
+    ;; The rows of `keep`, a value a row, that are not 0, kept.
+    (define (filter-rows (keep View)) (→ Filtered)
+      (unless (= (rank keep) 1)
+        (panic "tensor: a filter keeps rows by one value a row"))
+      (let* ((rows (element-count keep))
+             (flags (convert (not-equal keep (zeros-like keep)) (Unsigned)))
+             (n (node (Compact)
+                      (list flags (exclusive-scan flags))
+                      (list (new Port (name "ids") (shape (list rows)) (etype (Unsigned)))
+                            (new Port (name "live") (shape (list rows)) (etype (Float)))
+                            (new Port (name "count") (shape (list 1)) (etype (Unsigned)))))))
+        (new Filtered
+          (ids (node-view n "ids"))
+          (live (node-view n "live"))
+          (count (node-view n "count")))))
+
+    ;; The rows of `v` that `f` kept, in order, packed to the front, and 0
+    ;; past them: a gather by the filter's indices, chosen by its rows'
+    ;; liveness, so a kernel that takes the choice in reads a row of `v`
+    ;; only below the count.
+    (define (kept-rows (f Filtered) (v View)) (→ View)
+      (let ((rows (element-count (● f live))))
+        (unless (= (list-ref (shape-of v) 0) rows)
+          (panic "tensor: a filter keeps rows of a view as long as the one it was made from"))
+        (where (reshape (● f live) (Cons rows (map (lambda (n) 1) (list-tail (shape-of v) 1))))
+               (gather v (● f ids))
+               (fill 0.0 (Nil) (etype-of v)))))
 
     ;; ---- Custom nodes ----
 
