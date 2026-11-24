@@ -1,17 +1,20 @@
 ;; A scene's first hits rasterized into the path tracer's G-buffer: one
-;; indexed draw of every triangle, each vertex read from the scene's
-;; vertex buffer (unpack.wgsl.scm), each material from its storage buffer
+;; draw of every triangle's three corners, each corner's vertex read
+;; through the scene's indices from its vertex buffer (unpack.wgsl.scm),
+;; so a corner knows its triangle; each material from its storage buffer
 ;; and its textures from layers of one array (scene.sld). `Camera3D`
 ;; comes from Pod.
 ;;
 ;; Targets, in this order so they fit 32 bytes a pixel:
-;;   0 normals, rgba16float: the shading normal then the geometric one,
-;;     each octahedral, both facing the eye;
+;;   0 normals, rg16float: the shading normal, octahedral, facing the eye;
 ;;   1 emission, rgba16float, linear;
 ;;   2 albedo, rgba8unorm-srgb, so 8 bits keep its darks;
 ;;   3 material, rgba8unorm: metalness and roughness;
-;;   4 motion, rg16float, in texture coordinates from the last frame.
-;; Depth is depth32float, which the tracer reads to place each pixel.
+;;   4 motion, rg16float, in texture coordinates from the last frame;
+;;   5 triangle, r32uint: the triangle drawn there.
+;; Depth is depth32float. The tracer places each pixel by its depth, then
+;; onto the plane of its triangle, whose geometric normal it takes too
+;; (path.wgsl.scm).
 ;;
 ;; A texture's colors are sRGB; its data, normals and metal-roughness,
 ;; are linear. A masked material discards below its cutoff. A blended one
@@ -41,6 +44,8 @@
 
 (var (@group 0) (@binding 4) (repeat sampler))
 
+((var storage read) (@group 0) (@binding 5) (indices (array u32)))
+
 (struct Varying
         ((@builtin position) position vec4f)
         ((@location 0) world vec3f)
@@ -49,11 +54,14 @@
         ((@location 3) tangent vec4f)
         ((@location 4) (@interpolate flat) material u32)
         ((@location 5) clip_now vec4f)
-        ((@location 6) clip_before vec4f))
+        ((@location 6) clip_before vec4f)
+        ((@location 7) (@interpolate flat) triangle u32))
 
+;; Corner `index` of the draw is corner index mod 3 of triangle index / 3.
 (fn (@vertex) surface_vertex (((@builtin vertex_index) index u32)) (-> Varying)
-    (let vertex (at vertices index))
+    (let vertex (at vertices (at indices index)))
     (var (out Varying))
+    (= (get out triangle) (/ index 3u))
     (= (get out position) (* (get camera view_projection) (vec4f (get vertex position) 1.0)))
     (= (get out world) (get vertex position))
     (= (get out normal) (get vertex normal))
@@ -66,11 +74,12 @@
     (return out))
 
 (struct Targets
-        ((@location 0) normals vec4f)
+        ((@location 0) normals vec2f)
         ((@location 1) emission vec4f)
         ((@location 2) albedo vec4f)
         ((@location 3) material vec4f)
-        ((@location 4) motion vec2f))
+        ((@location 4) motion vec2f)
+        ((@location 5) triangle u32))
 
 (fn decoded ((c vec3f)) (-> vec3f)
     (return (select (pow (/ (+ c 0.055) 1.055) (vec3f 2.4)) (/ c 12.92) (<= c (vec3f 0.04045)))))
@@ -163,7 +172,7 @@
     (= normal (mapped m f (get in tangent) normal))
     (let metal_rough (texel (get m textures y) f))
     (var (out Targets))
-    (= (get out normals) (vec4f (octahedral normal) (octahedral geometric)))
+    (= (get out normals) (octahedral normal))
     (= (get out emission)
        (vec4f (* (get m emissive xyz) (decoded (get (texel (get m textures w) f) xyz))) 1.0))
     (= (get out albedo) (vec4f (* (get m base_color xyz) (decoded (get base xyz))) alpha))
@@ -175,4 +184,5 @@
     (let now (/ (get in clip_now xy) (get in clip_now w)))
     (let before (/ (get in clip_before xy) (get in clip_before w)))
     (= (get out motion) (* (- now before) (vec2f 0.5 -0.5)))
+    (= (get out triangle) (get in triangle))
     (return out))

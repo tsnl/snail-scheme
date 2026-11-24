@@ -40,15 +40,15 @@
 
 (var (@group 0) (@binding 8) (past_place (texture_2d f32)))
 
-(var (@group 0) (@binding 9) (integrated (texture_storage_2d rgba16float write)))
+(var (@group 0) (@binding 9) (integrated (texture_storage_2d rgba32float write)))
 
-(var (@group 0) (@binding 10) (moments (texture_storage_2d rgba16float write)))
+(var (@group 0) (@binding 10) (moments (texture_storage_2d rgba32float write)))
 
 (var (@group 0) (@binding 11) (place (texture_storage_2d rgba32float write)))
 
 (var (@group 0) (@binding 12) (source (texture_2d f32)))
 
-(var (@group 0) (@binding 13) (filtered (texture_storage_2d rgba16float write)))
+(var (@group 0) (@binding 13) (filtered (texture_storage_2d rgba32float write)))
 
 (var (@group 0) (@binding 14) (current_moments (texture_2d f32)))
 

@@ -12,7 +12,7 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 
 | Stage | Library | What it does |
 | --- | --- | --- |
-| Surfaces | `trace/surface.wgsl.scm` | Rasterizes the first hits into a G-buffer: normal, albedo, material, motion and depth. A scene with blended materials also gets the nearest blended surface in front of them, in a second G-buffer, the blended layer. |
+| Surfaces | `trace/surface.wgsl.scm` | Rasterizes the first hits into a G-buffer: shading normal, albedo, material, motion, the triangle drawn, and depth. A scene with blended materials also gets the nearest blended surface in front of them, in a second G-buffer, the blended layer. |
 | Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries, for each layer. |
 | Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure, for each layer. |
 | Compose | `trace/compose.wgsl.scm` | Blends the blended layer's light over the first hits', by its alpha. |
@@ -20,9 +20,13 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 
 `make-tracer` takes a `Scene`, an `Environment`, the canvas format and size,
 and builds every pipeline and target once; `resize-tracer` remakes the
-targets for a new canvas size, and `draw-traced` draws a frame for a camera.
+targets for a new size, and `draw-traced` draws a frame for a camera, its
+paths scattering at most as many times as the frame asks, one to
+`most-bounces` (eight). A tracer smaller than the canvas still draws into
+all of it, since the last pass samples the picture by screen coordinates.
 A camera that holds still keeps accumulating: `tracer-frames` counts the
-frames since it last moved.
+frames since it last moved or the bounces last changed, either of which
+starts the history again.
 
 A `Tracer` holds a record for each lifetime: a `Kit` of what is made once,
 the pipelines and uniforms; a `World` of the scene, its BVH and the
@@ -38,10 +42,11 @@ A path is not one long kernel but a sequence of small ones, each its own
 pipeline, so each stays simple and keeps its registers few:
 
 ```
-primary → [occlude → connect → intersect → shade] × 4 bounces → gather
+primary → [occlude → connect → intersect → shade] × bounces → gather
 ```
 
-- `primary` turns each pixel's G-buffer surface into a ray.
+- `primary` turns each pixel's G-buffer surface into a ray
+  ([first hits](#first-hits)).
 - `shade` samples the surface's BSDF for the next bounce and the
   environment for a shadow ray, appending each to its queue.
 - `occlude` and `intersect` are the BVH's queries over a queue.
@@ -61,6 +66,24 @@ Every queue kernel is dispatched over the queue's capacity, and threads
 past its count return at once. Chromium validates each indirect dispatch,
 which takes about half a millisecond of wall time, more than the wasted
 threads cost.
+
+The counts and each bounce's bind groups are made for `most-bounces`, and
+the wave's uniform is written each frame, so a frame of fewer bounces marks
+an earlier one the last and runs only that many.
+
+## First hits
+
+A ray leaves a surface lifted off it by 1/10,000 of its coordinates' size,
+toward the side it goes, so it does not meet the surface again. Depth alone
+places a first hit less well than that far from the eye: the projection's
+near plane is 0.1 units away, and 30 units out Sponza's outer wall came back
+a millimetre in front of or behind itself. Rays from behind it met the wall
+and darkened it in bands that moved with the camera. So the surface pass
+draws three corners a triangle, reading each corner's vertex through the
+scene's indices, and writes the triangle it drew; `primary` moves the
+depth's point onto that triangle's plane and takes the triangle's normal,
+facing the eye, as the geometric one. The G-buffer keeps only the shading
+normal, so it is no larger for the triangle.
 
 ## The blended layer
 
@@ -153,10 +176,10 @@ consume the same world-space triangles. Mesh topology and materials stay fixed.
 `make-moving-tracer` keeps the leaf order and binary tree for those triangles.
 After a simulation tick, `refit-tracer!` refreshes the leaf boxes, propagates
 their bounds and packs them into the original query buffer. Bindings survive
-a refit. The viewer can discard this build scratch for static scenes. A moving
-tracer accepts one to four bounces. Last Mile uses two, and the final FXAA
-pass samples normalized screen coordinates so a small traced image fills a
-larger browser canvas. [Last Mile](../games/last-mile.md)
+a refit. The viewer can discard this build scratch for static scenes. Last
+Mile asks each frame for two bounces, and the final FXAA pass samples
+normalized screen coordinates so a small traced image fills a larger browser
+canvas. [Last Mile](../games/last-mile.md)
 
 ## Skinned animation
 
@@ -187,6 +210,13 @@ path within the choice and an address that `fetch` reads, a `blob:` one
 for a file of theirs. `retrace` keeps the tracer's pipelines for the new
 scene, and the old scene and light are destroyed. Drag to look, WASD to
 fly, Q and E down and up, the wheel for speed, `[` and `]` for exposure.
+
+Keys also set what a frame costs: 1 to 8 how many times its paths bounce,
+four at first, and `-` and `=` halve and double the pixels traced, each
+side by the square root of two, down to an eighth of each side. The page
+says the settings as they change and keeps them in its save for the next
+visit. Inside Sponza on an RTX 5090 at 2000 by 1217, four bounces at full
+resolution took 18.9 ms a frame, and two at 50% resolution 5.3 ms.
 
 A link dropped on the page is a file too, one whose path is its address,
 and a scene chosen by address names its files relative to it, so the

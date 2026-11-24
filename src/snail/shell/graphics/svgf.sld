@@ -179,7 +179,13 @@
     ;; ---- Planes ----
 
     ;; The planes in order: integrated, ping, pong, then two histories
-    ;; each of colors, moments and places.
+    ;; each of colors, moments and places. Every one is rgba32float: a
+    ;; still camera's history is a running average, which a frame moves by
+    ;; as little as 1/4096 of the difference. Half floats keep 11 bits, so
+    ;; such a step rounds away in each of the three writes on the way to
+    ;; the next history (temporal, variance, the first à-trous level), and
+    ;; a still image drifted darker the longer it held still: a third
+    ;; darker after 30 seconds.
     (define plane-names
       (→ (List String))
       (list "integrated" "ping" "pong" "color" "color" "moments" "moments" "place" "place"))
@@ -207,7 +213,7 @@
                            (make-plane gpu (string-append "svgf/" name)
                                        width
                                        height
-                                       (if (string=? name "place") (Rgba32Float) (Rgba16Float))
+                                       (Rgba32Float)
                                        (list (StorageBinding)
                                              (TextureBinding)
                                              (TextureCopySrc)

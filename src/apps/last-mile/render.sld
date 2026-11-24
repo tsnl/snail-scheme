@@ -159,7 +159,7 @@
           (streak-frames 0)
           (eye (offset (● (carrier w) position) (forward (● (carrier w) heading)) -5.6))
           (tracer (make-moving-tracer gpu (● stage scene) (sky-environment gpu sky 512) format
-                                      (● size first) (● size second) 128 2)))))
+                                      (● size first) (● size second) 128)))))
 
     ;; A camera beside a tree can pass below its crown. Using only the
     ;; trunk's ground footprint would put the eye inside an opaque mesh.
@@ -217,6 +217,6 @@
           (set! (● r tracer)
                 (draw-moving-traced gpu
                                     (resize-tracer gpu (● r tracer) (● size first) (● size second))
-                                    view camera (/ 1.0 (i32->f32 (● size second))) 1.3 changed))
+                                    view camera (/ 1.0 (i32->f32 (● size second))) 1.3 2 changed))
           ((● gpu destroy) (ViewObject view))
           ((● gpu work-done)))))))
