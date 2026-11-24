@@ -74,6 +74,8 @@
 
 ((var storage read_write) (@group 0) (@binding 7) (radiance (array vec4f)))
 
+(var (@group 0) (@binding 8) (triangles (texture_2d u32)))
+
 (var (@group 0) (@binding 9) (normals (texture_2d f32)))
 
 (var (@group 0) (@binding 10) (emission (texture_2d f32)))
@@ -106,17 +108,30 @@
     (+= (get n y) (select t (- t) (>= (get n y) 0.0)))
     (return (normalize n)))
 
-;; The first hit, from the G-buffer and depth at `pixel`.
-(fn first_surface ((pixel vec2i) (z f32)) (-> Surface)
+;; Where depth `z` at `pixel` puts its first hit. Depth is finest near the
+;; eye: tens of units away it misses the surface by more than `leaving`
+;; lifts a ray off it, and the ray would meet the surface it leaves.
+(fn depth_point ((pixel vec2i) (z f32)) (-> vec3f)
     (let size (vec2f (textureDimensions depth)))
     (let ndc (vec2f (- (* (/ (+ (vec2f pixel) 0.5) size) 2.0) 1.0)))
     (let clip (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) z 1.0)))
-    (let packed (textureLoad normals pixel 0))
+    (return (/ (get clip xyz) (get clip w))))
+
+;; The first hit at `pixel`: the depth's point moved onto the plane of the
+;; triangle drawn there, whose normal, facing the eye, is the geometric
+;; one; its shading and material from the G-buffer.
+(fn first_surface ((pixel vec2i) (z f32)) (-> Surface)
+    (let p (depth_point pixel z))
+    (let triangle (get (textureLoad triangles pixel 0) x))
+    (let a (get (corner triangle 0u) position))
+    (var geometric (normalize (cross (- (get (corner triangle 1u) position) a)
+                                     (- (get (corner triangle 2u) position) a))))
+    (if ((< (dot geometric (- (get camera eye xyz) p)) 0.0) (= geometric (- geometric))))
     (let m (textureLoad roughness pixel 0))
     (var (s Surface))
-    (= (get s position) (/ (get clip xyz) (get clip w)))
-    (= (get s normal) (unfolded (get packed xy)))
-    (= (get s geometric) (unfolded (get packed zw)))
+    (= (get s position) (- p (* geometric (dot (- p a) geometric))))
+    (= (get s normal) (unfolded (get (textureLoad normals pixel 0) xy)))
+    (= (get s geometric) geometric)
     (= (get s albedo) (get (textureLoad albedo pixel 0) xyz))
     (= (get s emission) (get (textureLoad emission pixel 0) xyz))
     (= (get s metallic) (get m x))

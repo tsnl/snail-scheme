@@ -84,7 +84,9 @@ G-buffer planes it was traced from, keeps a history across frames, and
 writes the filtered light, scaled by an exposure, into a plane the program
 gives it, such as a `Post`'s. A frame is two compute passes: temporal
 accumulation, variance and the first à-trous level, then four more levels;
-`resize-svgf` follows the canvas.
+`resize-svgf` follows the canvas. Its planes are 32-bit floats: a still
+camera's history is a running average, which a frame moves by as little as
+1/4096, a step half floats round away.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/svgf.sld)
 
@@ -100,7 +102,8 @@ filtered on its own, then blended over them by its alpha
 ([the blended layer](../graphics/tracer.md#the-blended-layer)). `make-tracer` makes a `Tracer` once for a scene and the
 canvas, `resize-tracer` follows the canvas, `retrace` gives it another
 scene and environment with the same pipelines and targets, and
-`draw-traced` draws a frame; `tracer-frames` counts the frames since the
-camera last moved ([a frame](../graphics/tracer.md#a-frame)).
+`draw-traced` draws a frame, its paths bouncing as many times as it asks,
+up to `most-bounces`; `tracer-frames` counts the frames since the camera
+last moved or the bounces changed ([a frame](../graphics/tracer.md#a-frame)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/trace/render.sld)
