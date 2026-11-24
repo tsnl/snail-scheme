@@ -13,6 +13,12 @@ bit, as `tests/programs/math` checks. WebAssembly has no floating-point
 exception flags, so the originals' arithmetic done only to raise them is
 left out.
 
+`half-bits` rounds an `F32` to the nearest f16, ties to even, and answers
+its 16 bits; `half-value` answers the value of such bits, exactly. Data
+that the GPU reads as f16s packs them two to a 32-bit word, low first, as
+WGSL's `unpack2x16float` reads them (`halves` in
+[`(snail shell tensor)`](tensors.md)).
+
 The point of porting rather than importing is that both hosts agree: the
 same program gives the same bits on Node, on a page and on stage 0.
 

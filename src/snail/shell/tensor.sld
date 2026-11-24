@@ -70,6 +70,7 @@
    Bitcast
    Pack
    Pick
+   Halves
    Product
    Fold
    Expr
@@ -144,6 +145,7 @@
    where
    convert
    bitcast
+   halves
    reduced
    reduce
    sum
@@ -235,12 +237,14 @@
 
     ;; What a map's body applies. A comparison answers 1 or 0 in its operands'
     ;; type; `Select` takes a condition, then the value where it is not 0,
-    ;; then the value where it is. The last four are of tiles: `Pack` joins
+    ;; then the value where it is. The last five are of tiles: `Pack` joins
     ;; its operands' elements, in order, into one tile; `Pick` takes its
     ;; operand's elements at the given places, counted row-major, so it
-    ;; transposes, reshapes and selects; `Product` multiplies a tile of
-    ;; (m, k), or a row of k, by one of (k, c); `Fold` combines all of its
-    ;; operand's elements into one.
+    ;; transposes, reshapes and selects; `Halves` reads each u32 of its
+    ;; operand as the two binary16 floats it holds, low half first, as WGSL's
+    ;; `unpack2x16float` does, so m words are 2m floats; `Product` multiplies a tile of (m, k), or a
+    ;; row of k, by one of (k, c); `Fold` combines all of its operand's
+    ;; elements into one.
     (enum Op
       (Neg)
       (Exp)
@@ -274,6 +278,7 @@
       (Bitcast ((to Etype)))
       (Pack)
       (Pick ((indices (List I64))))
+      (Halves)
       (Product)
       (Fold ((op Reduction))))
 
@@ -311,6 +316,7 @@
         ((Bitcast to) (string-append "bitcast " (etype-wgsl to)))
         ((Pack) "pack")
         ((Pick indices) (string-append "pick " (string-join (map show indices) ",")))
+        ((Halves) "halves")
         ((Product) "product")
         ((Fold op) (string-append "fold " (reduction-text op)))))
 
@@ -381,6 +387,7 @@
       (match op
         ((Convert to) to)
         ((Bitcast to) to)
+        ((Halves) (Float))
         ((Select) (list-ref operands 1))
         (_ (list-ref operands 0))))
 
@@ -749,6 +756,16 @@
     (define (not-equal (a View) (b View)) (→ View) (binary (NotEqual) a b))
     (define (convert (a View) (to Etype)) (→ View) (unary (Convert to) a))
     (define (bitcast (a View) (to Etype)) (→ View) (unary (Bitcast to) a))
+
+    ;; Each u32 of `a`'s last axis as the two binary16 floats it holds, low
+    ;; half first: a row of m words becomes one of 2m floats, one operation
+    ;; on a tile of the row. A kernel reading some of a row's floats takes
+    ;; the map in, and computes only the words it reads.
+    (define (halves (a View)) (→ View)
+      (let* ((shape (shape-of a)) (m (list-ref shape (- (length shape) 1))))
+        (mapped (Apply (Halves) (list (Load 0 (Unsigned) (list m))) (Float) (list (* 2 m)))
+                (list a)
+                (take shape (- (length shape) 1)))))
 
     ;; `a` where `condition` is not 0, `b` where it is.
     (define (where (condition View) (a View) (b View)) (→ View)

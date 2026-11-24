@@ -55,7 +55,9 @@
    (only (snail shell graphics splat)
          Splats
          SplatCamera
-         gaussian-shape)
+         gaussian-shape
+         harmonic-words
+         harmonic-half)
    (snail shell graphics splat-train)
    (snail shell tensor)
    (snail shell tensor fuse)
@@ -66,8 +68,9 @@
     ;; ---- The splats as params ----
 
     ;; A `Splats`'s buffers as params: each gaussian's record, `Gaussian`,
-    ;; a row of floats; its 16 colors of coefficients; and the transforms
-    ;; table, a column-major 4x4 matrix a row.
+    ;; a row of floats; its coefficients' words, halves two to a word
+    ;; (`harmonic-words`); and the transforms table, a column-major 4x4
+    ;; matrix a row.
     (record ViewedParams
       ((gaussians View)
        (harmonics View)
@@ -78,7 +81,7 @@
         (gaussians (param "gaussians"
                           (list (● splats capacity) (quotient (stride gaussian-shape) 4))
                           (Float)))
-        (harmonics (param "harmonics" (list (● splats capacity) 16 3) (Float)))
+        (harmonics (param "harmonics" (list (● splats capacity) harmonic-words) (Unsigned)))
         (transforms (param "transforms" (list (● splats transform-capacity) 16) (Float)))))
 
     ;; The params given the splats' own buffers.
@@ -105,14 +108,25 @@
           (scales (log (maximum (field "scale" 3) (scalar 1e-30))))
           (rotations (field "rotation" 4))
           (opacities (log (/ opacity (- (scalar 1.0) opacity))))
-          (dc (narrow h 1 0 1))
-          (degree1 (narrow h 1 1 3))
-          (degree2 (narrow h 1 4 5))
-          (degree3 (narrow h 1 9 7))
+          (dc (degree-colors h 0))
+          (degree1 (degree-colors h 1))
+          (degree2 (degree-colors h 2))
+          (degree3 (degree-colors h 3))
           (live (greater-equal (field "opacity" 1) (scalar (/ 1.0 255.0))))
           (degrees (fill 1.0 (list 3) (Float)))
           (placement (Some (placement-of (● p transforms)
                                          (bitcast (field "transform" 1) (Unsigned))))))))
+
+    ;; Degree d's 2d + 1 colors of each gaussian, unpacked from the words
+    ;; they alone hold: those from half `harmonic-half` of its first color,
+    ;; and the padding half with them.
+    (define (degree-colors (h View) (d I64)) (→ View)
+      (let ((colors (+ (* 2 d) 1)) (first (quotient (harmonic-half (* d d)) 2)))
+        (reshape (narrow (halves (narrow h 1 first (quotient (+ (* 3 colors) 1) 2)))
+                         1
+                         0
+                         (* 3 colors))
+                 (list (list-ref (shape-of h) 0) colors 3))))
 
     ;; Where a field of `Gaussian` starts in its record, in floats.
     (define (field-word (name String)) (→ I64)

@@ -269,7 +269,12 @@ libraries are building blocks with no knowledge of what they order.
 al., 2023) with them. A `Gaussian` is a `Pod` record: its center, the row
 of the transforms table that places it, a unit quaternion, its standard
 deviations and its opacity, already activated; its 16 spherical-harmonic
-colors, to degree 3, sit beside it in a buffer of 48 floats a gaussian. A
+colors, to degree 3, sit beside it in a buffer of f16s two to a 32-bit
+word, 26 words a gaussian: 104 bytes where 48 floats took 192. Each degree
+starts a word of its own, so a kernel reading one degree reads only its
+words, and kernels unpack them with WGSL's own `unpack2x16float`, which
+every device has, where `shader-f16` is missing from Dawn on NVIDIA's
+Vulkan driver and from SwiftShader. A
 program makes its `Splats` once with room for its gaussians and its
 transforms, writes `Cloud`s of packed gaussians where it likes, and writes
 the transforms table whenever things move, so clouds are posed and
