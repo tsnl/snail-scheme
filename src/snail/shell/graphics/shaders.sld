@@ -10,7 +10,7 @@
 ;; `splat-ssim-shader`, `splat-ssim-forward-shader`,
 ;; `splat-ssim-backward-shader`, `splat-place-shader`, `splat-normals-shader`
 ;; and `splat-knn-shader`, and the path tracer's `bvh-shader`,
-;; `rays-shader`, `svgf-shader`, `environment-shader` and
+;; `rays-shader`, `reservoir-operations`, `svgf-shader`, `environment-shader` and
 ;; `environment-light-shader`.
 (generate-library (snail shell graphics shaders)
                   (import
@@ -97,6 +97,9 @@
                                           (new Pair
                                             (first "rays-shader")
                                             (second (link-file "rays.wgsl.scm")))
+                                          (new Pair
+                                            (first "reservoir-operations")
+                                            (second (link-file "reservoir.wgsl.scm")))
                                           (new Pair
                                             (first "svgf-shader")
                                             (second (link-file "svgf.wgsl.scm")))
