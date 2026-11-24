@@ -8,7 +8,8 @@
 ;; to Khronos's sample models and Poly Haven's environments, are fetched
 ;; by the browser from where they are published. The page's query chooses
 ;; the same way: `?model=ADDRESS&env=ADDRESS`, and `&eye=x,y,z,yaw,pitch`
-;; places the camera; without it, the camera looks at the scene from
+;; places the camera. With &spp=0.5 a still frame traces a checkerboard.
+;; Without an eye, the camera looks at the scene from
 ;; outside. Files that cannot be shown leave the view as it was, and the
 ;; page says why. The frames average while the camera holds still. Keys
 ;; set what a frame costs, which the page keeps for the next visit: 1 to
@@ -44,16 +45,24 @@
 
 (define layer-size (→ I32) 1024)
 
-;; The value the query gives `name`, from after `name=` up to the next
-;; `&`, unescaped.
 (define (parameter (address String) (name String)) (→ (Option String))
-  (match (found address (string-append name "=") 0)
-    ((Some at)
-     (let ((rest (substring address (+ at (+ 1 (string-length name))) (string-length address))))
-       (Some (uri-path (match (string-index rest #\&)
-                         ((Some end) (substring rest 0 end))
-                         ((None) rest))))))
-    ((None) (None))))
+  (let ((page (match (string-index address #\#)
+                ((Some end) (substring address 0 end))
+                ((None) address))))
+    (match (string-index page #\?)
+      ((Some at)
+       (query-field (substring page (+ at 1) (string-length page)) (string-append name "=")))
+      ((None) (None)))))
+
+;; Match a whole query field before decoding its value so an escaped
+;; ampersand in a model URL stays part of that URL.
+(define (query-field (query String) (key String)) (→ (Option String))
+  (let* ((size (string-length query)) (n (string-length key))
+         (end (match (string-index query #\&) ((Some at) at) ((None) size))))
+    (cond ((and (<= n end) (string=? (substring query 0 n) key))
+           (Some (uri-path (substring query n end))))
+          ((< end size) (query-field (substring query (+ end 1) size) key))
+          (else (None)))))
 
 ;; The files the query names, each at its address: `model` and `env`.
 (define (query-files (address String)) (→ (List Chosen))
@@ -80,11 +89,6 @@
             (None)))
        (_ (None))))
     ((None) (None))))
-
-(define (found (text String) (part String) (from I64)) (→ (Option I64))
-  (cond ((> (+ from (string-length part)) (string-length text)) (None))
-        ((string=? (substring text from (+ from (string-length part))) part) (Some from))
-        (else (found text part (+ from 1)))))
 
 (define sky
   (→ Sky)
@@ -186,6 +190,7 @@
                    (out OutputPort)
                    (format TextureFormat)
                    (save (Fn Settings → Unit))
+                   (sampling TraceSampling)
                    (view (Option View))
                    (fly Fly)
                    (settings Settings))
@@ -196,7 +201,7 @@
        (match view
          ((Some shown)
           (let* ((fly (flown fly elapsed))
-                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly settings))))
+                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly settings sampling))))
             ((● gpu work-done))
             ((● events report-ready))
             (loop (Some shown) fly settings (timed out timing elapsed))))
@@ -221,16 +226,18 @@
 
 ;; A frame drawn into the canvas, from where the fly is, traced at the
 ;; size and with the bounces the settings ask for.
-(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly) (settings Settings)) (→ Tracer)
+(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly) (settings Settings) (sampling TraceSampling))
+  (→ Tracer)
   (let* ((canvas ((● gpu current-texture)))
          (height (traced settings (● canvas height))))
-    (draw-traced gpu (resize-tracer gpu tracer (traced settings (● canvas width)) height)
-                 (view-of gpu (● canvas texture) 1)
-                 (fly-camera fly
-                             (/ (i32->f64 (● canvas width)) (i32->f64 (max 1 (● canvas height)))))
-                 (fly-spread height)
-                 (fly-exposure fly)
-                 (● settings bounces))))
+    (draw-sampled-traced gpu (resize-tracer gpu tracer (traced settings (● canvas width)) height)
+                         (view-of gpu (● canvas texture) 1)
+                         (fly-camera fly
+                                     (/ (i32->f64 (● canvas width))
+                                        (i32->f64 (max 1 (● canvas height)))))
+                         (fly-spread height)
+                         (fly-exposure fly)
+                         (● settings bounces) #f sampling)))
 
 ;; Frames and milliseconds since the last report, which comes every two
 ;; seconds.
@@ -474,11 +481,14 @@
                 (settings Settings)
                 (save (Fn Settings → Unit)))
   (→ Unit)
-  (let ((format (● ((● gpu request-device)) format))
-        (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
-        (address ((● fetch page-address))))
+  (let* ((format (● ((● gpu request-device)) format))
+         (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
+         (address ((● fetch page-address)))
+         (sampling
+          (match (parameter address "spp") ((Some "0.5") (Checkerboard)) (_ (EveryPixel)))))
     (match (match (query-files address)
              ((Nil) (new Pair (first (None)) (second outside)))
              (files
               (opened gpu dom fetch out format settings (None) outside files (query-eye address))))
-      ((Pair view fly) (view-loop gpu dom picker events fetch out format save view fly settings)))))
+      ((Pair view fly)
+       (view-loop gpu dom picker events fetch out format save sampling view fly settings)))))

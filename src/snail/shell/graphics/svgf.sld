@@ -31,6 +31,7 @@
     ;; octahedral normals (shading and geometric), emission, albedo and
     ;; screen motion, its depth, and the uniform of the camera it was seen
     ;; with, whose `previous` is last frame's.
+    ;; A negative noisy alpha holds the observation at the same still pixel.
     (record SvgfInputs
       ((noisy GpuTextureView)
        (normals GpuTextureView)
