@@ -344,7 +344,10 @@
      0)))
 
 ;; Eight params summed: a kernel binds at most seven buffers besides its
-;; port, so the sum is two maps.
+;; port, so the sum is two maps. And a chain whose every step reads the
+;; last three times: as a tree its body triples each step, far past 256
+;; expressions, but its distinct expressions, which lowering emits, are
+;; two a step, so it is one kernel.
 (define (fusion-limits (out OutputPort)) (→ Unit)
   (let* ((names (map (lambda (k) (string-append "p" (show k))) (iota 8)))
          (ps (map (lambda (name) (param name (list 4) (Float))) names))
@@ -353,7 +356,11 @@
                                              (first name)
                                              (second (ramp 4 1.0 (i64->f64 k)))))
                                          names))))
-    (fused-line out "eight params" (fold-left + (list-ref ps 0) (list-drop ps 1)) inputs)))
+    (fused-line out "eight params" (fold-left + (list-ref ps 0) (list-drop ps 1)) inputs)
+    (fused-line out
+                "shared chain"
+                (fold-left (lambda (v _) (+ (* v v) v)) (* (scalar 0.1) (list-ref ps 0)) (iota 8))
+                inputs)))
 
 ;; Updates whose maps read each other's values whole, as Adam's do, fused:
 ;; the map reading the others writes them too, so their ports are one

@@ -55,6 +55,7 @@ picked: 8 nodes, fused 2, the same values
 kept: 9 nodes, fused 6, the same values
 picked thrice: 7 nodes, fused 7, the same values
 eight params: 15 nodes, fused 10, the same values
+shared chain: 18 nodes, fused 2, the same values
 adam: 16 nodes, fused 5, the last of 3 ports, the same values
 reordered: 7 nodes, fused 5, the last of 1 ports, the same values
 read later: 7 nodes, fused 5, the map of 2 ports, the same values

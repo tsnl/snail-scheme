@@ -104,7 +104,8 @@ reduction's body takes in maps the same way, so a large matrix product
 computes its products as it sums them; nothing takes in a reduction, a
 gather, a concat that is not a pack, a sort or a custom kernel.
 
-Two limits shape it: a body stays within 256 expressions, and a kernel
+Two limits shape it: a body stays within 256 distinct expressions, each
+counted once however many times it is inlined, and a kernel
 within the eight storage buffers every device allows, its ports among them.
 A producer read by several kernels is computed in each, so it is taken in
 only where that holds no more memory, for no longer, than its own buffer
