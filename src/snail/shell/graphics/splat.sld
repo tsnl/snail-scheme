@@ -24,12 +24,14 @@
    SplatCamera
    Projected
    gaussian-shape
+   gaussian-word
    harmonic-words
    harmonic-half
    write-harmonics!
    Cloud
    pack-cloud
    cloud-center
+   cloud-gaussian
    cloud-coefficient
    splat-camera
    Splats
@@ -52,15 +54,19 @@
 
     ;; A gaussian where its transform puts the origin: its center, its row
     ;; of the transforms table, its orientation as a unit quaternion x, y,
-    ;; z, w, its standard deviations along its axes, and its opacity, from
-    ;; 0 to 1. Values are activated already: a 3DGS file's log scales and
-    ;; opacity logits are taken through exp and the sigmoid when read.
+    ;; z, w, and its standard deviations along its axes as x, y and z with
+    ;; its opacity, from 0 to 1, as w. The quaternion and the deviations
+    ;; with the opacity are f16s (`Vec4h`), so a record is 32 bytes where
+    ;; floats took 48. The center stays a float: f16s step by 0.004 six
+    ;; units from the origin, more than a tenth of the size of three in
+    ;; four of bicycle's trained gaussians. Values are activated already: a
+    ;; 3DGS file's log scales and opacity logits are taken through exp and
+    ;; the sigmoid when read.
     (record Gaussian
       ((position Vec3f)
        (transform I32)
-       (rotation Vec4f)
-       (scale Vec3f)
-       (opacity F32))
+       (rotation Vec4h)
+       (scale-opacity Vec4h))
       (deriving Pod))
 
     ;; The camera: the view matrix, looking down -z; the eye; the focal
@@ -88,6 +94,12 @@
     (define camera-shape (→ (Shape SplatCamera)) (shape))
 
     (define projected-shape (→ (Shape Projected)) (shape))
+
+    ;; Where a field of `Gaussian` starts in its record, in 32-bit words.
+    (define (gaussian-word (name String)) (→ I64)
+      (match (find (lambda (f) (string=? (● f name) name)) (● gaussian-shape layout fields))
+        ((Some f) (quotient (● f offset) 4))
+        ((None) (panic (string-append "splat: a Gaussian has no field " name)))))
 
     (define transform-shape (→ (Shape Mat4x4f)) (shape))
 
@@ -199,6 +211,34 @@
                  (f32->f64 (bits->f32 (i32-or (i32-or (byte at 0) (byte (+ at 1) 8))
                                               (i32-or (byte (+ at 2) 16) (byte (+ at 3) 24)))))))
              (iota 3))))
+
+    ;; Gaussian i of a cloud, read back from its record: its f16s are the
+    ;; values they hold, not those written.
+    (define (cloud-gaussian (cloud Cloud) (i I64)) (→ Gaussian)
+      (let* ((at (* i (stride gaussian-shape)))
+             (word (lambda (k) (record-word (● cloud gaussians) (+ at (* 4 k)))))
+             (float (lambda (k) (bits->f32 (i64->i32 (word k)))))
+             (halves (lambda (k)
+                       (let ((half (lambda (w) (f64->f32 (half-value w)))))
+                         (new Vec4h
+                           (x (half (i64-and (word k) 65535)))
+                           (y (half (i64-shift-right/logical (word k) 16)))
+                           (z (half (i64-and (word (+ k 1)) 65535)))
+                           (w (half (i64-shift-right/logical (word (+ k 1)) 16))))))))
+        (new Gaussian
+          (position (new Vec3f (x (float 0)) (y (float 1)) (z (float 2))))
+          (transform (i64->i32 (word (gaussian-word "transform"))))
+          (rotation (halves (gaussian-word "rotation")))
+          (scale-opacity (halves (gaussian-word "scale-opacity"))))))
+
+    ;; The little-endian word at byte `at`, unsigned.
+    (define (record-word (bytes Bytes) (at I64)) (→ I64)
+      (fold-left (lambda (word k)
+                   (i64-or word
+                           (i64-shift-left (i32->i64 (u8->i32 (array-ref bytes (+ at k))))
+                                           (* 8 k))))
+                 0
+                 (iota 4)))
 
     (define (color-floats (color Vec3f)) (→ (List F32))
       (list (● color x) (● color y) (● color z)))

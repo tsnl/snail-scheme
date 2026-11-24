@@ -56,6 +56,7 @@
          Splats
          SplatCamera
          gaussian-shape
+         gaussian-word
          harmonic-words
          harmonic-half)
    (snail shell graphics splat-train)
@@ -68,7 +69,7 @@
     ;; ---- The splats as params ----
 
     ;; A `Splats`'s buffers as params: each gaussian's record, `Gaussian`,
-    ;; a row of floats; its coefficients' words, halves two to a word
+    ;; a row of 32-bit words; its coefficients' words, f16s two to a word
     ;; (`harmonic-words`); and the transforms table, a column-major 4x4
     ;; matrix a row.
     (record ViewedParams
@@ -80,7 +81,7 @@
       (new ViewedParams
         (gaussians (param "gaussians"
                           (list (● splats capacity) (quotient (stride gaussian-shape) 4))
-                          (Float)))
+                          (Unsigned)))
         (harmonics (param "harmonics" (list (● splats capacity) harmonic-words) (Unsigned)))
         (transforms (param "transforms" (list (● splats transform-capacity) 16) (Float)))))
 
@@ -93,29 +94,32 @@
              (● splats transforms)))
 
     ;; The params as the training renderer's cloud. Each record is narrowed
-    ;; to its fields where its layout puts them; its activated scale and
-    ;; opacity are taken back to the logarithm and the logit the renderer
-    ;; activates, kept off 0 and 1, where those are infinite. A gaussian
-    ;; under 1/255 opacity is not live, as the quads cull it, and every
-    ;; degree shades: a cloud of a lower degree has zeros above it.
+    ;; to its fields where its layout puts them: its center's floats from
+    ;; their words, its f16s unpacked. Its activated scale and opacity are
+    ;; taken back to the logarithm and the logit the renderer activates,
+    ;; kept off 0 and 1, where those are infinite. A gaussian under 1/255
+    ;; opacity is not live, as the quads cull it, and every degree shades:
+    ;; a cloud of a lower degree has zeros above it.
     (define (viewed-cloud (p ViewedParams)) (→ Cloud)
       (let* ((g (● p gaussians))
              (h (● p harmonics))
-             (field (lambda (name size) (narrow g 1 (field-word name) size)))
-             (opacity (minimum (maximum (field "opacity" 1) (scalar 1e-7)) (scalar 0.9999999))))
+             (field (lambda (name size) (narrow g 1 (gaussian-word name) size)))
+             (size (halves (field "scale-opacity" 2)))
+             (alpha (narrow size 1 3 1))
+             (opacity (minimum (maximum alpha (scalar 1e-7)) (scalar 0.9999999))))
         (new Cloud
-          (means (field "position" 3))
-          (scales (log (maximum (field "scale" 3) (scalar 1e-30))))
-          (rotations (field "rotation" 4))
+          (means (bitcast (field "position" 3) (Float)))
+          (scales (log (maximum (narrow size 1 0 3) (scalar 1e-30))))
+          (rotations (halves (field "rotation" 2)))
           (opacities (log (/ opacity (- (scalar 1.0) opacity))))
           (dc (degree-colors h 0))
           (degree1 (degree-colors h 1))
           (degree2 (degree-colors h 2))
           (degree3 (degree-colors h 3))
-          (live (greater-equal (field "opacity" 1) (scalar (/ 1.0 255.0))))
+          (live (greater-equal alpha (scalar (/ 1.0 255.0))))
           (degrees (fill 1.0 (list 3) (Float)))
           (placement (Some (placement-of (● p transforms)
-                                         (bitcast (field "transform" 1) (Unsigned))))))))
+                                         (field "transform" 1)))))))
 
     ;; Degree d's 2d + 1 colors of each gaussian, unpacked from the words
     ;; they alone hold: those from half `harmonic-half` of its first color,
@@ -127,12 +131,6 @@
                          0
                          (* 3 colors))
                  (list (list-ref (shape-of h) 0) colors 3))))
-
-    ;; Where a field of `Gaussian` starts in its record, in floats.
-    (define (field-word (name String)) (→ I64)
-      (match (find (lambda (f) (string=? (● f name) name)) (● gaussian-shape layout fields))
-        ((Some f) (quotient (● f offset) 4))
-        ((None) (panic (string-append "splat view: a Gaussian has no field " name)))))
 
     ;; ---- Placement ----
 
