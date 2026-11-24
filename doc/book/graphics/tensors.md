@@ -258,7 +258,9 @@ its arguments see once. A choice of zero, `(where condition value 0)`
 whose condition is one value however wide the value, is an `if`: the
 value's lets run only where the condition holds, so a row it culls reads
 and computes nothing for it in the kernel the choice is in. What fusing
-left in a kernel of its own runs for every row. The splat renderer
+left in a kernel of its own runs for every row. A choice met again, as
+fusing copies a map into each place that reads it, takes the names its
+first `if` set, so a kernel computes each choice once. The splat renderer
 chooses a culled gaussian's harmonics so, which in a training step skips
 a quarter of their kernels' time. The viewer's frame is no faster: its
 sum of the harmonics' products, which reads their coefficients, is a
