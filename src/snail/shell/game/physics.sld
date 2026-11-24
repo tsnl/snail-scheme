@@ -3,7 +3,15 @@
 ;; a fast vehicle cannot skip a thin wall between simulation ticks.
 (define-library (snail shell game physics)
   (export XZ xz distance heading-to forward offset Footprint footprint clear?
-          Body body travel walk trace-distance)
+          Body
+          body
+          Body-heading-set
+          between-bodies
+          sweep-fraction
+          travel
+          walk
+          clear-path?
+          trace-distance)
   (import
    (snail core base)
    (snail shell math)
@@ -80,6 +88,18 @@
                      (if (< (● hit time) (● nearest time)) hit nearest)))
                  free walls))
 
+    (define (sweep-fraction (p XZ) (delta XZ) (radius F64) (walls (List Footprint))) (→ F64)
+      (● (first-contact p delta radius walls) time))
+
+    (define (clear-path? (from XZ) (to XZ) (radius F64) (walls (List Footprint))) (→ Bool)
+      (and (clear? from radius walls) (clear? to radius walls)
+           (= (● (first-contact from
+                                (xz (- (● to x) (● from x)) (- (● to z) (● from z)))
+                                radius
+                                walls)
+                 time)
+              1.0)))
+
     (record Body
       ((position XZ)
        (velocity XZ)
@@ -88,6 +108,14 @@
 
     (define (body (p XZ) (angle F64)) (→ Body)
       (new Body (position p) (velocity (xz 0.0 0.0)) (heading angle)))
+
+    ;; Display between two completed simulation ticks; heading takes the short arc.
+    (define (between-bodies (a Body) (b Body) (t F64)) (→ Body)
+      (let* ((p (● a position)) (q (● b position)) (d (- (● b heading) (● a heading))))
+        (new Body (position (xz (+ (● p x) (* t (- (● q x) (● p x))))
+                                (+ (● p z) (* t (- (● q z) (● p z))))))
+             (velocity (● b velocity))
+             (heading (+ (● a heading) (* t (atan2 (sin d) (cos d))))))))
 
     (define (travel (p XZ) (v XZ) (angle F64) (radius F64) (walls (List Footprint)) (dt F64))
       (→ Body)

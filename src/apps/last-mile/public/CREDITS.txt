@@ -1,4 +1,6 @@
-Sedan and palette from Kenney's Car Kit 3.1, CC0.
+San Francisco map © OpenStreetMap contributors, ODbL 1.0. Shoreline from DataSF and elevation from USGS 3DEP. See geodata/SOURCES.txt and geodata/city.json for attribution and the downloadable database.
+
+Yellow cab (taxi.glb), passenger car (sedan.glb) and shared palette from Kenney's Car Kit 3.1, CC0.
 https://kenney.nl/assets/car-kit
 https://creativecommons.org/publicdomain/zero/1.0/
 

@@ -22,6 +22,7 @@
    Tone
    Neutral
    Filmic
+   Photographic
    make-post
    resize-post
    draw-post)
@@ -108,10 +109,12 @@
 
     ;; How light becomes the screen's colors: `Neutral` for light already
     ;; in display terms, which keeps colors below 0.8 as they are;
-    ;; `Filmic`, Hable's curve and sRGB encoding, for physical light.
+    ;; `Filmic` applies Hable's curve per channel. `Photographic` preserves
+    ;; hue through the shoulder. Both encode scene-linear light as sRGB.
     (enum Tone
       (Neutral)
-      (Filmic))
+      (Filmic)
+      (Photographic))
 
     ;; The tone-mapping and FXAA pipelines, FXAA's sampler, and the targets
     ;; for the canvas's size.
@@ -139,7 +142,8 @@
              (tone (screen-pipeline gpu module
                                     (match curve
                                       ((Neutral) "tone_fragment")
-                                      ((Filmic) "filmic_fragment"))
+                                      ((Filmic) "filmic_fragment")
+                                      ((Photographic) "photographic_fragment"))
                                     (Rgba8Unorm)))
              (fxaa (screen-pipeline gpu module "fxaa_fragment" format))
              (sampler ((● gpu create-sampler) (new SamplerDescriptor

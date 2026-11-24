@@ -96,6 +96,7 @@ Three conventions run through the shell:
 | [`(snail shell dom)`](pages.md#snail-shell-dom), [`(snail shell dom page)`](pages.md#snail-shell-dom-page), [`(snail shell dom memory)`](pages.md#snail-shell-dom-memory) | A document as a capability, over the page or in memory |
 | [`(snail shell fetch)`](pages.md#snail-shell-fetch), [`(snail shell fetch page)`](pages.md#snail-shell-fetch-page) | Requests and server-sent events |
 | [`(snail shell files)`](pages.md#snail-shell-files), [`(snail shell files page)`](pages.md#snail-shell-files-page) | Files the user drops on the page or picks |
+| [`(snail shell base64)`](pages.md#snail-shell-base64) | Encode bytes as a data URL |
 | [`(snail shell png)`](pages.md#snail-shell-png) | PNG files and data URLs of RGBA pixels |
 | [`(snail shell sprite)`](pages.md#snail-shell-sprite) | Animations on sheets of equal cells |
 
@@ -139,9 +140,21 @@ Three conventions run through the shell:
 | [`(snail shell graphics bvh)`](tracing.md#snail-shell-graphics-bvh) | A BVH over triangles, and ray queries through it |
 | [`(snail shell graphics environment)`](tracing.md#snail-shell-graphics-environment) | Light from all around: an HDR file or a sky |
 | [`(snail shell graphics gltf)`](tracing.md#snail-shell-graphics-gltf) | glTF 2.0 scenes, read |
+| [`(snail shell graphics animation)`, `(snail shell graphics gltf animation)`](tracing.md#skinned-animation) | Generic rigs, authored clips and glTF skins |
 | [`(snail shell graphics trace scene)`](tracing.md#snail-shell-graphics-trace-scene) | A glTF scene on the device |
 | [`(snail shell graphics svgf)`](tracing.md#snail-shell-graphics-svgf) | A denoiser for one path a pixel |
 | [`(snail shell graphics trace render)`](tracing.md#snail-shell-graphics-trace-render) | A scene path traced to the canvas |
+
+### Game simulation and stories
+
+| Library | For |
+| --- | --- |
+| [`(snail shell game physics)`, `terrain`, `vehicle`, `boarding`](games.md#movement-and-boarding) | CPU movement, vehicle kinematics and riders |
+| [`(snail shell game humanoid)`, `pedestrian`](games.md#actors-and-scenery) | Character poses and walking behavior |
+| [`(snail shell game drawing)`, `figure`, `scenery`](games.md#actors-and-scenery) | Rigid parts and their placement |
+| [`(snail shell game quest)`](games.md#quests) | Typed stage and event rules |
+| [`(snail shell game dialogue)`](games.md#dialogue) | Spoken lines, branching replies and saved cursors |
+| [`(snail shell game ink)`](games.md#compiling-ink) | Generate a dialogue library from linked Ink sources |
 
 ### Tensors
 
@@ -197,6 +210,7 @@ Three conventions run through the shell:
 Each application keeps its libraries beside its scripts, under
 `src/apps/NAME/`:
 
+- `(apps last-mile …)` holds the San Francisco cab shift, GPS, Ink conversation and renderer. [Last Mile Taxi](../games/last-mile.md)
 - `(apps siegework …)`: the colony game's land, rules, siege, view and HUD
   ([Siegework](../games/siegework.md)).
 - `(apps hearsay …)`: the rumor mill and the favor ledger, their screens

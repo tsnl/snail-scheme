@@ -16,11 +16,13 @@
 (define-library (snail shell graphics environment)
   (export
    Sky
+   Atmosphere make-atmosphere-light update-atmosphere!
    Environment
    Hdr
    read-hdr
    hdr-environment
    sky-environment
+   SkyLight make-sky-light update-sky! release-sky-light
    environment-group
    release-environment)
   (import
@@ -42,11 +44,19 @@
        (horizon Vec4f)
        (ground Vec4f)))
 
-    ;; Its radiance, rgba32float, and its table, r32float and a texel
-    ;; wider and taller than the radiance.
+    ;; The direction to the sun, wind displacement in kilometres and
+    ;; cloud cover in [0, 1]. A cover of zero gives a clear atmosphere.
+    (record Atmosphere
+      ((sun Vec3f)
+       (wind Vec2f)
+       (cover F32)))
+
+    ;; Radiance and its cumulative sampling table, plus two texels holding
+    ;; an optional solar disc's direction, angular radius and irradiance.
     (record Environment
       ((radiance Plane)
-       (table Plane)))
+       (table Plane)
+       (disc Plane)))
 
     ;; The kernels' uniform: the file's width and height and the
     ;; environment's, the factor between them, and the sky.
@@ -57,7 +67,8 @@
        (sun-light Vec4f)
        (zenith Vec4f)
        (horizon Vec4f)
-       (ground Vec4f))
+       (ground Vec4f)
+       (weather Vec4f))
       (deriving Pod))
 
     (define shape-shape (→ (Shape EnvironmentShape)) (shape))
@@ -183,7 +194,7 @@
              (rgbe (storage gpu "environment/rgbe" (* 4 (* (● hdr width) (● hdr height)))))
              (radiance (plane gpu "environment/radiance" width height (Rgba32Float)))
              (uniform (shape-uniform gpu (sized hdr width height factor)))
-             (kernels (environment-kernels gpu)))
+             (kernels (environment-kernels gpu (list "unrle" "downsample"))))
         (let* ((encoder ((● gpu create-command-encoder)))
                (pass ((● gpu begin-compute-pass) encoder)))
           (bound gpu pass
@@ -214,39 +225,98 @@
         (sun-light (zero))
         (zenith (zero))
         (horizon (zero))
-        (ground (zero))))
+        (ground (zero))
+        (weather (zero))))
 
     (define (zero) (→ Vec4f) (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 0.0)))
 
-    ;; A sky drawn `width` texels across and half as tall.
+    ;; ---- Changing skies ----
+
+    ;; Updating these same textures keeps the tracer's bindings and geometry.
+    ;; Both the radiance and its sampling distribution belong to one sky.
+    (record SkyLight
+      ((environment Environment)
+       (kernels (List (Pair String GpuComputePipeline)))
+       (uniform GpuBuffer)
+       (sums GpuBuffer)
+       (width I64)))
+    (define (sky-size (width I64)) (→ Vec4i)
+      (new Vec4i (x 0) (y 0) (z (i64->i32 width)) (w (i64->i32 (quotient width 2)))))
+
+    (define (sky-shape (sky Sky) (width I64)) (→ EnvironmentShape)
+      (new EnvironmentShape
+        (size (sky-size width))
+        (factor (new Vec4i (x 1) (y 0) (z 0) (w 0)))
+        (sun (● sky sun)) (sun-light (● sky sun-light))
+        (zenith (● sky zenith)) (horizon (● sky horizon)) (ground (● sky ground))
+        (weather (zero))))
+
+    (define (atmosphere-shape (air Atmosphere) (width I64)) (→ EnvironmentShape)
+      (new EnvironmentShape
+        (size (sky-size width))
+        (factor (new Vec4i (x 1) (y 0) (z 0) (w 0)))
+        (sun (new Vec4f (x (● air sun x)) (y (● air sun y)) (z (● air sun z)) (w 0.9999892)))
+        (sun-light (zero)) (zenith (zero)) (horizon (zero)) (ground (zero))
+        (weather (new Vec4f (x (● air wind x)) (y (● air wind y)) (z (● air cover)) (w 1.0)))))
+
+    (define (make-sky-light (gpu Gpu) (sky Sky) (width I64)) (→ SkyLight)
+      (new-sky-light gpu width (sky-shape sky width) "sky"))
+
+    (define (make-atmosphere-light (gpu Gpu) (air Atmosphere) (width I64)) (→ SkyLight)
+      (new-sky-light gpu width (atmosphere-shape air width) "atmosphere"))
+
+    (define (new-sky-light (gpu Gpu) (width I64) (s EnvironmentShape) (entry String)) (→ SkyLight)
+      (let* ((h (quotient width 2))
+             (env (new Environment
+                    (radiance (plane gpu "environment/radiance" width h (Rgba32Float)))
+                    (table (plane gpu "environment/table" (+ width 1) (+ h 1) (R32Float)))
+                    (disc (plane gpu "environment/disc" 2 1 (Rgba32Float)))))
+             (light (new SkyLight
+                      (environment env)
+                      (kernels (environment-kernels gpu (list "sky" "atmosphere" "solar_disc")))
+                      (uniform (shape-uniform gpu s))
+                      (sums (storage gpu "environment/sums" (* 4 h)))
+                      (width width))))
+        (bake-sky! gpu light s entry)
+        light))
+
+    (define (update-sky! (gpu Gpu) (light SkyLight) (sky Sky)) (→ Unit)
+      (bake-sky! gpu light (sky-shape sky (● light width)) "sky"))
+
+    (define (update-atmosphere! (gpu Gpu) (light SkyLight) (air Atmosphere)) (→ Unit)
+      (bake-sky! gpu light (atmosphere-shape air (● light width)) "atmosphere"))
+
+    (define (bake-sky! (gpu Gpu) (light SkyLight) (s EnvironmentShape) (entry String)) (→ Unit)
+      (let* ((w (● light width)) (h (quotient w 2)) (e (● light environment))
+             (encoder ((● gpu create-command-encoder))) (pass ((● gpu begin-compute-pass) encoder))
+             (uniform (buffer 3 (● light uniform)))
+             (entries (list (TextureEntry 5 (● e radiance view))
+                            (buffer 6 (● light sums))
+                            (TextureEntry 7 (● e table view)))))
+        ((● gpu write-buffer) (● light uniform) 0 (pod-bytes shape-shape s))
+        (bound gpu pass (● light kernels) entry (list uniform (TextureEntry 4 (● e radiance view))))
+        (dispatch-texels gpu pass (i64->i32 w) (i64->i32 h))
+        (bound gpu
+               pass
+               (● light kernels)
+               "solar_disc"
+               (list uniform (TextureEntry 8 (● e disc view))))
+        ((● gpu dispatch-workgroups) pass 1 1 1)
+        (bound gpu pass (● light kernels) "weigh" entries) (dispatch-items gpu pass h 64)
+        (bound gpu pass (● light kernels) "marginal" entries)
+        ((● gpu dispatch-workgroups) pass 1 1 1)
+        ((● gpu end-compute-pass) pass) ((● gpu submit) (list ((● gpu finish) encoder)))))
+    (define (release-sky-work (gpu Gpu) (light SkyLight)) (→ Unit)
+      ((● gpu destroy) (BufferObject (● light sums)))
+      ((● gpu destroy) (BufferObject (● light uniform)))
+      (for-each (lambda (k) ((● gpu destroy) (ComputePipelineObject (● k second))))
+                (● light kernels)))
+    (define (release-sky-light (gpu Gpu) (light SkyLight)) (→ Unit)
+      (release-sky-work gpu light) (release-environment gpu (● light environment)))
     (define (sky-environment (gpu Gpu) (sky Sky) (width I64)) (→ Environment)
-      (let* ((height (quotient width 2))
-             (radiance (plane gpu "environment/radiance" width height (Rgba32Float)))
-             (uniform (shape-uniform gpu (new EnvironmentShape
-                                           (size (new Vec4i
-                                                   (x 0)
-                                                   (y 0)
-                                                   (z (i64->i32 width))
-                                                   (w (i64->i32 height))))
-                                           (factor (new Vec4i (x 1) (y 0) (z 0) (w 0)))
-                                           (sun (● sky sun))
-                                           (sun-light (● sky sun-light))
-                                           (zenith (● sky zenith))
-                                           (horizon (● sky horizon))
-                                           (ground (● sky ground)))))
-             (kernels (environment-kernels gpu)))
-        (let* ((encoder ((● gpu create-command-encoder)))
-               (pass ((● gpu begin-compute-pass) encoder)))
-          (bound gpu
-                 pass
-                 kernels
-                 "sky"
-                 (list (buffer 3 uniform) (TextureEntry 4 (● radiance view))))
-          (dispatch-texels gpu pass (i64->i32 width) (i64->i32 height))
-          ((● gpu end-compute-pass) pass)
-          ((● gpu submit) (list ((● gpu finish) encoder))))
-        ((● gpu destroy) (BufferObject uniform))
-        (with-table gpu kernels radiance width height)))
+      (let ((light (make-sky-light gpu sky width)))
+        (release-sky-work gpu light)
+        (● light environment)))
 
     ;; The radiance with its table: each row's distribution, then the
     ;; rows'.
@@ -271,11 +341,12 @@
         ((● gpu destroy) (BufferObject sums))
         (for-each (lambda (named) ((● gpu destroy) (ComputePipelineObject (● named second))))
                   kernels)
-        (new Environment (radiance radiance) (table table))))
+        (new Environment (radiance radiance) (table table)
+             (disc (plane gpu "environment/disc" 2 1 (Rgba32Float))))))
 
     (define (release-environment (gpu Gpu) (environment Environment)) (→ Unit)
       (for-each (lambda (plane) (release-plane gpu plane))
-                (list (● environment radiance) (● environment table))))
+                (list (● environment radiance) (● environment table) (● environment disc))))
 
     ;; Group 2 of `pipeline`, a kernel that includes
     ;; `environment-light-shader`.
@@ -285,18 +356,25 @@
                     2
                     "environment"
                     (list (TextureEntry 0 (● environment radiance view))
-                          (TextureEntry 1 (● environment table view)))))
+                          (TextureEntry 1 (● environment table view))
+                          (TextureEntry 2 (● environment disc view)))))
 
     ;; ---- Kernels ----
 
-    (define (environment-kernels (gpu Gpu)) (→ (List (Pair String GpuComputePipeline)))
-      (let ((module ((● gpu create-shader-module) (new ShaderModuleDescriptor
-                                                    (label "environment")
-                                                    (code (string-append (declarations shape-shape)
-                                                                         environment-shader))))))
-        (map (lambda (entry)
-               (new Pair (first entry) (second (compute-kernel gpu module "environment" entry))))
-             (list "unrle" "downsample" "sky" "weigh" "marginal"))))
+    (define (environment-kernels (gpu Gpu) (draw (List String)))
+      (→ (List (Pair String GpuComputePipeline)))
+      (let* ((module ((● gpu create-shader-module) (new ShaderModuleDescriptor (label "environment")
+                                                        (code
+                                                         (string-append (declarations shape-shape)
+                                                                        environment-shader
+                                                                        atmosphere-shader)))))
+             (kernels (map (lambda (entry)
+                             (new Pair
+                               (first entry)
+                               (second (compute-kernel gpu module "environment" entry))))
+                           (append draw (list "weigh" "marginal")))))
+        ((● gpu destroy) (ModuleObject module))
+        kernels))
 
     ;; The kernel `entry` set over `entries`, for the dispatch that
     ;; follows; its group goes at the submit.

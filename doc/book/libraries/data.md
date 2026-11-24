@@ -71,6 +71,8 @@ server's message or a glTF scene, and `json-member` finds an object's
 member. It is a library of its own so that a program that only writes JSON
 does not carry a parser.
 
+`string->json-values` reads a stream of consecutive JSON values, including adjacent objects. It returns `Some` with an empty list for an empty stream and `None` if any value is malformed. The Ink producer uses it for the reference player’s transcript.
+
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/json/read.sld)
 
 ## `(snail shell wire)`

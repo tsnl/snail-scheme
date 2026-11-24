@@ -189,7 +189,7 @@ That is the modes' one difference.
 absolute one, so a library may link a producer's output. Every build
 places each linked file in the workspace's store, named by its digest, and
 the generation's `store/` holds another name for it, as above
-([linked files](types.md#linked-files)).
+([linked files](types.md#linked-files)). Browser programs reuse the linked bytes from an origin-wide IndexedDB store keyed by SHA-256. A fresh build can reuse every digest it shares with a previous build. HTML and the executable still load on navigation so the page can discover the current build.
 
 A program that serves another, such as a server shipping its browser
 client, embeds that build through a generated library whose producer builds

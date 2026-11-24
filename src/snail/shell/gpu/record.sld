@@ -30,7 +30,10 @@
                              (request-device
                               (lambda ()
                                 (note! recording (list "request-device"))
-                                (new DeviceInfo (format (Bgra8Unorm)) (features (Nil)))))
+                                (new DeviceInfo
+                                  (format (Bgra8Unorm))
+                                  (features (Nil))
+                                  (storage-binding-size 134217728))))
                              (create-buffer
                               (lambda (descriptor)
                                 (new GpuBuffer

@@ -1,6 +1,7 @@
 // One loader for every browser application. Engines supply device imports
 // and reset their presentation before each run.
-import {createWasi, linkModule} from './load.mjs';
+import {readLinkedFile} from './storage.mjs';
+import {createWasi, linkModule, objectPath} from './load.mjs';
 import {applicationEntry, HIDDEN} from './runtime.mjs';
 
 export const running = [];
@@ -23,7 +24,8 @@ export async function startPage(application, url) {
 async function linkApplication(application, program, read) {
   const wasi = createWasi({print: printer(application)});
   application.program = await linkModule(read, program, wasi, application.imports,
-                                         () => application.runtime.execution.tasks);
+                                         () => application.runtime.execution.tasks,
+                                         digest => readLinkedFile(digest, () => read(objectPath(digest))));
 }
 
 // A save the program cannot read traps before it boots: the page then

@@ -197,6 +197,12 @@ spans, and the rows' distribution in the last column.
 `environment-light.wgsl.scm` gives kernels the radiance of a direction, the
 density it is sampled with, and a sampled direction.
 
+For an art-directed sky, `make-sky-light` and `update-sky!` take a `Sky`. For outdoor light, `make-atmosphere-light` and `update-atmosphere!` take an `Atmosphere` with a sun direction, horizontal wind displacement in kilometres, and cloud cover from zero to one. Each update refreshes the same GPU resources and their sampling distribution. Release them with `release-sky-light`.
+
+The outdoor sky integrates molecular and aerosol scattering along a ray through a spherical atmosphere. Slant paths through the air and ozone change the colour of the setting sun. A diffuse term approximates higher orders of scattering. A second ray march integrates extinction and in-scattering through a marine cloud layer from 650 to 1,850 metres. Short marches toward the sun give the banks self-shadowing. Overhead density governs how much skylight reaches their undersides. The directional environment represents the view from street level. Buildings share the cloud cover above that reference point. [Atmospheric transport and spherical geometry](https://ebruneton.github.io/precomputed_atmospheric_scattering/atmosphere/functions.glsl.html) · [Real-time volumetric clouds](https://www.guerrilla-games.com/read/the-real-time-volumetric-cloudscapes-of-horizon-zero-dawn)
+
+The sky texture contains scattered radiance. Two additional texels hold the solar disc's direction, angular radius and cloud-attenuated irradiance. The sampler chooses between the sky and the disc by their integrated luminance, then samples solid angle inside the chosen region. This keeps the sun round at its apparent diameter of 0.53° even in a small environment map. Camera rays, water reflections and shadow rays see the same light. The outdoor environment also adds distance haze to long camera sightlines. A `PinholeRange` lens takes the vertical field of view in radians and the near and far clip distances in world units. Last Mile sets them to 0.35 metres and 32 kilometres so the Pacific horizon is visible from a bluff.
+
 ## Scenes
 
 `(snail shell graphics gltf)` reads a scene's file, a `.gltf` file's JSON
@@ -226,7 +232,9 @@ consume the same world-space triangles. Mesh topology and materials stay fixed.
 `make-moving-tracer` keeps the leaf order and binary tree for those triangles.
 After a simulation tick, `refit-tracer!` refreshes the leaf boxes, propagates
 their bounds and packs them into the original query buffer. Bindings survive
-a refit. The viewer can discard this build scratch for static scenes. Last
+a refit. An application can choose a tone curve at construction with `make-graded-moving-tracer`.
+Last Mile uses `Photographic` for a hue-preserving shoulder followed by sRGB encoding.
+The viewer can discard this build scratch for static scenes. Last
 Mile asks each frame for two bounces, and the final FXAA pass samples
 normalized screen coordinates so a small traced image fills a larger browser
 canvas. [Last Mile](../games/last-mile.md)
@@ -237,7 +245,7 @@ Start with a mesh and one joint. A vertex fully weighted to that joint follows i
 
 1. Call `read-rigged-gltf` in `(snail shell graphics gltf animation)`. It reads the buffers once and returns the mesh, its per-vertex influences, a parent-first hierarchy, inverse binds and named clips. A primitive with a skin starts in mesh coordinates. A rigid attachment gets a slot for its own node. Multiple skins can order their joints differently.
 2. Use `sample-pose` in `(snail shell graphics animation)` at the desired clip time. Untargeted local transforms keep their authored values. STEP holds a key until the next key. LINEAR interpolates translations and scales and takes the shortest quaternion arc for rotations. `clip-time` wraps or clamps a clock. `blend-poses` crossfades local poses and `blend-branch` restricts a blend to chosen nodes.
-3. Call `joint-palette` with the pose and the instance placement. It walks the hierarchy, including non-joint ancestors, and multiplies each joint’s world matrix by its inverse bind. Instances share the rig and clips and sample their own poses.
+3. Call `joint-palette` with the pose and the instance placement. It walks the hierarchy, including non-joint ancestors, and multiplies each joint’s world matrix by its inverse bind. For a prop attached to a hand, resolve its index with `named-node`, call `posed-nodes` once, and compose the prop with that node’s world matrix. Pass the same array to `skin-palette` for deforming the mesh. A joint’s inverse bind belongs only in the skin palette. Instances share the rig and clips and sample their own poses.
 4. Give `skin-scene` the fixed topology and vertex influences once. At each draw, `deform-scene!` blends the palette matrices on the GPU, transforms positions, normals and tangents, and records the displacement back to the preceding draw. Refit the BVH after a pose changes. Camera visibility and Monte Carlo shadow queries then use the same triangles. SVGF receives their motion vectors and FXAA runs after tone mapping.
 
 The reader supports floating-point transform keys, unsigned byte or unsigned short joint indices, and floating-point or normalized unsigned integer weights. It reports unsupported cubic samplers, morph-weight channels, sparse accessors and additional vertex influence sets. The mechanical hinge fixture in `tests/programs/data/hinge.gltf` has a non-joint ancestor, reversed node order and mixed weights. [glTF skins and animations](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#skins)
@@ -295,6 +303,12 @@ left on the device, by the order of the work rather than by cleaning up:
 the viewer reads the HDR file (`read-hdr`) before it loads the scene, and
 `load-scene` loads the layers, the one step on the device that can refuse,
 before anything else of the scene.
+
+## Water surfaces
+
+A glTF material can opt into the tracer’s water shading with `"extras": { "snailWater": true }`. Use a nonmetallic material and a dark linear base colour for light returned by the water body. The dielectric interface reflects about 2% of the light at normal incidence and approaches full reflection at grazing angles. A ray can reflect geometry as well as the sky.
+
+Set `Camera3D.scene-time` in seconds to move wave trains in world metres. Rasterized first hits and traced secondary hits share their normals. Each wave is filtered along its direction across the pixel footprint. Unresolved waves contribute their slope variance to the material roughness. The mapped surface supplies depth, visibility and ray origins. The model represents deep water with a fixed shoreline and a bulk colour.
 
 ## Performance
 

@@ -292,7 +292,8 @@
     ;; the optional features it has beyond the baseline.
     (record DeviceInfo
       ((format TextureFormat)
-       (features (List String))))
+       (features (List String))
+       (storage-binding-size I32)))
 
     ;; ---- Buffers ----
 
@@ -1305,7 +1306,8 @@
           (panic "gpu: this host has no WebGPU device with the baseline features"))
         (new DeviceInfo
           (format (texture-format-named (reply (host-device-format))))
-          (features (words (reply (host-device-features)))))))
+          (features (words (reply (host-device-features))))
+          (storage-binding-size (host-storage-binding-size)))))
 
     (define (reply (count I32)) (→ String)
       (string-generate (i32->i64 count)

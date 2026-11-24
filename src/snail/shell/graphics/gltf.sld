@@ -48,6 +48,7 @@
    buffer-bytes
    scene-materials
    gltf-bounds
+   gltf-transformed
    gltf-scaled
    uri-path)
   (import
@@ -125,7 +126,8 @@
        (emissive-texture I64)
        (alpha I64)
        (alpha-cutoff F64)
-       (double-sided Bool)))
+       (double-sided Bool)
+       (water Bool)))
 
     ;; A primitive, and the column-major matrix from its mesh to the world.
     (record Placed
@@ -408,7 +410,8 @@
                          ((string=? mode "BLEND") 2)
                          (else 0))))
           (alpha-cutoff (number-or material "alphaCutoff" 0.5))
-          (double-sided (bool-or material "doubleSided" #f)))))
+          (double-sided (bool-or material "doubleSided" #f))
+          (water (bool-or (member-or material "extras") "snailWater" #f)))))
 
     (define default-material (→ Material) (new Material
                                             (base-color (list 1.0 1.0 1.0 1.0))
@@ -422,7 +425,7 @@
                                             (emissive-texture -1)
                                             (alpha 0)
                                             (alpha-cutoff 0.5)
-                                            (double-sided #f)))
+                                            (double-sided #f) (water #f)))
     (define (scene-materials (gltf Gltf)) (→ (List Material))
       (if (null? (● gltf materials)) (list default-material) (● gltf materials)))
 
@@ -688,8 +691,13 @@
                  (new Pair (first (list 1e30 1e30 1e30)) (second (list -1e30 -1e30 -1e30)))
                  (● gltf placed)))
 
-    ;; The scene made `factor` times larger about the origin: each
-    ;; placement's matrix with its first three rows scaled.
+    ;; An instance transform precedes each placed primitive's node transform.
+    (define (gltf-transformed (g Gltf) (matrix (List F64))) (→ Gltf)
+      (Gltf-placed-set g
+                       (map (lambda (p) (Placed-matrix-set p (multiply matrix (● p matrix))))
+                            (● g placed))))
+
+    ;; Scale about the origin by multiplying the first three rows.
     (define (gltf-scaled (gltf Gltf) (factor F64)) (→ Gltf)
       (Gltf-placed-set gltf
                        (map (lambda (placed)

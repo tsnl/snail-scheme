@@ -41,6 +41,10 @@
    (snail shell graphics radix-sort)
    (snail shell graphics splat)
    (snail shell graphics splat-view)
+   (only (snail shell graphics trace shaders) water-shader)
+   (only (snail shell graphics kernel) compute-kernel kernel-group)
+   (snail shell graphics environment)
+   (only (snail shell graphics shaders) environment-light-shader)
    (gpu-test moving-scene)
    (gpu-test restir)
    (gpu-test shaders)
@@ -58,7 +62,16 @@
       (write-line out (string-append "decoded: " (texels (decoded-texels gpu))))
       (write-line out (string-append "scene: " (texels (scene-frame gpu (Neutral)))))
       (write-line out (string-append "filmic: " (texels (scene-frame gpu (Filmic)))))
-      (write-line out (string-append "squares: " (words (compute-frame gpu))))
+      (write-line out (string-append "photographic: " (texels (scene-frame gpu (Photographic)))))
+      (write-line out (string-append "coastal sky: " (coastal-check gpu)))
+      (write-line out (string-append "squares: " (words (squares gpu))))
+      (write-line out
+                  (string-append "water normals: "
+                                 (words (compute-words gpu
+                                                       (string-append water-shader water-probe)
+                                                       "water_main"
+                                                       4
+                                                       1))))
       (write-line out (string-append "planes: " (planes-frame gpu)))
       (write-line out (string-append "billboard: " (billboard-motion gpu)))
       (write-line out (string-append "scan: " (scan-frame gpu)))
@@ -362,35 +375,35 @@
     ;; 1 to 100, squared by 64-wide workgroups, two of them, and the first
     ;; four and the last read back.
 
-    (define (compute-frame (gpu Gpu)) (→ Bytes)
-      (let* ((module
-              ((● gpu create-shader-module)
-               (new ShaderModuleDescriptor (label "square") (code square))))
-             (pipeline ((● gpu create-compute-pipeline)
-                        (new ComputePipelineDescriptor
-                          (label "square")
-                          (module module)
-                          (entry "square_main"))))
-             (numbers (buffer-named gpu "numbers" 400 (list (Storage) (CopySrc) (CopyDst))))
-             (readback (buffer-named gpu "numbers-readback" 400 (list (MapRead) (CopyDst))))
-             (group ((● gpu create-bind-group) (new BindGroupDescriptor
-                                                 (label "square")
-                                                 (pipeline (ComputePipeline pipeline))
-                                                 (group 0)
-                                                 (entries (list (BufferEntry 0 numbers 0 0))))))
-             (encoder ((● gpu create-command-encoder)))
-             (pass ((● gpu begin-compute-pass) encoder)))
-        ((● gpu write-buffer) numbers
+    (define (squares (gpu Gpu)) (→ Bytes)
+      (let ((bytes (compute-words gpu square "square_main" 100 2)))
+        (array-append (subarray bytes 0 16) (subarray bytes 396 400))))
+
+    (define (compute-words (gpu Gpu) (source String) (entry String) (count I64) (groups I32))
+      (→ Bytes)
+      (let* ((module ((● gpu create-shader-module)
+                      (new ShaderModuleDescriptor (label entry) (code source))))
+             (pipeline (compute-kernel gpu module entry entry))
+             (size (* 4 (i64->i32 count)))
+             (numbers (buffer-named gpu entry size (list (Storage) (CopySrc) (CopyDst))))
+             (readback (buffer-named gpu "words-readback" size (list (MapRead) (CopyDst))))
+             (group (kernel-group gpu pipeline 0 entry (list (BufferEntry 0 numbers 0 0))))
+             (encoder ((● gpu create-command-encoder))) (pass ((● gpu begin-compute-pass) encoder)))
+        ((● gpu write-buffer)
+         numbers
          0
-         (pack (shape) (map (lambda (n) (+ 1 (i64->i32 n))) (iota 100))))
+         (pack (shape) (map (lambda (n) (+ 1 (i64->i32 n))) (iota count))))
         ((● gpu set-compute-pipeline) pass pipeline)
         ((● gpu set-compute-bind-group) pass 0 group)
-        ((● gpu dispatch-workgroups) pass 2 1 1)
+        ((● gpu dispatch-workgroups) pass groups 1 1)
         ((● gpu end-compute-pass) pass)
-        ((● gpu copy-buffer-to-buffer) encoder numbers 0 readback 0 400)
+        ((● gpu copy-buffer-to-buffer) encoder numbers 0 readback 0 size)
         ((● gpu submit) (list ((● gpu finish) encoder)))
-        (let ((bytes ((● gpu read-buffer) readback 0 400)))
-          (array-append (subarray bytes 0 16) (subarray bytes 396 400)))))
+        (let ((bytes ((● gpu read-buffer) readback 0 size)))
+          (for-each (● gpu destroy)
+                    (list (BufferObject readback) (BufferObject numbers) (BindGroupObject group)
+                          (ComputePipelineObject pipeline) (ModuleObject module)))
+          bytes)))
 
     (define (words (bytes Bytes)) (→ String)
       (string-join (map (lambda (index)
@@ -402,6 +415,59 @@
                                            (iota 4))))
                         (iota (quotient (array-length bytes) 4)))
                    " "))
+
+    ;; ---- Outdoor light ----
+
+    (define (weather (up F32) (cover F32)) (→ Atmosphere)
+      (new Atmosphere (sun (new Vec3f (x 0.6) (y up) (z 0.0)))
+           (wind (new Vec2f (x 0.0) (y 0.0))) (cover cover)))
+
+    (define (sky-reading (gpu Gpu) (light SkyLight) (air Atmosphere) (pipeline GpuComputePipeline)
+                         (groups (List GpuBindGroup)) (result GpuBuffer)) (→ Bytes)
+                         (update-atmosphere! gpu light air)
+                         (let* ((encoder ((● gpu create-command-encoder)))
+                                (pass ((● gpu begin-compute-pass) encoder)))
+                           ((● gpu set-compute-pipeline) pass pipeline)
+                           (for-each (lambda (p)
+                                       ((● gpu set-compute-bind-group)
+                                        pass
+                                        (i64->i32 (● p first))
+                                        (● p second)))
+                                     (zip (iota 3) groups))
+                           ((● gpu dispatch-workgroups) pass 1 1 1)
+                           ((● gpu end-compute-pass) pass)
+                           ((● gpu submit) (list ((● gpu finish) encoder)))
+                           (read-numbers gpu result 5)))
+
+    (define (coastal-check (gpu Gpu)) (→ String)
+      (let* ((noon (weather 0.8 0.0)) (light (make-atmosphere-light gpu noon 64))
+             (module ((● gpu create-shader-module) (new ShaderModuleDescriptor (label "sky probe")
+                                                        (code
+                                                         (string-append environment-light-shader
+                                                                        sky-probe)))))
+             (pipeline (compute-kernel gpu module "sky probe" "sky_main"))
+             (result (storage-buffer gpu "sky reading" 5))
+             (groups (list (kernel-group gpu pipeline 0 "results" (list (BufferEntry 0 result 0 0)))
+                           (kernel-group gpu pipeline 1 "empty" (list))
+                           (environment-group gpu pipeline (● light environment))))
+             (read (lambda (air) (sky-reading gpu light air pipeline groups result)))
+             (day (read noon)) (low (read (weather 0.024 0.0)))
+             (cloud (read (weather 0.8 1.0))) (night (read (weather -0.8 0.0))))
+        (for-each (lambda (group) ((● gpu destroy) (BindGroupObject group))) groups)
+        (for-each (● gpu destroy)
+                  (list (ComputePipelineObject pipeline)
+                        (ModuleObject module)
+                        (BufferObject result)))
+        (release-sky-light gpu light)
+        (if (and (= (number-at day 0) 1) (= (number-at day 1) 0) (= (number-at low 1) 1)
+                 (> (number-at day 2) (* 20 (number-at night 2)))
+                 (not (= (number-at day 2) (number-at cloud 2)))
+                 (> (number-at day 3) (* 100 (number-at cloud 3)))
+                 (> (number-at day 3) (number-at low 3)) (> (number-at low 3) (number-at night 3))
+                 (fold-left (lambda (ok sample) (and ok (= (number-at sample 4) 1)))
+                            #t
+                            (list day low cloud night)))
+            "blue noon, warm sunset, cloud extinction, dark night" "unexpected sky")))
 
     ;; ---- Scans, sorts and splats ----
 

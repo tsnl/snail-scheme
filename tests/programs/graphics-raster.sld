@@ -37,6 +37,20 @@
 (define (camera (lens Lens)) (→ Camera3D)
   (camera-3d (new Vec3f (x 3.0) (y 9.0) (z 6.0)) (new Vec3f (x 1.0) (y 0.0) (z -2.0)) lens 1.5 1.0))
 
+;; On the optical axis, clip z/w must still be less than one at 20 km.
+(define (axial-depth (m Mat4x4f) (metres F64)) (→ F64)
+  (/ (- (f32->f64 (● m w z)) (* metres (f32->f64 (● m z z))))
+     (- (f32->f64 (● m w w)) (* metres (f32->f64 (● m z w))))))
+
+(define (horizon-in-range?) (→ Bool)
+  (let* ((lens (PinholeRange 1.0 0.35 32000.0))
+         (view (camera-3d (new Vec3f (x 0.0) (y 0.0) (z 0.0)) (new Vec3f (x 0.0) (y 0.0) (z -1.0))
+                          lens 1.0 1.0))
+         (m (● view view-projection)))
+    (and (< (error-of view) 0.0001)
+         (< (axial-depth m 20000.0) 1.0)
+         (> (axial-depth m 64000.0) 1.0))))
+
 (define (instance (x F32)) (→ Instance)
   (let ((one (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 0.0))))
     (new Instance
@@ -64,6 +78,7 @@
     ((None) (list text))))
 
 (define (main (out OutputPort)) (→ Unit)
+  (write-line out (string-append "20 km horizon in range: " (show (horizon-in-range?))))
   (write-line out (string-append "pinhole inverse within 1e-4: "
                                  (show (< (error-of (camera (Pinhole 0.8))) 0.0001))))
   (write-line out (string-append "parallel inverse within 1e-4: "

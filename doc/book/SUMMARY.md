@@ -41,6 +41,7 @@
   - [Rasterized graphics](libraries/rendering.md)
   - [Gaussian splats](libraries/splats.md)
   - [Path tracing](libraries/tracing.md)
+  - [Game simulation and stories](libraries/games.md)
   - [Tensors](libraries/tensors.md)
   - [Tools](libraries/tools.md)
   - [Runtime interfaces and targets](libraries/runtime.md)
@@ -66,7 +67,7 @@
   - [The path tracer](graphics/tracer.md)
 - [Games](games/index.md)
   - [Siegework](games/siegework.md)
-  - [Last Mile](games/last-mile.md)
+  - [Last Mile Taxi](games/last-mile.md)
 
 # Proposals
 

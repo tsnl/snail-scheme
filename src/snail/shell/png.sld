@@ -7,7 +7,8 @@
    rgba->png
    png-data-url)
   (import
-   (snail core base))
+   (snail core base)
+   (snail shell base64))
   (begin
 
     ;; ---- Files ----
@@ -89,32 +90,4 @@
 
     ;; ---- Data URLs ----
 
-    (define (png-data-url (png Bytes)) (→ String)
-      (string-append "data:image/png;base64," (base64 (array->list png))))
-
-    (define (base64 (bytes (List U8))) (→ String)
-      (list->string (concatenate (map base64-group (groups bytes)))))
-
-    (define (groups (bytes (List U8))) (→ (List (List U8)))
-      (if (null? bytes)
-          (Nil)
-          (Cons (take bytes (min 3 (length bytes)))
-                (groups (list-tail bytes (min 3 (length bytes)))))))
-
-    ;; Three bytes as four letters; a short group is padded with `=`.
-
-    (define (base64-group (group (List U8))) (→ (List Char))
-      (let* ((value
-              (fold-left (lambda (value byte) (i32-or (i32-shift-left value 8) (u8->i32 byte)))
-                         0
-                         (append group (take (list (i32->u8 0) (i32->u8 0)) (- 3 (length group))))))
-             (letters (map (lambda (shift)
-                             (base64-letter (i32-and (i32-shift-right/logical value shift) 63)))
-                           (list 18 12 6 0))))
-        (append (take letters (+ 1 (length group))) (take (list #\= #\=) (- 3 (length group))))))
-
-    (define (base64-letter (index I32)) (→ Char)
-      (string-ref "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-                  (i32->i64 index)))
-
-    ))
+    (define (png-data-url (png Bytes)) (→ String) (data-url "image/png" png))))

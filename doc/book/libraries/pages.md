@@ -45,6 +45,8 @@ changed through the page's document only where it differs after each input,
 and after time at most ten times a second
 ([scenes](../snail-scheme/applications.md#scenes)).
 
+Browser applications can opt into mouse capture by passing `pointerLock: true` when mounting their canvas. A primary click requests capture. `PointerLock` reports changes, while `PointerDelta` reports relative motion in capture or during a right-button drag. Consecutive relative events sum their deltas. Escape releases capture and a loss of focus clears held controls in Last Mile.
+
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/app.sld)
 
 ## `(snail shell ui)`
@@ -150,6 +152,10 @@ path is its address.
 (`host/browser/files.mjs`).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/files/page.sld)
+
+## `(snail shell base64)`
+
+`data-url` takes a media type and bytes and returns a base64 data URL. Last Mile uses it to show a neighbourhood’s in-memory SVG in the page. [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/base64.sld)
 
 ## `(snail shell png)`
 

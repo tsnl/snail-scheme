@@ -56,7 +56,7 @@
         (new Material (base-color (append color (list 1.0))) (metallic 0.0) (roughness 0.78)
              (base-texture -1) (metal-rough-texture -1) (normal-texture -1) (normal-scale 1.0)
              (emissive (map (lambda (v) (* v (f32->f64 (● part glow)))) color))
-             (emissive-texture -1) (alpha 0) (alpha-cutoff 0.5) (double-sided #t))))
+             (emissive-texture -1) (alpha 0) (alpha-cutoff 0.5) (double-sided #t) (water #f))))
 
     (define (item-pose (part Item)) (→ ObjectPose)
       (let ((p (● part position)) (s (● part scale)) (angle (f32->f64 (● part yaw))))
