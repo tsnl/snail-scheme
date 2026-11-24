@@ -10,14 +10,26 @@
 ;; the same way: `?model=ADDRESS&env=ADDRESS`, and `&eye=x,y,z,yaw,pitch`
 ;; places the camera; without it, the camera looks at the scene from
 ;; outside. Files that cannot be shown leave the view as it was, and the
-;; page says why. The frames average while the camera holds still.
+;; page says why. The frames average while the camera holds still. Keys
+;; set what a frame costs, which the page keeps for the next visit: 1 to
+;; 8 how many times a path bounces, and - and = how many pixels are
+;; traced.
 (import
  (snail core base)
  (snail core io)
  (snail shell json)
  (snail shell json read)
- (only (snail shell app) next-event FrameEvent InputEvent FilesEvent KeyDown)
- (only (snail shell page) Events)
+ (only (snail shell app)
+       next-event
+       FrameEvent
+       InputEvent
+       FilesEvent
+       Input
+       KeyDown
+       Hidden
+       SaveRequested)
+ (only (snail shell page) Events PageStorage run-page)
+ (only (snail shell math) exp)
  (only (snail shell fetch) Fetch)
  (only (snail shell dom) Dom)
  (snail shell files)
@@ -91,6 +103,69 @@
       (z (f64->f32 (/ z length)))
       (w (f64->f32 w)))))
 
+;; ---- Settings ----
+
+;; What a frame costs: how many times its paths bounce, and how many
+;; times the pixels it traces are halved from the canvas's, each side
+;; shrinking by the square root of two, for Post to scale up to the
+;; canvas. The page's save holds them.
+(record Settings
+  ((bounces I64)
+   (halvings I64)))
+
+(define first-settings (→ Settings) (new Settings (bounces 4) (halvings 0)))
+
+;; An eighth of each side at most.
+(define most-halvings (→ I64) 6)
+
+;; The settings a key changes: 1 to 8 the bounces, - halves the pixels
+;; and = (or +) doubles them; none for any other input.
+(define (adjusted (settings Settings) (input Input)) (→ (Option Settings))
+  (match input
+    ((KeyDown key _)
+     (cond ((and (>= key 49) (<= (i32->i64 key) (+ 48 most-bounces)))
+            (Some (Settings-bounces-set settings (i32->i64 (- key 48)))))
+           ((= key 45) (Some (halved settings 1)))
+           ((or (= key 61) (= key 43)) (Some (halved settings -1)))
+           (else (None))))
+    (_ (None))))
+
+(define (halved (settings Settings) (more I64)) (→ Settings)
+  (Settings-halvings-set settings (max 0 (min most-halvings (+ (● settings halvings) more)))))
+
+;; The share of each side of the canvas traced: two to the power of
+;; minus half the halvings.
+(define (side-scale (settings Settings)) (→ F64)
+  (exp (* -0.5 (* 0.6931471805599453 (i64->f64 (● settings halvings))))))
+
+;; A side of the canvas, `side` pixels long, as traced: at least a pixel.
+(define (traced (settings Settings) (side I32)) (→ I32)
+  (max 1 (f64->i32 (round (* (side-scale settings) (i32->f64 side))))))
+
+(define (described (settings Settings)) (→ String)
+  (string-append (show (● settings bounces))
+                 (if (= (● settings bounces) 1) " bounce" " bounces")
+                 " at "
+                 (show (f64->i64 (round (* 100.0 (side-scale settings)))))
+                 "% resolution"))
+
+;; The settings as the page saves them, a byte each, and back; bytes
+;; that are not settings trap, and the page starts again without them.
+(define (saved (settings Settings)) (→ Bytes)
+  (array-generate 2
+                  (lambda (index)
+                    (i32->u8 (i64->i32 (if (= index 0)
+                                           (● settings bounces)
+                                           (● settings halvings)))))))
+
+(define (restored (bytes Bytes)) (→ Settings)
+  (unless (= (array-length bytes) 2) (panic "the viewer's save holds no settings"))
+  (let ((bounces (i32->i64 (u8->i32 (array-ref bytes 0))))
+        (halvings (i32->i64 (u8->i32 (array-ref bytes 1)))))
+    (unless (and (>= bounces 1) (<= bounces most-bounces) (<= halvings most-halvings))
+      (panic "the viewer's save holds no settings"))
+    (new Settings (bounces bounces) (halvings halvings))))
+
 ;; ---- The view ----
 
 ;; The scene shown, the light it is shown in, and the tracer drawing it.
@@ -99,9 +174,10 @@
    (environment Environment)
    (tracer Tracer)))
 
-;; The page's events, each answered with the next view. The view, the fly
-;; and the frame count are what change from one event to the next; what
-;; the loop reaches the page through, it is handed once.
+;; The page's events, each answered with the next view. The view, the
+;; fly, the settings and the frame count are what change from one event
+;; to the next; what the loop reaches the page through, and how it saves
+;; the settings, it is handed once.
 (define (view-loop (gpu Gpu)
                    (dom Dom)
                    (picker FilePicker)
@@ -109,41 +185,52 @@
                    (fetch Fetch)
                    (out OutputPort)
                    (format TextureFormat)
+                   (save (Fn Settings → Unit))
                    (view (Option View))
-                   (fly Fly))
+                   (fly Fly)
+                   (settings Settings))
   (→ Unit)
-  (let loop ((view view) (fly fly) (timing (new Pair (first 0) (second 0))))
+  (let loop ((view view) (fly fly) (settings settings) (timing (new Pair (first 0) (second 0))))
     (match (next-event events)
       ((FrameEvent elapsed)
        (match view
          ((Some shown)
           (let* ((fly (flown fly elapsed))
-                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly))))
+                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly settings))))
             ((● gpu work-done))
             ((● events report-ready))
-            (loop (Some shown) fly (timed out timing elapsed))))
+            (loop (Some shown) fly settings (timed out timing elapsed))))
          ((None)
           ((● events report-ready))
-          (loop view fly timing))))
+          (loop view fly settings timing))))
       ((InputEvent (KeyDown 111 shift))
        ((● picker open-picker) (if shift (Folder) (SomeFiles)))
-       (loop view fly timing))
-      ((InputEvent input) (loop view (steered fly input) timing))
+       (loop view fly settings timing))
+      ((InputEvent input)
+       (match (adjusted settings input)
+         ((Some changed)
+          (say dom out (described changed))
+          (loop view fly changed timing))
+         ((None) (loop view (steered fly input) settings timing))))
       ((FilesEvent _)
-       (match (opened gpu dom fetch out format view fly ((● picker chosen-files)) (None))
-         ((Pair view fly) (loop view fly timing))))
-      (_ (loop view fly timing)))))
+       (match (opened gpu dom fetch out format settings view fly ((● picker chosen-files)) (None))
+         ((Pair view fly) (loop view fly settings timing))))
+      ((Hidden) (save settings) (loop view fly settings timing))
+      ((SaveRequested) (save settings) (loop view fly settings timing))
+      (_ (loop view fly settings timing)))))
 
-;; A frame drawn into the canvas, from where the fly is.
-(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly)) (→ Tracer)
+;; A frame drawn into the canvas, from where the fly is, traced at the
+;; size and with the bounces the settings ask for.
+(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly) (settings Settings)) (→ Tracer)
   (let* ((canvas ((● gpu current-texture)))
-         (width (● canvas width))
-         (height (● canvas height)))
-    (draw-traced gpu (resize-tracer gpu tracer width height)
+         (height (traced settings (● canvas height))))
+    (draw-traced gpu (resize-tracer gpu tracer (traced settings (● canvas width)) height)
                  (view-of gpu (● canvas texture) 1)
-                 (fly-camera fly (/ (i32->f64 width) (i32->f64 (max 1 height))))
+                 (fly-camera fly
+                             (/ (i32->f64 (● canvas width)) (i32->f64 (max 1 (● canvas height)))))
                  (fly-spread height)
-                 (fly-exposure fly))))
+                 (fly-exposure fly)
+                 (● settings bounces))))
 
 ;; Frames and milliseconds since the last report, which comes every two
 ;; seconds.
@@ -160,12 +247,14 @@
 ;; The view of the files chosen, the fly looking at a new scene from
 ;; `eye` or else from outside; or the view as it was, and why, when they
 ;; cannot be shown. The loop waits here, so one choice is read at a time,
-;; and one that arrives meanwhile is read next.
+;; and one that arrives meanwhile is read next. Shown, the page says the
+;; settings unless they are the first ones, which a visit may have saved.
 (define (opened (gpu Gpu)
                 (dom Dom)
                 (fetch Fetch)
                 (out OutputPort)
                 (format TextureFormat)
+                (settings Settings)
                 (view (Option View))
                 (fly Fly)
                 (files (List Chosen))
@@ -174,9 +263,12 @@
   ((● dom set-text) ((● dom document-root)) "Loading…")
   (match (attempt-reading (lambda () (chosen gpu fetch out view files)))
     ((Ok replacing)
-     ((● dom set-text) ((● dom document-root)) "")
+     ((● dom set-text) ((● dom document-root))
+      (if (string=? (described settings) (described first-settings))
+          ""
+          (described settings)))
      (new Pair
-       (first (Some (shown gpu view (● replacing first) (● replacing second) format)))
+       (first (Some (shown gpu view (● replacing first) (● replacing second) format settings)))
        (second (match (● replacing first)
                  ((Some scene)
                   (let ((over (Fly-stops-set (fly-over (● scene low) (● scene high))
@@ -263,11 +355,13 @@
 
 ;; The view with a new scene, a new light, or both: its tracer remade
 ;; from the old one, whose scene or light, where replaced, is let go. A
-;; first view needs a scene, and without a light has the drawn sky's.
+;; first view needs a scene, and without a light has the drawn sky's; its
+;; tracer is made at the size the settings trace.
 (define (shown (gpu Gpu) (view (Option View))
                (scene (Option Scene))
                (light (Option Environment))
-               (format TextureFormat))
+               (format TextureFormat)
+               (settings Settings))
   (→ View)
   (match view
     ((Some old)
@@ -297,8 +391,8 @@
                        scene
                        environment
                        format
-                       (● canvas width)
-                       (● canvas height)
+                       (traced settings (● canvas width))
+                       (traced settings (● canvas height))
                        layer-size)))))))
 
 
@@ -357,12 +451,34 @@
               (fetch Fetch)
               (picker FilePicker)
               (events Events)
+              (storage PageStorage)
               (out OutputPort))
+  (→ Unit)
+  (run-page events
+            storage
+            (lambda () first-settings)
+            saved
+            restored
+            (lambda ((settings Settings) (save (Fn Settings → Unit)))
+              (→ Unit)
+              (viewed gpu dom fetch picker events out settings save))))
+
+;; The page from its query's files, or from nothing, with the settings it
+;; saved.
+(define (viewed (gpu Gpu)
+                (dom Dom)
+                (fetch Fetch)
+                (picker FilePicker)
+                (events Events)
+                (out OutputPort)
+                (settings Settings)
+                (save (Fn Settings → Unit)))
   (→ Unit)
   (let ((format (● ((● gpu request-device)) format))
         (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
         (address ((● fetch page-address))))
     (match (match (query-files address)
              ((Nil) (new Pair (first (None)) (second outside)))
-             (files (opened gpu dom fetch out format (None) outside files (query-eye address))))
-      ((Pair view fly) (view-loop gpu dom picker events fetch out format view fly)))))
+             (files
+              (opened gpu dom fetch out format settings (None) outside files (query-eye address))))
+      ((Pair view fly) (view-loop gpu dom picker events fetch out format save view fly settings)))))
