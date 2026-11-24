@@ -43,8 +43,8 @@ export const deviceLines = [
   // profiled; and
   // Adam fits a line in 1,000 runs of another.
   'timed: a render pass between 0 and 1 seconds',
-  'tensor: 24 sinks agree',
-  'fused tensor: 24 sinks agree',
+  'tensor: 28 sinks agree',
+  'fused tensor: 28 sinks agree',
   'profiled: a time for each step, between 0 and 1 seconds',
   'swapped: 5 7 6 8 / 1 2 3 4 / 1 2 3 4',
   'assigned: 9',

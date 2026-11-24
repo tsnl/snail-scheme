@@ -90,6 +90,15 @@
                    (* (tensor-sin x) (narrow x 1 1 1))
                    (scalar 0.0))))
 
+    ;; A filter's rows: their indices, which rows are live, the count, and
+    ;; the kept rows gathered, zero past the count.
+    (define (filtered (x View)) (→ (List View))
+      (let ((f (filter-rows (reshape (greater (narrow x 1 0 1) (scalar 0.3)) (list 64)))))
+        (list (● f ids)
+              (● f live)
+              (● f count)
+              (kept-rows f x))))
+
     (define (sinks) (→ (List View))
       (let* ((x (list-ref (params) 0))
              (w (list-ref (params) 1))
@@ -130,7 +139,7 @@
                       (narrow (● first-sorted second) 0 0 1000)
                       (halves packed)
                       (sum (narrow (halves packed) 1 3 7) (list 1)))
-                (guarded x))))
+                (append (guarded x) (filtered x)))))
 
     ;; ---- Agreement ----
 

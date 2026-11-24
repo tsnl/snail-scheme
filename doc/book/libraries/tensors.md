@@ -43,6 +43,11 @@ nodes, broadcasting as NumPy does.
 - **Sorts and scans**: `sort-pairs`, `sort-first-pairs` (only as many pairs
   as a one-element `u32` view says, the rest unspecified) and
   `exclusive-scan`.
+- **Filters**: `filter-rows` keeps the rows whose value is not 0, as a
+  `Filtered`: their indices packed to the front and 0 past them (`ids`),
+  1 for each row below their count and 0 from it (`live`), and the count,
+  one `u32` on the device. `kept-rows` takes a view's kept rows by them,
+  0 past the count.
 - **Custom kernels**: `custom` runs WGSL a library writes, with its own
   adjoint, on ports the lowering zeroes first.
 
@@ -129,8 +134,9 @@ the caller's, as often as it likes; `write-param`, `read-param` and
   nodes computing alike share a pipeline. A `Fill` argument is a literal
   too, with no buffer. A choice of zero, `(where condition value 0)` with
   one condition a row, computes its value inside an `if`, so the rows the
-  condition culls read nothing for it: a mask, where `gather` by computed
-  indices would be a filter.
+  condition culls skip what the value computes in that kernel: a mask.
+  A filter packs the rows it keeps, so a choice by its `live` skips the
+  rest together.
 - **Buffers** return to a pool once the last node reading them has run;
   params, constants, sinks and updates keep theirs. An update that a map
   computes whole is written in place, into its param's buffer, each port

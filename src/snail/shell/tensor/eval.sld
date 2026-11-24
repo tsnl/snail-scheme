@@ -104,6 +104,7 @@
            (list (dense-of n default-port (lambda (index) (joined ports (● n args) axis index)))))
           ((Sort bits) (sorted ports (arg 0) (arg 1) (sort-count ports n) bits))
           ((PrefixSum) (list (scanned ports (arg 0))))
+          ((Compact) (compacted ports (arg 0)))
           ((CustomKind c)
            (panic (string-append "eval: custom node " (● c name) " has no CPU form"))))))
 
@@ -223,6 +224,18 @@
                                           (new Pair (first (Nil)) (second 0.0))
                                           (iota (element-count a)))
                                first))))
+
+    ;; The rows whose flag is not 0: their indices, then 0; 1 below their
+    ;; count and 0 from it; and the count.
+    (define (compacted (ports (Table (Array F64))) (flags View)) (→ (List (Array F64)))
+      (let* ((rows (element-count flags))
+             (kept (list->array (filter (lambda (i) (not (= (element ports flags (list i)) 0.0)))
+                                        (iota rows))))
+             (count (array-length kept)))
+        (list (array-generate rows
+                              (lambda (i) (if (< i count) (i64->f64 (array-ref kept i)) 0.0)))
+              (array-generate rows (lambda (i) (if (< i count) 1.0 0.0)))
+              (list->array (list (i64->f64 count))))))
 
     ;; ---- Elements ----
 
