@@ -253,7 +253,11 @@ one `let` for each element of each distinct load and operation, a product
 written out as sums of products and a pack or a pick only renaming its
 operands' elements, so an expression fusing copied into two places is
 computed once and no expression nests another, and a map binds each port
-its arguments see once. A reduction computes its body as it combines it: a
+its arguments see once. A choice of zero, `(where condition value 0)`
+whose condition is one value however wide the value, is an `if`: the
+value's lets run only where the condition holds, so a row it culls reads
+and computes nothing for it, wherever fusing put the choice. The splat
+renderer chooses a culled gaussian's harmonics so. A reduction computes its body as it combines it: a
 thread an output element when its span is at most 256 elements, and in
 levels otherwise, a workgroup combining each part of 4,096 elements in
 shared memory, the first level computing the body, until one part is left.

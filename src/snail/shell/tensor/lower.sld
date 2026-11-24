@@ -1251,11 +1251,12 @@
 
     ;; ---- Map text ----
 
-    ;; The statements so far, the last first, and each expression's name by
-    ;; its text.
+    ;; The statements so far, the last first; each expression's name by
+    ;; its text; and how many names were made, which numbers the next.
     (record Lets
       ((statements (List String))
-       (names (Table String))))
+       (names (Table String))
+       (count I64)))
 
     ;; A map's bodies as statements of element i of its leading axes: a
     ;; `let` for each distinct load and operation of any of them, and for
@@ -1303,7 +1304,7 @@
                                    (first (● next first))
                                    (second (Cons (● next second) (● state second))))))
                              (new Pair
-                               (first (new Lets (statements (Nil)) (names (empty-table))))
+                               (first (new Lets (statements (Nil)) (names (empty-table)) (count 0)))
                                (second (Nil)))
                              bodies)))
         (new Pair
@@ -1318,14 +1319,102 @@
         ((Load k _ tile) (lets-for lets (map (lambda (t) (element k t)) (tile-indices tile))))
         ((Literal value etype) (new Pair (first lets) (second (list (literal etype value)))))
         ((Apply op operands etype tile)
-         (let ((args (fold-left (lambda (state o)
-                                  (let ((next (named element o (● state first))))
-                                    (new Pair
-                                      (first (● next first))
-                                      (second (append (● state second) (list (● next second)))))))
-                                (new Pair (first lets) (second (Nil)))
-                                operands)))
-           (applied-names (● args first) op (● args second) operands etype tile)))))
+         (let ((tested (if (guardable? op operands)
+                           (Some (named element (list-ref operands 0) lets))
+                           (None))))
+           (match tested
+             ((Some done)
+              (if (one-name? (● done second))
+                  (guarded element done (list-ref operands 0) (list-ref operands 1) etype)
+                  (applied element op operands etype tile lets)))
+             ((None) (applied element op operands etype tile lets)))))))
+
+    ;; An operation's elements' names, its operands named first.
+    (define (applied (element (Fn I64 (List I64) → String))
+                     (op Op)
+                     (operands (List Expr))
+                     (etype Etype)
+                     (tile (List I64))
+                     (lets Lets))
+      (→ (Pair Lets (List String)))
+      (let ((args (fold-left (lambda (state o)
+                               (let ((next (named element o (● state first))))
+                                 (new Pair
+                                   (first (● next first))
+                                   (second (append (● state second) (list (● next second)))))))
+                             (new Pair (first lets) (second (Nil)))
+                             operands)))
+        (applied-names (● args first) op (● args second) operands etype tile)))
+
+    ;; ---- Guards ----
+
+    ;; A value where a condition holds and zero where it does not, the
+    ;; condition one value however wide the value, as a tile of copies of
+    ;; one value is once named: the value is computed inside an `if`, so
+    ;; an element the condition culls, such as a gaussian off the screen,
+    ;; reads and computes nothing for it, however deep the choice sits in
+    ;; a fused body.
+    (define (guardable? (op Op) (operands (List Expr))) (→ Bool)
+      (match op
+        ((Select) (zero-expr? (list-ref operands 2)))
+        (_ #f)))
+
+    (define (one-name? (names (List String))) (→ Bool)
+      (every? (lambda (n) (string=? n (list-ref names 0))) names))
+
+    (define (zero-expr? (e Expr)) (→ Bool)
+      (match e
+        ((Literal value _) (= value 0.0))
+        ((Apply (Pack) operands _ _) (every? zero-expr? operands))
+        (_ #f)))
+
+    ;; The choice's statements: the condition's lets where they were, a
+    ;; `var` of zero for each element of the value, and an `if` holding the
+    ;; value's lets and setting the vars. The names made inside the `if`
+    ;; are its own, so what comes after makes its own again.
+    (define (guarded (element (Fn I64 (List I64) → String))
+                     (tested (Pair Lets (List String)))
+                     (condition Expr)
+                     (value Expr)
+                     (etype Etype))
+      (→ (Pair Lets (List String)))
+      (let* ((outer (● tested first))
+             (inner (named element
+                           value
+                           (new Lets
+                             (statements (Nil))
+                             (names (● outer names))
+                             (count (● outer count)))))
+             (results (map (lambda (j) (string-append "v" (show (+ (● inner first count) j))))
+                           (iota (length (● inner second)))))
+             (type (etype-wgsl etype)))
+        (new Pair
+          (first (new Lets
+                   (statements (Cons (string-append
+                                      (string-concatenate
+                                       (map (lambda (r)
+                                              (string-append "  var " r ": " type " = "
+                                                             (literal etype 0.0) ";\n"))
+                                            results))
+                                      "  if ("
+                                      (list-ref (● tested second) 0)
+                                      " != "
+                                      (literal (expr-etype condition) 0.0)
+                                      ") {\n"
+                                      (string-concatenate (reverse (● inner first statements)))
+                                      (string-concatenate
+                                       (map (lambda (pair)
+                                              (string-append "  "
+                                                             (● pair first)
+                                                             " = "
+                                                             (● pair second)
+                                                             ";\n"))
+                                            (zip results (● inner second))))
+                                      "  }\n")
+                                     (● outer statements)))
+                   (names (● outer names))
+                   (count (+ (● inner first count) (length results)))))
+          (second results))))
 
     ;; An operation's elements' names: a tile's own operations rearrange
     ;; or combine their operands' names; any other applies to each element,
@@ -1397,12 +1486,13 @@
       (match (table-ref (● lets names) text)
         ((Some name) (new Pair (first lets) (second name)))
         ((None)
-         (let ((name (string-append "v" (show (length (● lets statements))))))
+         (let ((name (string-append "v" (show (● lets count)))))
            (new Pair
              (first (new Lets
                       (statements (Cons (string-append "  let " name " = " text ";\n")
                                         (● lets statements)))
-                      (names (table-set (● lets names) text name))))
+                      (names (table-set (● lets names) text name))
+                      (count (+ (● lets count) 1))))
              (second name))))))
 
     ;; An operation on its operands' text, of type `from-etype`, answering
