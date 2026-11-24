@@ -74,8 +74,18 @@
   (write-line out (string-append "rotation: " (floats (● cloud gaussians) 16 4)))
   (write-line out (string-append "scale: " (floats (● cloud gaussians) 20 3)))
   (write-line out (string-append "opacity: " (floats (● cloud gaussians) 23 1)))
-  (write-line out (string-append "colors: " (floats (● cloud harmonics) 48 15)))
-  (write-line out (string-append "beyond degree 1: " (floats (● cloud harmonics) 60 3))))
+  (write-line out (string-append "colors: " (colors cloud 0 5)))
+  (write-line out (string-append "beyond degree 1: " (colors cloud 4 1))))
+
+;; The second gaussian's colors `from` and on, `count` of them, each its
+;; red, green and blue, read back from their halves.
+(define (colors (cloud Cloud) (from I64) (count I64)) (→ String)
+  (string-join (concatenate (map (lambda (k)
+                                   (map (lambda (c)
+                                          (f64->string (cloud-coefficient cloud 1 (+ from k) c)))
+                                        (iota 3)))
+                                 (iota count)))
+               " "))
 
 (define (refusal (lines (List String))) (→ String)
   (match (read-ply (array-append (header-bytes lines) (float-bytes (list 0.0))) 0)
@@ -116,9 +126,7 @@
        (write-line out (string-append "degree 3, red: "
                                       (string-join (map (lambda (k)
                                                           (f64->string
-                                                           (f32->f64 (float-at (● cloud harmonics)
-                                                                               (+ 48
-                                                                                  (* 3 (+ 9 k)))))))
+                                                           (cloud-coefficient cloud 1 (+ 9 k) 0)))
                                                         (iota 7))
                                                    " "))))
       ((Err message) (write-line out message)))))

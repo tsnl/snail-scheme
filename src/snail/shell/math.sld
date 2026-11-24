@@ -3,7 +3,8 @@
 ;; cases, so each result is within one ulp of the true value and equal, bit
 ;; for bit, to libm's (tests/programs/math). Wasm has no floating-point
 ;; exception flags, so the originals' arithmetic done only to raise them is
-;; left out.
+;; left out. Also binary16, the half-precision floats that data packs two
+;; to a 32-bit word and WGSL's `unpack2x16float` reads.
 ;;
 ;; ====================================================
 ;; Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
@@ -48,7 +49,9 @@
    atan2
    exp
    log
-   expt)
+   expt
+   half-bits
+   half-value)
   (import
    (snail core base))
   (begin
@@ -1054,5 +1057,53 @@
              (z (- 1.0 (- r z)))
              (j (+ (high-word z) (i64-shift-left n 20))))
         (if (<= (i64-shift-right j 20) 0) (scalbn z n) (with-high-word z j))))
+
+
+    ;; ---- Halves ----
+
+    ;; The binary16 nearest a float, as its 16 bits: rounded to even, an
+    ;; infinity past the largest half, 65504, and a zero under half the
+    ;; smallest, 2^-24, either of the float's sign; a NaN stays one. A
+    ;; normal half's bits are the float's exponent less 112 and the top 10
+    ;; bits of its mantissa, and a subnormal's are its mantissa, the leading
+    ;; 1 included, shifted down to multiples of 2^-24.
+    (define (half-bits (x F32)) (→ I64)
+      (let* ((bits (i64-and (i32->i64 (f32->bits x)) 4294967295))
+             (sign (i64-and (i64-shift-right/logical bits 16) 32768))
+             (exponent (i64-and (i64-shift-right/logical bits 23) 255))
+             (mantissa (i64-and bits 8388607)))
+        (i64-or sign
+                (cond ((= exponent 255) (if (= mantissa 0) 31744 32256))
+                      ((> exponent 142) 31744)
+                      ((> exponent 112)
+                       (min 31744
+                            (rounded-shift (i64-or (i64-shift-left (- exponent 112) 23) mantissa)
+                                           13)))
+                      ((> exponent 101) (rounded-shift (i64-or 8388608 mantissa) (- 126 exponent)))
+                      (else 0)))))
+
+    ;; `v` shifted down `s` bits, rounded to nearest, ties to even.
+    (define (rounded-shift (v I64) (s I64)) (→ I64)
+      (let ((q (i64-shift-right/logical v s))
+            (r (i64-and v (- (i64-shift-left 1 s) 1)))
+            (half (i64-shift-left 1 (- s 1))))
+        (if (or (> r half) (and (= r half) (= (i64-and q 1) 1))) (+ q 1) q)))
+
+    ;; The value of a half's 16 bits, exactly: a normal one's as the float
+    ;; with the same sign and mantissa and its exponent moved, a
+    ;; subnormal's as its mantissa times 2^-24.
+    (define (half-value (h I64)) (→ F64)
+      (let ((sign (if (= (i64-and h 32768) 0) 1.0 -1.0))
+            (exponent (i64-and (i64-shift-right/logical h 10) 31))
+            (mantissa (i64-and h 1023)))
+        (cond ((= exponent 0) (* sign (* (i64->f64 mantissa) 5.9604644775390625e-8)))
+              ((= exponent 31)
+               (f32->f64 (bits->f32 (i64->i32 (if (= mantissa 0)
+                                                  (if (> sign 0.0) 2139095040 -8388608)
+                                                  2143289344)))))
+              (else
+               (* sign
+                  (f32->f64 (bits->f32 (i64->i32 (i64-or (i64-shift-left (+ exponent 112) 23)
+                                                         (i64-shift-left mantissa 13))))))))))
 
     ))

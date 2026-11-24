@@ -6,6 +6,7 @@
  (snail core base)
  (snail core io)
  (snail core table)
+ (only (snail shell math) half-bits)
  (rename (snail shell tensor)
          (exp tensor-exp)
          (log tensor-log)
@@ -88,6 +89,38 @@
       (show-values out "sorted values" (only-value (list (● sorted second)) inputs)))
     (show-values out "bytes"
                  (bytes->values (values->bytes (list->array (list 1.5 -2.0)) (Float)) (Float)))))
+
+;; Floats rounded to binary16 two to a u32, low half first, and read back
+;; by `halves`: rounding to even, the largest half, ties past it to
+;; infinity, subnormals, and under half the smallest, zero.
+(define (halves-line (out OutputPort)) (→ Unit)
+  (let* ((floats (list 1.0
+                       -2.0
+                       0.1
+                       65504.0
+                       65519.0
+                       65520.0
+                       1e5
+                       5.960464477539063e-8
+                       2.9802322387695312e-8
+                       4.5e-8
+                       6.103515625e-5
+                       0.333333
+                       (negate 0.0)
+                       0.0))
+         (bits (map (lambda (x) (half-bits (f64->f32 x))) floats))
+         (words (map (lambda (j)
+                       (i64->f64 (i64-or (list-ref bits (* 2 j))
+                                         (i64-shift-left (list-ref bits (+ (* 2 j) 1)) 16))))
+                     (iota 7)))
+         (w (param "words" (list 7) (Unsigned)))
+         (inputs (inputs-of (list (new Pair (first "words") (second (list->array words)))))))
+    (write-line out
+                (string-append "halves: "
+                               (string-join (map f64->string
+                                                 (array->list
+                                                  (only-value (list (halves w)) inputs)))
+                                            " ")))))
 
 ;; ---- Gradients ----
 
@@ -406,6 +439,7 @@
   (constants out)
   (views out)
   (rows out)
+  (halves-line out)
   (gradients out)
   (rows-gradient out)
   (empty-gradients out)

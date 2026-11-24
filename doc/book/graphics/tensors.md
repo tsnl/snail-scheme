@@ -209,10 +209,10 @@ the splats viewer's frame from 272 to 80. With gradients' parts joined,
 Adam's updates of each param in one kernel, and the backward pass reading
 what forward kernels wrote, the step at 7,000 was 155; with the
 harmonics' basis one map, whose gradient is then one map too, it is 127.
-Of the viewer's
-10 ms for 4 million gaussians, its sorts and its rasterizer take 4.5; of
-its generated kernels, the harmonics' color costs most, reading each
-gaussian's 48 coefficients.
+Of the viewer's 6.9 ms for 4 million gaussians on an RTX 5090, most goes
+to the generated kernels that project every gaussian, culled or not; of
+them, the harmonics' color costs most, reading each gaussian's 48
+coefficients, f16s two to a word.
 
 ## Lowering and running
 

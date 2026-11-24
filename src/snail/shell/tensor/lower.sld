@@ -1345,6 +1345,12 @@
            (new Pair
              (first lets)
              (second (map (lambda (j) (list-ref (list-ref names 0) j)) indices))))
+          ((Halves)
+           (lets-for lets
+                     (concatenate (map (lambda (word)
+                                         (list (string-append "unpack2x16float(" word ").x")
+                                               (string-append "unpack2x16float(" word ").y")))
+                                       (list-ref names 0)))))
           ((Product)
            (lets-for lets
                      (product-texts (list-ref names 0)

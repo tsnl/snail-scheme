@@ -32,7 +32,8 @@ nodes, broadcasting as NumPy does.
 - **Leaves**: `param` (a buffer the host writes, by name), `constant`,
   `fill`, `scalar`, `zeros-like`, `ones-like`.
 - **Maps and reductions**: the elementwise operations (`exp`, `log`,
-  `sigmoid`, `where`, `maximum`, comparisons, `convert`, `bitcast`, …),
+  `sigmoid`, `where`, `maximum`, comparisons, `convert`, `bitcast`, …;
+  `halves` reads each u32 of a row as the two f16s it holds),
   `sum`, `sum-all`, `mean`, `amax`, `amin` and `matmul`; `mapped` and
   `reduced` take an `Expr` body directly, and `mapped-ports` a map of
   several bodies, one kernel writing a port for each, as fusing also

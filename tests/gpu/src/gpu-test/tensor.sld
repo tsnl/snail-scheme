@@ -1,8 +1,9 @@
 ;; Tensor programs on the device, against the CPU's evaluation of the same
 ;; graph: elementwise operations through views, reductions small and in
 ;; levels, a matrix product, gathers and float scatters, sorts of every
-;; pair and of as many as the device counts, scans, and a gradient through
-;; slices, unfused and fused, and the same program profiled; params
+;; pair and of as many as the device counts, scans, f16s unpacked from
+;; words, and a gradient through slices, unfused and fused, and the same
+;; program profiled; params
 ;; swapped and assigned, and one bound to the caller's buffer, in the
 ;; caller's pass. Then a line fitted by Adam, its loss read back after 300
 ;; steps of one lowered program.
@@ -24,7 +25,7 @@
          Storage
          CopySrc
          CopyDst)
-   (only (snail shell math) sin)
+   (only (snail shell math) sin half-bits)
    (rename (snail shell tensor)
            (exp tensor-exp)
            (sin tensor-sin))
@@ -41,6 +42,16 @@
       (array-generate count
                       (lambda (i) (f32->f64 (f64->f32 (* scale (sin (* 0.37 (i64->f64 i)))))))))
 
+    ;; Words of two f16s each, low first, from two waves.
+    (define (packed (count I64)) (→ (Array F64))
+      (let ((low (wave count 3.0)) (high (wave (+ count 7) 0.25)))
+        (array-generate count
+                        (lambda (i)
+                          (i64->f64 (i64-or (half-bits (f64->f32 (array-ref low i)))
+                                            (i64-shift-left
+                                             (half-bits (f64->f32 (array-ref high (+ i 7))))
+                                             16)))))))
+
     (define (labels (count I64) (rows I64)) (→ (Array F64))
       (array-generate count (lambda (i) (i64->f64 (remainder (* i 7) rows)))))
 
@@ -52,6 +63,7 @@
                        (new Pair (first "w") (second (wave (* 48 8) 0.5)))
                        (new Pair (first "big") (second (wave 20000 1.0)))
                        (new Pair (first "rows") (second (labels 100 64)))
+                       (new Pair (first "packed") (second (packed (* 40 6))))
                        (new Pair
                          (first "keys")
                          (second (array-generate 3000
@@ -64,7 +76,8 @@
             (param "w" (list 48 8) (Float))
             (param "big" (list 20000) (Float))
             (param "rows" (list 100) (Unsigned))
-            (param "keys" (list 3000) (Unsigned))))
+            (param "keys" (list 3000) (Unsigned))
+            (param "packed" (list 40 6) (Unsigned))))
 
     ;; ---- Sinks ----
 
@@ -74,6 +87,7 @@
              (big (list-ref (params) 2))
              (rows (list-ref (params) 3))
              (keys (list-ref (params) 4))
+             (packed (list-ref (params) 5))
              (loss (sum-all (square (narrow (transpose (matmul x w)) 0 2 4))))
              (order (exclusive-scan (ones-like keys)))
              (sorted (sort-pairs keys order 16))
@@ -103,7 +117,9 @@
               (matmul (narrow x 1 0 12) (narrow (narrow w 0 0 12) 1 0 3))
               (list-ref (grad (sum-all (square (matmul m (transpose m)))) (list x)) 0)
               (narrow (● first-sorted first) 0 0 1000)
-              (narrow (● first-sorted second) 0 0 1000))))
+              (narrow (● first-sorted second) 0 0 1000)
+              (halves packed)
+              (sum (narrow (halves packed) 1 3 7) (list 1)))))
 
     ;; ---- Agreement ----
 
