@@ -519,9 +519,8 @@
       (new Gaussian
         (position (new Vec3f (x 0.0) (y 0.0) (z 0.0)))
         (transform transform)
-        (rotation (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 1.0)))
-        (scale scale)
-        (opacity 1.0)))
+        (rotation (new Vec4h (x 0.0) (y 0.0) (z 0.0) (w 1.0)))
+        (scale-opacity (new Vec4h (x (● scale x)) (y (● scale y)) (z (● scale z)) (w 1.0)))))
 
     ;; Degree-0 coefficients for a color: (color - 0.5) / C0.
     (define (flat (r F32) (g F32) (b F32)) (→ (List Vec3f))

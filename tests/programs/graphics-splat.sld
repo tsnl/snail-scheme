@@ -61,19 +61,33 @@
                     (iota count))
                " "))
 
-;; The second gaussian's record, words: position, transform, quaternion,
-;; scale, opacity; then its first five colors.
+;; The second gaussian's record, read back: position, transform,
+;; quaternion, scale and opacity, the last two as their f16s hold them;
+;; then its first five colors.
+
+(define (f32-text (x F32)) (→ String) (f64->string (f32->f64 x)))
 
 (define (show-cloud (out OutputPort) (cloud Cloud)) (→ Unit)
-  (write-line out (string-append "count: " (show (● cloud count))))
-  (write-line out (string-append "position: " (floats (● cloud gaussians) 12 3)))
-  (write-line out (string-append "center: "
-                                 (string-join (map f64->string (cloud-center cloud 1)) " ")))
-  (write-line out
-              (string-append "transform: " (show (f32->bits (float-at (● cloud gaussians) 15)))))
-  (write-line out (string-append "rotation: " (floats (● cloud gaussians) 16 4)))
-  (write-line out (string-append "scale: " (floats (● cloud gaussians) 20 3)))
-  (write-line out (string-append "opacity: " (floats (● cloud gaussians) 23 1)))
+  (let ((g (cloud-gaussian cloud 1)) (text (lambda (xs) (string-join (map f32-text xs) " "))))
+    (write-line out (string-append "count: " (show (● cloud count))))
+    (write-line out
+                (string-append "position: "
+                               (text (list (● g position x) (● g position y) (● g position z)))))
+    (write-line out (string-append "center: "
+                                   (string-join (map f64->string (cloud-center cloud 1)) " ")))
+    (write-line out (string-append "transform: " (show (● g transform))))
+    (write-line out
+                (string-append "rotation: "
+                               (text (list (● g rotation x)
+                                           (● g rotation y)
+                                           (● g rotation z)
+                                           (● g rotation w)))))
+    (write-line out
+                (string-append "scale: "
+                               (text (list (● g scale-opacity x)
+                                           (● g scale-opacity y)
+                                           (● g scale-opacity z)))))
+    (write-line out (string-append "opacity: " (text (list (● g scale-opacity w))))))
   (write-line out (string-append "colors: " (colors cloud 0 5)))
   (write-line out (string-append "beyond degree 1: " (colors cloud 4 1))))
 
