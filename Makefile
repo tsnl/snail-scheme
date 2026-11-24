@@ -25,8 +25,8 @@ test:
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 	node tests/run.mjs "$(CURDIR)"
 
-# Browser interfaces in headless Chromium, which CI does
-# not have; CHROMIUM names the browser.
+# Browser interfaces in headless Chromium: the shell's on Linux, or the
+# browser CHROMIUM names. CI does not run them.
 test-browser:
 	node tests/browser/wasm-instance-identity.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"

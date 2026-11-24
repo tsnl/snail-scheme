@@ -32,23 +32,30 @@ let
   # shell adds to the system's drivers; Dawn prefers a GPU to it. npm's
   # @napi-rs/canvas package, which decodes images on Node, carries the
   # Skia it needs and asks for nothing here.
+  #
+  # The browser tests (`make test-browser`, tests/browser/page.mjs) drive
+  # headless Chromium, which nixpkgs builds for Linux; elsewhere, CHROMIUM
+  # names a Chromium or Chrome the system has.
   linux = pkgs.stdenv.hostPlatform.isLinux;
   lavapipe = "${pkgs.mesa}/share/vulkan/icd.d/lvp_icd.${pkgs.stdenv.hostPlatform.parsed.cpu.name}.json";
 in
 pkgs.mkShell {
   LD_LIBRARY_PATH = pkgs.lib.optionalString linux (pkgs.lib.makeLibraryPath [ pkgs.vulkan-loader ]);
   VK_ADD_DRIVER_FILES = pkgs.lib.optionalString linux lavapipe;
-  packages = with pkgs; [
-    git
-    git-filter-repo
-    chez
-    gnumake
-    nixfmt
-    npins
-    rustup
-    nodejs_26
-    mdbook
-    tree-sitter
-    binaryen
-  ];
+  packages =
+    with pkgs;
+    [
+      git
+      git-filter-repo
+      chez
+      gnumake
+      nixfmt
+      npins
+      rustup
+      nodejs_26
+      mdbook
+      tree-sitter
+      binaryen
+    ]
+    ++ lib.optionals linux [ chromium ];
 }
