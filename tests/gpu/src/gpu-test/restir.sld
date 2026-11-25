@@ -73,24 +73,23 @@
     (define (check-checkerboard (gpu Gpu) (t Tracer) (canvas Plane)
                                 (kernel GpuComputePipeline) (result GpuBuffer) (back GpuBuffer))
       (→ Unit)
-      (let* ((front (looking 4.0 0.0))
-             (draw
-              (lambda ((t Tracer) (camera Camera3D) (bounces I64) (moved Bool) (even I32) (odd I32)
-                       (count I32)) (→ Tracer)
-                (let ((next (draw-sampled-traced gpu t (● canvas view) camera 0.12 1.0 bounces
-                                                 moved (Checkerboard))))
-                  (expect (inspect gpu kernel next result back) 16
-                          (new Vec4i (x even) (y odd) (z 1) (w count)))
-                  next)))
-             (first (draw t front 1 #f 41 40 8))
-             (odd (draw first front 1 #f 0 40 8))
-             (even (draw odd front 1 #f 41 0 20))
-             (moved (draw even front 1 #t 41 40 48))
+      (let* ((view (● canvas view))
+             (front (looking 4.0 0.0))
+             (draw (lambda ((t Tracer) (camera Camera3D) (bounces I64)) (→ Tracer)
+                     (draw-traced gpu t view camera 0.12 1.0 bounces)))
+             (covered (lambda ((t Tracer) (even I32) (odd I32) (count I32)) (→ Tracer)
+                        (expect (inspect gpu kernel t result back) 16
+                                (new Vec4i (x even) (y odd) (z 1) (w count)))
+                        t))
+             (first (covered (draw t front 1) 41 40 8))
+             (odd (covered (draw first front 1) 0 40 8))
+             (even (covered (draw-moving-traced gpu odd view front 0.12 1.0 1 #f) 41 0 20))
+             (moved (covered (draw-moving-traced gpu even view front 0.12 1.0 1 #t) 41 40 48))
              (closer (looking 3.5 0.0))
-             (travelled (draw moved closer 1 #f 41 40 104))
-             (wide (draw (resize-tracer gpu travelled 17 9) closer 1 #f 77 76 8))
-             (half (draw wide closer 1 #f 77 0 20)))
-        (draw half closer 2 #f 77 76 36)
+             (travelled (covered (draw moved closer 1) 41 40 104))
+             (wide (covered (draw (resize-tracer gpu travelled 17 9) closer 1) 77 76 8))
+             (half (covered (draw wide closer 1) 77 0 20)))
+        (covered (draw half closer 2) 77 76 36)
         (unit)))
 
     (define (check-restir (gpu Gpu)) (→ String)
@@ -107,7 +106,8 @@
                                                (usage (list (CopyDst) (MapRead))))))
              (draw
               (lambda ((t Tracer) (camera Camera3D) (count I32) (selected I32) (lit I32)) (→ Tracer)
-                (let ((next (draw-traced gpu t (● canvas view) camera 0.12 1.0 1)))
+                (let ((next (draw-sampled-traced gpu t (● canvas view) camera 0.12 1.0 1
+                                                 #f (EveryPixel))))
                   (expect (inspect gpu kernel next result back) 0
                           (new Vec4i (x count) (y selected) (z lit) (w 1)))
                   next)))

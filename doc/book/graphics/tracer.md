@@ -1,8 +1,8 @@
 # The path tracer
 
 `(snail shell graphics trace render)` path traces a glTF scene into the
-canvas a frame at a time, with one path a pixel by default, filtered by SVGF and
-tone-mapped. It is composed of graphics middleware, each a library usable
+canvas a frame at a time. SVGF filters the light before tone mapping.
+It is composed of graphics middleware, each a library usable
 on its own: a BVH and its ray queries, an environment light, a denoiser.
 The [primer](path-tracing.md) gives the physics; this chapter gives the
 program. `src/apps/viewer` flies through the user's own scenes with it, or
@@ -29,14 +29,14 @@ A camera that holds still keeps accumulating: `tracer-frames` counts the
 frames since it last moved or the bounces last changed, either of which
 starts the history again.
 
-For half a path sample per pixel (spp) per still frame, call
-`(draw-sampled-traced gpu tracer canvas camera spread exposure bounces moved (Checkerboard))`.
-The first frame, a resize, a replacement scene or environment, a change in
-camera or bounce count, and a reported geometry change (`moved`) each trace
-every pixel. Successive
-still frames alternate the two halves of the checkerboard on both layers.
-Three frames from a cold start therefore give each surface pixel two new paths.
-`(EveryPixel)` traces the full image on each draw.
+`draw-traced` and `draw-moving-traced` use checkerboard sampling by default.
+The first frame traces every pixel. Successive still frames alternate the
+two halves of the checkerboard on both layers, averaging 0.5 path samples
+per pixel (spp) per frame. Three frames from a cold start give each surface
+pixel two new paths. A resize, a replacement scene or environment, a change
+in camera or bounce count, or a reported geometry change (`moved`) triggers
+a full frame. To trace every pixel on every frame, call
+`(draw-sampled-traced gpu tracer canvas camera spread exposure bounces moved (EveryPixel))`.
 
 A `Tracer` holds a record for each lifetime: a `Kit` of what is made once,
 the pipelines and uniforms; a `World` of the scene, its BVH and the
@@ -287,9 +287,10 @@ Clicking one drops it on the page. So the site publishes none of them,
 and a model's license is its publisher's to state. The page's query
 chooses the same way: `?model=ADDRESS&env=ADDRESS`, each an address
 `fetch` reads, such as a path on the page's server, and
-`&eye=x,y,z,yaw,pitch` for the camera. Add `?spp=0.5` to the viewer URL
-to enable checkerboard sampling while the view is still. If the URL already
-has a query, append `&spp=0.5`.
+`&eye=x,y,z,yaw,pitch` for the camera. The viewer uses checkerboard sampling
+on still frames by default. Add `?spp=1` to trace every pixel on every frame,
+or append `&spp=1` to an existing query. An explicit `spp=0.5` also selects
+checkerboard sampling.
 
 Files that cannot be shown leave the view as it was, and the page says why:
 a `.gltf` chosen without the files it names, an address that answers 404, a
