@@ -157,8 +157,8 @@
               (clip-ray-z z dz north south (max 0.0 (min a b)) (min reach (max a b)) reach)))))
 
     ;; A ray carries its surviving interval through both slab tests. A
-    ;; parallel ray outside a face empties it. Each wall gets one scoped
-    ;; interval with no pair allocation or ownership handoff.
+    ;; parallel ray outside a face empties it. Reuse the ray's interval
+    ;; across walls and carry the closest surviving distance in its far end.
     (record RayInterval
       ((near F64)
        (far F64)))
@@ -171,11 +171,19 @@
             (set! (● span near) (max (● span near) (min a b)))
             (set! (● span far) (min (● span far) (max a b))))))
 
+    (define (trace-walls! (span (MutRef RayInterval)) (p XZ) (v XZ) (walls (List Footprint)))
+      (→ Unit)
+      (match walls
+        ((Nil) (unit))
+        ((Cons w rest)
+         (let ((limit (● span far)))
+           (set! (● span near) 0.0)
+           (clip-slab! (ref! span) (● p x) (● v x) (● w west) (● w east))
+           (clip-slab! (ref! span) (● p z) (● v z) (● w north) (● w south))
+           (set! (● span far) (if (<= (● span near) (● span far)) (● span near) limit))
+           (trace-walls! (ref! span) p v rest)))))
+
     (define (trace-distance (p XZ) (direction XZ) (reach F64) (walls (List Footprint))) (→ F64)
-      (fold-left
-       (lambda (far w)
-         (let ((span (ref-local (new RayInterval (near 0.0) (far far)))))
-           (clip-slab! (ref! span) (● p x) (● direction x) (● w west) (● w east))
-           (clip-slab! (ref! span) (● p z) (● direction z) (● w north) (● w south))
-           (if (<= (● span near) (● span far)) (● span near) far)))
-       reach walls))))
+      (let ((span (ref-local (new RayInterval (near 0.0) (far reach)))))
+        (trace-walls! (ref! span) p direction walls)
+        (● span far)))))

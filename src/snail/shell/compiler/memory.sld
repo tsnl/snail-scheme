@@ -16,7 +16,10 @@
 
     (define (string-prefix? (prefix String) (text String)) (→ Bool)
       (and (<= (string-length prefix) (string-length text))
-           (string=? prefix (substring text 0 (string-length prefix)))))
+           (let loop ((i 0))
+             (or (= i (string-length prefix))
+                 (and (char=? (string-ref prefix i) (string-ref text i))
+                      (loop (+ i 1)))))))
 
     (define (word (tree Wat)) (→ String)
       (match tree ((Word text) text) (_ (panic "internal error: expected WAT word"))))
@@ -103,9 +106,6 @@
                    ((Some definition) (string=? (head (type-body definition)) "func"))
                    (_ #f))))))
 
-    (define (managed? (module MemoryModule) (type Wat)) (→ Bool)
-      (reference? type))
-
     (define (declaration-type (declaration Wat)) (→ Wat)
       (unwrap-mut (at (parts declaration) 1)))
 
@@ -175,8 +175,7 @@
 
     (define (collection-point? (local (Table Bool)) (tree Wat)) (→ Bool)
       (let ((op (head tree)))
-        (or (string=? op "frame.struct.new")
-            (string-prefix? "struct.new" op) (string-prefix? "array.new" op)
+        (or (string-prefix? "struct.new" op) (string-prefix? "array.new" op)
             (member? op (list "call_ref" "return_call_ref" "call_indirect" "return_call_indirect"))
             (and (member? op (list "call" "return_call"))
                  (not (table-contains? local (word (at (parts tree) 0)))))
@@ -373,7 +372,7 @@
                         (list "i32.const" "i64.const" "f32.const" "f64.const" "ref.null"))
                (loop rest stores (Cons (lower-operation fn operand) reads))
                (if
-                (and (● fn temporary-roots?) (managed? (● fn module) (expression-type fn operand)))
+                (and (● fn temporary-roots?) (reference? (expression-type fn operand)))
                 (let* ((value (lower-expression fn operand)) (slot (- (● (● fn slots) value) 1)))
                   (loop rest (Cons (wat "drop" value) stores)
                         (Cons (wat "i32.load" (root-address slot)) reads)))
@@ -411,7 +410,8 @@
          ((string=? op "ref.as_non_null") (expression-type fn (at args 0)))
          ((string=? op "ref.null") (wat "ref" (Word "null") (at args 0)))
          ((string=? op "ref.func") (Word "funcref"))
-         ((member? op (list "array.len" "ref.eq" "ref.is_null" "ref.test")) (Word "i32"))
+         ((member? op (list "array.len" "array.payload" "ref.eq" "ref.is_null" "ref.test"))
+          (Word "i32"))
          ((or (string-prefix? "i32." op) (string-prefix? "i64." op)
               (string-prefix? "f32." op) (string-prefix? "f64." op))
           (numeric-type op))
@@ -445,7 +445,7 @@
                         (MemoryFunction-temporary-roots?-set fn #f)))
              (value (lower-operation inner tree))
              (end (● (● fn slots) value)) (type (expression-type fn tree)))
-        (cond ((managed? (● fn module) type) (root-result fn value first end))
+        (cond ((reference? type) (root-result fn value first end))
               ((or (= first end)
                    (member? (head tree)
                             (list "then"
@@ -506,11 +506,11 @@
             (call "$lm.foreign-value" (list value (host-type module type))) value)))
 
     (define (read-global (fn MemoryFunction) (name String)) (→ Wat)
-      (if (managed? (● fn module) (declaration-type (lookup (● (● fn module) globals) name)))
+      (if (reference? (declaration-type (lookup (● (● fn module) globals) name)))
           (wat "i32.load" (get-global name)) (get-global name)))
 
     (define (write-global (fn MemoryFunction) (name String) (value Wat)) (→ Wat)
-      (if (managed? (● fn module) (declaration-type (lookup (● (● fn module) globals) name)))
+      (if (reference? (declaration-type (lookup (● (● fn module) globals) name)))
           (wat "i32.store" (get-global name) value) (wat "global.set" (Word name) value)))
 
     (define (reference-operation (fn MemoryFunction) (op String) (args (List Wat))) (→ Wat)
@@ -618,17 +618,23 @@
 
     (define (struct-access (fn MemoryFunction) (op String) (args (List Wat))) (→ Wat)
       (let* ((fields (fields-of (● fn module) (word (at args 0))))
-             (index (number (word (at args 1)))) (offset (field-offset fields index)))
+             (index (number (word (at args 1)))) (offset (field-offset fields index))
+             (receiver (at args 2)) (type (expression-type fn receiver)))
         (if (string=? op "struct.get")
             (wat (load-op (at fields index) "u")
                  (Word (string-append "offset=" (i64->string offset)))
-                 (call "$lm.nonnull" (list (lower-expression fn (at args 2)))))
+                 (checked-address type (lower-expression fn receiver)))
             (let* ((saved (save-operands fn (list-drop args 2))))
               (wat* "block" (append (● saved first)
                                     (list (wat (store-op (at fields index))
                                                (Word (string-append "offset=" (i64->string offset)))
-                                               (call "$lm.nonnull" (list (at (● saved second) 0)))
+                                               (checked-address type (at (● saved second) 0))
                                                (at (● saved second) 1)))))))))
+
+    (define (checked-address (type Wat) (value Wat)) (→ Wat)
+      (match type
+        ((Node (Cons (Word "ref") (Cons (Word _) (Nil)))) value)
+        (_ (call "$lm.nonnull" (list value)))))
 
     ;; ---- Arrays ----
 
@@ -636,6 +642,8 @@
       (cond ((string=? op "array.len")
              (wat "i32.load" (Word "offset=4")
                   (call "$lm.nonnull" (list (lower-expression fn (at args 0))))))
+            ((string=? op "array.payload")
+             (wat "i32.add" (call "$lm.nonnull" (list (lower-expression fn (at args 0)))) (c32 8)))
             ((member? op (list "array.get" "array.get_u" "array.get_s" "array.set"))
              (array-access fn op args))
             ((string=? op "array.copy") (array-copy fn args))
@@ -741,7 +749,7 @@
              (number (i64->string index))
              (name (if (named? (at (parts declaration) 0)) (word (at (parts declaration) 0))
                        (string-append "$lm.local." number)))
-             (slot (if (and (● fn framed?) (managed? (● fn module) type)) (root-slot fn) -1)))
+             (slot (if (and (● fn temporary-roots?) (reference? type)) (root-slot fn) -1)))
         (new MemoryFunction
           (module (● fn module))
           (framed? (● fn framed?))
@@ -755,17 +763,19 @@
           (slots (● fn slots))
           (result (● fn result)))))
 
-    (define (function-context (module MemoryModule) (function Wat)) (→ MemoryFunction)
-      ;; A framed function reserves a word even when it has no pointer locals.
-      ;; Every exit can then pop its frame before a tail transfer.
-      (let* ((framed? (not (table-contains? (● module noncollecting) (member-name function))))
+    (define (function-context (module MemoryModule) (function Wat) (owns-slots? Bool))
+      (→ MemoryFunction)
+      ;; A leaf can own storage without ever collecting. Its callers do not
+      ;; need roots for that call. Its own frame still ends on every exit.
+      (let* ((collects? (not (table-contains? (● module noncollecting) (member-name function))))
+             (framed? (or owns-slots? collects?))
              (declarations
               (append (pick "param" (parts function)) (pick "local" (parts function)))))
         (fold-left (lambda (fn index) (bind-function-local fn (at declarations index) index))
                    (new MemoryFunction
                      (module module)
                      (framed? framed?)
-                     (temporary-roots? framed?)
+                     (temporary-roots? collects?)
                      (local-types (empty-table))
                      (local-names (empty-table))
                      (local-roots (empty-table))
@@ -801,6 +811,9 @@
     ;; never erase a live payload. One spare word permits eight-byte alignment
     ;; even when the root frame starts at an odd word. Frames are per invocation.
 
+    (define (owns-slots? (tree Wat)) (→ Bool)
+      (or (string=? (head tree) "frame.struct.new") (any? owns-slots? (parts tree))))
+
     (define (reserve-frame-objects (fn MemoryFunction) (tree Wat)) (→ Wat)
       (let* ((tree (if (string=? (head tree) "frame.struct.new")
                        (let* ((type (at (parts tree) 0))
@@ -815,9 +828,9 @@
           (_ tree))))
 
     (define (lower-function (module MemoryModule) (function Wat)) (→ Wat)
-      (let* ((fn (function-context module function))
+      (let* ((owns? (owns-slots? function)) (fn (function-context module function owns?))
              (scratch-start (● (● fn slots) value))
-             (function (reserve-frame-objects fn function))
+             (function (if owns? (reserve-frame-objects fn function) function))
              (scratch-end (● (● fn slots) value))
              (body (map (lambda (tree) (lower-expression fn tree)) (function-code function)))
              (result (● fn result))
@@ -1112,11 +1125,11 @@
     (define (lower-global (field Wat)) (→ Wat)
       (if (reference? (declaration-type field)) (global-i32 (member-name field)) field))
 
-    (define (managed-globals (module MemoryModule) (fields (List Wat))) (→ (List Wat))
-      (filter (lambda (field) (managed? module (declaration-type field))) (pick "global" fields)))
+    (define (managed-globals (fields (List Wat))) (→ (List Wat))
+      (filter (lambda (field) (reference? (declaration-type field))) (pick "global" fields)))
 
     (define (setup-root-cells (module MemoryModule) (fields (List Wat))) (→ (List Wat))
-      (let ((globals (managed-globals module fields)))
+      (let ((globals (managed-globals fields)))
         (Cons (wat "global.set" (Word "$lm.roots")
                    (runtime-call module "roots" (list (c32 (length globals))) "i32"))
               (map-indexed (lambda (index global)

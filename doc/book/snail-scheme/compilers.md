@@ -170,12 +170,11 @@ An object header holds the layout identity and array length. Flat scoped
 records live inline in their owner's frame. Shared nested records keep
 identity through address fields.
 
-Completed source references are non-null. Internal Wasm storage and signatures
-admit null so uninitialized slots and suspended results need no fabricated
-source value. A control return leaves zero or null; its caller checks the yield
-record before reading the result. Tail calls forward
-that outcome directly. Normal construction and initialization establish when
-a slot contains a source value. Host handovers keep their non-null contracts
+Source function parameters receive completed, non-null values. Internal
+locals can hold zero until assigned, and a suspended call can return zero
+while its caller checks the yield record. Tail calls forward that outcome
+directly. A matched enum constructor's immutable tag proves the layout of
+its payload. Host handovers keep their non-null contracts
 except for the explicit nullable `Option Any` encoding, and dynamic type tests
 still reject null. Linked modules must use the same internal calling convention.
 
@@ -192,8 +191,10 @@ other functions use `return_call`, and indirect tail calls use `return_call_ref`
 A pure replacement creates a shallow copy of the record with one field
 replaced. A mutable update writes the field in place, after both its receiver
 and its value have run. Array copies support overlapping ranges. Strings
-remain character arrays; conversions copy storage, and host byte staging
-copies only an array's live prefix.
+store Unicode scalars. Literals initialize from little-endian UTF-32 data
+segments. A host buffer argument copies its packed payload in one memory
+operation immediately before the call. A staged byte array reserves its
+length word and the storage required for its bytes.
 
 The emitter interns concrete layouts before traversing their fields,
 allowing recursive object graphs. Finite budgets diagnose expanding type or

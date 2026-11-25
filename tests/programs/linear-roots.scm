@@ -1,6 +1,13 @@
 (import
  (snail core base)
- (snail core io))
+ (snail core io)
+ (only (snail shell task)
+       Mailbox
+       make-mailbox
+       mailbox-receive
+       make-scheduler
+       dispatch-in
+       tasks-turn))
 
 ;; Force collection at every allocation while the only path to a value is
 ;; through a cycle, an array, a suspended frame, or an earlier operand.
@@ -8,6 +15,7 @@
 (extern collect! "snail.core.support" "snail:gc/collect" (Fn → Unit))
 (extern profile! "snail.core.support" "snail:gc/profile" (Fn I32 → Unit))
 (extern allocations "snail.core.support" "snail:gc/profile-allocations" (Fn → I64))
+(extern live-bytes "snail.core.support" "snail:gc/live" (Fn → I32))
 
 (record Link
   ((value I64)
@@ -38,6 +46,22 @@
       (begin (ref-set! slot (+ (ref-get slot) 1))
              (bump! (- n 1) (ref! slot)))))
 
+;; The scheduler retains the suspended receiver, the receiver retains its
+;; mailbox, and the mailbox's waker captures the scheduler. Abandon all three.
+(define (park-receiver) (→ Unit)
+  (let ((scheduler (make-scheduler)) (mailbox (ann (make-mailbox) (Mailbox I64))))
+    (dispatch-in scheduler (lambda () (mailbox-receive mailbox) (unit)))
+    (unless (= (tasks-turn scheduler 0) -2) (panic "the receiver did not park"))))
+
+(define (reclaimed-receivers?) (→ Bool)
+  (park-receiver)
+  (collect!)
+  (let ((before (live-bytes)))
+    (let loop ((n 128))
+      (unless (= n 0) (park-receiver) (loop (- n 1))))
+    (collect!)
+    (= before (live-bytes))))
+
 (define (main (out OutputPort)) (→ Unit)
   (stress! (i64->i32 1))
   (let ((links (list->array (list (cycle) (link 11)))))
@@ -47,6 +71,7 @@
   (unless (= (with-prompt question paused (lambda (n resume) (collect!) (resume n))) 43)
     (panic "lost a suspended frame"))
   (stress! (i64->i32 0))
+  (unless (reclaimed-receivers?) (panic "unreachable mailbox waiters retained their schedulers"))
   (profile! (i64->i32 1))
   (let ((slot (ref-local 0)))
     (bump! 100000 (ref! slot))
@@ -54,4 +79,5 @@
   (unless (= (allocations) 0) (panic "a scoped scalar allocated in the shared heap"))
   (profile! (i64->i32 0))
   (write-line out "shared cycles, operands and frames survive collection")
+  (write-line out "abandoned mailbox and scheduler cycles are reclaimed")
   (write-line out "scoped calls allocate zero objects"))
