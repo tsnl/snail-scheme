@@ -18,6 +18,12 @@
    type-key
    require-type-capacity
    never-type?
+   ref-slot?
+   ref-parameters
+   ref-payload
+   writable-ref?
+   has-ref-type?
+   ref-scalar?
    local-name
    bytes-type?
    buffer-type?
@@ -205,6 +211,9 @@
             (new Pair (first "Unit") (second 0))
             (new Pair (first "String") (second 0))
             (new Pair (first "Array") (second 1))
+            (new Pair (first "RefSlot") (second 2))
+            (new Pair (first "ReadAccess") (second 0))
+            (new Pair (first "WriteAccess") (second 0))
             (new Pair (first "ConstantArray") (second 1))
             (new Pair (first "Prompt") (second 2))
             (new Pair (first "Fn") (second 0))))
@@ -253,6 +262,10 @@
 
     (define (type->string (type Type)) (→ String)
       (match type
+        ((TCon "RefSlot" (Cons (TCon "ReadAccess" _) (Cons inner (Nil))))
+         (string-append "(Ref " (type->string inner) ")"))
+        ((TCon "RefSlot" (Cons (TCon "WriteAccess" _) (Cons inner (Nil))))
+         (string-append "(MutRef " (type->string inner) ")"))
         ((TFun params result)
          (string-append "(Fn" (types->string params) " → " (type->string result) ")"))
         ((TCon name (Nil)) (short-name name))
@@ -262,6 +275,37 @@
 
     (define (types->string (types (List Type))) (→ String)
       (string-concatenate (map (lambda (type) (string-append " " (type->string type))) types)))
+
+    ;; A slot has one representation for both access modes.
+    (define (ref-slot? (type Type)) (→ Bool)
+      (match type ((TCon "RefSlot" _) #t) (_ #f)))
+
+    (define (ref-parameters (names (List String)) (types (List Type))) (→ (List String))
+      (map (lambda (pair) (● pair first))
+           (filter (lambda (pair) (ref-slot? (● pair second))) (zip names types))))
+
+    (define (ref-payload (type Type)) (→ Type)
+      (match type
+        ((TCon "RefSlot" (Cons _ (Cons value (Nil)))) value)
+        (_ type)))
+
+    (define (writable-ref? (type Type)) (→ Bool)
+      (match type
+        ((TCon "RefSlot" (Cons (TCon "WriteAccess" _) _)) #t)
+        (_ #f)))
+
+    (define (has-ref-type? (type Type)) (→ Bool)
+      (match type
+        ((TCon "RefSlot" _) #t)
+        ((TCon _ args) (any? has-ref-type? args))
+        ((TFun params result) (or (has-ref-type? result) (any? has-ref-type? params)))
+        (_ #f)))
+
+    (define (ref-scalar? (type Type)) (→ Bool)
+      (match type
+        ((TCon name (Nil))
+         (case name (("U8" "I32" "I64" "F32" "F64" "Bool" "Char" "Unit") #t) (else #f)))
+        (_ #f)))
 
     ;; (snail core base)'s type with no values. A prompt that resumes with
     ;; it never resumes, so a suspension to it saves nothing.

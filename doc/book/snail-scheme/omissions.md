@@ -10,8 +10,9 @@ each can return if a program needs it.
   checking with typeclasses and monomorphization. Normalization
   by evaluation and implicit arguments would add type-level computation
   no program uses.
-- **Linear types and counted ownership.** Every value may be shared, and
-  the collector reclaims it ([values](values.md)). There is no `FnOnce`,
+- **Linear types and counted ownership.** The collector reclaims ordinary
+  values. The [scoped ref prototype](values.md#call-scoped-refs) checks
+  access during a call. There is no `FnOnce`,
   `Rc`, `WeakRc`, `Drop` or `Copy`, and no finalizer: a resource has an
   explicit close operation. A second call of `resume` panics at run time
   instead of being rejected by the checker
@@ -21,10 +22,9 @@ each can return if a program needs it.
   ([#877](https://github.com/tsnl/snail-scheme/issues/877)). What they
   gave is had with less: a [capability](capabilities.md#capabilities) is a
   value a function is given, and [suspension](suspension.md) is three
-  functions. What went with them: no type says whether a call writes,
-  reaches the host or suspends. Reaching the host is in what a function is
-  handed; [writing is not tracked at all](capabilities.md#what-a-signature-does-not-say),
-  so that a function leaves its arguments unchanged is a convention.
+  functions. A function's arguments determine which host capabilities it
+  can use. Writes through ordinary shared values are a matter of
+  convention. [Capabilities](capabilities.md#what-a-signature-does-not-say)
   Divergence was never tracked; a row is the one way it could be, since
   nothing can be handed to a function to let it loop.
 - **Incremental compiler state.** Every build expands, checks and emits its

@@ -1,4 +1,5 @@
 (import
  (snail core base))
 
-(define (read (value (Ref I64))) (→ I64) 0)
+;; The old shareable heap cell had a value constructor named Ref.
+(define (heap-cell (value I64)) (→ (Ref I64)) (Ref value))

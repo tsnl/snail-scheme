@@ -928,7 +928,7 @@
       (let ((owner (resolve-type (solution ck) (● record type))))
         (match owner
           ((TVar _) (None))
-          ((TCon _ _) (projection-slot ck owner label loc))
+          ((TCon _ _) (projection-slot ck (ref-payload owner) label loc))
           (_ (compile-error loc (string-append "field " label
                                                " requires a known record type, found "
                                                (type->string owner)))))))
@@ -1293,17 +1293,25 @@
        (in-source-order
         (failures-of (lambda (item)
                        (match item
-                         ((Define _ value) (check-operations value))
+                         ((Define _ value)
+                          (when (check-operations value)
+                            (check-ref-definition (● typed program) value)))
                          (_ (unit))))
                      (● typed items)))))
 
-    (define (check-operations (expr Expr)) (→ Unit)
-      (match (● expr term)
-        ((Var name _ _)
-         (when (member? name (list "prim:cache" "prim:lru-cache"))
-           (check-cache-signature (● expr type) (● expr loc))))
-        (_ (unit)))
-      (for-each check-operations (expr-children expr)))
+    ;; Ordinary code needs no loan environment. Find scoped types while
+    ;; visiting the operations the checker already inspects in each body.
+    (define (check-operations (expr Expr)) (→ Bool)
+      (let ((here (match (● expr term)
+                    ((Var name types _)
+                     (when (member? name (list "prim:cache" "prim:lru-cache"))
+                       (check-cache-signature (● expr type) (● expr loc)))
+                     (or (has-ref-type? (● expr type)) (any? has-ref-type? types)))
+                    ((Lambda _ _) (has-ref-type? (● expr type)))
+                    ((Downcast _ target) (has-ref-type? target))
+                    (_ #f))))
+        (fold-left (lambda (found child) (or (check-operations child) found))
+                   here (expr-children expr))))
 
     ;; A cache is built for one signature, so an unknown F cannot be cached.
     ;; A generic factory states the function's shape in its header.
@@ -1311,6 +1319,135 @@
       (match type
         ((TFun _ (TFun _ _)) (unit))
         (_ (compile-error loc "cache requires an ordinary Fn function with a known signature"))))
+
+    ;; ---- Call-scoped references ----
+
+    ;; Unique resolved names identify storage. An owner starts with fresh
+    ;; storage. Parameters inherit the caller's checked access. A closure
+    ;; starts over. Reservations last from an argument to the end of its call.
+    (record RefScope
+      ((program Program)
+       (parameters (List String))
+       (owners (List String))
+       (reserved (List (Pair String Bool)))))
+
+    (define (ref-scope (program Program) (parameters (List String))) (→ RefScope)
+      (new RefScope (program program) (parameters parameters) (owners (Nil)) (reserved (Nil))))
+
+    (define (check-ref-definition (program Program) (value Expr)) (→ Unit)
+      (match value
+        ((Expr (Ann inner _) _ _) (check-ref-definition program inner))
+        ((Expr (Lambda names body) (TFun params result) loc)
+         (when (has-ref-type? result) (compile-error loc "a function cannot return a scoped ref"))
+         (for-each (lambda (type) (check-ref-parameter program type loc)) params)
+         (check-ref-expr (ref-scope program (ref-parameters names params)) body #t))
+        (_ (check-ref-expr (ref-scope program (Nil)) value #f))))
+
+    (define (check-ref-parameter (program Program) (type Type) (loc Loc)) (→ Unit)
+      (match type
+        ((TCon "RefSlot" (Cons mode (Cons value (Nil))))
+         (unless (or (writable-ref? type) (type=? mode (TCon "ReadAccess" (Nil))))
+           (compile-error loc "a ref parameter needs an explicit Ref or MutRef mode"))
+         (check-ref-payload program value loc))
+        (_ (when (has-ref-type? type)
+             (compile-error loc "a scoped ref must be a direct parameter")))))
+
+    (define (check-ref-payload (program Program) (type Type) (loc Loc)) (→ Unit)
+      (unless (or (ref-scalar? type)
+                  (match type
+                    ((TCon name args)
+                     (match (table-ref (● program types) name)
+                       ((Some (DataType _ vars (Cons case (Nil)) #f))
+                        (every?
+                         (lambda (field) (ref-scalar? (substitute (zip vars args) (● field type))))
+                         (● case fields)))
+                       (_ #f)))
+                    (_ #f)))
+        (compile-error loc "ref storage requires a scalar or a record with only scalar fields")))
+
+    ;; A place can only be named in its own function. Simultaneous reads
+    ;; may name the same place. A write must have it to itself.
+    (define (access-place (scope RefScope) (place Expr) (write? Bool)) (→ String)
+      (match place
+        ((Expr (Var name _ _) type loc)
+         (unless (or (member? name (● scope owners)) (member? name (● scope parameters)))
+           (compile-error loc "a scoped ref cannot be captured or accessed from another function"))
+         (when (and write? (not (writable-ref? type)))
+           (compile-error loc "cannot write through a read-only ref"))
+         (when (any?
+                (lambda (loan) (and (string=? name (● loan first)) (or write? (● loan second))))
+                (● scope reserved))
+           (compile-error loc (string-append "overlapping access to " (local-name name))))
+         name)
+        (_ (compile-error (● place loc) "a ref operand must name a local owner or ref parameter"))))
+
+    (define (check-ref-expr (scope RefScope) (expr Expr) (tail? Bool)) (→ Unit)
+      (when (has-ref-type? (● expr type))
+        (compile-error (● expr loc) "a scoped ref cannot be stored, returned or used as a value"))
+      (match (● expr term)
+        ((Let name (Expr (App (Expr (Var "prim:ref-local" _ _) _ _) (Cons init (Nil))) _ loc) body)
+         (check-ref-payload (● scope program) (● init type) loc)
+         (check-ref-expr scope init #f)
+         (check-ref-expr (RefScope-owners-set scope (Cons name (● scope owners))) body tail?))
+        ((Let _ value body) (check-ref-expr scope value #f) (check-ref-expr scope body tail?))
+        ((Seq first rest) (check-ref-expr scope first #f) (check-ref-expr scope rest tail?))
+        ((If test yes no)
+         (check-ref-expr scope test #f)
+         (check-ref-expr scope yes tail?)
+         (check-ref-expr scope no tail?))
+        ((Match value clauses)
+         (check-ref-expr scope value #f)
+         (for-each (lambda (clause) (check-ref-expr scope (● clause body) tail?)) clauses))
+        ((Lambda _ body) (check-ref-expr (ref-scope (● scope program) (Nil)) body #t))
+        ((Ann value _) (check-ref-expr scope value tail?))
+        ((App callee args) (check-ref-call scope callee args tail?))
+        ((Var _ types _)
+         (when (any? has-ref-type? types)
+           (compile-error (● expr loc) "a scoped ref cannot instantiate a type variable")))
+        (_ (for-each (lambda (child) (check-ref-expr scope child #f)) (expr-children expr)))))
+
+    (define (check-ref-call (scope RefScope) (callee Expr) (args (List Expr)) (tail? Bool)) (→ Unit)
+      (match (● callee term)
+        ((Var name types _)
+         (when (any? has-ref-type? types)
+           (compile-error (● callee loc) "a scoped ref cannot instantiate a type variable"))
+         (cond
+          ((string=? name "prim:ref-get") (access-place scope (list-ref args 0) #f) (unit))
+          ((string=? name "prim:ref-set!")
+           (access-place scope (list-ref args 0) #t) (check-ref-expr scope (list-ref args 1) #f))
+          ((has-ref-type? (● callee type))
+           (match (program-value (● scope program) name)
+             ((Some (Accessor _ _ _)) (access-place scope (list-ref args 0) #f) (unit))
+             ((Some (Writer _ _ _))
+              (access-place scope (list-ref args 0) #t) (check-ref-expr scope (list-ref args 1) #f))
+             ((Some (Defined (Some _) _)) (check-ref-arguments scope args tail?))
+             (_ (compile-error (● callee loc)
+                               "refs require a direct call to a declared Snail function"))))
+          (else (for-each (lambda (arg) (check-ref-expr scope arg #f)) args))))
+        (_ (check-ref-expr scope callee #f)
+           (for-each (lambda (arg) (check-ref-expr scope arg #f)) args))))
+
+    (define (check-ref-arguments (scope RefScope) (args (List Expr)) (tail? Bool)) (→ Unit)
+      (match args
+        ((Nil) (unit))
+        ((Cons arg rest)
+         (if (ref-slot? (● arg type))
+             (check-ref-arguments (reserve-argument scope arg tail?) rest tail?)
+             (begin (check-ref-expr scope arg #f) (check-ref-arguments scope rest tail?))))))
+
+    (define (reserve-argument (scope RefScope) (arg Expr) (tail? Bool)) (→ RefScope)
+      (match (● arg term)
+        ((App (Expr (Var op _ _) _ _) (Cons place (Nil)))
+         (unless (member? op (list "prim:ref" "prim:ref!"))
+           (compile-error (● arg loc) "pass a ref parameter as (ref place) or (ref! place)"))
+         (let* ((exclusive? (string=? op "prim:ref!")) (name (access-place scope place exclusive?)))
+           (when (and tail? (member? name (● scope owners)))
+             (compile-error (● arg loc)
+                            "a tail call cannot borrow a local owned by the departing frame"))
+           (RefScope-reserved-set scope
+                                  (Cons (new Pair (first name) (second exclusive?))
+                                        (● scope reserved)))))
+        (_ (compile-error (● arg loc) "pass a ref parameter as (ref place) or (ref! place)"))))
 
     ;; ---- Definitions ----
 
@@ -1518,7 +1655,9 @@
       (match (global-scheme ck name)
         ((Some (Scheme (Nil) (Nil) type))
          (match (resolve-type (solution ck) type)
-           ((TFun _ _) (unit))
+           ((TFun _ _)
+            (when (has-ref-type? (resolve-type (solution ck) type))
+              (compile-error loc "a scoped ref cannot cross the host boundary")))
            (_ (compile-error loc "an exposed function must be a monomorphic function"))))
         (_ (compile-error loc "an exposed function must be a monomorphic function"))))
 

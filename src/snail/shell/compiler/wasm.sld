@@ -339,13 +339,18 @@
       (match type
         ((TCon name args)
          (case name
-           (("U8" "I32" "Bool" "Char" "Unit") (Scalar "i32"))
+           (("U8" "I32" "Bool" "Char" "Unit" "ReadAccess" "WriteAccess") (Scalar "i32"))
            (("I64") (Scalar "i64"))
            (("F32") (Scalar "f32"))
            (("F64") (Scalar "f64"))
            (("String") (Reference (array-type m (Scalar "i32"))))
            (("Any") (Reference (any-type m)))
            (("Prompt") (Reference (prompt-type m)))
+           (("RefSlot")
+            (let ((value (ref-payload type)))
+              (if (ref-scalar? value)
+                  (Reference (array-type m (element-rep m value)))
+                  (rep m value))))
            (("Funcref") (Scalar "funcref"))
            (("Array" "ConstantArray")
             (Reference (array-type m (element-rep m (first-type args)))))
@@ -1430,13 +1435,13 @@
     ;; own struct type, so a field is one `struct.get` or `struct.set`.
 
     (define (field-access (fn Fn) (index I64) (record Expr)) (→ Wat)
-      (wat "struct.get" (id (data-type (● fn module) (● record type))) (int index)
+      (wat "struct.get" (id (data-type (● fn module) (ref-payload (● record type)))) (int index)
            (emit1 fn record)))
 
     ;; Wasm evaluates the record before the incoming value, each once.
 
     (define (field-write (fn Fn) (index I64) (record Expr) (value Expr)) (→ Wat)
-      (wat "struct.set" (id (data-type (● fn module) (● record type))) (int index)
+      (wat "struct.set" (id (data-type (● fn module) (ref-payload (● record type)))) (int index)
            (emit1 fn record) (emit1 fn value)))
 
     ;; A pure replacement makes a new record that shares the unchanged field
@@ -1460,6 +1465,44 @@
                                                  (wat "struct.get" (id holder) (int i)
                                                       (wat "local.get" (id record)))))
                                            (case-field-types m type case))))))
+
+    ;; ---- Scoped storage ----
+
+    ;; Scalars occupy one WasmGC array element. A flat record's fields are
+    ;; already inline in one struct. Copying them into private storage or
+    ;; out as a snapshot keeps ordinary mutable record aliases independent.
+    (define (ref-copy (fn Fn) (type Type) (source Wat)) (→ Wat)
+      (let* ((m (● fn module)) (holder (data-type m type))
+             (from (declare-temp! fn (ref-wat holder)))
+             (slots (iota (length (● (record-case m type) fields)))))
+        (wat "block" (wat "result" (ref-wat holder))
+             (wat "local.set" (id from) source)
+             (wat* "struct.new" (Cons (id holder)
+                                      (map (lambda (i)
+                                             (wat "struct.get"
+                                                  (id holder)
+                                                  (int i)
+                                                  (wat "local.get" (id from))))
+                                           slots))))))
+
+    ;; Evaluate both operands once before changing any field.
+    (define (ref-write (fn Fn) (type Type) (target Wat) (source Wat)) (→ (List Wat))
+      (let ((m (● fn module)) (done (wat "i32.const" (int 0))))
+        (if (ref-scalar? type)
+            (list (wat "array.set" (id (array-type m (element-rep m type)))
+                       target (wat "i32.const" (int 0)) source) done)
+            (let* ((holder (data-type m type)) (to (declare-temp! fn (ref-wat holder)))
+                   (from (declare-temp! fn (ref-wat holder)))
+                   (slots (iota (length (● (record-case m type) fields)))))
+              (append (list (wat "local.set" (id to) target) (wat "local.set" (id from) source))
+                      (append (map (lambda (i)
+                                     (wat "struct.set" (id holder) (int i) (wat "local.get" (id to))
+                                          (wat "struct.get"
+                                               (id holder)
+                                               (int i)
+                                               (wat "local.get" (id from)))))
+                                   slots)
+                              (list done)))))))
 
     ;; ---- Host calls ----
 
@@ -2740,6 +2783,23 @@
              (arg (lambda (n) (list-ref code n)))
              (sequence (lambda (t) (sequence-type m t))))
         (case operation
+          (("ref" "ref!") code)
+          (("ref-local")
+           (let ((value (first-type types)))
+             (list (if (ref-scalar? value)
+                       (wat "array.new_fixed"
+                            (id (array-type m (element-rep m value)))
+                            (int 1)
+                            (arg 0))
+                       ;; A freshly constructed struct already has private storage.
+                       (match (arg 0)
+                         ((Node (Cons (Word "struct.new") _)) (arg 0))
+                         (_ (ref-copy fn value (arg 0))))))))
+          (("ref-get")
+           (list (if (ref-scalar? type)
+                     (array-read m type (arg 0) (wat "i32.const" (int 0)))
+                     (ref-copy fn type (arg 0)))))
+          (("ref-set!") (ref-write fn (list-ref types 1) (arg 0) (arg 1)))
           (("cache")
            (list (cached-function m type (wat "i64.const" (int 0)) (arg 0) #f)))
           (("lru-cache")

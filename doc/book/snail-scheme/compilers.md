@@ -126,6 +126,13 @@ capability. The checker knows a value in one place: it does
 not generalize the thunk's type, and refuses one its library leaves
 undecided.
 
+For a body that uses scoped refs, `check.sld` follows each owner from
+its `ref-local` binding and each parameter from its typed header. Resolved
+local names identify the storage for the overlap check. Entering a closure
+starts a fresh scope. The checks on arguments and tail positions run
+before specialization, including in unused definitions. The access rules
+and a runnable physics example are in [Values](values.md#call-scoped-refs).
+
 ### Specialization and preparation
 
 `specialize.sld` is one call, `specialize`: from the program's entry and
@@ -148,6 +155,10 @@ language. A call that may yield stays in tail position or is named by a
 `let`; operands that execute before it are named first. The backend can
 therefore test for a pending yield before executing the rest of the
 expression. Code that never suspends is left as it was.
+
+For each normalized `let` that can save a resumable frame, preparation
+checks whether the continuation uses any in-scope ref. This includes a
+temporary holding an earlier call argument while a later argument suspends.
 
 ### WasmGC emission
 

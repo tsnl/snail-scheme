@@ -46,9 +46,9 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - Every record is a heap object and every field is mutable. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
-  by convention: nothing checks it. Every value may be shared,
-  and the Wasm engine's collector reclaims it: there are no linear types,
-  reference counts, finalizers or borrows, and no ownership pass.
+  by convention. Ordinary values may be shared and the Wasm engine's
+  collector reclaims them. The [scoped ref prototype](doc/book/snail-scheme/values.md#call-scoped-refs)
+  enforces call-scoped access to explicitly owned locals.
 - A top-level `(define name value)` is a cached thunk: its initializer runs
   at most once, on the first read, performs nothing, and every read
   shares the result. `(define (name parameter ...) ...)` is shorthand for

@@ -1732,9 +1732,10 @@
            (fields (map (lambda (field) (resolve-field cx scope field)) (● case fields)))))
 
     (define (resolve-field (cx Context) (scope Env) (field Syntax)) (→ Field)
-      (let ((parsed (parse-field field)))
-        (new Field (name (expect-name (● parsed name) "a field name"))
-             (type (resolve-type cx scope (● parsed type))))))
+      (let* ((parsed (parse-field field)) (type (resolve-type cx scope (● parsed type))))
+        (when (has-ref-type? type)
+          (compile-error (syntax-loc field) "a field cannot store a scoped ref"))
+        (new Field (name (expect-name (● parsed name) "a field name")) (type type))))
 
     (define (constructor-name (cx Context) (env Env) (ident Syntax)) (→ String)
       (let ((identifier-name (ident-name ident)))
@@ -2113,6 +2114,8 @@
     ;; host function may take a buffer only as its last argument.
 
     (define (check-host-parameters (type Type) (loc Loc)) (→ Unit)
+      (when (has-ref-type? type)
+        (compile-error loc "a scoped ref cannot cross the host boundary"))
       (match type
         ((TFun params _)
          (unless (staged-last? params)

@@ -24,8 +24,8 @@ Every example is part of a program under `tests/programs/`, which
 
 ## What a signature does not say
 
-Changing a value is not a capability. Every field of every record can be
-written, and every element of an array, by whoever holds it:
+Changing an ordinary shared value is not a capability. Whoever holds a
+record or array value can write its fields or elements:
 
 ```scheme
 (set! (● record field) value)
@@ -46,8 +46,9 @@ as they were is a convention, which a name ending in `!` breaks out loud
   first read, so what it computes from such a record depends on when that
   is.
 
-A type leaves out the rest of what a call may do as well: any function may
-panic, loop forever, or stop at a `suspend`.
+A scoped ref parameter specifies the access the callee has to that
+particular slot. Any function may still panic, loop forever, or stop at
+a `suspend`. [Call-scoped refs](values.md#call-scoped-refs)
 
 ## Capabilities
 
