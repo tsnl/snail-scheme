@@ -60,7 +60,7 @@ drawing, so the program keeps what it makes
 the objects made and records a line for each operation a page would send to
 its host, so a graphics library's test reads what it asked of WebGPU. A
 buffer reads back as zeros, an image is as large as its PNG header says,
-and the canvas is 640 by 480 (`tests/programs/gpu-record.sld`).
+and the canvas is 640 by 480 (`tests/programs/gpu-record.scm`).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/gpu/record.sld)
 

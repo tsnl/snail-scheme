@@ -38,7 +38,7 @@ the call. Here the caller's position and velocity have the physics
 library's existing `V3` type.
 
 ```scheme
-{{#include ../../../tests/programs/scoped-refs.sld:integrate}}
+{{#include ../../../tests/programs/scoped-refs.scm:integrate}}
 ```
 
 Use `ref-local` as the initializer of a local binding to create an owner.

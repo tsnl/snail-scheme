@@ -347,7 +347,7 @@ A traced run ([Traces](../snail-scheme/toolchain.md#traces)) shows
 instead each pass a run makes for as long as the device ran it, with no
 passes added.
 
-`tests/programs/tensor.sld` evaluates each kind on the CPU and checks every
+`tests/programs/tensor.scm` evaluates each kind on the CPU and checks every
 gradient `grad` builds against central differences. On the device, which
 `tests/browser/gpu.mjs` and `tests/gpu.mjs` run, `(gpu-test tensor)`
 lowers sinks covering the generated kernels, including reductions in

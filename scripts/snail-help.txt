@@ -4,7 +4,7 @@ Usage: snail-scheme build --target TARGET [--release] FILE
        snail-scheme lsp
        snail-scheme format [--width N] [--check | --write] [FILE ...]
 
-build compiles the script FILE for TARGET: node or browser. Its
+build compiles an executable .scm file for the node or browser target. Its
 workspace is the nearest folder above it that holds src/, where every
 import resolves. The output, build/PATH in the workspace, where PATH is
 FILE's path there without its extension, is a link to a completed

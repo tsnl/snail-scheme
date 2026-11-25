@@ -1,6 +1,6 @@
 ;; `snail-scheme` in ten minutes. Every line of this file runs:
 ;;
-;;   ./snail-scheme run --target node examples/tour.sld
+;;   ./snail-scheme run --target node examples/tour.scm
 ;;
 ;; prints what `examples/tour.out` holds, and the test suite checks it.
 (import

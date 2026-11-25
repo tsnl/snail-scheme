@@ -1,7 +1,7 @@
 # Bootstrap and self-hosting
 
 The compiler is a `snail-scheme` program that compiles itself, inside the
-command line, `bootstrap/cli.sld`, the one program stage zero builds. Everything else,
+command line, `bootstrap/cli.scm`, the one program stage zero builds. Everything else,
 scripts and the book's highlighter among them, the command line builds, as
 `clang` builds `lli`. Chez Scheme
 runs that same source for stage zero through a deliberately small host

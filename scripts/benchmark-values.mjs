@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Compile tests/benchmarks/value-model.sld with each compiler, then pass the
+// Compile tests/benchmarks/value-model.scm with each compiler, then pass the
 // two linked modules here. Instantiation, warm-up and forced GC are untimed.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';

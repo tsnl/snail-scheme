@@ -1,2 +1,2 @@
-error-two-items.sld:7:43: cache requires an ordinary Fn function with a known signature
-error-two-items.sld:9:44: cache requires an ordinary Fn function with a known signature
+error-two-items.scm:7:43: cache requires an ordinary Fn function with a known signature
+error-two-items.scm:9:44: cache requires an ordinary Fn function with a known signature

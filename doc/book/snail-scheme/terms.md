@@ -195,7 +195,7 @@ include an independent-process confirmation. They were taken with one
 linked module from `snailc`, since removed:
 
 ```sh
-./snail-scheme run . snailc compile -o build/function-cache.wasm tests/benchmarks/function-cache.sld
+./snail-scheme run . snailc compile -o build/function-cache.wasm tests/benchmarks/function-cache.scm
 taskset -c 2 node --no-warnings --expose-gc scripts/benchmark-cache.mjs build/function-cache.wasm
 ```
 

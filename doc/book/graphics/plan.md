@@ -57,7 +57,7 @@ through `host/browser/gpu.mjs`: the browser target provides it to a page's
 main, and a program on Node makes it itself, where it uses Dawn
 ([WebGPU on Node](#webgpu-on-node)).
 `with-recorded-gpu` (`(snail shell gpu record)`) records them instead, so a
-library is tested without a device (`tests/programs/gpu-record.sld`).
+library is tested without a device (`tests/programs/gpu-record.scm`).
 `tests/browser/gpu.mjs` draws, reads back, decodes and dispatches a compute
 shader on Chromium's software WebGPU, and `tests/gpu.mjs` runs the checks
 that need no screen on Node's device.
@@ -118,7 +118,7 @@ A shader is a file of forms, one per WGSL construct, which
 printer does not know fails the build at its line. The device test
 (`tests/gpu/`) draws with a shader from `src/gpu-test/paint.wgsl.scm` and a
 uniform from a `Pod` record, so the browser's WGSL compiler checks what the
-printer writes; `tests/programs/graphics-wgsl.sld` and `graphics-pod.sld`
+printer writes; `tests/programs/graphics-wgsl.scm` and `graphics-pod.scm`
 check the printing and the layouts.
 
 ## Atlas and quads
@@ -360,7 +360,7 @@ an RTX 5090. T toggles drawing tile by tile. Every two seconds the console
 has the frame rate and one frame's compute and render passes, timed on the
 device where it has timestamps.
 
-`tests/programs/graphics-splat.sld` reads a PLY file and records the
+`tests/programs/graphics-splat.scm` reads a PLY file and records the
 dispatches of a frame of 300,000 gaussians; `tests/browser/gpu.mjs` scans
 300,000 numbers in three levels and checks each, sorts 5,000 keys and
 checks the order is stable, and splats three gaussians, then turns one by

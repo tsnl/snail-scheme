@@ -1,5 +1,5 @@
 ;; One compiler invocation, shared by stage 0's Chez entry and the
-;; `snail-scheme` command line's `compile` action (bootstrap/cli.sld): the
+;; `snail-scheme` command line's `compile` action (bootstrap/cli.scm): the
 ;; interface the command line is bootstrapped through. A compile that
 ;; fails prints its diagnostic and exits with status 1.
 (define-library (snail shell compiler driver)

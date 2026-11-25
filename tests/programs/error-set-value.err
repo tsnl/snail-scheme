@@ -1,1 +1,1 @@
-error-set-value.sld:10:12: syntax used as a value: set!
+error-set-value.scm:10:12: syntax used as a value: set!

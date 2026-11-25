@@ -4,7 +4,7 @@
 //
 //   node tests/run.mjs ROOT [NAME ...]
 //
-// - A program NAME.sld of a suite must print NAME.out exactly, its standard
+// - A program NAME.scm of a suite must print NAME.out exactly, its standard
 //   output and then its standard error, or fail to build with each line of
 //   NAME.err in its diagnostics, in order.
 // - Checks: a fixture built and handed to its check script, the command
@@ -70,7 +70,7 @@ function containsInOrder(text, parts) {
 }
 
 async function program(suite, name) {
-  const source = `${suite}/${name}.sld`, expected = join(root, suite, `${name}.out`), diagnostic = join(root, suite, `${name}.err`);
+  const source = `${suite}/${name}.scm`, expected = join(root, suite, `${name}.out`), diagnostic = join(root, suite, `${name}.err`);
   const built = await build(source);
   if (existsSync(diagnostic)) {
     if (!built.failure) return fail(name, 'compiled, but a diagnostic was expected');
@@ -84,7 +84,7 @@ async function program(suite, name) {
 }
 
 async function programs(suite) {
-  const names = (await readdir(join(root, suite))).filter(file => file.endsWith('.sld')).map(file => file.slice(0, -4)).sort();
+  const names = (await readdir(join(root, suite))).filter(file => file.endsWith('.scm')).map(file => file.slice(0, -4)).sort();
   return names.filter(name => !selected.length || selected.includes(name)).map(name => () => program(suite, name));
 }
 
@@ -113,15 +113,15 @@ function script(name, ...flags) {
 // run's status is its program's: a panic exits with 1, and a trap is 2.
 async function commandLine() {
   const ran = file => command(snail, ['run', '--target', 'node', file]);
-  const wat = await command(snail, ['wat', '--target', 'node', 'examples/fibonacci.sld']);
+  const wat = await command(snail, ['wat', '--target', 'node', 'examples/fibonacci.scm']);
   if (wat.status !== 0 || !wat.stdout.includes('(func $main')) return fail('command line', 'wat printed no module text', wat.stderr);
-  const fibonacci = await ran('examples/fibonacci.sld');
+  const fibonacci = await ran('examples/fibonacci.scm');
   if (fibonacci.stdout !== '832040\n') return fail('command line', 'run printed', fibonacci.stdout + fibonacci.stderr);
-  const failed = await ran('tests/tasks/failure.sld');
+  const failed = await ran('tests/tasks/failure.scm');
   if (failed.status === 0 || failed.stdout !== '') return fail('command line', 'a fatal child panic must fail the run before starting queued siblings', failed.stdout + failed.stderr);
-  const panicked = await ran('tests/programs/panic.sld');
+  const panicked = await ran('tests/programs/panic.scm');
   if (panicked.status !== 1) return fail('command line', 'a panic must exit with status 1', panicked.stderr);
-  const trapped = await ran('tests/programs/traps.sld');
+  const trapped = await ran('tests/programs/traps.scm');
   return trapped.status === 2 || fail('command line', 'a trap must be status 2', trapped.stderr);
 }
 
@@ -129,7 +129,7 @@ async function commandLine() {
 // cases keeps the enum's representation and gives it a new identity.
 async function typeIds() {
   const id = async (name, cases) => {
-    const source = `build/tests/type-ids/${name}.sld`;
+    const source = `build/tests/type-ids/${name}.scm`;
     await mkdir(join(root, 'build/tests/type-ids'), {recursive: true});
     await writeFile(join(root, source), `(import (snail core base))\n(enum Phase ${cases})\n(define (main) (→ Unit) (match (Any (Day)) (_ (unit))))\n`);
     const wat = await command(snail, ['wat', '--target', 'node', source]);
@@ -141,7 +141,7 @@ async function typeIds() {
 
 // The native async file provider, where io_uring is available.
 async function asyncFiles() {
-  const built = await build('tests/async-files/main.sld');
+  const built = await build('tests/async-files/main.scm');
   if (built.failure) return fail('async files', 'compile failed', built.failure);
   const output = printed(await run(built, join(root, 'build/tests/async-data')));
   if (output === 'SKIP: native async file provider unavailable\n') {
@@ -157,10 +157,10 @@ async function asyncFiles() {
 async function toolchainAssembler() {
   const directory = join(root, 'build/tests/toolchain');
   await mkdir(directory, {recursive: true});
-  const wat = await command(snail, ['wat', '--target', 'node', 'examples/fibonacci.sld']);
+  const wat = await command(snail, ['wat', '--target', 'node', 'examples/fibonacci.scm']);
   if (wat.status !== 0) return fail('toolchain assembler', 'compile failed', wat.stderr);
   await writeFile(join(directory, 'fibonacci.wat'), wat.stdout);
-  const tool = await build('tests/toolchain/assemble.sld', 'node');
+  const tool = await build('tests/toolchain/assemble.scm', 'node');
   if (tool.failure) return fail('toolchain assembler', 'compile failed', tool.failure);
   const [, runtime] = (await command(join(root, 'scripts/bootstrap'), [])).stdout.split('\n');
   const assembled = printed(await run(tool, join(directory, 'fibonacci.wat'), join(directory, 'fibonacci.wasm'), runtime, join(directory, 'linked.wasm')));
@@ -185,11 +185,11 @@ const checks = () => [
   asyncFiles,
   toolchainAssembler,
   bookHighlighter,
-  fixture('host values', 'tests/host-values/main.sld', 'tests/host-values/check.mjs', 'node'),
-  fixture('host boundary', 'tests/host-boundary/main.sld', 'tests/host-boundary/check.mjs', 'node'),
-  fixture('socket boundary', 'tests/socket-boundary/main.sld', 'tests/socket-boundary/check.mjs', 'node'),
-  fixture('termination', 'tests/termination/main.sld', 'tests/termination/check.mjs', 'node'),
-  fixture('app runtime', 'tests/app-runtime/main.sld', 'tests/app-runtime/check.mjs', 'browser'),
+  fixture('host values', 'tests/host-values/main.scm', 'tests/host-values/check.mjs', 'node'),
+  fixture('host boundary', 'tests/host-boundary/main.scm', 'tests/host-boundary/check.mjs', 'node'),
+  fixture('socket boundary', 'tests/socket-boundary/main.scm', 'tests/socket-boundary/check.mjs', 'node'),
+  fixture('termination', 'tests/termination/main.scm', 'tests/termination/check.mjs', 'node'),
+  fixture('app runtime', 'tests/app-runtime/main.scm', 'tests/app-runtime/check.mjs', 'browser'),
   ...['scripts', 'script-builds', 'script-run', 'script-failures', 'script-resources', 'web-zip', 'embedding', 'ink', 'launcher', 'lsp',
       'tree-sitter', 'vscode', 'tcp', 'udp', 'sf-relief', 'format-scheme', 'siegework/headless'].map(name => script(name)),
   script('udp', '--test-udp-no-try-send'),

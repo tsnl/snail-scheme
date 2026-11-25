@@ -94,7 +94,7 @@ From the checkout:
 
 ```sh
 make fetch
-./snail-scheme run --target node examples/fibonacci.sld
+./snail-scheme run --target node examples/fibonacci.scm
 ```
 
 `make fetch` downloads the Rust crates in each `Cargo.lock` and the npm

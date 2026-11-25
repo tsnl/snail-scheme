@@ -3274,12 +3274,12 @@
                                        "/absent.bin"))))
 
       (define link-expansion
-        (lambda (root body) (write-file test-fs (string-append root "/main.sld") body)
+        (lambda (root body) (write-file test-fs (string-append root "/main.scm") body)
                 (expand-program test-fs (list root)
                                 (lambda (loading forms) (panic "unexpected producer"))
                                 (None)
                                 (Nil)
-                                (string-append root "/main.sld"))))
+                                (string-append root "/main.scm"))))
 
       (define link-error
         (lambda (root path) (let ((message (compile-failure
@@ -3303,14 +3303,14 @@
       ;; module.
       (define test-primitives
         (lambda (root library) (create-directory* root)
-                (write-file test-fs (string-append root "/main.sld")
+                (write-file test-fs (string-append root "/main.scm")
                             "(import (snail core forms) (snail core primitive)) (define (main) (→ Unit) (unit))")
                 (let ((program (● (expand-program test-fs (list root library)
                                                   (lambda (loading forms)
                                                     (panic "unexpected producer"))
                                                   (None)
                                                   (Nil)
-                                                  (string-append root "/main.sld")) program)))
+                                                  (string-append root "/main.scm")) program)))
                   (expect (primitive-scheme program "array-ref")
                           (list (list "A") "(Fn (Array A) I64 → A)"))
                   (expect (primitive-scheme program "array-generate")
@@ -3335,7 +3335,7 @@
                             (string-append
                              "(define-library (sample shape) (export Shape) (import (snail core base))"
                              " (begin (record Shape ((side I64)) (deriving Serialize Deserialize))))"))
-                (write-file test-fs (string-append root "/main.sld")
+                (write-file test-fs (string-append root "/main.scm")
                             "(import (snail core base) (sample shape)) (define (example) (→ Shape) (new Shape (side 2)))")
                 (let* ((expand (lambda ()
                                  (expand-program test-fs (list root library)
@@ -3343,7 +3343,7 @@
                                                    (panic "unexpected producer"))
                                                  (None)
                                                  (Nil)
-                                                 (string-append root "/main.sld"))))
+                                                 (string-append root "/main.scm"))))
                        (first (expand)))
                   (expect (every? own-run? (expansion-runs first)) #t)
                   (expect (run-length first "sample.shape") 2)

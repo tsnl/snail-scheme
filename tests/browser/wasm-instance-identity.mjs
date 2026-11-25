@@ -10,7 +10,7 @@ import {openBrowser, until} from './chromium.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
 const {stdout} = await promisify(execFile)(join(root, 'snail-scheme'),
-  ['build', '--target', 'node', join(root, 'tests/programs/wasm-instance-identity.sld')]);
+  ['build', '--target', 'node', join(root, 'tests/programs/wasm-instance-identity.scm')]);
 const output = stdout.trim();
 const expected = await readFile(join(root, 'tests/programs/wasm-instance-identity.out'), 'utf8');
 const page = `<!doctype html><title>Instance identity</title><pre></pre>

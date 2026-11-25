@@ -1,7 +1,7 @@
 # Tools
 
 The compiler, the build and the editor support are `snail-scheme` libraries
-too, which `bootstrap/cli.sld`, the `snail-scheme` command line, puts
+too, which `bootstrap/cli.scm`, the `snail-scheme` command line, puts
 together ([development toolchain](../snail-scheme/toolchain.md)).
 
 ## `(snail shell compiler)`

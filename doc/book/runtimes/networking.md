@@ -73,7 +73,7 @@ A replacement `Tcp` is a record of eight operations; a `Udp`, of four.
 They may create endpoint values with their own tokens. For example, a test
 can put a record with a mutable `Bytes` field in a connection token, or a
 mutable `Datagram` field in a UDP token, accessed through operation arguments
-(`tests/programs/tcp-handler.sld`, `udp-handler.sld`).
+(`tests/programs/tcp-handler.scm`, `udp-handler.scm`).
 
 ## Wasm boundary
 
@@ -288,7 +288,7 @@ does not read holds it. Closing a process that is still running kills it
 with SIGKILL and revokes the handle, as closing a socket does; closing it
 again succeeds. A `Process` carries an `Any` token belonging to the
 `Processes` that spawned it, and another's token reaching the native binding is `EBADF`.
-`tests/programs/process.sld` runs `/bin/sh` through each operation.
+`tests/programs/process.scm` runs `/bin/sh` through each operation.
 
 `run` and `exec` are for a tool that runs once, such as a command line
 program, not for a service. `run` blocks the program: no task runs until the
@@ -298,7 +298,7 @@ does: the command takes over the process, its id and its standard streams,
 its exit status becomes the process's, and nothing of the program runs
 after, not even its tasks; children it spawned keep running. Both find a
 program and report failures as `spawn` does
-(`tests/programs/process-run.sld`, `tests/programs/process-exec.sld`).
+(`tests/programs/process-run.scm`, `tests/programs/process-exec.scm`).
 
 ### Termination
 

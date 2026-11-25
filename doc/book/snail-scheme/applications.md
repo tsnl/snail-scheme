@@ -178,8 +178,8 @@ reports unavailable installation and refuses fullscreen.
 document in memory, delivering a script of cues (events fired at elements
 by their `id` or at the window, and the page hidden), and answers the
 document it left, as HTML and as a trace of every operation.
-`tests/programs/ui-memory.sld`, `tests/programs/ui-patch.sld` and
-`tests/programs/ui-commands.sld` run interfaces this way under `make
+`tests/programs/ui-memory.scm`, `tests/programs/ui-patch.scm` and
+`tests/programs/ui-commands.scm` run interfaces this way under `make
 test`.
 
 `run-interface` from `(snail shell ui page)` runs a document application
@@ -256,7 +256,7 @@ be restarted; the example shows an interrupted request as such.
 `tests/browser/ui-requests.mjs` holds server replies while input
 continues, verifies that a canceled request cannot install a late reply,
 and saves and reloads while a request is pending. The next page restores
-its save and can request again. `tests/programs/ui-checkpoint-wait.sld`
+its save and can request again. `tests/programs/ui-checkpoint-wait.scm`
 runs a command that finishes while a checkpoint waits, over the memory
 DOM.
 

@@ -35,9 +35,9 @@ A script is a source file run as it is, for an explicit target; its imports
 resolve under the `src/` of the nearest folder above it that holds one:
 
 ```sh
-./snail-scheme run --target node examples/fibonacci.sld
-./snail-scheme build --target node --release examples/fibonacci.sld
-./snail-scheme wat --target node examples/capabilities.sld
+./snail-scheme run --target node examples/fibonacci.scm
+./snail-scheme build --target node --release examples/fibonacci.scm
+./snail-scheme wat --target node examples/capabilities.scm
 ```
 
 Chibi Scheme, Rust and Node 26.4 or later are required. `shell.nix` provides

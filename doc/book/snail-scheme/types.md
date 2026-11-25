@@ -57,7 +57,7 @@ A lambda takes the same header, and `(define (name parameter ...) clause
 ... body ...)` is shorthand for defining one:
 
 ```scheme
-{{#include ../../../tests/programs/typed-lambdas.sld:lambdas}}
+{{#include ../../../tests/programs/typed-lambdas.scm:lambdas}}
 ```
 
 A lambda either writes the whole header, every parameter as `(name Type)`
@@ -102,7 +102,7 @@ A table is shared as any [top-level value](#top-level-values) is, and
 reading it allocates nothing. A table is a data segment of its elements, so it may be as large as
 its data. A float table is a table of the floats' bits, an `I64` table read
 through `bits->f64`, since only the assembler knows a float literal's bits. The program
-`tests/programs/constant-arrays.sld` exercises each element type.
+`tests/programs/constant-arrays.scm` exercises each element type.
 
 ## Top-level values
 
@@ -114,7 +114,7 @@ and exports remain declarations, and a program starts by calling its root
 `main`; importing or linking a library runs nothing.
 
 ```scheme
-{{#include ../../../tests/programs/global-values.sld:values}}
+{{#include ../../../tests/programs/global-values.scm:values}}
 ```
 
 - **No capability.** An initializer takes nothing, so it holds no
@@ -197,7 +197,7 @@ matching.
 A field read shares the value the field holds; see [values](values.md).
 
 ```scheme
-{{#include ../../../tests/programs/field-paths.sld:paths}}
+{{#include ../../../tests/programs/field-paths.scm:paths}}
 ```
 
 Patterns are `_`, variables, literals (numbers, characters, strings,
