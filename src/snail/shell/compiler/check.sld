@@ -1324,7 +1324,7 @@
 
     ;; Unique resolved names identify storage. An owner starts with fresh
     ;; storage. Parameters inherit the caller's checked access. A closure
-    ;; starts over. Reservations last from an argument to the end of its call.
+    ;; starts over. Only the loans handed to the same call overlap.
     (record RefScope
       ((program Program)
        (parameters (List String))
@@ -1428,12 +1428,13 @@
            (for-each (lambda (arg) (check-ref-expr scope arg #f)) args))))
 
     (define (check-ref-arguments (scope RefScope) (args (List Expr)) (tail? Bool)) (→ Unit)
-      (match args
-        ((Nil) (unit))
-        ((Cons arg rest)
-         (if (ref-slot? (● arg type))
-             (check-ref-arguments (reserve-argument scope arg tail?) rest tail?)
-             (begin (check-ref-expr scope arg #f) (check-ref-arguments scope rest tail?))))))
+      ;; A marker names a stable local slot. Ordinary arguments finish
+      ;; evaluating before the callee gains access to any of those slots.
+      (fold-left (lambda (loans arg)
+                   (if (ref-slot? (● arg type)) (reserve-argument loans arg tail?)
+                       (begin (check-ref-expr scope arg #f) loans)))
+                 scope args)
+      (unit))
 
     (define (reserve-argument (scope RefScope) (arg Expr) (tail? Bool)) (→ RefScope)
       (match (● arg term)

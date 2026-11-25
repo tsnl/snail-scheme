@@ -16,6 +16,10 @@
 (define (sum (a (Ref I64)) (b (Ref I64))) (→ I64)
   (+ (ref-get a) (ref-get b)))
 
+(define (add! (a (MutRef I64)) (v I64)) (→ I64)
+  (ref-set! a (+ (ref-get a) v))
+  (ref-get a))
+
 (define (count! (n I64) (x (MutRef I64))) (→ Unit)
   (if (= n 0) (unit)
       (begin (ref-set! x (+ (ref-get x) 1))
@@ -37,4 +41,9 @@
     (write-line out (show (f64->i64 (● p x)))))
   (let ((counter (ref-local 0)))
     (count! 100000 (ref! counter))
-    (write-line out (show (sum (ref counter) (ref counter))))))
+    (write-line out (show (sum (ref counter) (ref counter)))))
+  (let ((counter (ref-local 3)))
+    (add! (ref! counter) (ref-get counter))
+    (write-line out (show (ref-get counter)))
+    (add! (ref! counter) (add! (ref! counter) 1))
+    (write-line out (show (ref-get counter)))))

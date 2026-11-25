@@ -57,11 +57,12 @@ the whole contents from a value.
   (ref-get p))  ;; (3.0, 1.0, 6.0) as an ordinary V3
 ```
 
-An argument written `(ref p)` reserves shared access from that argument
-until the call returns. Multiple readers can use the same slot.
-`(ref! p)` reserves exclusive access. Subsequent arguments are evaluated
-left to right and must respect earlier reservations. Compute a scalar
-from `p` before passing `(ref! p)` if the same call needs both.
+`(ref p)` lends shared access for the call. Multiple readers can use the
+same slot. `(ref! p)` lends exclusive access until the call returns.
+Ordinary arguments evaluate left to right before the callee gains access.
+For example, `(add! (ref! p) (ref-get p))` can add the caller's prior
+value to itself. Passing `(ref! p)` and `(ref p)` to the same call would
+give the callee overlapping access and is a compile error.
 
 Only a direct call to a named, typed Snail function can forward a ref.
 Closures, fields, containers, `Any`, generic value parameters and host
