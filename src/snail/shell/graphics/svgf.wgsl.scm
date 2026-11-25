@@ -5,7 +5,7 @@
 ;;
 ;;   temporal    the illumination reprojected through the G-buffer's
 ;;               motion from last frame's history, each of the four
-;;               bilinear taps kept only where its world position and
+;;               bilinear taps kept only where its previous depth and
 ;;               normal match, mixed with this frame's by 1 / (length + 1)
 ;;               but no less than `floor`; and the luminance's first and
 ;;               second moments the same way
@@ -102,7 +102,7 @@
     (if ((sky_at p)
          (textureStore integrated p (vec4f 0.0))
          (textureStore moments p (vec4f 0.0))
-         (textureStore place p (vec4f 1e30 1e30 1e30 0.0))
+         (textureStore place p (vec4f 0.0))
          (return)))
     (let radiance (textureLoad noisy p 0))
     ;; A negative alpha holds this still pixel's previous observation.
@@ -124,14 +124,17 @@
     (var moment (vec2f 0.0))
     (var ages 0.0)
     (var total 0.0)
-    (let tolerance (* 0.02 (max 1.0 (distance world (get camera eye xyz)))))
+    ;; The rasterizer projects the *previous pose* of a moving triangle.
+    ;; Comparing its current world position would discard its own history.
+    (let previous_z (get (textureLoad emission p 0) w))
+    (let tolerance (* 0.02 (max 0.001 (abs previous_z))))
     (for ((var k 0) (< k 4) (+= k 1))
          (let offset (vec2i (bit-and k 1) (>> k 1)))
          (let q (+ base offset))
          (if ((or (any (< q (vec2i 0))) (any (>= q (vec2i size)))) (continue)))
          (let was (textureLoad past_place q 0))
-         (if ((not (<= (distance (get was xyz) world) tolerance)) (continue)))
-         (if ((< (dot (unfolded (unpack2x16snorm ((bitcast u32) (get was w)))) normal) 0.9)
+         (if ((or (== (get was w) 0.0) (> (abs (- (get was x) previous_z)) tolerance)) (continue)))
+         (if ((< (dot (unfolded (get was yz)) normal) 0.9)
               (continue)))
          (let w (* (select (- 1.0 (get f x)) (get f x) (== (get offset x) 1))
                    (select (- 1.0 (get f y)) (get f y) (== (get offset y) 1))))
@@ -156,7 +159,8 @@
     (textureStore moments p (vec4f mixed_moment (max history 1.0) 0.0))
     (textureStore place
                   p
-                  (vec4f world ((bitcast f32) (pack2x16snorm (get (textureLoad normals p 0) xy))))))
+                  (vec4f (get (* (get camera view_projection) (vec4f world 1.0)) z)
+                         (get (textureLoad normals p 0) xy) 1.0)))
 
 ;; ---- Variance ----
 

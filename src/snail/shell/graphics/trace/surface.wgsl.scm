@@ -7,7 +7,7 @@
 ;;
 ;; Targets, in this order so they fit 32 bytes a pixel:
 ;;   0 normals, rg16float: the shading normal, octahedral, facing the eye;
-;;   1 emission, rgba16float, linear;
+;;   1 emission, rgba16float, linear RGB and the previous clip-space z;
 ;;   2 albedo, rgba8unorm-srgb, so 8 bits keep its darks;
 ;;   3 material, rgba8unorm: metalness, filtered roughness and a water flag;
 ;;   4 motion, rg16float, in texture coordinates from the last frame;
@@ -181,7 +181,8 @@
     (var (out Targets))
     (= (get out normals) (octahedral normal))
     (= (get out emission)
-       (vec4f (* (get m emissive xyz) (decoded (get (texel (get m textures w) f) xyz))) 1.0))
+       (vec4f (* (get m emissive xyz) (decoded (get (texel (get m textures w) f) xyz)))
+              (get in clip_before z)))
     (= (get out albedo) (vec4f (* (get m base_color xyz) (decoded (get base xyz))) alpha))
     (= (get out material)
        (vec4f (* (get m factors x) (get metal_rough z))

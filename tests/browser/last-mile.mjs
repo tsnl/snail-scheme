@@ -21,6 +21,27 @@ const read = selector => browser.evaluate('document.querySelector(' + JSON.strin
 const expect = (selector, text) => until(async () => (await read(selector))?.includes(text), text, 100);
 const key = (key, down) => browser.send('Input.dispatchKeyEvent', {type: down ? 'keyDown' : 'keyUp', key});
 const tap = async k => { await key(k, true); await key(k, false); };
+const click = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ').click()');
+const selection = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ').value');
+async function choose(selector, value) {
+  await browser.evaluate(`(() => {
+    const field = document.querySelector(${JSON.stringify(selector)});
+    field.value = ${JSON.stringify(value)};
+    field.dispatchEvent(new Event('change', {bubbles: true}));
+  })()`);
+}
+async function pause() {
+  await click('.pause-toggle');
+  await until(() => browser.evaluate('!document.querySelector(".pause-scrim").hidden'), 'pause menu', 100);
+}
+async function restart(accept) {
+  const clicked = click('.restart-game');
+  await until(async () => {
+    const reply = await browser.send('Page.handleJavaScriptDialog', {accept});
+    return !reply.error;
+  }, 'restart confirmation');
+  await clicked;
+}
 const ready = () => until(async () => {
   const {ready, error} = await browser.evaluate('({...document.body.dataset})');
   if (error) throw new Error(error);
@@ -69,6 +90,7 @@ async function visibleStreet() {
 }
 
 try {
+  await browser.send('Emulation.setDeviceMetricsOverride', {width: 900, height: 600, deviceScaleFactor: 0.6, mobile: false});
   await browser.navigate(url);
   await ready();
   await expect('.stage', 'PICKUP');
@@ -80,22 +102,28 @@ try {
   assert.ok(local.paths > 15 && local.names > 0 && local.box.endsWith('768 768'));
   assert.ok(local.ratio > 1 && local.ratio < 3);
   assert.equal(local.overview, 'none');
+  await pause();
+  assert.equal(await selection('#render-resolution'), '720p');
+  assert.deepEqual(await browser.evaluate('[...document.querySelector("#render-resolution").options].map(o => o.value)'),
+    ['480p', '720p', '1080p']);
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 390, height: 700, deviceScaleFactor: 2, mobile: false});
   const narrow = await streetChart();
   assert.equal(narrow.box, local.box);
   assert.ok(narrow.labelPixels >= 10, 'street names remain legible at phone width');
   assert.ok(narrow.ratio > 1 && narrow.ratio < 3);
-  await tap('q');
-  await expect('.quality', 'High ');
+  await choose('#render-resolution', '1080p');
   await until(async () => {
-    const match = (await read('.quality'))?.match(/High (\d+)×(\d+)/);
-    return match && +match[2] >= 700 && +match[2] <= 1080;
-  }, 'high resolution on a portrait display', 65);
-  await tap('q');
-  await expect('.quality', 'Auto ');
+    const match = (await read('.quality'))?.match(/1080p · (\d+)×(\d+)/);
+    return match && +match[2] === 1080;
+  }, 'fixed 1080p setting on a portrait display', 130);
   // The high-density check above exercises the display resolution. Render the
   // keyboard drive at 300 × 190 so the software GPU can present each manoeuvre.
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 0.5, mobile: false});
+  await choose('#render-resolution', '480p');
+  await expect('.quality', '480p · ');
+  await choose('#mouse-sensitivity', 'High');
+  await click('.resume-game');
+  await expect('.stage', 'PICKUP');
   const activation = {x: 550, y: 290, button: 'left', clickCount: 1};
   await browser.send('Input.dispatchMouseEvent', {type: 'mousePressed', ...activation});
   await browser.send('Input.dispatchMouseEvent', {type: 'mouseReleased', ...activation});
@@ -153,10 +181,31 @@ try {
     return [rejected, calls, changed[0]];
   })()`);
   assert.deepEqual(cache, [true, 1, 14]);
-  // Start another shift in this test profile, with the network block still in force.
-  await browser.evaluate("import('./storage.mjs').then(s => s.storeSave('last-mile-sf-taxi-v1', undefined))");
+  await pause();
+  assert.equal(await selection('#render-resolution'), '480p');
+  assert.equal(await selection('#mouse-sensitivity'), 'High');
+  await click('.recover-cab');
+  await expect('.stage', 'METER RUNNING');
+  await expect('.meter', '$4.00');
+  await expect('h2', 'Jones Street');
+  await expect('.speech', 'Leavenworth');
+  await pause();
+  await restart(false);
+  await expect('.stage', 'SHIFT PAUSED');
+  await click('.resume-game');
+  await expect('.stage', 'METER RUNNING');
+  await pause();
+  await restart(true);
+  await expect('.stage', 'PICKUP');
+  await expect('h2', 'Rosa');
   await browser.navigate(url);
   await ready();
+  await expect('.stage', 'PICKUP');
+  await pause();
+  assert.equal(await selection('#render-resolution'), '480p');
+  assert.equal(await selection('#mouse-sensitivity'), 'High');
+  await click('.resume-game');
+  await expect('.stage', 'PICKUP');
   await tap('m');
   for (let i = 0; i < 3; i++) await tap('[');
   await expect('.picker', 'Treasure Island');
@@ -177,7 +226,7 @@ try {
   if (screenshot) await writeFile(screenshot.replace(/(\.png)?$/, '-island-night.png'), night.bytes);
   assert.deepEqual([...objects], before);
   assert.equal(await browser.evaluate('document.body.dataset.error'), undefined);
-  console.log(`Rosa boarded, GPS appeared, and the occupied cab restored with all ${before.length} linked requests blocked. Treasure Island daylight/night luminance: ${day.toFixed(1)} / ${night.luminance.toFixed(1)}.`);
+  console.log(`Rosa boarded, recovered with her fare, and restarted a shift with all ${before.length} linked requests blocked. Treasure Island daylight/night luminance: ${day.toFixed(1)} / ${night.luminance.toFixed(1)}.`);
 } finally {
   browser.close();
   server.close();

@@ -1,6 +1,6 @@
 ;; A single tracer sees the same street geometry and moving poses as the driver.
 (define-library (apps last-mile render)
-  (export Renderer make-renderer draw! render-resolution sky-at)
+  (export Renderer make-renderer draw! render-resolution sky-at reset-view!)
   (import
    (snail core base)
    (snail shell math)
@@ -18,9 +18,9 @@
    (snail shell graphics environment)
    (snail shell game physics)
    (snail shell game atlas)
-   (snail shell game roads)
-   (snail shell game traffic)
+   (only (snail shell game chassis) chassis-clearance)
    (snail shell game vehicle)
+   (prefix (snail shell game rigid-body) rigid:)
    (snail shell game boarding)
    (snail shell game humanoid)
    (snail shell game pedestrian)
@@ -29,7 +29,6 @@
   (begin
     (record Renderer
       ((ground Area)
-       (roads Roads)
        (read (Fn (List String) → (List Bytes)))
        (taxi Gltf)
        (sedan-model Gltf)
@@ -44,8 +43,6 @@
        (palette (List Mat4x4f))
        (time F64)
        (pixel-limit F64)
-       (budget I32)
-       (streak-frames I32)
        (eye XZ)))
     (define (rgba (x F32) (y F32) (z F32) (w F32)) (→ Vec4f) (new Vec4f (x x) (y y) (z z) (w w)))
     ;; Equinox sunlight at San Francisco's latitude in the rotated street
@@ -112,39 +109,70 @@
                                                     0.47
                                                     0.47
                                                     0.47)))))
-    (define (world-palette (g Area) (r Roads) (h Humanoid) (a Game) (w Game) (t F64) (clock F64))
+    (define (basis-column (v rigid:V3) (scale F64)) (→ Vec4f)
+      (column (● v x) (● v y) (● v z) scale))
+    (define (chassis-mount (a rigid:RigidBody) (b rigid:RigidBody) (t F64) (side F64)
+                           (sx F64) (sy F64) (sz F64)) (→ Mat4x4f)
+                           (let* ((delta (rigid:v- (● b center) (● a center)))
+                                  (f (if (> (rigid:squared delta) 324.0) 1.0 t))
+                                  (q
+                                   (rigid:between-rotations (● a orientation) (● b orientation) f))
+                                  (p (rigid:v+ (rigid:v+ (● a center) (rigid:scaled delta f))
+                                               (rigid:rotated q
+                                                              (rigid:v3 side
+                                                                        (negate chassis-clearance)
+                                                                        0.0)))))
+                             (new Mat4x4f
+                               (x (basis-column (rigid:rotated q (rigid:v3 -1.0 0.0 0.0)) sx))
+                               (y (basis-column (rigid:rotated q (rigid:v3 0.0 1.0 0.0)) sy))
+                               (z (basis-column (rigid:rotated q (rigid:v3 0.0 0.0 -1.0)) sz))
+                               (w (rgba (f64->f32 (● p x))
+                                        (f64->f32 (● p y))
+                                        (f64->f32 (● p z))
+                                        1.0)))))
+    (define (cab-rider (g Area)
+                       (h Humanoid)
+                       (before Shift)
+                       (now Shift)
+                       (driver Bool)
+                       (t F64)
+                       (clock F64))
       (→ (List Mat4x4f))
-      (let ((cars (map (lambda (p)
-                         (mount g
-                                (display-body (motor-body r (● p first))
-                                              (motor-body r (● p second))
-                                              t)
-                                1.0
-                                1.25
-                                1.4
-                                1.8))
-                       (zip (● a traffic) (● w traffic))))
-            (walkers (map-indexed (lambda (i p) (let ((u (● p first)) (v (● p second)))
-                                                  (bones g
-                                                         h
-                                                         (● u body)
-                                                         (● v body)
-                                                         (● u gait)
-                                                         (● v gait)
-                                                         t
-                                                         (+ clock (* (i64->f64 i) 0.37)))))
-                                  (zip (● a residents) (● w residents)))))
+      (let* ((a (● before game)) (b (● now game))
+             (ra (if driver (● a driver) (● a passenger)))
+             (rb (if driver (● b driver) (● b passenger)))
+             (ga (if driver (● a gait) (● a passenger-gait)))
+             (gb (if driver (● b gait) (● b passenger-gait))))
+        (if (and (aboard? ra) (aboard? rb))
+            (let ((m (chassis-mount (list-ref (● before cars) 0) (list-ref (● now cars) 0) t
+                                    (* (if driver -0.21 0.21) (● sedan width)) 0.47 0.47 0.47)))
+              (skin-palette (● h rig)
+                            (posed-nodes (● h rig)
+                                         (humanoid-pose h (between-gaits ga gb t) clock 0.0)
+                                         m)))
+            (bones g
+                   h
+                   (if driver (driver-body a) (passenger-body a))
+                   (if driver (driver-body b) (passenger-body b))
+                   ga gb t clock))))
+    (define (world-palette (g Area) (h Humanoid) (before Shift) (now Shift) (t F64) (clock F64))
+      (→ (List Mat4x4f))
+      (let* ((a (● before game)) (w (● now game))
+             (cars (map (lambda (p) (chassis-mount (● p first) (● p second) t 0.0 1.25 1.4 1.8))
+                        (zip (● before cars) (● now cars))))
+             (walkers (map-indexed (lambda (i p) (let ((u (● p first)) (v (● p second)))
+                                                   (bones g
+                                                          h
+                                                          (● u body)
+                                                          (● v body)
+                                                          (● u gait)
+                                                          (● v gait)
+                                                          t
+                                                          (+ clock (* (i64->f64 i) 0.37)))))
+                                   (zip (● a residents) (● w residents)))))
         (concatenate
-         (list (Cons (mount g (display-body (● a cab) (● w cab) t) 1.0 1.25 1.4 1.8) cars)
-               (bones g h (driver-body a) (driver-body w) (● a gait) (● w gait) t clock)
-               (bones g
-                      h
-                      (passenger-body a)
-                      (passenger-body w)
-                      (● a passenger-gait)
-                      (● w passenger-gait)
-                      t
-                      (+ clock 0.28))
+         (list cars (cab-rider g h before now #t t clock)
+               (cab-rider g h before now #f t (+ clock 0.28))
                (concatenate walkers)))))
     (define (vertex-count (g Gltf)) (→ I64)
       (fold-left (lambda (n p) (+ n (● p primitive positions count))) 0 (● g placed)))
@@ -178,8 +206,10 @@
              (second (max 1 (f64->i32 (* scale h)))))))
 
     (define (make-renderer (gpu Gpu) (read (Fn (List String) → (List Bytes))) (models (List Bytes))
-                           (g Area) (roads Roads) (w Game)) (→ Renderer)
-                           (let* ((info ((● gpu request-device))) (format (● info format))
+                           (g Area) (s Shift)) (→ Renderer)
+                           (let* ((w (● s game))
+                                  (info ((● gpu request-device)))
+                                  (format (● info format))
                                   (limit
                                    (i64->f64 (quotient (i32->i64 (● info storage-binding-size))
                                                        ray-size)))
@@ -193,12 +223,14 @@
                                                                 (sky-at (clock-minute w) (● w tick))
                                                                 1024))
                                   (canvas ((● gpu current-texture)))
-                                  (size (size-at (● canvas width) (● canvas height) 720 limit))
-                                  (palette (world-palette g roads actor w w 1.0 0.0)))
+                                  (size (size-at (● canvas width)
+                                                 (● canvas height)
+                                                 (● s resolution)
+                                                 limit))
+                                  (palette (world-palette g actor s s 1.0 0.0)))
                              (deform-scene! gpu stage palette)
                              (new Renderer
                                (ground g)
-                               (roads roads)
                                (read read)
                                (taxi taxi)
                                (sedan-model car)
@@ -211,8 +243,7 @@
                                (minute (clock-minute w))
                                (palette palette)
                                (time -1.0)
-                               (pixel-limit limit) (budget 720)
-                               (streak-frames 0)
+                               (pixel-limit limit)
                                (eye (offset (● (carrier w) position)
                                             (forward (● (carrier w) heading))
                                             -7.0))
@@ -242,7 +273,7 @@
         (set! (● r minute) (clock-minute w))))
     ;; Clip the boom around the focus, and lift the eye over the measured
     ;; slope. Mouse orbit and the car use the same interpolated focus.
-    (define (camera! (r Renderer) (b Body) (seated Bool) (yaw F64) (pitch F64)
+    (define (camera! (r Renderer) (b Body) (h F64) (seated Bool) (yaw F64) (pitch F64)
                      (elapsed I32) (aspect F64)) (→ Camera3D)
                      (let* ((p (● b position)) (g (● r ground))
                             (ahead (forward (+ (● b heading) yaw)))
@@ -255,7 +286,7 @@
                             (a (min 1.0 (* 0.018 (i32->f64 elapsed))))
                             (eye (xz (+ (● old x) (* a (- (● wanted x) (● old x))))
                                      (+ (● old z) (* a (- (● wanted z) (● old z))))))
-                            (at (offset p ahead 2.0)) (h (area-height g p)))
+                            (at (offset p ahead 2.0)))
                        (set! (● r eye)
                              (if (and (< (distance eye p) 12.0) (clear-path? p eye 0.18 walls))
                                  eye
@@ -271,49 +302,43 @@
                           (z (f64->f32 (● at z))))
                         (PinholeRange 1.0 0.35 32000.0) aspect 1.0)))
 
-    ;; Adjust only after a run of slow or fast frames so resizing does not
-    ;; repeatedly throw away the filter's history near a threshold.
-    (define (render-resolution (r Renderer) (sharp Bool)) (→ String)
+    (define (reset-view! (r Renderer)) (→ Unit) (set! (● r sector) -1))
+    (define (render-resolution (r Renderer) (lines I32)) (→ String)
       (let ((target (● r tracer targets)))
-        (string-append (if sharp "High " "Auto ")
-                       (show (● target width))
-                       "×"
-                       (show (● target height)))))
-    ;; Sustained frame pressure changes resolution a tier at a time. A
-    ;; single scene rebuild shouldn't make an entire block look soft.
-    (define (budget! (r Renderer) (ms I32)) (→ I32)
-      (let ((n (cond ((> ms 45) (- (min 0 (● r streak-frames)) 1))
-                     ((and (> ms 0) (< ms 24)) (+ (max 0 (● r streak-frames)) 1))
-                     (else 0))))
-        (cond ((<= n -12)
-               (set! (● r budget) (max 480 (- (● r budget) 120)))
-               (set! (● r streak-frames) 0))
-              ((>= n 75)
-               (set! (● r budget) (min 1080 (+ (● r budget) 120)))
-               (set! (● r streak-frames) 0))
-              (else (set! (● r streak-frames) n)))
-        (● r budget)))
+        (string-append (show lines) "p · " (show (● target width)) "×" (show (● target height)))))
     (define (draw! (r Renderer)
                    (gpu Gpu)
-                   (before Game)
-                   (w Game)
+                   (before Shift)
+                   (now Shift)
                    (t F64)
                    (yaw F64)
                    (pitch F64)
-                   (elapsed I32) (sharp Bool))
+                   (elapsed I32))
       (→ Unit)
-      (refresh! r gpu w)
-      (let* ((canvas ((● gpu current-texture))) (width (● canvas width)) (height (● canvas height))
-             (size (size-at width height (if sharp 1080 (budget! r elapsed)) (● r pixel-limit)))
+      (refresh! r gpu (● now game))
+      (let* ((w (● now game))
+             (canvas ((● gpu current-texture)))
+             (width (● canvas width))
+             (height (● canvas height))
+             (size (size-at width height (● now resolution) (● r pixel-limit)))
              (time (+ (i64->f64 (● w tick)) t))
              (changed (not (= (● r time) time)))
-             (focus (display-body (carrier before) (carrier w) t))
-             (camera (camera! r focus (aboard? (● w driver)) yaw pitch elapsed
+             (focus (display-body (carrier (● before game)) (carrier w) t))
+             (seated (aboard? (● w driver)))
+             (h (if seated
+                    (let ((y (● (list-ref (● before cars) 0) center y))
+                          (next (● (list-ref (● now cars) 0) center y)))
+                      (- (+ y (* t (- next y))) chassis-clearance))
+                    (area-height (● r ground) (● focus position))))
+             (camera (camera! r focus h seated yaw pitch elapsed
                               (/ (i32->f64 width) (i32->f64 (max 1 height))))))
         (when changed
           (set! (● r palette)
-                (world-palette (● r ground) (● r roads) (● r actor)
-                               before w t (* (* 0.001 (i64->f64 tick-ms)) (max 0.0 (- time 1.0)))))
+                (world-palette (● r ground) (● r actor)
+                               before
+                               now
+                               t
+                               (* (* 0.001 (i64->f64 tick-ms)) (max 0.0 (- time 1.0)))))
           (set! (● r time) time))
         (deform-scene! gpu (● r stage) (● r palette))
         (when changed (refit-tracer! gpu (● r tracer)))

@@ -17,13 +17,15 @@
 
 ((var storage read) (@group 0) (@binding 0) (history (array SurfaceReservoir)))
 
-((var storage read_write) (@group 0) (@binding 1) (result (array vec4u 2)))
+((var storage read_write) (@group 0) (@binding 1) (result (array vec4u 3)))
 
 (var (@group 0) (@binding 2) (noisy (texture_2d f32)))
 
 (var (@group 0) (@binding 3) (filtered (texture_2d f32)))
 
 ((var storage read) (@group 0) (@binding 4) (primary_shadows u32))
+
+(var (@group 0) (@binding 5) (moments (texture_2d f32)))
 
 ;; Count fresh paths on each parity, including the last column of an odd image.
 (fn coverage () (-> vec2u)
@@ -50,6 +52,8 @@
     ;; This wall sees the sun at every pixel, hence one shadow per new path.
     (let covered (== primary_shadows (+ (get fresh x) (get fresh y))))
     (let lit (and (all (> light (vec3f 0.14))) (all (< light (vec3f 0.34)))))
+    (let age (get (textureLoad moments (vec2i (/ (textureDimensions moments) 2u)) 0) z))
+    (= (at result 2) (vec4u (u32 age) (u32 (get r count)) 0u 0u))
     (= (at result 1) (vec4u fresh (u32 (and covered lit)) (u32 (get r count))))
     (= (at result 0) (vec4u (u32 (get r count)) (u32 (> w 0.0)) brightness
                             (u32 (and (>= w 0.0) (< w 1e30) (weighted_stream))))))
