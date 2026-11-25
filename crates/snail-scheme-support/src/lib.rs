@@ -11,6 +11,8 @@ pub mod assembler;
 mod host;
 mod io;
 mod paths;
+#[cfg(feature = "rapier")]
+mod traffic;
 
 // ---- Module initialization ----
 

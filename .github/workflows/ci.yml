@@ -53,6 +53,7 @@ jobs:
             crates/snail-scheme-support/target
             build/wasm-snail-scheme-support
             build/wasm-snail-scheme-support-toolchain
+            build/wasm-support-rapier
           key: cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-${{ hashFiles('crates/*/src/**') }}
           restore-keys: |
             cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-
@@ -63,7 +64,7 @@ jobs:
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: build/bootstrap/snail-scheme.wasm
-          key: cli-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/bootstrap', 'host/chez/**', 'host/native/**', 'src/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
+          key: cli-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/bootstrap', 'scripts/build-runtime', 'host/chez/**', 'host/native/**', 'src/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
       - name: Mark the exact command line cache current
         if: steps.compiler-cache.outputs.cache-hit == 'true'
         # Checkout gives unchanged sources new mtimes. The exact content key
