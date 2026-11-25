@@ -5,8 +5,8 @@
 ;; other data are GC structs (enum cases are subtypes of a tagged base), a
 ;; field holding a record keeps a reference to that object,
 ;; sequences are GC arrays, and functions are closures holding a typed
-;; function reference. Calls in tail position become `return_call`. A whole
-;; program becomes one module. A suspension
+;; function reference. A direct self tail call loops, and other tail calls
+;; transfer to their callee. A whole program becomes one module. A suspension
 ;; leaves a record in one global, which each caller tests after a call that
 ;; may yield, saving the rest of its work as a frame, back to the
 ;; `with-prompt` it is aimed at; `resume` runs those frames again, once.
@@ -510,13 +510,17 @@
 
     ;; ---- Functions ----
 
+    (record Local
+      ((name String)
+       (rep Rep)))
+
     ;; `access` maps each visible local name to the instruction that reads it,
     ;; and `reps` to its representation. A closure's `self` records exact
     ;; aliases of the incoming closure and its code.
     ;; Fresh function and control-frame contexts inherit none of those facts.
     ;; `exit` is where a yield leaves the code being emitted (see Control).
     (record FnState
-      ((locals (List Wat))
+      ((locals (List Local))
        (access (Table Wat))
        (reps (Table Rep))
        (names I64)))
@@ -525,11 +529,24 @@
       ((module Module)
        (state FnState)
        (self (Option Self))
+       (entry (Option LoopEntry))
        (exit (Option Exit))))
 
     (record Self
       ((names (List String))
        (code String)))
+
+    ;; A direct tail call can branch back to this entry after rebinding its
+    ;; parameters. Only entries reached this way need a Wasm loop.
+    (record LoopEntry
+      ((code String)
+       (params (List Local))
+       (used Bool)))
+
+    (define (with-entry (fn Fn) (name String) (params (List String)) (reps (List Rep))) (→ Fn)
+      (let ((slots (map (lambda (p) (new Local (name (wasm-id (● p first))) (rep (● p second))))
+                        (zip params reps))))
+        (Fn-entry-set fn (Some (new LoopEntry (code name) (params slots) (used #f))))))
 
     ;; Context replacements share this function's output builder while
     ;; changing only immutable control metadata.
@@ -538,6 +555,7 @@
         (module m)
         (state (new FnState (locals (Nil)) (access (empty-table)) (reps (empty-table)) (names 0)))
         (self (None))
+        (entry (None))
         (exit (None))))
 
     ;; Temporaries and labels are numbered within their function, so a name
@@ -554,15 +572,15 @@
 
     (define (declare-local! (fn Fn) (name String) (rep Rep)) (→ String)
       (let ((local (wasm-id name)))
-        (push! (● (● fn state) locals) (wat "local" (id local) (rep->wat rep)))
+        (push! (● (● fn state) locals) (new Local (name local) (rep rep)))
         (bind-local! fn name (wat "local.get" (id local)) rep)
         local))
 
     ;; A temporary takes any value type, including a nullable reference.
 
-    (define (declare-temp! (fn Fn) (type Wat)) (→ String)
+    (define (declare-temp! (fn Fn) (rep Rep)) (→ String)
       (let ((local (local-id fn "tmp")))
-        (push! (● (● fn state) locals) (wat "local" (id local) type))
+        (push! (● (● fn state) locals) (new Local (name local) (rep rep)))
         local))
 
     (define (local-access (fn Fn) (name String)) (→ (Option Wat))
@@ -574,8 +592,31 @@
     (define (fn-rep (fn Fn) (type Type)) (→ Rep)
       (rep (● fn module) type))
 
-    ;; A function definition: its name, parameters and result, the locals it
-    ;; declared, then the body.
+    (define (local-wats (fn Fn)) (→ (List Wat))
+      (map (lambda (local) (wat "local" (id (● local name)) (rep->wat (● local rep))))
+           (reverse (● (● fn state) locals))))
+
+    ;; Source locals are assigned before use. Clear reference slots at the
+    ;; loop header so values from the previous activation can be collected.
+    (define (clear-loop-root (local Local) (rest (List Wat))) (→ (List Wat))
+      (match (● local rep)
+        ((Scalar "funcref") (Cons (wat "local.set" (id (● local name))
+                                       (wat "ref.null" (Word "func"))) rest))
+        ((Reference type) (Cons (wat "local.set" (id (● local name))
+                                     (wat "ref.null" (id type))) rest))
+        (_ rest)))
+
+    ;; Recursive closure calls have the same incoming closure. Its immutable
+    ;; capture slots are loaded once, before this body declares its own locals.
+    (define (emit-function-body (fn Fn) (body Expr) (result Rep)) (→ (List Wat))
+      (let* ((captures (length (● (● fn state) locals))) (code (emit fn body #t))
+             (locals (● (● fn state) locals)))
+        (match (● fn entry)
+          ((Some (LoopEntry _ _ #t))
+           (let ((body-locals (take locals (- (length locals) captures))))
+             (list (wat* "loop" (append (list (Word "$recur") (wat "result" (rep->wat result)))
+                                        (fold-right clear-loop-root code body-locals))))))
+          (_ code))))
 
     (define (function-wat (fn Fn) (name String) (params (List Wat)) (result Rep) (body (List Wat)))
       (→ Wat)
@@ -583,7 +624,7 @@
             (Cons (id name)
                   (append params
                           (Cons (wat "result" (rep->wat result))
-                                (append (reverse (● (● fn state) locals)) body))))))
+                                (append (local-wats fn) body))))))
 
     (define (bind-params! (fn Fn) (params (List String)) (reps (List Rep))) (→ Unit)
       (for-each (lambda (pair)
@@ -601,11 +642,11 @@
     (define (emit-function! (m Module) (name String) (function Expr)) (→ Unit)
       (match (● function term)
         ((Lambda params body)
-         (let* ((fn (Fn-exit-set (new-fn m) (function-exit (● function type))))
-                (signature (function-signature m (● function type)))
-                (reps (● signature first)))
+         (let* ((signature (function-signature m (● function type))) (reps (● signature first))
+                (fn (with-entry (Fn-exit-set (new-fn m) (function-exit (● function type)))
+                                (wasm-id name) params reps)))
            (bind-params! fn params reps)
-           (let ((code (emit fn body #t)))
+           (let ((code (emit-function-body fn body (● signature second))))
              (push-function! m (wasm-id name)
                              (function-wat fn
                                            (wasm-id name)
@@ -1036,10 +1077,12 @@
          (let* ((signature (function-signature m (● function type)))
                 (reps (● signature first))
                 (base (closure-type m reps (● signature second)))
-                (fn (Fn-exit-set (lambda-fn m self "$lambda.self" base)
-                                 (function-exit (● function type)))))
+                (fn (with-entry (Fn-exit-set (lambda-fn m self "$lambda.self" base)
+                                             (function-exit (● function type)))
+                                "$lambda.self" params reps)))
            (bind-params! fn params reps)
-           (let* ((loads (capture-loads fn captured closure)) (code (emit fn body #t))
+           (let* ((loads (capture-loads fn captured closure))
+                  (code (emit-function-body fn body (● signature second)))
                   ;; The function's type must be the closure's code type itself,
                   ;; not a structurally equal one, for `ref.func` to fit the field.
                   (draft (function-wat fn "$lambda.self"
@@ -1118,6 +1161,38 @@
     (define (call-op (tail? Bool)) (→ String)
       (if tail? "return_call" "call"))
 
+    ;; The operand stack holds all new arguments, evaluated left to right
+    ;; in the old activation. Reverse stores implement parallel assignment
+    ;; even when arguments swap places or one reads another's side effects.
+    ;; An immutable parameter passed back to its own slot can stay there.
+    (define (repeat-call (entry LoopEntry) (args (List Wat)) (call Wat)) (→ (List Wat))
+      (let ((moves (filter (lambda (move) (not (wat=? (● move second)
+                                                      (wat "local.get" (id (● move first name))))))
+                           (zip (● entry params) args))))
+        (if (any? (lambda (move) (match (● move first rep) ((Reference _) #t) (_ #f))) moves)
+            (list call)
+            (begin (set! (● entry used) #t)
+                   (append (map (lambda (move) (● move second)) moves)
+                           (append (map (lambda (move) (wat "local.set" (id (● move first name))))
+                                        (reverse moves))
+                                   (list (wat "br" (Word "$recur")))))))))
+
+    ;; Retain a Wasm tail call when it changes a managed parameter. The
+    ;; WasmGC record-building and list-walking benchmarks favor that transfer.
+    ;; The implicit closure is the same object on every proven self call.
+    (define (direct-call (fn Fn)
+                         (target String)
+                         (prefix (List Wat))
+                         (args (List Expr))
+                         (tail? Bool))
+      (→ (List Wat))
+      (let* ((values (emit-args fn args))
+             (call (wat* (call-op tail?) (Cons (id target) (append prefix values)))))
+        (match (● fn entry)
+          ((Some entry) (if (and tail? (string=? target (● entry code)))
+                            (repeat-call entry values call) (list call)))
+          ((None) (list call)))))
+
     ;; Resolved locals are immutable. A direct alias keeps the same recursive
     ;; entry point; other expressions establish no such proof. Emit the
     ;; actual callee operand below, preserving its operand evaluation.
@@ -1141,8 +1216,7 @@
       (→ (List Wat))
       (match (self-target fn callee)
         ((Some function-id)
-         (list (wat* (call-op tail?)
-                     (Cons (id function-id) (Cons (emit1 fn callee) (emit-args fn args))))))
+         (direct-call fn function-id (list (emit1 fn callee)) args tail?))
         ((None)
          (match (● callee term)
            ((Var name _ _) (named-call fn expr callee name args tail?))
@@ -1159,7 +1233,7 @@
           (closure-call fn callee args tail?)
           (match (declared-type (● fn module) name)
             ((Some _)
-             (list (wat* (call-op tail?) (Cons (id (wasm-id name)) (emit-args fn args)))))
+             (direct-call fn (wasm-id name) (Nil) args tail?))
             ((None) (builtin-call fn expr name args)))))
 
     (define (builtin-call (fn Fn) (expr Expr) (name String) (args (List Expr)))
@@ -1195,7 +1269,7 @@
              (value (emit1 fn callee)))
         (if (variable-read? value)
             (list (closure-call-wat m base value (emit-args fn args) tail?))
-            (let ((temp (declare-temp! fn (rep->wat (Reference base)))))
+            (let ((temp (declare-temp! fn (Reference base))))
               (list (wat "local.set" (id temp) value)
                     (closure-call-wat m
                                       base
@@ -1375,8 +1449,8 @@
              (replacement Expr))
       (→ Wat)
       (let* ((m (● fn module)) (type (● value type)) (holder (data-type m type))
-             (record (declare-temp! fn (rep->wat (Reference holder))))
-             (incoming (declare-temp! fn (rep->wat (rep m (● replacement type))))))
+             (record (declare-temp! fn (Reference holder)))
+             (incoming (declare-temp! fn (rep m (● replacement type)))))
         (wat "block" (wat "result" (ref-wat holder))
              (wat "local.set" (id record) (emit1 fn value))
              (wat "local.set" (id incoming) (emit1 fn replacement))
@@ -1494,7 +1568,7 @@
             (_ value))))
 
     (define (export-option (fn Fn) (type Type) (value Wat)) (→ Wat)
-      (let* ((m (● fn module)) (temp (declare-temp! fn (rep->wat (rep m type))))
+      (let* ((m (● fn module)) (temp (declare-temp! fn (rep m type)))
              (read (wat "local.get" (id temp))) (some (case-type m type (option-case m #t))))
         (wat "block" (wat "result" (exposed-value-type m type))
              (wat "local.set" (id temp) value)
@@ -1541,7 +1615,7 @@
                                                        (exposed-value-type m (● pair first))))
                                                 (zip params names))
                                            (wrapper-result m result)
-                                           (reverse (● (● fn state) locals))
+                                           (local-wats fn)
                                            (entry-clears m)
                                            (list (if (unit-result? result)
                                                      (wat "drop" value)
@@ -1597,7 +1671,7 @@
              (clauses (List Clause))
              (tail? Bool))
       (→ (List Wat))
-      (let* ((value (declare-temp! fn (rep->wat (fn-rep fn (● scrutinee type)))))
+      (let* ((value (declare-temp! fn (fn-rep fn (● scrutinee type))))
              (done (local-id fn "match"))
              (scrutinee-code (emit1 fn scrutinee)))
         (list (wat "local.set" (id value) scrutinee-code)
@@ -1675,7 +1749,7 @@
                        (if (every? wild? args)
                            (Nil)
                            (let* ((case-id (case-type m type case))
-                                  (cast (declare-temp! fn (rep->wat (Reference case-id)))))
+                                  (cast (declare-temp! fn (Reference case-id))))
                              (Cons (wat "local.set"
                                         (id cast)
                                         (wat "ref.cast"
@@ -1713,7 +1787,7 @@
       (→ (List Wat))
       (match arg
         ((PVar _ _) (pattern-code fn arg field fail))
-        (_ (let ((temp (declare-temp! fn (rep->wat (fn-rep fn type)))))
+        (_ (let ((temp (declare-temp! fn (fn-rep fn type))))
              (Cons (wat "local.set" (id temp) field)
                    (pattern-code fn arg (wat "local.get" (id temp)) fail))))))
 
@@ -1747,7 +1821,7 @@
     ;; reading.
 
     (define (emit-downcast (fn Fn) (inner Expr) (target Type) (result Type)) (→ Wat)
-      (let* ((m (● fn module)) (temp (declare-temp! fn (ref-wat (any-type m))))
+      (let* ((m (● fn module)) (temp (declare-temp! fn (Reference (any-type m))))
              (read (wat "local.get" (id temp))))
         (wat "block" (wat "result" (rep->wat (rep m result)))
              (wat "local.set" (id temp) (emit1 fn inner))
@@ -1983,7 +2057,7 @@
     (define (continue-in-frame (fn Fn) (name String) (value Expr) (body Expr))
       (→ (List Wat))
       (let* ((m (● fn module)) (base (frame-type m))
-             (temp (declare-temp! fn (ref-wat base)))
+             (temp (declare-temp! fn (Reference base)))
              (saved (wat "local.get" (id temp)))
              (set (wat "local.set" (id temp) (frame fn name value body)))
              (test (yield-test fn saved))
@@ -2131,7 +2205,7 @@
                                         (ref-wat frame))
                                    (wat "param" (Word "$value") (Word "anyref"))
                                    (wat "result" (Word "anyref")))
-                             (append (reverse (● (● join state) locals)) code)))))
+                             (append (local-wats join) code)))))
 
     ;; A value as frames pass it: a reference as it is, a scalar boxed as
     ;; an Any holds it.
@@ -3615,8 +3689,33 @@
     (import
      (snail stage0 testing))
     (begin
+      (define (test-loop-arguments)
+        (let* ((names (list "$a" "$b" "$same"))
+               (slots (map (lambda (name) (new Local (name name) (rep (Scalar "i64")))) names))
+               (entry (new LoopEntry (code "$f") (params slots) (used #f))))
+          (expect (map wat->text
+                       (repeat-call entry (list (wat "local.get" (Word "$b"))
+                                                (wat "local.get" (Word "$a"))
+                                                (wat "local.get" (Word "$same")))
+                                    (wat "unreachable")))
+                  (list "(local.get $b)" "(local.get $a)" "(local.set $b)" "(local.set $a)"
+                        "(br $recur)"))
+          (expect (● entry used) #t)))
+
+      (define (test-managed-loop-argument)
+        (let* ((slot (new Local (name "$items") (rep (Reference "$list"))))
+               (entry (new LoopEntry (code "$walk") (params (list slot)) (used #f)))
+               (rest (wat "local.get" (Word "$rest")))
+               (call (wat "return_call" (Word "$walk") rest)))
+          (expect (map wat->text (repeat-call entry (list rest) call)) (list (wat->text call)))
+          (expect (● entry used) #f)
+          (expect (map wat->text (repeat-call entry (list (wat "local.get" (Word "$items"))) call))
+                  (list "(br $recur)"))))
+
       (define test-wasm
-        (lambda () (expect (mangle "a b,c(d)") "a_b~c<d>")
+        (lambda () (test-loop-arguments)
+                (test-managed-loop-argument)
+                (expect (mangle "a b,c(d)") "a_b~c<d>")
                 (expect (fill "(call {f} {x})"
                               (list (new Pair (first "f") (second "$g"))
                                     (new Pair (first "x") (second "1"))))

@@ -12,6 +12,7 @@
           travel
           walk
           clear-path?
+          ray-box-distance
           trace-distance)
   (import
    (snail core base)
@@ -137,23 +138,30 @@
     (define (walk (b Body) (angle F64) (speed F64) (walls (List Footprint)) (dt F64)) (→ Body)
       (travel (● b position) (offset (xz 0.0 0.0) (forward angle) speed) angle 0.36 walls dt))
 
-    ;; Clip a ray to a slab, intersecting the interval from the previous
-    ;; axis. A parallel ray either lies in the slab or misses it entirely.
-    (define (slab (at F64) (v F64) (low F64) (high F64) (near F64) (far F64))
-      (→ (Pair F64 F64))
+    ;; The part of the ray inside the x slab is [near, far]. Intersect it
+    ;; with z, returning the first hit or the previous distance on a miss.
+    (define (clip-ray-z (at F64) (v F64) (low F64) (high F64) (near F64) (far F64) (miss F64))
+      (→ F64)
       (if (< (abs v) 0.0000001)
-          (new Pair (first (if (or (< at low) (> at high)) (+ far 1.0) near)) (second far))
-          (let ((a (/ (- low at) v)) (b (/ (- high at) v)))
-            (new Pair (first (max near (min a b))) (second (min far (max a b)))))))
+          (if (and (<= low at) (<= at high) (<= near far)) near miss)
+          (let* ((a (/ (- low at) v)) (b (/ (- high at) v)) (enter (max near (min a b))))
+            (if (<= enter (min far (max a b))) enter miss))))
+
+    (define (ray-box-distance (p XZ) (direction XZ) (reach F64)
+                              (west F64) (east F64) (north F64) (south F64))
+      (→ F64)
+      (let ((x (● p x)) (dx (● direction x)) (z (● p z)) (dz (● direction z)))
+        (if (< (abs dx) 0.0000001)
+            (if (and (<= west x) (<= x east)) (clip-ray-z z dz north south 0.0 reach reach) reach)
+            (let ((a (/ (- west x) dx)) (b (/ (- east x) dx)))
+              (clip-ray-z z dz north south (max 0.0 (min a b)) (min reach (max a b)) reach)))))
 
     (define (trace-distance (p XZ) (direction XZ) (reach F64) (walls (List Footprint))) (→ F64)
-      (fold-left (lambda (far w)
-                   (let* ((x (slab (● p x) (● direction x) (● w west) (● w east) 0.0 far))
-                          (z (slab (● p z)
-                                   (● direction z)
-                                   (● w north)
-                                   (● w south)
-                                   (● x first)
-                                   (● x second))))
-                     (if (<= (● z first) (● z second)) (● z first) far)))
-                 reach walls))))
+      (let scan ((walls walls) (nearest reach))
+        (match walls
+          ((Nil) nearest)
+          ((Cons w rest) (scan rest (ray-box-distance p direction nearest
+                                                      (● w west)
+                                                      (● w east)
+                                                      (● w north)
+                                                      (● w south)))))))))
