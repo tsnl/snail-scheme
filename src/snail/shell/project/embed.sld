@@ -1,6 +1,6 @@
 ;; What a producer that embeds a build writes: a library whose accessor
 ;; links every file of the build's output, by its path there.
-(define-library (embedded linking)
+(define-library (snail shell project embed)
   (export
    files-library)
   (import
@@ -37,8 +37,8 @@
                                     (list (StringSyntax (string-append directory "/" path)))))))))
 
     ;; Every file under `directory`/`prefix`, by its path from `directory`,
-    ;; in name order, through directories and the links a build's store
-    ;; view holds.
+    ;; in name order. The root may name a published generation through its
+    ;; output link. Its entries are directories or regular files.
 
     (define (files-under (fs Fs) (directory String) (prefix String)) (→ (List String))
       (match (list-directory fs (string-append directory "/" prefix))
@@ -48,11 +48,12 @@
         ((Err _) (panic (string-append "cannot list " directory "/" prefix)))))
 
     (define (file-or-files (fs Fs) (directory String) (path String)) (→ (List String))
-      (match (followed-status fs (string-append directory "/" path))
+      (match (file-status fs (string-append directory "/" path))
         ((Ok status)
          (match (● status kind)
            ((Directory) (files-under fs directory (string-append path "/")))
-           (_ (list path))))
+           ((RegularFile) (list path))
+           (_ (panic (string-append "cannot embed a special file: " path)))))
         ((Err _) (panic (string-append "cannot read " directory "/" path)))))
 
     ))

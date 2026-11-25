@@ -51,12 +51,26 @@ Python's `importlib.resources` names a package's data. `(link-file
 build copies it beside the program's module and gives the program a
 `Resource`. `read-resource` reads one through a `Resources`, waiting as a
 task does, since a page can only fetch it, and `read-resources` reads
-several at once. The browser caches successful reads in IndexedDB. On secure origins it verifies the SHA-256 digest before storing the bytes. The page looks up the digest before fetching. Apps on the same origin can reuse a file, and a changed file has a new digest. If the browser evicts the entry or storage is unavailable, the next read can download it again.
+several at once. On secure origins the browser verifies the SHA-256 digest and stores the response in Cache Storage. The page looks up the digest before fetching. Apps on the same origin can reuse a file, and a changed file has a new digest. If the browser evicts the entry or storage is unavailable, the next read can download it again.
 
 `Resource` is exported without its constructor, so holding one is evidence
 that its file ships ([linked files](../snail-scheme/types.md#linked-files)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/resource.sld)
+
+## `(snail shell static-resource)`
+
+`fetch-catalog` takes a `Fetch` and a catalog URL and returns a `Result` containing named `StaticFile` records. Pass the same URL and the desired files to `acquire-files` with the browser’s `StaticResources` capability. It returns a table of verified bytes by name or an error identifying the failed file. A progress callback receives `StaticProgress` with `downloaded`, `cached` and `total` byte counts. The first two add up to the completed portion. The total counts each distinct digest once and uses uncompressed byte lengths, including when HTTP omits Content-Length.
+
+```scheme
+(match (fetch-catalog fetch "resources.json")
+  ((Err why) (Err why))
+  ((Ok files) (acquire-files store "resources.json" files show-progress)))
+```
+
+On HTTPS or localhost the browser looks up each digest in Cache Storage, promotes verified entries from the earlier IndexedDB cache, and counts incoming response bytes when it needs a download. An interrupted or invalid response never enters the cache. If storage fills up, the current run can still use the verified response. The page, Wasm and small catalog load on navigation. An offline application shell requires separate handling. Saved application state continues to use IndexedDB.
+
+For a Snail HTTP server, call `static-resource-service` from `(snail shell static-resource serve)` once with the server’s `Resources` and the linked path/resource pairs for the bundle. The returned function takes the request method and decoded path segments relative to the mount. It answers `Some Response` for a known catalog or object on GET or HEAD, and `None` lets the server try its next route. The HTTP exchange writes the correct HEAD framing. [Publishing a catalog](../snail-scheme/scripts.md#static-resource-catalogs) · [Linking a client build into a server](../snail-scheme/projects.md#embedding-a-build)
 
 ## `(snail shell process)`
 

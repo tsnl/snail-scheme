@@ -189,13 +189,19 @@ That is the modes' one difference.
 absolute one, so a library may link a producer's output. Every build
 places each linked file in the workspace's store, named by its digest, and
 the generation's `store/` holds another name for it, as above
-([linked files](types.md#linked-files)). Browser programs reuse the linked bytes from an origin-wide IndexedDB store keyed by SHA-256. A fresh build can reuse every digest it shares with a previous build. HTML and the executable still load on navigation so the page can discover the current build.
+([linked files](types.md#linked-files)). Browser programs reuse the linked bytes from an origin-wide Cache Storage cache keyed by SHA-256. A fresh build can reuse every digest it shares with a previous build. HTML and the executable still load on navigation so the page can discover the current build.
 
 A program that serves another, such as a server shipping its browser
 client, embeds that build through a generated library whose producer builds
 it ([embedding a build](projects.md#embedding-a-build)). A producer that
 imports the compiler compiles the compiler on every build; that is accepted
 for now.
+
+## Static resource catalogs
+
+Put the files a script publishes in a directory beside it with the same stem, for example `main.resources/maps/city.bin` beside `main.scm`. Both browser and Node builds publish `resources.json` and `store/sha256/AB/DIGEST`. The catalog maps each relative name to its SHA-256 and byte length. Files with identical contents share one object. The directory may contain regular files and subdirectories. Changes to its contents update the catalog without adding imports to the client’s Wasm.
+
+Serve the generation under any URL prefix. Keep the catalog revalidatable and give the digest URLs a long immutable cache lifetime. A Snail server can link the generation using `(snail shell project embed)` and mount its catalog with `(snail shell static-resource serve)`. A browser uses `(snail shell static-resource)` to request the catalog and acquire files. [Resource libraries](../libraries/system.md#snail-shell-static-resource)
 
 ## Not yet
 

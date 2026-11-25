@@ -38,37 +38,77 @@ export function storeSessionSave(key, bytes) {
   sessionStorage.setItem(`snail-save:${key}`, btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join('')));
 }
 
-// Each immutable build object is shared by its SHA-256 across games on this origin.
-// On secure origins verify a completed response before letting it enter the store.
+// Immutable bodies share a digest key across applications on this origin.
+// Only complete, verified bytes enter Cache Storage. Older builds kept the
+// same bytes under the same digest in IndexedDB.
 const downloading = new Map();
+const objects = 'snail-static-resources-v1';
+const legacy = (mode, use) => transaction('snail-linked-files', 'objects', mode, use);
 
-async function storedObject(digest, read) {
-  const fromDisk = () => transaction('snail-linked-files', 'objects', 'readonly', store => store.get(digest)).catch(() => undefined);
-  async function download() {
-    const saved = await fromDisk();
-    if (saved instanceof Uint8Array) return saved;
-    const bytes = await read();
-    if (globalThis.crypto?.subtle) {
-      const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-      if (Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('') !== digest)
-        throw new Error(`linked file did not match SHA-256 ${digest}`);
+async function verified(bytes, digest, size) {
+  if (!(bytes instanceof Uint8Array) || (size !== undefined && bytes.length !== size)) return false;
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('') === digest;
+}
+
+async function put(cache, key, bytes) {
+  if (!cache) return false;
+  try { await cache.put(key, new Response(bytes)); return true; }
+  catch { return false; } // Quota and private-mode failures leave the bytes usable.
+}
+
+async function cachedBytes(cache, key, digest, size) {
+  try {
+    const response = await cache?.match(key);
+    if (response) {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (await verified(bytes, digest, size)) return bytes;
+      await cache.delete(key);
     }
-    await transaction('snail-linked-files', 'objects', 'readwrite', store => store.put(bytes, digest)).catch(() => {});
+  } catch { /* Storage may have been evicted or disabled. */ }
+  const old = await legacy('readonly', store => store.get(digest)).catch(() => undefined);
+  if (!old) return;
+  const valid = await verified(old, digest, size);
+  if (!valid || await put(cache, key, old))
+    await legacy('readwrite', store => store.delete(digest)).catch(() => {});
+  if (valid) return old;
+}
+
+export async function readImmutable(digest, size, read, signal) {
+  // Legacy linked files can still run over plain HTTP. Verified acquisition
+  // requires Web Crypto. Insecure origins never commit unchecked objects.
+  if (!globalThis.crypto?.subtle) {
+    if (size !== undefined) throw new Error('verified resources need HTTPS or localhost');
+    return read();
+  }
+  async function acquire() {
+    let cache;
+    try { cache = await globalThis.caches?.open(objects); } catch {}
+    const key = cache && new URL('/.snail/sha256/' + digest, location.href).href;
+    const saved = await cachedBytes(cache, key, digest, size);
+    signal?.throwIfAborted();
+    if (saved) return saved;
+    const bytes = await read();
+    if (!await verified(bytes, digest, size)) throw new Error('file did not match SHA-256 ' + digest);
+    signal?.throwIfAborted();
+    await put(cache, key, bytes);
     return bytes;
   }
-  // A second tab checks storage after the first tab commits its download.
-  if (!globalThis.navigator?.locks) return download();
+  if (!globalThis.navigator?.locks) return acquire();
   let entered = false;
   try {
-    return await navigator.locks.request('snail-file-' + digest, () => { entered = true; return download(); });
+    return await navigator.locks.request('snail-file-' + digest, signal ? {signal} : {}, () => {
+      entered = true;
+      return acquire();
+    });
   } catch (error) {
-    if (entered) throw error;
-    return download();
+    if (entered || signal?.aborted) throw error;
+    return acquire();
   }
 }
 
 export function readLinkedFile(digest, read) {
   if (!downloading.has(digest))
-    downloading.set(digest, storedObject(digest, read).finally(() => downloading.delete(digest)));
+    downloading.set(digest, readImmutable(digest, undefined, read).finally(() => downloading.delete(digest)));
   return downloading.get(digest);
 }

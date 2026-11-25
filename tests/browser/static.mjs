@@ -4,10 +4,11 @@ import {extname, join, normalize} from 'node:path';
 
 const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm'};
 
-export function serve(directory) {
+export function serve(directory, intercept) {
   const server = createServer(async (request, response) => {
     const path = normalize(decodeURIComponent(new URL(request.url, 'http://host').pathname)).replace(/^\/+/, '');
     try {
+      if (intercept && await intercept(path, response)) return;
       const bytes = await readFile(join(directory, path === '' ? 'index.html' : path));
       response.writeHead(200, {'content-type': types[extname(path || 'index.html')] ?? 'application/octet-stream'});
       response.end(bytes);

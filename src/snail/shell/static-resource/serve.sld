@@ -1,0 +1,40 @@
+;; Mount a published catalog from the files a server linked. Its caller
+;; supplies decoded path segments relative to the mount and handles other routes.
+(define-library (snail shell static-resource serve)
+  (export static-resource-service)
+  (import
+   (snail core base)
+   (snail core table)
+   (snail shell resource)
+   (only (snail shell static-resource) resource-digest?)
+   (only (snail shell http) Header)
+   (only (snail shell http exchange) Response))
+  (begin
+    (define (resource-headers (path (List String))) (→ (Option (List Header)))
+      (match path
+        ((Cons "resources.json" (Nil))
+         (Some (headers "application/json" "no-cache")))
+        ((Cons "store" (Cons "sha256" (Cons shard (Cons digest (Nil)))))
+         (if (and (resource-digest? digest) (string=? shard (substring digest 0 2)))
+             (Some (headers "application/octet-stream" "public, max-age=31536000, immutable"))
+             (None)))
+        (_ (None))))
+
+    (define (headers (type String) (policy String)) (→ (List Header))
+      (list (new Header (name "content-type") (value type))
+            (new Header (name "cache-control") (value policy))))
+
+    (define (static-resource-service (resources Resources) (files (List (Pair String Resource))))
+      (→ (Fn String (List String) → (Option Response)))
+      (let ((routes (fold-left (lambda (t f) (table-set t (● f first) (● f second)))
+                               (empty-table) files)))
+        (lambda (method path)
+          (if (member? method (list "GET" "HEAD"))
+              (match (resource-headers path)
+                ((Some fields)
+                 (match (table-ref routes (string-join path "/"))
+                   ((Some file) (Some (new Response (status 200) (headers fields)
+                                           (body (read-resource resources file)))))
+                   ((None) (None))))
+                ((None) (None)))
+              (None)))))))

@@ -21,7 +21,7 @@ from shapely.geometry import LineString, Point, Polygon, box, shape
 from shapely.ops import unary_union
 
 ROOT = Path(__file__).resolve().parents[1] / "src/apps/last-mile"
-ASSETS, PUBLIC = ROOT / "assets", ROOT / "public"
+ASSETS, PUBLIC = ROOT / "main.resources", ROOT / "public"
 SIDE, STEP = 256, 32
 # Street frame used by the original Lombard simulation: right is east along Lombard.
 LON, LAT = -122.4179869, 37.8022186
