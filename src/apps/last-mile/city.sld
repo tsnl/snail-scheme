@@ -105,19 +105,22 @@
     ;; The mesh ends in eight-byte fixture records, their count and LIT1.
     ;; Centimetre positions use the same origin as the city vertices.
     (define (fixture (s Sector) (i I64)) (→ Punctual)
-      (let* ((d (● s mesh)) (shop (= (u8->i32 (array-ref d (+ i 6))) 1))
-             (k (if shop 3.5 26.0))
+      (let* ((d (● s mesh))
              (coordinate (lambda ((at I64) (base I64)) (→ F32)
                            (f64->f32 (+ (i64->f64 base) (* 0.01 (i64->f64 (u16 d at))))))))
         (point-light (new Vec3f (x (coordinate i (● s ground west)))
                           (y (coordinate (+ i 2) -12)) (z (coordinate (+ i 4) (● s ground north))))
-                     (new Vec3f (x k) (y (* k 0.72)) (z (* k 0.43))) (if shop 12.0 26.0))))
+                     (new Vec3f (x 26.0) (y (* 26.0 0.72)) (z (* 26.0 0.43))) 26.0)))
     (define (sector-lights (s Sector)) (→ (List Punctual))
       (let* ((d (● s mesh)) (end (array-length d)))
         (if (or (< end 8) (not (= (u32 d (- end 4)) 827607372))) (Nil)
             (let* ((count (u32 d (- end 8))) (start (- (- end 8) (* count 8))))
               (when (< start 4) (panic "invalid city light table"))
-              (map (lambda (i) (fixture s (+ start (* 8 i)))) (iota count))))))
+              ;; Older sectors also name shop fixtures (kind 1). Their
+              ;; emissive sign geometry now supplies that light.
+              (let ((offsets (map (lambda (i) (+ start (* 8 i))) (iota count))))
+                (map (lambda (at) (fixture s at))
+                     (filter (lambda (at) (= (u8->i32 (array-ref d (+ at 6))) 0)) offsets)))))))
     (define (city-lights (g Area))
       (→ (List Punctual))
       (concatenate (map sector-lights (● g sectors))))
