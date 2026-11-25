@@ -15,3 +15,8 @@ is a tour of a complete application: seeded terrain, an energy network
 derived from the buildings, a siege on a fixed schedule, a world that
 changes only through orders and ticks, and a scene and HUD drawn from the
 state alone.
+
+Terrain generation and enemy routing share the map’s breadth-first search
+queue. The queue holds cell indices and marks each cell when it enters.
+Each route keeps its own distance array, so walkers and burrowers can
+follow different goals across the same map.

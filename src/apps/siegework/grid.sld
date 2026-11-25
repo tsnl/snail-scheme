@@ -16,6 +16,9 @@
    neighbors
    line-cells
    crossing-path
+   PathQueue
+   make-path-queue
+   search-distances
    distance-field)
   (import
    (snail core base)
@@ -152,34 +155,50 @@
 
     ;; ---- Distance fields ----
 
-    ;; The number of steps from each cell to the nearest goal, moving through
-    ;; open cells, or -1 where no goal can be reached. A walker heads for a
-    ;; goal by stepping to any neighbor one step closer. The array is the
-    ;; search's own.
-    (define (distance-field (open (Array Bool)) (goals (List Cell))) (→ (Array I64))
-      (let ((distance (make-array (* map-size map-size) -1)))
-        (for-each
-         (lambda (goal) (array-set! distance (cell-index goal) 0))
-         goals)
-        (let loop ((frontier goals) (next (Nil)))
-          (match frontier
-            ((Nil) (if (null? next) distance (loop (reverse next) (Nil))))
-            ((Cons cell rest)
-             (let ((steps (+ (array-ref distance (cell-index cell)) 1)))
-               (loop rest (fold-left (lambda (queued neighbor)
-                                       (let ((index
-                                              (cell-index neighbor)))
-                                         (if (and (array-ref open index)
-                                                  (= (array-ref distance
-                                                                index)
-                                                     -1))
-                                             (begin
-                                               (array-set!
-                                                distance
-                                                index
-                                                steps)
-                                               (Cons neighbor queued))
-                                             queued)))
-                                     next (neighbors cell)))))))))
+    ;; A map owns one FIFO of cell indices. A search finishes synchronously.
+    ;; Several routes may keep their answers after the next search starts.
+    (record PathQueue
+      ((slots (Array I64))))
 
-    ))
+    (define (make-path-queue) (→ PathQueue)
+      (new PathQueue (slots (make-array (* map-size map-size) 0))))
+
+    (record Search
+      ((open (Array Bool))
+       (distance (Array I64))
+       (queue (Array I64))))
+
+    ;; Mark on enqueue, including duplicate goals. Each cell occupies at
+    ;; most one slot, so a full map fits even when every cell is a goal.
+    (define (enqueue! (search Search) (cell I64) (steps I64) (end I64)) (→ I64)
+      (if (= (array-ref (● search distance) cell) -1)
+          (begin (array-set! (● search distance) cell steps)
+                 (array-set! (● search queue) end cell)
+                 (+ end 1))
+          end))
+
+    (define (reach! (search Search) (cell I64) (steps I64) (end I64)) (→ I64)
+      (if (array-ref (● search open) cell) (enqueue! search cell steps end) end))
+
+    (define (expand! (search Search) (cell I64) (end I64)) (→ I64)
+      (let* ((steps (+ 1 (array-ref (● search distance) cell))) (x (remainder cell map-size))
+             (end (if (< (+ x 1) map-size) (reach! search (+ cell 1) steps end) end))
+             (end (if (> x 0) (reach! search (- cell 1) steps end) end))
+             (end (if (< (+ cell map-size) (* map-size map-size))
+                      (reach! search (+ cell map-size) steps end) end)))
+        (if (>= cell map-size) (reach! search (- cell map-size) steps end) end)))
+
+    ;; Each in-bounds goal starts at zero, even on closed ground. Neighbors
+    ;; must be open. Unreachable cells keep -1 in the caller's fresh field.
+    (define (search-distances (paths PathQueue) (open (Array Bool)) (goals (List Cell)))
+      (→ (Array I64))
+      (let* ((distance (make-array (* map-size map-size) -1))
+             (search (new Search (open open) (distance distance) (queue (● paths slots))))
+             (seeds (fold-left (lambda (end goal) (enqueue! search (cell-index goal) 0 end))
+                               0 goals)))
+        (let visit ((head 0) (end seeds))
+          (if (= head end) distance
+              (visit (+ head 1) (expand! search (array-ref (● paths slots) head) end))))))
+
+    (define (distance-field (open (Array Bool)) (goals (List Cell))) (→ (Array I64))
+      (search-distances (make-path-queue) open goals))))

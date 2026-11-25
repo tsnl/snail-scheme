@@ -77,6 +77,7 @@
        (hub Cell)
        (starter Cell)
        (ground (Array Ground))
+       (paths PathQueue)
        (mainland (Array Bool))
        (sites (List Site))
        (fronts (List Cell))))
@@ -114,22 +115,29 @@
                              (array-generate (* map-size map-size)
                                              (lambda (index)
                                                (first-ground biome seed (index-cell index))))))
+             (paths (make-path-queue))
+             (wired (joined paths ground hub (lambda (g) (match g ((Rock) #f) (_ #t)))))
              (starter (starter-cell seed hub)))
         (new Land (seed seed)
              (biome biome)
              (hub hub)
              (starter starter)
              (ground ground)
-             (mainland (joined ground hub (lambda (g) (match g ((Water) #f) (_ #t)))))
+             (paths paths)
+             (mainland (joined paths ground hub (lambda (g) (match g ((Water) #f) (_ #t)))))
              (sites
-              (Cons (new Site (cell starter) (rate 2)) (crystal-sites seed hub fronts ground)))
+              (Cons (new Site (cell starter) (rate 2))
+                    (crystal-sites seed hub fronts ground wired)))
              (fronts fronts))))
 
     ;; The cells joined to the hub through ground that `crosses?` accepts.
-    (define (joined (ground (Array Ground)) (hub Cell) (crosses? (Fn Ground → Bool)))
+    (define (joined (paths PathQueue)
+                    (ground (Array Ground))
+                    (hub Cell)
+                    (crosses? (Fn Ground → Bool)))
       (→ (Array Bool))
       (array-map (lambda (steps) (>= steps 0))
-                 (distance-field (array-map crosses? ground) (list hub))))
+                 (search-distances paths (array-map crosses? ground) (list hub))))
 
     ;; ---- Hashing ----
 
@@ -312,11 +320,10 @@
     ;; it; a few across the map; and one near most fronts, so following an
     ;; attack back to its nest leads to richer ground. A cell holds at most
     ;; one site; the first listed keeps it.
-    (define (crystal-sites (seed I64) (hub Cell) (fronts (List Cell)) (ground (Array Ground)))
+    (define (crystal-sites (seed I64) (hub Cell) (fronts (List Cell)) (ground (Array Ground))
+                           (wired (Array Bool)))
       (→ (List Site))
-      (let* ((site? (site-cell? ground
-                                (joined ground hub (lambda (g) (match g ((Rock) #f) (_ #t))))
-                                fronts))
+      (let* ((site? (site-cell? ground wired fronts))
              (second (pick seed 11 (filter site? (ring hub 7 11))))
              (third (pick seed
                           12
