@@ -7,11 +7,10 @@
 ;; nothing it declares has a body.
 ;;
 ;; A generic type quantifies its variables in the order they first occur.
-;; `array-set!` and `array-copy!` write; no other operation changes
-;; anything, though some can trap.
 (define-library (snail core primitive)
   (export
    unit panic unsafe-cast
+   ref-local ref ref! ref-get ref-set!
    cache lru-cache
    make-prompt with-prompt suspend
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
@@ -60,6 +59,16 @@
     (primitive unit (Fn → Unit))
     (primitive panic (∀ (A) (Fn String → A)))
     (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
+
+    ;; ---- Scoped references ----
+
+    ;; The mode is phantom. Only a local binding can own storage, and only
+    ;; direct call arguments can lend it. Checking enforces those uses.
+    (primitive ref-local (∀ (T) (Fn T → (RefSlot WriteAccess T))))
+    (primitive ref (∀ (M T) (Fn (RefSlot M T) → (RefSlot ReadAccess T))))
+    (primitive ref! (∀ (T) (Fn (RefSlot WriteAccess T) → (RefSlot WriteAccess T))))
+    (primitive ref-get (∀ (M T) (Fn (RefSlot M T) → T)))
+    (primitive ref-set! (∀ (T) (Fn (RefSlot WriteAccess T) T → Unit)))
 
     ;; ---- Memoized functions ----
 

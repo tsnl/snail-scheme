@@ -6,6 +6,7 @@
    define lambda if begin let let* letrec cond case when unless and or do
    define-syntax syntax-rules quote else => _ ...
    type ann record new enum match
+   Ref MutRef ref-local ref ref! ref-get ref-set!
    make-prompt with-prompt suspend
    +
    -
@@ -92,6 +93,21 @@
 
   (define (panic message) (error #f message))
 
+  ;; ---- Scoped references ----
+
+  ;; Stage zero runs trusted compiler source with types erased. A checked
+  ;; flat record is a vector of scalar fields after its constructor tag.
+  (type (Ref T) (RefSlot ReadAccess T))
+  (type (MutRef T) (RefSlot WriteAccess T))
+  (define (ref-local value) (if (vector? value) (vector-copy value) (box value)))
+  (define (ref place) place)
+  (define (ref! place) place)
+  (define (ref-get place) (if (box? place) (unbox place) (vector-copy place)))
+  (define (ref-set! place value)
+    (if (box? place) (set-box! place value)
+        (vector-copy! value 1 place 1 (- (vector-length value) 1))))
+
+  ;; ---- Numbers ----
 
   (define (negate n) (- 0 n))
 
@@ -441,6 +457,17 @@
 
   ;; ---- Tests ----
 
+  (define (test-refs)
+    (let* ((original (new Pair (first 2) (second 4))) (point (ref-local original))
+           (counter (ref-local 0)))
+      (set! (● point first) 5)
+      (ref-set! (ref! counter) (● (ref point) first))
+      (let ((snapshot (ref-get point)))
+        (ref-set! point original)
+        (set! (● original first) 9)
+        (unless (equal? (list (ref-get counter) (● snapshot first) (● point first)) '(5 5 2))
+          (error 'test-refs "a ref write or snapshot disagrees with compiled code")))))
+
   (define (test-cache)
     (let* ((calls 0)
            (work (lambda args (set! calls (+ calls 1)) (list->vector (list calls))))
@@ -494,6 +521,7 @@
         (error 'test-prompts "a suspension did not reach its with-prompt"))))
 
   (define (test-base)
+    (test-refs)
     (test-cache)
     (test-prompts)
     (for-each

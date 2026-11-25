@@ -675,7 +675,27 @@
     (define (control-expr (count I64) (suspensions Suspensions) (expr Expr)) (→ (Pair Expr I64))
       (if (yield-free? suspensions expr)
           (new Pair (first expr) (second count))
-          (normal count suspensions expr)))
+          (let ((normalized (normal count suspensions expr)))
+            (check-frame-refs suspensions (Nil) (● normalized first))
+            normalized)))
+
+    ;; Every resumable let saves just the locals its body reads. Inspect
+    ;; the normalized lets so references waiting in earlier call operands
+    ;; are checked too. A ref whose last use precedes suspension is dead.
+    (define (check-frame-refs (suspensions Suspensions) (places (List String)) (expr Expr)) (→ Unit)
+      (match expr
+        ((Expr (Lambda names body) (TFun params _) _)
+         (check-frame-refs suspensions (ref-parameters names params) body))
+        ((Expr (Let name value body) _ _)
+         (when (and (not (null? places)) (may-resume? suspensions (yields suspensions value))
+                    (any? (lambda (used) (member? used places)) (expr-references body)))
+           (compile-error (● value loc) "a scoped ref is live across a resumable suspension"))
+         (check-frame-refs suspensions places value)
+         (check-frame-refs suspensions
+                           (if (ref-slot? (● value type)) (Cons name places) places)
+                           body))
+        (_ (for-each (lambda (child) (check-frame-refs suspensions places child))
+                     (expr-children expr)))))
 
     )
 

@@ -253,8 +253,9 @@ leaves out, and [suspension](suspension.md) prompts and their one-shot
 
 ## Functions
 
-A closure may capture any value, including mutable records, and may be
-called any number of times.
+A closure may capture ordinary values, including mutable records, and may be
+called any number of times. [Scoped refs](values.md#call-scoped-refs) are
+confined to their function.
 
 ```scheme
 (define (twice (function (Fn I64 → I64)) (value I64)) (→ I64)

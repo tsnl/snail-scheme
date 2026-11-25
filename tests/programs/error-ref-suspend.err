@@ -1,0 +1,1 @@
+a scoped ref is live across a resumable suspension

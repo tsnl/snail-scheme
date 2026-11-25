@@ -13,6 +13,7 @@
    extern
    expose
    Any U8 I32 I64 F32 F64 Bool Char Unit String Array ConstantArray Bytes Fn
+   Ref MutRef ref-local ref ref! ref-get ref-set!
    Prompt make-prompt with-prompt suspend
    u8->i32 i32->u8
    let* letrec cond case when unless and or do
@@ -77,6 +78,9 @@
    (snail core primitive)
    (rename (only (snail core primitive) string-append) (string-append append-two-strings)))
   (begin
+
+    (type (Ref T) (RefSlot ReadAccess T))
+    (type (MutRef T) (RefSlot WriteAccess T))
 
     ;; ---- Derived syntax ----
 
