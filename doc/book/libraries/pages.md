@@ -45,7 +45,7 @@ changed through the page's document only where it differs after each input,
 and after time at most ten times a second
 ([scenes](../snail-scheme/applications.md#scenes)).
 
-Browser applications can opt into mouse capture by passing `pointerLock: true` when mounting their canvas. A primary click requests capture. `PointerLock` reports changes, while `PointerDelta` reports relative motion in capture or during a right-button drag. Consecutive relative events sum their deltas. Escape releases capture and a loss of focus clears held controls in Last Mile.
+Browser applications can opt into mouse capture by passing `pointerLock: true` when mounting their canvas. A primary click requests capture. `PointerLock` reports changes, while `PointerDelta` reports relative motion in capture or during a right-button drag. Consecutive relative events sum their deltas. Escape releases capture.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/app.sld)
 
@@ -103,8 +103,7 @@ document never closes.
 A game that polls frames and UI input together can read `(fired-event events)`
 immediately after receiving a `HudEvent` from `(snail shell app)`. Its fields
 hold the values captured when the browser listener fired. Read them before
-polling the next event. Last Mile captures `(Value)` on its selectors so several
-changes made during a slow frame are applied in order.
+polling the next event. Capturing `(Value)` on a selector preserves the order of changes made during a slow frame.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/dom/page.sld)
 
@@ -161,7 +160,7 @@ path is its address.
 
 ## `(snail shell base64)`
 
-`data-url` takes a media type and bytes and returns a base64 data URL. Last Mile uses it to show a neighbourhood’s in-memory SVG in the page. [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/base64.sld)
+`data-url` takes a media type and bytes and returns a base64 data URL. For example, a page can display an in-memory SVG using its data URL. [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/base64.sld)
 
 ## `(snail shell png)`
 

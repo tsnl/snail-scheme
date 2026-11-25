@@ -184,7 +184,7 @@ the BVH query. Each layer owns its final history and both take turns using one
 temporal scratch buffer. A sky or uncovered pixel writes empty history.
 A sky bake increments the environment revision. The next draw starts every pixel with fresh proposals. A direction on last minute’s dim sky can now fall inside the bright solar disc, so its old selection weight belongs to a different proposal distribution. Resizing or replacing the scene or environment also starts a new history.
 
-`upload-lit-scene` takes finite-range punctual lights and capacity for moving ones. A ground-plane grid lists static lights whose influence overlaps each cell. Vehicles update a short list of moving lights with `update-moving-lights!`. The punctual lights compete with the weighted sky or mesh estimate for one shadow ray. A finite ray runs from the offset receiver to the selected light. Later bounces use one fresh sky or mesh candidate and the same visibility step. Last Mile's storefront strips illuminate the shop and pavement from their actual triangles.
+`upload-lit-scene` takes finite-range punctual lights and capacity for moving ones. A ground-plane grid lists static lights whose influence overlaps each cell. Vehicles update a short list of moving lights with `update-moving-lights!`. The punctual lights compete with the weighted sky or mesh estimate for one shadow ray. A finite ray runs from the offset receiver to the selected light. Later bounces use one fresh sky or mesh candidate and the same visibility step. Emissive storefront strips illuminate the shop and pavement from their actual triangles.
 
 The GPU regression lights a white wall with a two-triangle rectangle against
 a black sky. Numerical integration at its center gives 0.3000 linear
@@ -332,7 +332,7 @@ For an art-directed sky, `make-sky-light` and `update-sky!` take a `Sky`. For ou
 
 The outdoor sky integrates molecular and aerosol scattering along a ray through a spherical atmosphere. Slant paths through the air and ozone change the colour of the setting sun. A diffuse term approximates higher orders of scattering. A second ray march integrates extinction and in-scattering through a marine cloud layer from 650 to 1,850 metres. Short marches toward the sun give the banks self-shadowing. Overhead density governs how much skylight reaches their undersides. The directional environment represents the view from street level. Buildings share the cloud cover above that reference point. [Atmospheric transport and spherical geometry](https://ebruneton.github.io/precomputed_atmospheric_scattering/atmosphere/functions.glsl.html) · [Real-time volumetric clouds](https://www.guerrilla-games.com/read/the-real-time-volumetric-cloudscapes-of-horizon-zero-dawn)
 
-The sky texture contains scattered radiance. Two additional texels hold the solar disc's direction, angular radius and cloud-attenuated irradiance. The sampler chooses between the sky and the disc by their integrated luminance, then samples solid angle inside the chosen region. This keeps the sun round at its apparent diameter of 0.53° even in a small environment map. Camera rays, water reflections and shadow rays see the same light. The outdoor environment also adds distance haze to long camera sightlines. A `PinholeRange` lens takes the vertical field of view in radians and the near and far clip distances in world units. Last Mile sets them to 0.35 metres and 32 kilometres so the Pacific horizon is visible from a bluff.
+The sky texture contains scattered radiance. Two additional texels hold the solar disc's direction, angular radius and cloud-attenuated irradiance. The sampler chooses between the sky and the disc by their integrated luminance, then samples solid angle inside the chosen region. This keeps the sun round at its apparent diameter of 0.53° even in a small environment map. Camera rays, water reflections and shadow rays see the same light. The outdoor environment also adds distance haze to long camera sightlines. A `PinholeRange` lens takes the vertical field of view in radians and the near and far clip distances in world units.
 
 ## Scenes
 
@@ -353,7 +353,7 @@ scales a scene less than a unit across up to one.
 
 ## Moving geometry
 
-Last Mile uses the same surface, path, SVGF and post passes for a moving cast.
+A moving cast uses the same surface, path, SVGF and post passes as a static scene.
 A `MovingScene` owns a static prefix of world vertices and one contiguous range
 of local vertices per moving object or skinned mesh. `pose-scene!` writes the posed vertices
 and their displacement from the previous draw. The surface pass uses that
@@ -364,15 +364,13 @@ consume the same world-space triangles. Mesh topology and materials stay fixed.
 After a simulation tick, `refit-tracer!` refreshes the leaf boxes, propagates
 their bounds and packs them into the original query buffer. Bindings survive
 a refit. An application can choose a tone curve at construction with `make-graded-moving-tracer`.
-Last Mile uses `Photographic` for a hue-preserving shoulder followed by sRGB encoding.
-The viewer can discard this build scratch for static scenes. Last
-Mile asks each frame for two bounces, and the final FXAA pass samples
-normalized screen coordinates so a small traced image fills a larger browser
-canvas. [Last Mile](../games/last-mile.md)
+`Photographic` gives highlights a hue-preserving shoulder followed by sRGB encoding.
+The viewer can discard build scratch for static scenes. The final FXAA pass samples
+normalized screen coordinates so a small traced image fills a larger browser canvas.
 
 ## Skinned animation
 
-Start with a mesh and one joint. A vertex fully weighted to that joint follows its matrix, just as the sedan follows its rigid pose. Add a hinge and let a vertex share two joints. Its position becomes a weighted sum of the two transformed bind positions. A character uses the same operation with up to four influences per vertex.
+Start with a mesh and one joint. A vertex fully weighted to that joint follows its matrix. Add a hinge and let a vertex share two joints. Its position becomes a weighted sum of the two transformed bind positions. A character uses the same operation with up to four influences per vertex.
 
 1. Call `read-rigged-gltf` in `(snail shell graphics gltf animation)`. It reads the buffers once and returns the mesh, its per-vertex influences, a parent-first hierarchy, inverse binds and named clips. A primitive with a skin starts in mesh coordinates. A rigid attachment gets a slot for its own node. Multiple skins can order their joints differently.
 2. Use `sample-pose` in `(snail shell graphics animation)` at the desired clip time. Untargeted local transforms keep their authored values. STEP holds a key until the next key. LINEAR interpolates translations and scales and takes the shortest quaternion arc for rotations. `clip-time` wraps or clamps a clock. `blend-poses` crossfades local poses and `blend-branch` restricts a blend to chosen nodes.
@@ -387,23 +385,19 @@ The Node host can render a PNG directly from a local glTF or GLB with the same W
 
 ```sh
 ./snail-scheme run --target node tools/render.scm scene=scene.glb output=preview.png width=1280 height=720 samples=64 bounces=4
-./snail-scheme run --target node tools/render.scm scene=sf stand=0 minute=1040 output=hyde.png
-./snail-scheme run --target node tools/render.scm scene=taxi brake=1 eye=2.7,1.35,-3.8 target=0,0.65,0 output=braking.png
+./snail-scheme run --target node tools/render.scm scene=tests/programs/data/crew.glb minute=1040 output=portrait.png
 ```
 
-`sf` builds the actual street neighbourhood, vehicles, people, lamps and sky at one of the 16 taxi stands. `taxi` and `sedan` show the vehicle on a flat surface. An external model resolves buffers and images relative to its file and is framed from its bounds. Supply both `eye` and `target` to choose a camera in scene coordinates. `minute` is local solar time in minutes after midnight. `layers` sets the square texture-layer size for external models and vehicle previews.
+A model resolves buffers and images relative to its file and is framed from its bounds. Supply both `eye` and `target` to choose a camera in scene coordinates. `minute` is local solar time in minutes after midnight. `layers` sets the square texture-layer size for sampled materials.
 
-`(snail shell graphics still)` renders a fixed camera into an offscreen texture and returns the updated tracer and tightly packed RGBA bytes. It traces every pixel on every sample, with up to 4,096 observations and eight bounces. Image dimensions must fit the device’s ray-buffer limit. Offline frames use the stationary SVGF history. Last Mile caps its own frame rate and reports movement while driving.
+`(snail shell graphics still)` renders a fixed camera into an offscreen texture and returns the updated tracer and tightly packed RGBA bytes. It traces every pixel on every sample, with up to 4,096 observations and eight bounces. Image dimensions must fit the device’s ray-buffer limit. Offline frames use the stationary SVGF history.
 
 ### Capture reconstruction inputs and a reference
 
-This view faces Busacca Gallery near the Hyde Street stand. The command writes
-a cold, full-resolution 1 spp training input and a 128 spp reference at the
-same camera and scene time.
+Supply a capture prefix to save a cold, full-resolution 1 spp input and an independent high-sample reference at the same camera pose. This example runs from the repository root and frames the model from its bounds.
 
 ```sh
-./snail-scheme run --target node tools/render.scm scene=sf stand=0 minute=1380 \
-  eye=-142.32,84.50,271.08 target=-138.32,83.45,278.08 \
+./snail-scheme run --target node tools/render.scm scene=tests/programs/data/crew.glb minute=1040 \
   width=240 height=135 bounces=2 samples=128 capture=gallery
 ```
 
