@@ -184,7 +184,8 @@ closure. The emitter evaluates all arguments left to right, then assigns
 parameters from the operand stack in reverse order. At the loop header it
 clears reference locals and their shadow roots from the previous invocation.
 Captured bindings are loaded once on function entry. The emitter keeps a Wasm
-tail call when a call changes a managed parameter. Record construction and
+tail call when a call changes a managed parameter, including a raw `Funcref`
+whose foreign code descriptor the collector traces. Record construction and
 list traversal were faster with that transfer in the WasmGC benchmarks. Tail calls to
 other functions use `return_call`. The physical pass lowers indirect tail
 calls to `return_call_indirect` through the instance’s function table.

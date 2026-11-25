@@ -495,15 +495,16 @@
       (map (lambda (local) (wat "local" (id (● local name)) (rep->wat (● local rep))))
            (reverse (● (● fn state) locals))))
 
+    ;; Foreign Funcref values carry traced code descriptors on the linear heap.
+    (define (loop-root? (rep Rep)) (→ Bool)
+      (match rep ((Scalar "funcref") #t) ((Reference _) #t) (_ #f)))
+
     ;; Source locals are assigned before use. Clear reference slots at the
     ;; loop header so values from the previous activation can be collected.
     (define (clear-loop-root (local Local) (rest (List Wat))) (→ (List Wat))
-      (match (● local rep)
-        ((Scalar "funcref") (Cons (wat "local.set" (id (● local name))
-                                       (wat "ref.null" (Word "func"))) rest))
-        ((Reference type) (Cons (wat "local.set" (id (● local name))
-                                     (wat "ref.null" (id type))) rest))
-        (_ rest)))
+      (if (loop-root? (● local rep))
+          (Cons (wat "local.set" (id (● local name)) (default-value (● local rep))) rest)
+          rest))
 
     ;; Recursive closure calls have the same incoming closure. Its immutable
     ;; capture slots are loaded once, before this body declares its own locals.
@@ -1072,7 +1073,7 @@
       (let ((moves (filter (lambda (move) (not (wat=? (● move second)
                                                       (wat "local.get" (id (● move first name))))))
                            (zip (● entry params) args))))
-        (if (any? (lambda (move) (match (● move first rep) ((Reference _) #t) (_ #f))) moves)
+        (if (any? (lambda (move) (loop-root? (● move first rep))) moves)
             (list call)
             (begin (set! (● entry used) #t)
                    (append (map (lambda (move) (● move second)) moves)
