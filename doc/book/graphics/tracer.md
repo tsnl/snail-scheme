@@ -129,7 +129,10 @@ Only the final direction needs a visibility test. Its shadow ray carries
 the receiving surface's RGB contribution times `W` into the usual BVH
 query. Each layer owns its final history and both take turns using one
 temporal scratch buffer. A sky or uncovered pixel writes empty history.
-Resizing or replacing the scene or environment starts a new history.
+A sky bake increments the environment revision. The next draw fills both checkerboard parities with fresh proposals. A direction on last minute’s dim sky can now fall inside the bright solar disc, so its old selection weight belongs to a different proposal distribution. Resizing or replacing the scene or environment also starts a new history.
+
+`upload-lit-scene` takes finite-range punctual lights and capacity for moving ones. A ground-plane grid lists static lights whose influence overlaps each cell. Vehicles update a short list of moving lights with `update-moving-lights!`. At each surface, the tracer evaluates the lights in that cell and the moving list with the material BSDF, inverse-square falloff and optional spot cone. A weighted draw chooses one local or environment contribution, divides by its selection probability, and traces a single visibility ray. For a point or spot source the ray ends at the light. Geometry beyond it cannot cast a shadow on the receiving surface.
+
 A pixel skipped by the checkerboard keeps its reservoir and the last radiance
 in its layer's slot. `gather` marks that radiance with a negative alpha in the
 noisy texture. SVGF carries forward the pixel's illumination, moments and

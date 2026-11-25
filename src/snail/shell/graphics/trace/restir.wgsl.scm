@@ -101,7 +101,9 @@
     (return r))
 
 (fn reservoir_shadow ((r Reservoir) (s Surface) (v vec3f) (air vec3f) (pixel u32) (seed u32))
-    (if ((== (get r weight_sum) 0.0) (return)))
+    (var sky (vec3f 0.0))
     (let d (get r selected direction))
-    (let light (* (direct_light s v d (environment_pdf d)) (reservoir_weight r)))
-    (if ((finite3 light) (shadow_ray s d (* air light) pixel seed))))
+    (if ((> (get r weight_sum) 0.0)
+         (let light (* (direct_light s v d (environment_pdf d)) (reservoir_weight r)))
+         (if ((finite3 light) (= sky light)))))
+    (direct_shadow s v air d sky pixel seed))

@@ -33,6 +33,7 @@
    make-tracer
    make-moving-tracer
    make-graded-moving-tracer
+   discard-trace-history
    refit-tracer!
    draw-moving-traced
    resize-tracer
@@ -102,7 +103,8 @@
        (last (Option Camera3D))
        (bounces I64)
        (still I32)
-       (frame I32)))
+       (frame I32)
+       (sky-revision I64)))
 
     ;; What is made once: the pipelines, the uniforms, the queues' counts,
     ;; and zeros to clear them with between the first hits' paths and the
@@ -212,7 +214,7 @@
                              (last (None))
                              (bounces 0)
                              (still 0)
-                             (frame 0))))
+                             (sky-revision -1) (frame 0))))
 
     (define (tracer-frames (tracer Tracer)) (→ I32) (● tracer still))
 
@@ -272,7 +274,7 @@
         (last (None))
         (bounces (● tracer bounces))
         (still 0)
-        (frame (● tracer frame))))
+        (sky-revision -1) (frame (● tracer frame))))
 
     (define (world-of (gpu Gpu) (scene Scene) (environment Environment) (moving Bool)) (→ World)
       (new World
@@ -324,6 +326,9 @@
     ;; first hits, the post passes. The history starts again, as for a
     ;; moving camera, when the camera's uniform or the bounces differ from
     ;; the last frame's, as they do on the first.
+    (define (discard-trace-history (t Tracer)) (→ Tracer)
+      (Tracer-last-set (Tracer-sky-revision-set t -1) (None)))
+
     (define (draw-traced (gpu Gpu) (tracer Tracer)
                          (canvas GpuTextureView)
                          (camera Camera3D)
@@ -345,7 +350,8 @@
       (→ Tracer)
       (unless (and (>= bounces 1) (<= bounces most-bounces))
         (panic (string-append "bounces outside 1 to " (show most-bounces))))
-      (let* ((still (if (or moved
+      (let* ((same-sky (= (● tracer sky-revision) (● tracer world environment revision)))
+             (still (if (or (not same-sky) moved
                             (not (= bounces (● tracer bounces)))
                             (not (same-camera? (● tracer last) camera)))
                         0
@@ -376,7 +382,12 @@
         (draw-surfaces gpu encoder tracer)
         (trace-paths gpu encoder tracer (● tracer bindings paths) columns bounces)
         (trace-blended gpu encoder tracer columns bounces)
-        (let ((svgf (filter-svgf gpu encoder (● tracer svgf) (= still 0) exposure))
+        (let ((svgf (filter-svgf-frame gpu
+                                       encoder
+                                       (● tracer svgf)
+                                       (= still 0)
+                                       exposure
+                                       (match (● tracer last) ((None) #t) (_ #f))))
               (blended-svgf (filter-blended gpu encoder tracer (= still 0) exposure)))
           (draw-composed gpu encoder tracer)
           (draw-post gpu encoder canvas (● tracer post))
@@ -392,7 +403,7 @@
             (last (Some camera))
             (bounces bounces)
             (still still)
-            (frame (+ (● tracer frame) 1))))))
+            (sky-revision (● tracer world environment revision)) (frame (+ (● tracer frame) 1))))))
 
     ;; The blended layer's paths, after the first hits' and from counts
     ;; cleared again, where the scene has the layer.
@@ -420,7 +431,13 @@
                             (exposure F32))
       (→ (Option Svgf))
       (match (● tracer blended-svgf)
-        ((Some svgf) (Some (filter-svgf gpu encoder svgf moved exposure)))
+        ((Some svgf)
+         (Some (filter-svgf-frame gpu
+                                  encoder
+                                  svgf
+                                  moved
+                                  exposure
+                                  (match (● tracer last) ((None) #t) (_ #f)))))
         ((None) (None))))
 
     ;; The wavefront, in one compute pass: the first hits' paths, or the
@@ -510,7 +527,8 @@
       (new Tracing
         (view (new Vec4f (x spread) (y (i32->f32 (● tracer kit layer-size))) (z 0.0) (w 0.0)))
         (frame (new Vec4i (x (● tracer frame)) (y start)
-                    (z (match (● tracer last) ((Some _) 1) ((None) 0))) (w (if checker 1 0))))))
+                    (z (if (= (● tracer sky-revision) (● tracer world environment revision)) 1 0))
+                    (w (if checker 1 0))))))
 
     ;; Every triangle's first hit, in one draw; then, where the scene has
     ;; the blended layer, every triangle again over a copy of their depth,
@@ -752,8 +770,8 @@
           (surface (surface-group gpu (● kit surface) kit scene))
           (paths (path-groups gpu kit (● kit tracing) targets (● targets planes) (● targets depth)
                               (● targets noisy) (● targets history)))
-          (temporal-scene (triangle-group gpu (● steps temporal) scene))
-          (primary-scene (triangle-group gpu (● steps primary) scene))
+          (temporal-scene (triangle-group gpu (● steps temporal) scene #f))
+          (primary-scene (triangle-group gpu (● steps primary) scene #t))
           (temporal-environment (environment-group gpu (● steps temporal) (● world environment)))
           (primary-environment (environment-group gpu (● steps primary) (● world environment)))
           (bounces (map (lambda (bounce) (bounce-groups gpu kit (● world bvh) targets bounce))
@@ -761,9 +779,9 @@
           (blended (match (● targets blended)
                      ((Some b) (Some (blended-groups gpu kit scene targets b)))
                      ((None) (None))))
-          (occlude-cutout (scene-group gpu (● rays occlude) scene))
-          (intersect-cutout (scene-group gpu (● rays intersect) scene))
-          (shade-scene (scene-group gpu (● steps shade) scene))
+          (occlude-cutout (scene-group gpu (● rays occlude) scene #f))
+          (intersect-cutout (scene-group gpu (● rays intersect) scene #f))
+          (shade-scene (scene-group gpu (● steps shade) scene #t))
           (shade-environment (environment-group gpu (● steps shade) (● world environment))))))
 
     (define (blended-groups (gpu Gpu) (kit Kit) (scene Scene) (targets Targets) (b Blended))
@@ -890,22 +908,25 @@
       (kernel-group gpu kernel 0 "trace/step" entries))
 
     ;; Both first-hit kernels project depth onto the rasterized triangle.
-    (define (triangle-group (gpu Gpu) (kernel GpuComputePipeline) (scene Scene)) (→ GpuBindGroup)
+    (define (light-entry (scene Scene) (lit Bool)) (→ (List BindGroupEntry))
+      (if lit (list (TextureEntry 5 (● scene lights plane view))) (Nil)))
+    (define (triangle-group (gpu Gpu) (kernel GpuComputePipeline) (scene Scene) (lit Bool))
+      (→ GpuBindGroup)
       (kernel-group gpu kernel 1 "trace/triangles"
-                    (list (BufferEntry 0 (● scene vertices) 0 0)
-                          (BufferEntry 1 (● scene indices) 0 0))))
+                    (append (light-entry scene lit) (list (BufferEntry 0 (● scene vertices) 0 0)
+                                                          (BufferEntry 1 (● scene indices) 0 0)))))
 
     ;; Group 1 of a kernel that reads the scene (scene.wgsl.scm).
-    (define (scene-group (gpu Gpu) (kernel GpuComputePipeline) (scene Scene))
+    (define (scene-group (gpu Gpu) (kernel GpuComputePipeline) (scene Scene) (lit Bool))
       (→ GpuBindGroup)
       (kernel-group gpu kernel
                     1
                     "trace/scene"
-                    (list (BufferEntry 0 (● scene vertices) 0 0)
-                          (BufferEntry 1 (● scene indices) 0 0)
-                          (BufferEntry 2 (● scene materials) 0 0)
-                          (TextureEntry 3 (● scene layers-view))
-                          (SamplerEntry 4 (● scene sampler)))))
+                    (append (light-entry scene lit) (list (BufferEntry 0 (● scene vertices) 0 0)
+                                                          (BufferEntry 1 (● scene indices) 0 0)
+                                                          (BufferEntry 2 (● scene materials) 0 0)
+                                                          (TextureEntry 3 (● scene layers-view))
+                                                          (SamplerEntry 4 (● scene sampler))))))
 
     (define (surface-group (gpu Gpu) (pipeline GpuRenderPipeline) (kit Kit) (scene Scene))
       (→ GpuBindGroup)

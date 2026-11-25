@@ -263,9 +263,10 @@
       (let* ((a (● g atlas))
              (p (● (carrier w) position))
              (gps (● h gps))
+             (target (objective w))
              (attr (● d set-attribute))
              (tell (● d set-text)))
-        (navigate! gps roads p (objective w) (● w tick))
+        (navigate! gps roads p target (● w tick))
         (when (or (not (= (● h chart-center) (● g center)))
                   (not (= (● h revision) (● gps revision)))
                   (if wide (not (● h wide)) (● h wide)))
@@ -284,7 +285,11 @@
         (attr (● h you)
               "style"
               (string-append (map-pin a p) ";--heading:" (show (● (carrier w) heading)) "rad"))
-        (attr (● h goal) "style" (map-pin a (objective w)))
+        (attr (● h goal)
+              "style"
+              (if (match (● target kind) ((OffDuty) #t) (_ #f))
+                  "display:none"
+                  (map-pin a (● target point))))
         (attr (● h choice-node) "style" (if (and wide (match (● w fare) ((Waiting) #t) (_ #f)))
                                             (map-pin a (● (stand (pickup-index choice)) stop))
                                             "display:none"))

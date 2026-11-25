@@ -2,11 +2,13 @@
 ;; positions and byte-sized facade UVs unpack directly on the GPU. Materials
 ;; and the facade image are shared across the whole neighbourhood.
 (define-library (apps last-mile city)
-  (export city-model)
+  (export city-model city-lights)
   (import
    (snail core base)
    (snail shell little-endian)
    (snail shell graphics gltf)
+   (snail shell graphics trace lights)
+   (only (snail shell graphics pod) Vec3f)
    (snail shell game atlas)
    (snail shell game terrain))
   (begin
@@ -48,10 +50,10 @@
                                         (paint 0.12 0.39 0.36 -1 0.0)
                                         (paint 0.78 0.54 0.18 -1 0.0)
                                         (paint 0.88 0.77 0.64 0 0.0)
-                                        (paint 0.68 0.79 0.76 0 0.0)
-                                        (paint 0.85 0.67 0.57 0 0.0)
-                                        (paint 0.78 0.77 0.72 0 0.0)
-                                        (paint 0.71 0.75 0.82 0 0.0)))
+                                        (paint 0.68 0.79 0.76 1 0.0)
+                                        (paint 0.85 0.67 0.57 2 0.0)
+                                        (paint 0.78 0.77 0.72 3 0.0)
+                                        (paint 0.71 0.75 0.82 4 0.0)))
     (define (attribute (at I64) (step I64) (width I64) (format I64) (n I64)) (→ Attribute)
       (new Attribute
         (offset at)
@@ -100,12 +102,36 @@
                                    (length (array-length d))))))
           (size (+ start (array-length d))) (materials (● g materials)) (images (● g images))
           (placed (append (● g placed) (map (lambda (i) (placed d i base m)) (iota n)))))))
+    ;; The mesh ends in eight-byte fixture records, their count and LIT1.
+    ;; Centimetre positions use the same origin as the city vertices.
+    (define (fixture (s Sector) (i I64)) (→ Punctual)
+      (let* ((d (● s mesh)) (shop (= (u8->i32 (array-ref d (+ i 6))) 1))
+             (k (if shop 3.5 26.0))
+             (coordinate (lambda ((at I64) (base I64)) (→ F32)
+                           (f64->f32 (+ (i64->f64 base) (* 0.01 (i64->f64 (u16 d at))))))))
+        (point-light (new Vec3f (x (coordinate i (● s ground west)))
+                          (y (coordinate (+ i 2) -12)) (z (coordinate (+ i 4) (● s ground north))))
+                     (new Vec3f (x k) (y (* k 0.72)) (z (* k 0.43))) (if shop 12.0 26.0))))
+    (define (sector-lights (s Sector)) (→ (List Punctual))
+      (let* ((d (● s mesh)) (end (array-length d)))
+        (if (or (< end 8) (not (= (u32 d (- end 4)) 827607372))) (Nil)
+            (let* ((count (u32 d (- end 8))) (start (- (- end 8) (* count 8))))
+              (when (< start 4) (panic "invalid city light table"))
+              (map (lambda (i) (fixture s (+ start (* 8 i)))) (iota count))))))
+    (define (city-lights (g Area))
+      (→ (List Punctual))
+      (concatenate (map sector-lights (● g sectors))))
     (define (city-model (a Area)) (→ Gltf)
       (fold-left add-sector
                  (new Gltf
                    (buffers (Nil))
                    (size 0)
-                   (images (list (FileSource "sf-facade.png")))
+                   (images (map FileSource
+                                (list "sf-facade.png"
+                                      "sf-stucco.png"
+                                      "sf-brick.png"
+                                      "sf-works.png"
+                                      "sf-office.png")))
                    (materials paints)
                    (placed (Nil)))
                  (● a sectors)))))
