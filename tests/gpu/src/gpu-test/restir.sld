@@ -13,6 +13,7 @@
    (snail shell graphics raster)
    (snail shell graphics gltf)
    (snail shell graphics environment)
+   (only (snail shell graphics svgf) svgf-moments)
    (snail shell graphics restir)
    (snail shell graphics trace render)
    (snail shell graphics trace scene)
@@ -51,16 +52,17 @@
                                            (TextureEntry 3 (● tracer post targets light-view))
                                            (BufferEntry 4 (● tracer kit counts)
                                                         (i64->i32 (* slot most-bounces))
-                                                        4)))
+                                                        4)
+                                           (TextureEntry 5 (svgf-moments (● tracer svgf)))))
                             (group (kernel-group gpu kernel 0 "test/reservoir" entries)))
                        ((● gpu set-compute-pipeline) pass kernel)
                        ((● gpu set-compute-bind-group) pass 0 group)
                        ((● gpu dispatch-workgroups) pass 1 1 1)
                        ((● gpu end-compute-pass) pass)
-                       ((● gpu copy-buffer-to-buffer) encoder result 0 readback 0 32)
+                       ((● gpu copy-buffer-to-buffer) encoder result 0 readback 0 48)
                        ((● gpu submit) (list ((● gpu finish) encoder)))
                        ((● gpu destroy) (BindGroupObject group))
-                       ((● gpu read-buffer) readback 0 32)))
+                       ((● gpu read-buffer) readback 0 48)))
 
     (define (expect (bytes Bytes) (offset I64) (words Vec4i)) (→ Unit)
       (let ((expected (pod-bytes (shape) words)))
@@ -92,6 +94,29 @@
         (covered (draw half closer 2) 77 76 36)
         (unit)))
 
+    ;; A wall travelling towards a stationary eye changes depth by far more
+    ;; than the rejection threshold. Its previous pose still covers this pixel.
+    (define (moving-depth (gpu Gpu) (t Tracer) (scene Scene) (day Environment) (canvas Plane)
+                          (kernel GpuComputePipeline) (result GpuBuffer) (back GpuBuffer))
+      (→ Tracer)
+      (let* ((source (wall gpu #f)) (stage (moving-scene gpu source (list (● source vertex-count))))
+             (draw (lambda (frame)
+                     (draw-moving-traced gpu
+                                         frame
+                                         (● canvas view)
+                                         (looking 4.0 0.0)
+                                         0.12
+                                         1.0
+                                         1
+                                         #t)))
+             (initial (retrace gpu t (● stage scene) day)) (first (draw initial))
+             (pose (new ObjectPose (place (new Vec4f (x 0.0) (y 0.0) (z 1.0) (w 1.0)))
+                        (size (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 0.0))))))
+        (pose-scene! gpu stage (list pose)) (refit-tracer! gpu first)
+        (let* ((next (draw first)) (bytes (inspect gpu kernel next result back))
+               (clean (retrace gpu next scene day)))
+          (expect bytes 32 (new Vec4i (x 2) (y 24) (z 0) (w 0)))
+          (release-moving-scene gpu stage) clean)))
     (define (check-restir (gpu Gpu)) (→ String)
       (let* ((scene (wall gpu #f)) (blocked (wall gpu #t)) (day (sky gpu 1.0)) (night (sky gpu 0.0))
              (canvas (make-plane gpu "test/restir" 9 9 (Rgba8Unorm) (list (RenderAttachment))))
@@ -101,8 +126,8 @@
                                                                     inspect-reservoir))))
                                      "test"
                                      "inspect"))
-             (result (storage-buffer gpu "test/reservoir" 32 (list (CopySrc))))
-             (back ((● gpu create-buffer) (new BufferDescriptor (label "test/readback") (size 32)
+             (result (storage-buffer gpu "test/reservoir" 48 (list (CopySrc))))
+             (back ((● gpu create-buffer) (new BufferDescriptor (label "test/readback") (size 48)
                                                (usage (list (CopyDst) (MapRead))))))
              (draw
               (lambda ((t Tracer) (camera Camera3D) (count I32) (selected I32) (lit I32)) (→ Tracer)
@@ -120,7 +145,12 @@
              (uncovered (draw sky-only front 8 1 1))
              (shadow (draw (retrace gpu uncovered blocked day) front 8 1 0))
              (dark (draw (retrace gpu shadow scene night) front 8 0 0)))
-        (check-checkerboard gpu (retrace gpu dark scene day) canvas kernel result back)
+        (check-checkerboard gpu
+                            (moving-depth gpu dark scene day canvas kernel result back)
+                            canvas
+                            kernel
+                            result
+                            back)
         ((● gpu destroy) (BufferObject result))
         ((● gpu destroy) (BufferObject back))
         ((● gpu destroy) (ComputePipelineObject kernel))

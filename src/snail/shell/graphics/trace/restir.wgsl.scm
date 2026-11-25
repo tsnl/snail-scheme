@@ -53,7 +53,7 @@
 (fn temporal_reuse ((r (ptr function Reservoir)) (s Surface) (v vec3f) (p vec2i) (u f32))
     (let size (vec2f (textureDimensions depth)))
     (let q (- (+ (vec2f p) 0.5) (* (get (textureLoad motion p 0) xy) size)))
-    (let z (clip_depth (get camera previous) (get s position)))
+    (let z (get (textureLoad emission p 0) w))
     (let donor (compatible_reservoir (vec2i (floor q)) (get s normal) z))
     (reuse r s v donor (min (get donor count) (* 20 (fresh_draws))) u))
 

@@ -114,7 +114,7 @@ sample's multiplier is `W = (S / M) / t`, or zero for an empty selection.
 
 The motion vector locates one previous pixel. Its normal must agree with
 the current normal (dot product at least 0.9), and the two depths must
-agree within 2% in the previous camera's projection. The donor represents
+agree within 2% in the previous camera's projection. The surface pass projects the previous pose of the same triangle and carries its clip-space depth in the emission target’s alpha channel. Both ReSTIR and SVGF compare against that depth when geometry moves. The donor represents
 up to 20 times the number of fresh candidates at the receiver. The spatial
 step chooses one of the four axial neighbors on a full frame or one of the
 four diagonal neighbors on a checkerboard. Each donor belongs to the
@@ -226,7 +226,7 @@ Last Mile uses the same surface, path, SVGF and post passes for a moving cast.
 A `MovingScene` owns a static prefix of world vertices and one contiguous range
 of local vertices per moving object or skinned mesh. `pose-scene!` writes the posed vertices
 and their displacement from the previous draw. The surface pass uses that
-displacement for motion vectors. Both primary visibility and secondary rays
+displacement for motion vectors and the expected previous depth. SVGF stores the current clip-space depth and octahedral normal for validation on the next frame. During motion each new observation receives at least one eighth of the accumulated illumination weight. Both primary visibility and secondary rays
 consume the same world-space triangles. Mesh topology and materials stay fixed.
 
 `make-moving-tracer` keeps the leaf order and binary tree for those triangles.

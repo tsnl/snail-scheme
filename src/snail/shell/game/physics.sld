@@ -5,6 +5,7 @@
   (export XZ xz distance heading-to forward offset Footprint footprint clear?
           Body
           body
+          Body-velocity-set
           Body-heading-set
           between-bodies
           sweep-fraction
