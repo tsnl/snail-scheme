@@ -7,7 +7,7 @@ import {join} from 'node:path';
 import {inflateRawSync} from 'node:zlib';
 
 const [root, override] = process.argv.slice(2);
-const assets = join(root, 'src/apps/last-mile/assets');
+const assets = join(root, 'src/apps/last-mile/main.resources');
 const glb = await readFile(override ?? join(assets, 'horizon.glb'));
 const end = 20 + glb.readUInt32LE(12);
 const gltf = JSON.parse(glb.toString('utf8', 20, end));

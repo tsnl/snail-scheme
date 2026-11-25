@@ -4,13 +4,15 @@
 ;; the interface.
 (define-library (snail shell fetch page)
   (export
-   page-fetch)
+   page-fetch
+   page-static-resources)
   (import
    (snail core base)
    (only (snail core io) Host)
    (prefix (snail runtime browser fetch) host-)
    (snail shell utf8)
    (snail shell task)
+   (snail shell static-resource)
    (snail shell fetch))
   (begin
 
@@ -69,6 +71,35 @@
                      (Ok (array-generate (i32->i64 count)
                                          (lambda (index) (host-reply-byte (i64->i32 index))))))))
              ids)))
+
+    ;; ---- Immutable static resources ----
+
+    (define (page-static-resources (host Host)) (→ StaticResources)
+      (new StaticResources (read page-static-file)))
+
+    (define (page-static-file (catalog String) (file StaticFile) (progress (Fn I64 → Unit)))
+      (→ (Result StaticBody String))
+      (let ((id (ticket)))
+        (host-request-url (string->utf8 catalog))
+        (host-start-static id (i64->i32 (● file size)) (string->utf8 (● file digest)))
+        (dispatch (lambda () (observe-bytes id progress)))
+        (await (list id))
+        (let ((source (host-finish-request id)))
+          (if (< source 0) (Err (host-reply))
+              (Ok (new StaticBody
+                    (cached (= source 1))
+                    (bytes (array-generate (● file size)
+                                           (lambda (i) (host-reply-byte (i64->i32 i)))))))))))
+
+    ;; Paint at most ten progress changes per second. A completed ticket
+    ;; disappears, so a late observer cannot report bytes for the next file.
+    (define (observe-bytes (id I64) (progress (Fn I64 → Unit))) (→ Unit)
+      (let loop ((previous (ann 0 I32)))
+        (let ((n (host-static-received id)))
+          (when (>= n 0)
+            (when (> n previous) (progress (i32->i64 n)))
+            (sleep 100)
+            (loop n)))))
 
     ;; A stream opens with its URL and the kinds it hears as one string, a
     ;; NUL between each. The wait answers -1 once the stream is closed, and

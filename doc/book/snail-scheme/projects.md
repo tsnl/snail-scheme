@@ -154,7 +154,7 @@ resources, and the files ship with it:
                   (import
                    (snail core base)
                    (snail shell project build)
-                   (embedded linking)
+                   (snail shell project embed)
                    (only (snail core io) Arguments ProcessEnvironment Fs Clock)
                    (only (snail shell process) Processes))
                   (lambda ((arguments Arguments)
@@ -170,12 +170,11 @@ resources, and the files ship with it:
                                                  (Debug)))))
 ```
 
-`files-library`, in the test's own `(embedded linking)`, lists the generation
+`files-library`, in `(snail shell project embed)`, lists the generation
 and links each file by its absolute path (`tests/embedding/`). `link-file`
 takes a path relative to the recipe, `..` included, or an absolute one. A
-debug generation's `store/` view is links into the workspace's store, and a
-linked file is read through its link, so the embedded page is complete
-wherever it is served from.
+generation's `store/` contains the immutable objects. The linked bundle
+can serve the same catalog and objects under its own URL prefix.
 
 A producer runs in its workspace's directory, in every build that reaches
 it, so a changed client file reaches the next build of the server. A build

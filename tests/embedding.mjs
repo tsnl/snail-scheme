@@ -22,6 +22,8 @@ async function embedding() {
     await cp(join(root, 'tests/embedding'), workspace, {recursive: true});
     await mkdir(join(workspace, 'client/public/nested'));
     await writeFile(join(workspace, 'client/public/nested/data.bin'), Buffer.from([65, 0, 255]));
+    await mkdir(join(workspace, 'client/main.resources'));
+    await writeFile(join(workspace, 'client/main.resources/tile.bin'), Buffer.from([4, 5, 6]));
     const served = async () => (await snail(workspace, 'run', '--target', 'node', 'server.scm')).stdout.trim().split('\n');
     const first = await served();
     const paths = first.slice(0, -1).map(line => line.split(' ')[0]);
@@ -29,6 +31,8 @@ async function embedding() {
     for (const path of ['index.html', 'host.mjs', 'main.wasm', 'nested/data.bin'])
       assert.ok(paths.includes(path), `the client's ${path} is linked`);
     assert.ok(first.includes('nested/data.bin 3'));
+    assert.ok(first.some(line => /^resources\.json \d+ 200 no-cache$/.test(line)));
+    assert.ok(first.some(line => /^store\/sha256\/[0-9a-f]{2}\/[0-9a-f]{64} 3 200 public, max-age=31536000, immutable$/.test(line)));
     assert.equal(first.at(-1), '65,0,255');
     assert.match(await readFile(join(workspace, 'build/client/main/index.html'), 'utf8'), /client/,
                  'the producer publishes the client build in the workspace');

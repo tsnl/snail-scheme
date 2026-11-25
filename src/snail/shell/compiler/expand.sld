@@ -8,6 +8,7 @@
    expand-program
    Generate
    LinkedFile
+   digested-file
    program-links)
   (import
    (snail core base)
@@ -568,7 +569,7 @@
     (define (linked-file (cx Context) (use LinkUse)) (→ LinkedFile)
       (let ((path (● use path)))
         (match (followed-status (● cx fs) path)
-          ((Ok status) (digested (● cx fs) (● cx known) path status))
+          ((Ok status) (digested-file (● cx fs) (● cx known) path status))
           ((Err _)
            (compile-error (● use loc)
                           (string-append "the library " (● cx prefix) " links " (● use relative)
@@ -580,7 +581,7 @@
     ;; status is taken before the bytes are read, so a file written in
     ;; between is read again by the next build.
 
-    (define (digested (fs Fs) (known (Table LinkedFile)) (path String) (status FileStatus))
+    (define (digested-file (fs Fs) (known (Table LinkedFile)) (path String) (status FileStatus))
       (→ LinkedFile)
       (match (table-ref known path)
         ((Some file)

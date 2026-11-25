@@ -3,7 +3,9 @@
  (snail core io)
  (snail shell app)
  (snail shell page)
- (snail shell resource)
+ (snail core table)
+ (snail shell fetch)
+ (snail shell static-resource)
  (snail shell png)
  (snail shell game atlas)
  (snail shell game roads)
@@ -12,7 +14,6 @@
  (only (snail shell dom) Dom)
  (only (snail shell gpu) Gpu)
  (only (snail shell graphics gltf) attempt-reading)
- (apps last-mile assets)
  (apps last-mile game)
  (apps last-mile hud)
  (apps last-mile render))
@@ -224,24 +225,29 @@
                       ((Hidden) (save s) (pause! c (● c paused)) (loop s 100))
                       ((SaveRequested) (save s) (loop s since)) (_ (loop s since)))))))
 
-(define (main (events Events)
-              (clock Clock)
-              (gpu Gpu)
-              (dom Dom)
-              (resources Resources)
-              (storage PageStorage)
-              (out OutputPort))
+(define (city-files (fetch Fetch) (store StaticResources) (dom Dom))
+  (→ (Result (Table Bytes) String))
+  (let ((url "resources.json") (progress (loading-screen dom)))
+    (match (fetch-catalog fetch url)
+      ((Err why) (Err why))
+      ((Ok catalog) (acquire-files store url catalog progress)))))
+
+(define (city-file (files (Table Bytes)) (path String)) (→ Bytes)
+  (let ((name (if (and (>= (string-length path) 2) (string=? (substring path 0 2) "./"))
+                  (substring path 2 (string-length path)) path)))
+    (match (table-ref files name)
+      ((Some bytes) bytes)
+      ((None) (panic (string-append "city catalog is missing " name))))))
+
+(define (drive-city (events Events) (clock Clock) (gpu Gpu) (dom Dom) (storage PageStorage)
+                    (out OutputPort) (files (Table Bytes)))
   (→ Unit)
-  (let* ((files (read-resources resources
-                                (append city-bands
-                                        (list streets-model
-                                              map-image
-                                              taxi-model
-                                              other-model
-                                              people-model
-                                              horizon-model))))
-         (atlas (read-atlas (take files 6))) (roads (read-roads (list-ref files 6)))
-         (hud (make-hud dom atlas (png-data-url (list-ref files 7)))) (models (list-drop files 8)))
+  (let* ((file (lambda (name) (city-file files name)))
+         (atlas (read-atlas (map (lambda (i) (file (string-append "sf-" (show i) ".bin")))
+                                 (iota 6))))
+         (roads (read-roads (file "streets.nav")))
+         (hud (make-hud dom atlas (png-data-url (file "sf-map.png"))))
+         (models (map file (list "taxi.glb" "sedan.glb" "crew.glb" "horizon.glb"))))
     (run-page events storage new-world save-game restore-game
               (lambda (w save)
                 (let ((g (open-area atlas (● (carrier (● w game)) position))))
@@ -251,9 +257,18 @@
                   (match (attempt-reading (lambda ()
                                             (make-renderer gpu
                                                            (lambda (paths)
-                                                             (art-reader resources paths))
+                                                             (map file paths))
                                                            models
                                                            g
                                                            w)))
                     ((Ok renderer) (play events clock gpu dom renderer hud g roads w save))
                     ((Err why) (write-line out why) (panic why))))))))
+
+(define (main (events Events) (clock Clock) (gpu Gpu) (dom Dom) (fetch Fetch)
+              (store StaticResources) (storage PageStorage) (out OutputPort))
+  (→ Unit)
+  (match (city-files fetch store dom)
+    ((Ok files) (drive-city events clock gpu dom storage out files))
+    ((Err why)
+     ((● dom set-attribute) ((● dom document-root)) "data-load-error" why)
+     ((● events report-ready)))))
