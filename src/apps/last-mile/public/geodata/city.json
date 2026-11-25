@@ -24,38 +24,38 @@
     "USGS_13_n38w123.tif": "73c9935d3b750c01f19b292760547b8c2db0a1c8beb3ee0aaea375425b713538"
   },
   "land_sectors": 2086,
-  "packed_bytes": 116705308,
+  "packed_bytes": 126979200,
   "storefronts": 7172,
   "objects": {
     "sf-0.bin": {
-      "size": 535146,
-      "sha256": "d295f2f5f709ff6b08b4212c03be307139088e3716370badfa8ca4b7bf0c2db8",
-      "url": "../store/sha256/d2/d295f2f5f709ff6b08b4212c03be307139088e3716370badfa8ca4b7bf0c2db8"
+      "size": 541955,
+      "sha256": "9d6bc3082842d899116b051c4394b2b4087632780d2c48ae81073eb20c1725e8",
+      "url": "../store/sha256/9d/9d6bc3082842d899116b051c4394b2b4087632780d2c48ae81073eb20c1725e8"
     },
     "sf-1.bin": {
-      "size": 10737696,
-      "sha256": "5021db4845fd28577d340537ffbe29aa91add08230bfe5b591020dce9420bca7",
-      "url": "../store/sha256/50/5021db4845fd28577d340537ffbe29aa91add08230bfe5b591020dce9420bca7"
+      "size": 11530796,
+      "sha256": "430a22ca0afe1cb2c68413f3848c623cdbafae2ebc9c0d48ebc0b622a0f55b54",
+      "url": "../store/sha256/43/430a22ca0afe1cb2c68413f3848c623cdbafae2ebc9c0d48ebc0b622a0f55b54"
     },
     "sf-2.bin": {
-      "size": 27977179,
-      "sha256": "1569a8635b7fa05c9208dae18ce4c305ba5fc5101922423a59b8c2705dd4186e",
-      "url": "../store/sha256/15/1569a8635b7fa05c9208dae18ce4c305ba5fc5101922423a59b8c2705dd4186e"
+      "size": 30727628,
+      "sha256": "9d131c0b59df967f51059001b0c448b402be2316faab4a21cda2ca28876b1911",
+      "url": "../store/sha256/9d/9d131c0b59df967f51059001b0c448b402be2316faab4a21cda2ca28876b1911"
     },
     "sf-3.bin": {
-      "size": 30240984,
-      "sha256": "b84307223abe9ff9d9f15e866695ace9d64bc6f58d0a4b613d8fd879e29bd762",
-      "url": "../store/sha256/b8/b84307223abe9ff9d9f15e866695ace9d64bc6f58d0a4b613d8fd879e29bd762"
+      "size": 33302309,
+      "sha256": "c51096a87f05467c59d9c3a660a21eb561aa5202eaf564a9fdab949aff0de2c5",
+      "url": "../store/sha256/c5/c51096a87f05467c59d9c3a660a21eb561aa5202eaf564a9fdab949aff0de2c5"
     },
     "sf-4.bin": {
-      "size": 29736237,
-      "sha256": "11628dadf250b9b31ee69c8aa1a3f89cf3b6e435dda3173b8db1df5c45007a0a",
-      "url": "../store/sha256/11/11628dadf250b9b31ee69c8aa1a3f89cf3b6e435dda3173b8db1df5c45007a0a"
+      "size": 32175536,
+      "sha256": "c9ed6aced47a5e77cc15f40bfcfaddc46e019d9afa0c0523483b79b2b1d41ff9",
+      "url": "../store/sha256/c9/c9ed6aced47a5e77cc15f40bfcfaddc46e019d9afa0c0523483b79b2b1d41ff9"
     },
     "sf-5.bin": {
-      "size": 17478066,
-      "sha256": "577d010204c3faf5c054295bacdfa5a2ca9a61f815640168b8af803e11bd4a14",
-      "url": "../store/sha256/57/577d010204c3faf5c054295bacdfa5a2ca9a61f815640168b8af803e11bd4a14"
+      "size": 18700976,
+      "sha256": "52e5817a633269251c36b5b12749b8c6adef7612f442053dbb96fc66349afdba",
+      "url": "../store/sha256/52/52e5817a633269251c36b5b12749b8c6adef7612f442053dbb96fc66349afdba"
     },
     "streets.nav": {
       "size": 1767501,
@@ -68,9 +68,9 @@
       "url": "../store/sha256/1e/1e8afce3f9730e1f0c3046976602b0c9cd97661c26e25af5cbaf3d3b8620afd3"
     },
     "horizon.glb": {
-      "size": 1286364,
-      "sha256": "ad6cdb1f3a9f3e6d4af861346c9d140c389711258c3cf6075ecd429782b04bb6",
-      "url": "../store/sha256/ad/ad6cdb1f3a9f3e6d4af861346c9d140c389711258c3cf6075ecd429782b04bb6"
+      "size": 2001228,
+      "sha256": "6a821d35417a1f73ff1ca174800ebed0edc7521478bee73131a350d5cca2f59a",
+      "url": "../store/sha256/6a/6a821d35417a1f73ff1ca174800ebed0edc7521478bee73131a350d5cca2f59a"
     }
   }
 }

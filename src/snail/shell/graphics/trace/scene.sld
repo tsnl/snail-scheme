@@ -16,7 +16,7 @@
    Scene
    SurfaceMaterial
    load-scene
-   upload-scene
+   upload-scene upload-lit-scene
    scene-materials
    ObjectPose
    MovingScene
@@ -43,6 +43,8 @@
    (snail shell graphics kernel)
    (snail shell graphics gltf)
    (only (snail shell graphics bvh) Triangles)
+   (snail shell graphics trace lights)
+   (only (snail shell graphics raster) release-plane)
    (snail shell graphics trace shaders))
   (begin
 
@@ -54,7 +56,8 @@
     ;; every vertex, low corner then high, and whether any material is
     ;; blended, which the tracer draws as a layer of its own.
     (record Scene
-      ((vertices GpuBuffer)
+      ((lights LightGrid)
+       (vertices GpuBuffer)
        (indices GpuBuffer)
        (materials GpuBuffer)
        (layers GpuTexture)
@@ -120,13 +123,17 @@
                           (gltf Gltf)
                           (layer-size I32))
       (→ Scene)
+      (upload-lit-scene gpu read gltf layer-size (Nil) 0))
+    (define (upload-lit-scene (gpu Gpu) (read (Fn (List String) → (List Bytes)))
+                              (gltf Gltf) (layer-size I32) (lights (List Punctual)) (capacity I64))
+      (→ Scene)
       (let* ((paths (file-paths gltf))
              (files (zip paths (read paths)))
              (buffers (map (lambda (buffer) (buffer-bytes buffer files)) (● gltf buffers)))
              (layers (load-layers gpu (map (lambda (image) (source-bytes image files buffers))
                                            (● gltf images))
                                   layer-size)))
-        (on-device gpu gltf buffers layers layer-size)))
+        (on-device gpu gltf buffers layers layer-size (light-grid gpu lights capacity))))
 
     ;; Nothing refuses once the layers are loaded, so a scene refused
     ;; leaves nothing on the device.
@@ -134,12 +141,13 @@
                        (gltf Gltf)
                        (buffers (List Bytes))
                        (layers GpuTexture)
-                       (layer-size I32))
+                       (layer-size I32) (lights LightGrid))
       (→ Scene)
       (let* ((counts (placed-counts gltf))
              (geometry (unpacked gpu gltf counts buffers))
              (bounds (gltf-bounds gltf)))
         (new Scene
+          (lights lights)
           (vertices (● geometry first))
           (indices (● geometry second))
           (materials (storage-of gpu "scene/materials"
@@ -161,6 +169,7 @@
           (blended (any? (lambda (m) (= (● m alpha) 2)) (scene-materials gltf))))))
 
     (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit)
+      (release-plane gpu (● scene lights plane))
       (for-each (lambda (buffer) ((● gpu destroy) (BufferObject buffer)))
                 (list (● scene vertices) (● scene indices) (● scene materials)))
       ((● gpu destroy) (ViewObject (● scene layers-view)))

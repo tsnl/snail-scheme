@@ -24,6 +24,8 @@ These libraries run on the CPU. An application chooses a fixed timestep and owns
 
 `(snail shell game chassis)` puts these bodies on a road. `road-chassis` starts a car aligned with the measured grade. `step-cars!` applies pedal and steering inputs while the wheels have traction and solves the whole fleet against vehicle bodywork, the terrain and nearby solid footprints. Gravity and collisions can pitch, roll or overturn a car. Four tyre contacts, a compound sphere hull and a local ground plane approximate its shape and support. `chassis-body` projects the 3D state onto the street map for navigation and boarding.
 
+The chassis solver also accepts walking people through `walker-step` and `step-traffic!`. A walking person stays under foot control until a moving chassis makes contact. The solver then integrates a finite-mass body against the cars, terrain and walls in the same substeps. Last Mile stores the resulting motion in the shift and returns the actor to walking after they settle clear of traffic.
+
 `(snail shell game boarding)` advances a saved `Rider` toward a driver or passenger door, across the sill and into the seat. The car’s placement determines both anchors. An approach uses the four expanded chassis corners to find a clear way around either end. The game holds the car while `crossing?` is true and may reposition it if a waiting rider’s door is blocked. `rider-body` and `seat-weight` locate the actor and blend the seated pose from the same progress. [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/boarding.sld)
 
 ## Roads and local traffic

@@ -5,7 +5,7 @@
 (const rayleigh (vec3f 0.0058 0.0135 0.0331))
 (const aerosol 0.0045)
 (const solar (vec3f 10.2 10.0 9.7))
-(const night_sky (vec3f 0.0019 0.0031 0.0052))
+(const night_sky (vec3f 0.00046 0.00070 0.00125))
 
 ;; Positive distance to a sphere above an observer at sea level. This
 ;; form avoids subtracting two nearly equal radii at the zenith.
@@ -79,7 +79,10 @@
     ;; A diffuse source approximates higher orders of scattering, especially
     ;; along the horizon where the view travels many optical depths.
     (let multiple (* (vec3f 0.20 0.29 0.48) (smoothstep -0.13 0.26 (get sun y))))
-    (return (+ night_sky (* solar light) (* multiple (- 1.0 (exp (- (extinction column))))))))
+    ;; City light scattered close to the horizon fades toward the clear zenith.
+    (let city (* (vec3f 0.0028 0.0017 0.0010) (exp (* -7.0 (get d y)))
+                 (- 1.0 (smoothstep -0.21 0.0 (get sun y)))))
+    (return (+ night_sky city (* solar light) (* multiple (- 1.0 (exp (- (extinction column))))))))
 
 ;; ---- Marine cloud layer ----
 
@@ -143,7 +146,7 @@
     (let ds (/ (- (get range y) (get range x)) 32.0))
     (if ((or (<= ds 0.0) (<= (get shape weather z) 0.0)) (return clear)))
     (let daylight (smoothstep -0.105 0.20 (get sun y)))
-    (let fill (+ (vec3f 0.009 0.008 0.006) (* daylight (vec3f 0.45 0.58 0.81))))
+    (let fill (+ (vec3f 0.0040 0.0029 0.0022) (* daylight (vec3f 0.45 0.58 0.81))))
     (let beam (* solar (sun_path 1.3 (get sun y))))
     (let mu (dot d sun))
     (let phase (+ (* 0.8 (hg mu 0.55)) (* 0.2 (hg mu -0.26))))

@@ -115,6 +115,17 @@ def acceptable(lon, lat, bridges=False):
     return bay or golden
 
 
+def facade_style(tags, height, area, ident):
+    kind = tags.get("building", "")
+    if height >= 35 or kind in ("office", "commercial", "retail", "hotel"):
+        return 4
+    if kind in ("warehouse", "industrial", "garages") or area > 1800 and height < 13:
+        return 3
+    if tags.get("building:material") in ("brick", "masonry") or kind == "school":
+        return 2
+    return (ident // 2) % 3
+
+
 class Survey(osmium.SimpleHandler):
     def __init__(self):
         super().__init__()
@@ -252,7 +263,15 @@ class Survey(osmium.SimpleHandler):
                     340, num(t.get("height"), 3.1 * num(t.get("building:levels"), 2.5))
                 ),
             )
-            self.buildings.extend((poly, h, a.id) for poly in rings(g) if poly.area > 5)
+            for poly in rings(g):
+                if poly.area <= 5:
+                    continue
+                style = facade_style(t, h, poly.area, a.id)
+                roof = t.get("roof:shape", "")
+                pitched = roof in ("gabled", "hipped") or (
+                    not roof and style == 0 and h < 14 and poly.area < 220
+                )
+                self.buildings.append((poly, h, a.id, style, pitched))
         if park:
             self.parks.extend(rings(g))
         if water:
@@ -394,6 +413,7 @@ class Mesh:
     def __init__(self, x, z):
         self.x, self.z = x, z
         self.parts = {}
+        self.lamps = []
 
     def face(self, material, xyz, uv=None):
         verts, indices = self.parts.setdefault(material, ({}, []))
@@ -441,6 +461,32 @@ class Mesh:
         for i in range(4):
             self.quad(mat, lo[i], lo[i - 1], hi[i - 1], hi[i])
 
+    def light(self, x, y, z, kind):
+        self.lamps.append(
+            struct.pack(
+                "<HHHBB",
+                round((x - self.x) * 100),
+                round((y + 12) * 100),
+                round((z - self.z) * 100),
+                kind,
+                0,
+            )
+        )
+
+    def street_lamp(self, x, z, y, dx=0.55, dz=0.0):
+        self.box("glass", x, z, 0.15, 0.15, 4.1, y)
+        self.box(
+            "lamp",
+            x + dx / 2,
+            z + dz / 2,
+            0.90,
+            0.42,
+            0.24,
+            y + 4.02,
+            math.atan2(dz, dx),
+        )
+        self.light(x + dx, y + 3.98, z + dz, 0)
+
     def encode(self):
         # A tile's positions and UVs share an eight-byte vertex. The GPU unpacks
         # this very buffer into the tracer's vertices; no per-vertex Scheme objects.
@@ -456,6 +502,8 @@ class Mesh:
             struct.pack("<I", len(counts))
             + b"".join(struct.pack("<5I", *p) for p in counts)
             + blob
+            + b"".join(self.lamps)
+            + struct.pack("<I4s", len(self.lamps), b"LIT1")
         )
 
 
@@ -516,6 +564,7 @@ def street_props(mesh, props, roads, occupancy):
                 a,
             )
             mesh.box("lamp", x - dx * 0.19, z - dz * 0.19, 1.9, 0.15, 0.26, y + 2.02, a)
+            mesh.light(x - dx * 0.35, y + 1.98, z - dz * 0.35, 1)
             shops.append((round(x - mesh.x), round(z - mesh.z), name))
             if ident % 3 == 0:
                 mesh.box("bin", x - dx * 1.5, z - dz * 1.5, 0.58, 0.55, 0.91, y)
@@ -540,8 +589,7 @@ def street_props(mesh, props, roads, occupancy):
         elif kind == "bench":
             mesh.box("seat", x, z, 1.55, 0.52, 0.46, y, ident % 6)
         elif kind == "lamp":
-            mesh.box("glass", x, z, 0.15, 0.15, 4.1, y)
-            mesh.box("lamp", x, z, 0.65, 0.42, 0.28, y + 4.05)
+            mesh.street_lamp(x, z, y)
         else:
             mesh.box("bin", x, z, 0.57, 0.56, 0.94, y)
     return shops
@@ -646,22 +694,150 @@ def ground_mesh(mesh, road, layers):
     return cells, ground
 
 
+def facade_textures():
+    # One repeat is about four metres wide by one storey high. Each image
+    # has its own window rhythm and trim, preserved by the texture mip chain.
+    for style, name in enumerate(("facade", "stucco", "brick", "works", "office")):
+        img = Image.new(
+            "RGB",
+            (128, 128),
+            ("#dad2bb", "#e5cda9", "#ad7057", "#acaaa0", "#71848b")[style],
+        )
+        d = ImageDraw.Draw(img)
+        if style == 0:
+            for y in range(0, 128, 7):
+                d.line((0, y, 127, y), fill="#b0aea0")
+        if style == 2:
+            for y in range(0, 128, 8):
+                d.line((0, y, 127, y), fill="#c2967c")
+                for x in range(12 if y % 16 else 0, 128, 24):
+                    d.line((x, y, x, y + 8), fill="#c2967c")
+        windows = ((11, 48), (22, 54), (12, 50), (4, 124), (1, 63))[style]
+        left, right = windows
+        for x in [left] if style == 3 else [left, left + 64]:
+            width = right - left
+            top, bottom = [(23, 96), (31, 96), (24, 98), (45, 85), (5, 108)][style]
+            d.rectangle((x - 3, top - 4, x + width + 3, bottom + 3), fill="#5b5046")
+            d.rectangle(
+                (x, top, x + width, bottom),
+                fill=("#66767b", "#668081", "#626e74", "#758b91", "#587987")[style],
+            )
+            d.polygon([(x, top), (x + width, top), (x, top + 23)], fill="#87989a")
+            for xx in range(
+                x + (16 if style == 3 else width // 2),
+                x + width,
+                (16 if style == 3 else width),
+            ):
+                d.line((xx, top, xx, bottom), fill="#d4cdc0", width=2)
+            d.line(
+                (x, top + (bottom - top) // 2, x + width, top + (bottom - top) // 2),
+                fill="#c3b9a4",
+                width=2,
+            )
+            if style in (0, 1, 2):
+                d.rectangle(
+                    (x - 5, bottom + 2, x + width + 5, bottom + 6), fill="#ddd3bc"
+                )
+                if style == 1:
+                    d.arc(
+                        (x - 6, top - 15, x + width + 6, top + 16),
+                        180,
+                        360,
+                        fill="#c19768",
+                        width=4,
+                    )
+        d.rectangle(
+            (0, 119, 127, 125),
+            fill=("#a7a495", "#d5ba97", "#86533f", "#989887", "#475861")[style],
+        )
+        img.save(ASSETS / f"sf-{name}.png")
+
+
+def bay_window(mesh, poly, top, style):
+    # Pick a street-facing wall of an intact narrow house. The bay hangs
+    # above the pavement; the surveyed footprint still governs contacts.
+    road = road_idx[0][road_idx[1].nearest(poly.centroid)][0]
+    edges = list(zip(poly.exterior.coords, list(poly.exterior.coords)[1:]))
+    good = [(a, b) for a, b in edges if 4.5 <= math.dist(a, b) <= 13]
+    if not good:
+        return
+
+    def center(edge):
+        a, b = edge
+        return Point((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+
+    a, b = min(good, key=lambda e: center(e).distance(road))
+    mid = center((a, b))
+    if mid.distance(road) > 18:
+        return
+    width = math.dist(a, b)
+    dx, dz = (b[0] - a[0]) / width, (b[1] - a[1]) / width
+    nx, nz = -dz, dx
+    if poly.covers(Point(mid.x + nx * 0.3, mid.y + nz * 0.3)):
+        nx, nz = -nx, -nz
+    base = height(mid.x, mid.y) + 2.8
+    if top - base < 2.5:
+        return
+
+    def at(across, out):
+        return (mid.x + dx * across + nx * out, mid.y + dz * across + nz * out)
+
+    corners = [at(-1.6, 0.0), at(-1.1, 0.85), at(1.1, 0.85), at(1.6, 0.0)]
+    if not all(
+        mesh.x <= x <= mesh.x + SIDE and mesh.z <= z <= mesh.z + SIDE
+        for x, z in corners
+    ):
+        return
+    for u, v in zip(corners, corners[1:]):
+        mesh.wall("house" + str(style), *u, *v, base, base, top - 0.22)
+    mesh.quad("roof", *((x, top - 0.22, z) for x, z in corners))
+    mesh.quad("roof", *((x, base, z) for x, z in reversed(corners)))
+
+
 def buildings(mesh, region, occupancy):
     x, z = mesh.x, mesh.z
     draw = ImageDraw.Draw(occupancy)
-    for p, h, ident in near(build_idx, region):
+    for p, h, ident, style, pitched in near(build_idx, region):
         for g in rings(p.intersection(region)):
             if g.area < 1:
                 continue
             draw_poly(draw, g, 1, (x, z))
             coords = list(g.exterior.coords)
-            top = max(height(a, b) for a, b in coords) + h
-            for t in triangle_coords(g):
-                mesh.face("roof", [(a, top, b) for a, b in t])
+            top = max(height(a, b) for a, b in p.exterior.coords) + h
+            # Keep pitched roofs inside the surveyed outline. Clip-edge and
+            # irregular footprints retain their level roof across sector seams.
+            ridge = (
+                pitched and region.covers(p) and len(coords) == 5 and not g.interiors
+            )
+            if ridge:
+                corners = coords[:-1]
+                if math.dist(*corners[:2]) > math.dist(*corners[1:3]):
+                    corners = corners[1:] + corners[:1]
+                rise = min(2.2, math.dist(*corners[:2]) * 0.28)
+                eaves = [(a, top - rise, b) for a, b in corners]
+                ridge_a, ridge_b = [
+                    ((a[0] + b[0]) / 2, top, (a[2] + b[2]) / 2)
+                    for a, b in ((eaves[0], eaves[1]), (eaves[2], eaves[3]))
+                ]
+                mesh.quad("roof", eaves[1], eaves[2], ridge_b, ridge_a)
+                mesh.quad("roof", eaves[3], eaves[0], ridge_a, ridge_b)
+                mesh.face("roof", [eaves[0], eaves[1], ridge_a])
+                mesh.face("roof", [eaves[2], eaves[3], ridge_b])
+                top -= rise
+            else:
+                for t in triangle_coords(g):
+                    mesh.face("roof", [(a, top, b) for a, b in t])
+            if (
+                style in (0, 1)
+                and 6 < h < 18
+                and 40 < p.area < 360
+                and region.covers(p)
+            ):
+                bay_window(mesh, p, top, style)
             for ring in [g.exterior, *g.interiors]:
                 for (a, b), (c, d) in zip(ring.coords, list(ring.coords)[1:]):
                     mesh.wall(
-                        "house" + str(ident % 5),
+                        "house" + str(style),
                         a,
                         b,
                         c,
@@ -701,7 +877,9 @@ def scatter_furniture(mesh, roads, occ):
         for m in range(22, int(line.length) - 2, 47):
             a, b = line.interpolate(m), line.interpolate(m + 1)
             seed = (round(a.x) * 73856093 ^ round(a.y) * 19349663) & 0xFFFFFFFF
-            if seed % (6 if kind == "residential" else 3):
+            furniture = seed % (6 if kind == "residential" else 3) == 0
+            lamp = (seed >> 7) % (3 if kind == "residential" else 2) == 0
+            if not (furniture or lamp):
                 continue
             dx, dz = b.x - a.x, b.y - a.y
             length = math.hypot(dx, dz)
@@ -715,6 +893,12 @@ def scatter_furniture(mesh, roads, occ):
             ) or occ.getpixel((int(u - x), int(v - z))):
                 continue
             y = height(u, v) + 0.16
+            if lamp:
+                mesh.street_lamp(
+                    u, v, y, side * dz / length * 0.55, -side * dx / length * 0.55
+                )
+            if not furniture:
+                continue
             if seed & 16:
                 mesh.box("bin", u, v, 0.56, 0.51, 0.88, y)
             else:
@@ -809,8 +993,7 @@ def street_chart(region, layers, roads, x, z):
                 f"<path fill='{color}' fill-rule='evenodd' d='{areas(geometry)}'/>"
             )
     blocks = "".join(
-        areas(building.intersection(region))
-        for building, _, _ in near(build_idx, region)
+        areas(building.intersection(region)) for building, *_ in near(build_idx, region)
     )
     out.append(f"<path fill='#687269' fill-rule='evenodd' d='{blocks}'/>")
     strokes = collections.defaultdict(list)
@@ -916,21 +1099,20 @@ def distant_city(buildings):
         if level > 0:
             for t in triangle_coords(lake.simplify(3)):
                 groups["water"].extend((a, level - 0.15, b) for a, b in t)
-    for poly, h, ident in buildings:
-        if h < 55:
+    for poly, h, ident, style, _ in buildings:
+        if h < 24:
             continue
-        x, z, xx, zz = poly.bounds
-        a, b = (x + xx) / 2, (z + zz) / 2
-        dx, dz = (xx - x) * 0.32, (zz - z) * 0.32
-        top = height(a, b) + h - 4
-        bottom = height(a, b) - 4
-        ring = [(a - dx, b - dz), (a + dx, b - dz), (a + dx, b + dz), (a - dx, b + dz)]
-        for (u, v), (uu, vv) in zip(ring, ring[1:] + ring[:1]):
-            lo = (u, bottom, v)
-            hi = (u, top, v)
-            lo2 = (uu, bottom, vv)
-            hi2 = (uu, top, vv)
-            groups["roof"].extend([lo, lo2, hi2, lo, hi2, hi])
+        # An inset, closed footprint extends the middle-distance skyline.
+        # Omit narrow appendages and stay inside the full-detail mesh nearby.
+        for outline in rings(poly.simplify(1.8).buffer(-1.8, join_style="mitre")):
+            base = min(height(x, z) for x, z in outline.exterior.coords) - 3
+            top = base + h
+            for t in triangle_coords(outline):
+                groups["roof"].extend((x, top, z) for x, z in t)
+            ring = list(outline.exterior.coords)
+            for (x, z), (xx, zz) in zip(ring, ring[1:]):
+                a, b, c, d = (x, base, z), (xx, base, zz), (xx, top, zz), (x, top, z)
+                groups["house" + str(style)].extend((a, b, c, a, c, d))
 
     def beam(group, a, b, size):
         a, b = np.asarray(a), np.asarray(b)
@@ -1175,6 +1357,7 @@ def main():
         water.append((body, height(p.x, p.y) if land.covers(p) else 0.0))
     water_idx = lookup(water, survey.water)
     ASSETS.mkdir(exist_ok=True)
+    facade_textures()
     distant_city(survey.buildings)
     nodes, edges = navigation(survey.roads)
     overview_map(survey, roads)

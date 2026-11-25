@@ -36,7 +36,9 @@
       (+ value (max (- 0.0 step) (min step (- target value)))))
     (define (adjust-driver! (c DriverControls) (steer F64) (throttle F64) (dt F64)) (→ Unit)
       (set! (● c wheel) (approach (● c wheel) (* 0.59 steer) (* dt (if (= steer 0.0) 3.6 2.9))))
-      (set! (● c pedal) (approach (● c pedal) throttle (* dt (if (= throttle 0.0) 8.0 4.5)))))
+      (set! (● c pedal)
+            (approach (● c pedal) throttle (* dt (cond ((< (* (● c pedal) throttle) 0.0) 24.0)
+                                                       ((= throttle 0.0) 8.0) (else 4.5))))))
     (define (gravity-along (grade F64)) (→ F64) (/ (* -9.81 grade) (sqrt (+ 1.0 (* grade grade)))))
     (define (road-speed (v F64) (pedal F64) (brake Bool) (grade F64) (dt F64)) (→ F64)
       (let* ((slope (gravity-along grade)) (resistance (+ 0.16 (* 0.00034 (* v v))))
@@ -44,7 +46,7 @@
              (force (if (< pedal 0.0) 2.5 (min 4.4 (/ 56.0 (max 1.0 (abs v)))))))
         (cond (braking (approach (+ v (* slope dt))
                                  0.0
-                                 (* dt (+ resistance (* 7.4 (if brake 1.0 (abs pedal)))))))
+                                 (* dt (+ resistance (* 9.6 (if brake 1.0 (abs pedal)))))))
               ((and (= pedal 0.0) (< (abs v) 0.12)) 0.0)
               (else (max -5.5
                          (min 31.0
@@ -60,7 +62,7 @@
       (→ F64)
       (let* ((accel (- acceleration (gravity-along grade)))
              (grip 8.2)
-             (lateral (sqrt (max 0.0 (- (* grip grip) (* accel accel)))))
+             (lateral (sqrt (max 0.0 (* (* grip grip) (- 1.0 (/ (* accel accel) (* 9.6 9.6)))))))
              (limit (atan2 (* lateral (● size wheelbase)) (max 0.01 (* speed speed)))))
         (max (- 0.0 limit) (min limit wheel))))
 

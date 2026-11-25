@@ -1,10 +1,31 @@
 ;; Cab stands placed on mapped streets. Stop is the taxi position, curb is the waiting rider.
 (define-library (apps last-mile district)
-  (export Stand stands stand rider-name pickup-index drop-index)
+  (export Destination
+          stop-kind-id
+          StopKind
+          Collect
+          Deliver
+          ReturnToCab
+          OffDuty
+          Stand
+          stand-radius
+          stands
+          stand
+          rider-name
+          pickup-index
+          drop-index)
   (import
    (snail core base)
    (snail shell game physics))
   (begin
+    (enum StopKind (Collect) (Deliver) (ReturnToCab) (OffDuty))
+    (define (stop-kind-id (k StopKind)) (→ I64)
+      (match k ((Collect) 0) ((Deliver) 1) ((ReturnToCab) 2) ((OffDuty) 3)))
+    (record Destination
+      ((dispatch I64)
+       (kind StopKind)
+       (point XZ)))
+    (define stand-radius (→ F64) 5.5)
     (record Stand
       ((name String)
        (street String)

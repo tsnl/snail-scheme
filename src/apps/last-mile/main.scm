@@ -55,7 +55,7 @@
     ((100) 8)
     ((1) 128)
     ((2) 256)
-    ((32) 16)
+    ((32) 32)
     ((98) 32)
     (else 0)))
 
@@ -90,7 +90,7 @@
                             (set! (● c wide) #f)
                             (set! (● c carry) 0)
                             (set! (● c yaw) 0.0)))
-                    ((108) (when (match (● w fare) ((Waiting) #t) (_ #f)) (shift-time! w)))
+                    ((108) (shift-time! w))
                     (else (unit))))))))
 
 (define (input! (c Controls) (s Shift) (input Input)) (→ Unit)
