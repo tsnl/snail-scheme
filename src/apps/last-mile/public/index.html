@@ -10,22 +10,26 @@
 <body>
   <canvas id="view" tabindex="0" aria-label="Taxi driving in San Francisco"></canvas>
   <div id="overlay"></div>
-  <p id="status" role="status">Opening your San Francisco shift… The first visit downloads the city.</p>
+  <section id="status" role="status"><p id="status-text">Opening San Francisco…</p><button id="retry" hidden>Retry</button></section>
   <footer class="keys"><span>Click to look · Esc releases</span><span><kbd>WASD</kbd> Move / drive</span><span><kbd>B / Space</kbd> Brake</span><span><kbd>E</kbd> Board / exit</span><span><kbd>M</kbd> City map</span><span><kbd>L</kbd> Later shift</span><span><kbd>P</kbd> Pause</span></footer>
   <aside class="map-credit"><a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors</a> · <a href="./geodata/SOURCES.txt">USGS 3DEP</a> · <a href="./geodata/city.json">Map data</a></aside>
   <script type="module">
     import {startApplication} from './host.mjs';
     const overlay = document.getElementById('overlay');
     const status = document.getElementById('status');
+    const retry = document.getElementById('retry');
+    retry.addEventListener('click', () => location.reload());
     function failed(message) {
       document.body.dataset.error = message;
       status.hidden = false;
-      status.textContent = 'Last Mile Taxi needs a WebGPU device and its scene assets. ' + message;
+      document.getElementById('status-text').textContent = 'Couldn’t open your shift. ' + message;
+      retry.hidden = false;
     }
     addEventListener('error', event => failed(event.message));
     try {
       await startApplication({canvas: document.getElementById('view'), overlay, pointerLock: true, storageKey: 'last-mile-sf-taxi-v1'});
-      if (!document.body.dataset.error) {
+      if (overlay.dataset.loadError) failed(overlay.dataset.loadError);
+      else if (!document.body.dataset.error) {
         status.hidden = true;
         document.body.dataset.ready = 'true';
       }

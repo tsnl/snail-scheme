@@ -4,7 +4,7 @@
                   (import
                    (snail core base)
                    (snail shell project build)
-                   (embedded linking)
+                   (snail shell project embed)
                    (only (snail core io) Arguments ProcessEnvironment Fs Clock)
                    (only (snail shell process) Processes))
                   (lambda ((arguments Arguments)

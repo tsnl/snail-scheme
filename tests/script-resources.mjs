@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -71,9 +71,16 @@ try {
   await write('main.scm', `(import (snail core base) (snail core io) (snail shell resource) (assets sprites))
 (define (main (out OutputPort) (resources Resources)) (→ Unit)
   (write-line out (string-join (map (lambda (byte) (show (u8->i32 byte))) (array->list (read-resource resources (hero)))) ",")))\n`);
+  const tile = Buffer.from([1, 8, 3]);
+  await write('main.resources/maps/tile.bin', tile);
+  await write('main.resources/copy.bin', villain);
+  const catalog = {'copy.bin': {sha256: digest(villain), size: villain.length},
+    'maps/tile.bin': {sha256: digest(tile), size: tile.length}};
   await write('public/index.html', '<!doctype html><title>Resources</title>');
 
   await build('cli');
+  assert.deepEqual(JSON.parse(await readFile(join(output, 'resources.json'))), catalog);
+  assert.deepEqual(await resource(output, tile), tile, 'server bundles publish unlinked files');
   assert.deepEqual(await resource(output, hero), hero, 'the node build places the file');
   assert.deepEqual(await resource(output, villain), villain);
   assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'the native host reads it when the task asks');
@@ -106,6 +113,10 @@ try {
   assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'beside its optimized module');
 
   await build('page');
+  assert.deepEqual(JSON.parse(await readFile(join(output, 'resources.json'))), catalog);
+  const module = new WebAssembly.Module(await readFile(join(output, 'main.wasm')));
+  assert.ok(!WebAssembly.Module.imports(module).some(i => i.module === 'snail.runtime.link' && i.name === digest(tile)));
+  assert.deepEqual(await resource(output, tile), tile, 'static hosts publish the same files');
   assert.deepEqual(await resource(output, hero), hero, 'the browser build places the file');
   const page = await pageOutput(output, 'main.wasm');
   assert.equal(page.output, '1,2,3,255', 'the browser host fetches it beside the module');
@@ -124,6 +135,11 @@ try {
   await assert.rejects(build('cli'), /sprites\.sld:\d+:\d+: the library assets\.sprites links art\/hero\.bin, but there is no file at /);
   await write('src/assets/art/hero.bin', hero);
 
+  await symlink(join(project, 'main.scm'), join(project, 'main.resources/link'));
+  await assert.rejects(build('page'), /resource must be a regular file/);
+  await rm(join(project, 'main.resources/link'));
+  await write('public/resources.json', '{}');
+  await assert.rejects(build('page'), /public file conflicts with a build artifact/);
   console.log('script resources passed');
 } finally {
   await rm(project, {recursive: true, force: true});

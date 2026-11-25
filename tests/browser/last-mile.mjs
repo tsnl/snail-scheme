@@ -1,9 +1,9 @@
-// Drive a fare in the browser, then reload with all linked object requests blocked.
+// Drive a fare in the browser, then reload with every city object request blocked.
 // Traffic, GPS, lighting and the street must still run from the saved shift.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {join} from 'node:path';
-import {realpath, writeFile} from 'node:fs/promises';
+import {readFile, realpath, writeFile} from 'node:fs/promises';
 import {createCanvas, loadImage} from '@napi-rs/canvas';
 import {promisify} from 'node:util';
 import {openBrowser, sleep, until} from './chromium.mjs';
@@ -12,7 +12,39 @@ import {serve} from './static.mjs';
 const [root, screenshot] = process.argv.slice(2);
 const {stdout} = await promisify(execFile)(join(root, 'snail-scheme'),
   ['build', '--target', 'browser', 'src/apps/last-mile/main.scm'], {cwd: root});
-const server = await serve(await realpath(stdout.trim()));
+const directory = await realpath(stdout.trim());
+const catalog = JSON.parse(await readFile(join(directory, 'resources.json')));
+const program = new WebAssembly.Module(await readFile(join(directory, 'main.wasm')));
+assert.equal(WebAssembly.Module.imports(program).filter(i => i.module === 'snail.runtime.link').length, 0);
+const total = Object.values(catalog).reduce((n, file) => n + file.size, 0);
+const totalMiB = (Math.floor(total * 10 / 1048576) / 10).toFixed(1);
+const object = name => {
+  const digest = catalog[name].sha256;
+  return 'store/sha256/' + digest.slice(0, 2) + '/' + digest;
+};
+const held = Promise.withResolvers();
+let hold = true, fail = true;
+const server = await serve(directory, async (path, response) => {
+  if (path === 'seed.html') {
+    response.writeHead(200, {'content-type': 'text/html'}).end('<title>Prior install</title>');
+    return true;
+  }
+  if (path === object('sf-1.bin') && hold) {
+    hold = false;
+    const bytes = await readFile(join(directory, path));
+    response.writeHead(200); // No Content-Length. The catalog supplies the denominator.
+    response.write(bytes.subarray(0, 1 << 20));
+    await held.promise;
+    response.end(bytes.subarray(1 << 20));
+    return true;
+  }
+  if (path === object('sf-2.bin') && fail) {
+    fail = false;
+    response.writeHead(503).end();
+    return true;
+  }
+  return false;
+});
 const objects = new Map();
 server.on('request', request => { if (request.url.includes('/store/sha256/')) objects.set(request.url, (objects.get(request.url) ?? 0) + 1); });
 const browser = await openBrowser();
@@ -91,8 +123,39 @@ async function visibleStreet() {
 
 try {
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 900, height: 600, deviceScaleFactor: 0.6, mobile: false});
+  // Seed a real prior-version IndexedDB entry before the new app runs.
+  const legacyFile = 'Textures/colormap.png', legacyHash = catalog[legacyFile].sha256;
+  await browser.navigate(url + 'seed.html');
+  await until(() => browser.evaluate('location.pathname.endsWith("seed.html")'), 'fixture origin');
+  const legacyBytes = await readFile(join(directory, object(legacyFile)));
+  assert.equal(await browser.evaluate(`new Promise((resolve, reject) => {
+    const open = indexedDB.open('snail-linked-files', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('objects');
+    open.onsuccess = () => {
+      const tx = open.result.transaction('objects', 'readwrite');
+      tx.objectStore('objects').put(Uint8Array.from(atob('${legacyBytes.toString('base64')}'), c => c.charCodeAt(0)), '${legacyHash}');
+      tx.oncomplete = () => { open.result.close(); resolve(true); };
+      tx.onabort = reject;
+    };
+  })`), true);
   await browser.navigate(url);
+  const prior = Object.keys(catalog).slice(0, Object.keys(catalog).indexOf('sf-1.bin'))
+    .reduce((n, name) => n + catalog[name].size, 0);
+  await until(() => browser.evaluate(`document.querySelector('.city-progress')?.value === ${prior + (1 << 20)}`),
+    'byte progress inside an unfinished city file', 90);
+  assert.equal(await browser.evaluate("document.querySelector('.city-progress').max"), total);
+  assert.match(await read('.loading-title'), /Downloading/);
+  if (screenshot) await browser.screenshot(screenshot.replace(/\.png$/, '-download.png'));
+  held.resolve();
+  await expect('#status-text', 'sf-2.bin');
+  assert.equal(await browser.evaluate("document.querySelector('#retry').hidden"), false);
+  await click('#retry');
+  await until(() => browser.evaluate('document.body && !document.body.dataset.error'), 'fresh retry');
   await ready();
+  assert.equal(objects.get('/' + object('sf-1.bin')), 1, 'retry retained the completed transfer');
+  assert.equal(objects.get('/' + object(legacyFile)), undefined, 'old IndexedDB bytes avoided a download');
+  assert.ok(await browser.evaluate(`(async () => !!await (await caches.open('snail-static-resources-v1'))
+    .match('/.snail/sha256/${legacyHash}'))()`), 'old bytes were promoted to Cache Storage');
   await expect('.stage', 'PICKUP');
   await expect('h2', 'Rosa');
   await expect('.time', 'PM');
@@ -162,8 +225,9 @@ try {
   await tap('p');
   await expect('.stage', 'SHIFT PAUSED');
   await sleep(5500);
-  assert.ok(objects.size >= 13, 'the initial load reads the map, graph, rig and textures');
-  assert.ok([...objects.values()].every(n => n === 1), 'each linked digest downloads once');
+  assert.equal(objects.size, Object.keys(catalog).length - 1);
+  for (const [path, count] of objects)
+    assert.equal(count, path === '/' + object('sf-2.bin') ? 2 : 1, path);
   await browser.send('Network.enable');
   await browser.send('Network.setBlockedURLs', {urls: ['*/store/sha256/*']});
   const before = [...objects];
@@ -173,8 +237,9 @@ try {
   await expect('.speech', 'Leavenworth');
   await until(visibleStreet, 'cached city, rider and taxi');
   assert.deepEqual([...objects], before);
+  assert.ok((await read('.loading-bytes')).includes(totalMiB + ' MiB cached'));
   const cache = await browser.evaluate(`(async () => {
-    const {readLinkedFile} = await import('./storage.mjs');
+    const {readLinkedFile, readImmutable} = await import('./storage.mjs');
     const hash = async b => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', b)), n => n.toString(16).padStart(2, '0')).join('');
     const a = Uint8Array.of(13, 42), b = Uint8Array.of(14, 42);
     const first = await hash(a), second = await hash(b);
@@ -183,9 +248,19 @@ try {
     const get = () => readLinkedFile(first, async () => { calls++; return a; });
     await Promise.all([get(), get()]); await get();
     const changed = await readLinkedFile(second, async () => b);
-    return [rejected, calls, changed[0]];
+    const store = await caches.open('snail-static-resources-v1');
+    await store.put('/.snail/sha256/' + first, new Response(b));
+    let repairs = 0;
+    const repaired = await readImmutable(first, a.length, async () => { repairs++; return a; });
+    const c = Uint8Array.of(15, 42), third = await hash(c), put = Cache.prototype.put;
+    let uncached;
+    try {
+      Cache.prototype.put = () => Promise.reject(new DOMException('full', 'QuotaExceededError'));
+      uncached = await readImmutable(third, c.length, async () => c);
+    } finally { Cache.prototype.put = put; }
+    return [rejected, calls, changed[0], repairs, repaired[0], uncached[0], !!await store.match('/.snail/sha256/' + third)];
   })()`);
-  assert.deepEqual(cache, [true, 1, 14]);
+  assert.deepEqual(cache, [true, 1, 14, 1, 13, 15, false]);
   await pause();
   assert.equal(await selection('#render-resolution'), '480p');
   assert.equal(await selection('#mouse-sensitivity'), 'High');
@@ -230,9 +305,11 @@ try {
   }, 'the island street growing dark under the night sky', 55);
   if (screenshot) await writeFile(screenshot.replace(/(\.png)?$/, '-island-night.png'), night.bytes);
   assert.deepEqual([...objects], before);
+  assert.ok((await read('.loading-bytes')).includes(totalMiB + ' MiB cached'));
   assert.equal(await browser.evaluate('document.body.dataset.error'), undefined);
-  console.log(`Rosa boarded, recovered with her fare, and restarted a shift with all ${before.length} linked requests blocked. Treasure Island daylight/night luminance: ${day.toFixed(1)} / ${night.luminance.toFixed(1)}.`);
+  console.log(`Rosa boarded, recovered with her fare, and restarted a shift with all ${Object.keys(catalog).length} city object URLs blocked. Treasure Island daylight/night luminance: ${day.toFixed(1)} / ${night.luminance.toFixed(1)}.`);
 } finally {
+  held.resolve();
   browser.close();
   server.close();
 }

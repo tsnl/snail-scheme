@@ -49,6 +49,7 @@
          GenerateInput
          Diagnostics
          diagnostics->string)
+   (only (snail shell compiler expand) digested-file)
    (snail shell compiler inputs)
    (only (snail shell compiler check) Typed)
    (snail shell process)
@@ -492,7 +493,8 @@
            (let ((linked (string-append working "/linked.wasm")))
              (write-bytes fs linked (linked-program fs builder program))
              (optimize processes linked output))))
-        (place-links fs builder directory (● program links))
+        (place-links fs builder directory
+                     (append (● program links) (publish-resources fs builder target directory)))
         (● program libraries)))
 
     ;; `work` in a directory of its own in the build's scratch, removed after.
@@ -618,6 +620,47 @@
       (remember-digests fs builder links (base-name directory)))
 
     ;; ---- Digests ----
+
+    ;; ---- Static resource catalogs ----
+
+    ;; A script opts in with a neighbouring NAME.resources/ directory. Both
+    ;; native and browser bundles serve the same resources.json and object URLs.
+    ;; The script need not import any of the files it publishes.
+    (define (publish-resources (fs Fs) (builder Builder) (target Target) (output String))
+      (→ (List LinkedFile))
+      (let ((root (string-append (● builder workspace) "/" (● target name) ".resources")))
+        (match (status-kind fs root)
+          ((None) (Nil))
+          ((Some (Directory))
+           (let* ((known (by-path (empty-table) (known-digests fs builder)))
+                  (files (catalog-files fs known root))
+                  (members (map (lambda (file) (catalog-member root file)) files)))
+             (write-file fs
+                         (string-append output "/resources.json")
+                         (json->string (JsonObject members)))
+             files))
+          (_ (fail-build (string-append "resource catalog must be a directory: " root))))))
+
+    (define (catalog-member (root String) (file LinkedFile)) (→ (Pair String Json))
+      (let* ((path (● file path))
+             (name (substring path (+ (string-length root) 1) (string-length path)))
+             (digest (new Pair (first "sha256") (second (JsonString (● file digest)))))
+             (size (new Pair (first "size") (second (JsonInteger (● file size))))))
+        (new Pair (first name) (second (JsonObject (list digest size))))))
+
+    (define (catalog-files (fs Fs) (known (Table LinkedFile)) (directory String))
+      (→ (List LinkedFile))
+      (concatenate
+       (map (lambda (name)
+              (let ((path (string-append directory "/" name)))
+                (match (file-status fs path)
+                  ((Ok status)
+                   (match (● status kind)
+                     ((RegularFile) (list (digested-file fs known path status)))
+                     ((Directory) (catalog-files fs known path))
+                     (_ (fail-build (string-append "resource must be a regular file: " path)))))
+                  ((Err why) (fail-build (string-append "cannot read " path ": " (show why)))))))
+            (list-sort string<? (directory-names fs directory)))))
 
     ;; The digests of linked files the workspace's builds have read, in its
     ;; store at digests, a line a file: DIGEST SIZE MODIFIED PATH. A

@@ -19,6 +19,7 @@
 ;; - Gpu, the page's WebGPU device;
 ;; - Dom, the page's document;
 ;; - Fetch, requests to a server;
+;; - StaticResources, verified files from a published catalog;
 ;; - FilePicker, the files a user chooses.
 (define-library (snail target browser)
   (export
@@ -35,6 +36,7 @@
    provide-gpu
    provide-dom
    provide-fetch
+   provide-static-resources
    provide-file-picker)
   (import
    (snail core base)
@@ -47,7 +49,8 @@
    (only (snail shell dom) Dom)
    (only (snail shell dom page) page-dom)
    (only (snail shell fetch) Fetch)
-   (only (snail shell fetch page) page-fetch)
+   (only (snail shell fetch page) page-fetch page-static-resources)
+   (only (snail shell static-resource) StaticResources)
    (only (snail shell files) FilePicker)
    (only (snail shell files page) page-file-picker))
   (begin
@@ -96,6 +99,9 @@
     ;; The document delivers its events through the page's.
     (define (provide-dom) (→ Dom)
       (page-dom root (host-events root)))
+
+    (define (provide-static-resources) (→ StaticResources)
+      (page-static-resources root))
 
     (define (provide-fetch) (→ Fetch)
       (page-fetch root))

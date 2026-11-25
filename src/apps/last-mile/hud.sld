@@ -1,11 +1,12 @@
 ;; Dispatch, meter and navigation are projections of the current shift.
 (define-library (apps last-mile hud)
-  (export Hud make-hud show! click-reply! clicked-stand show-menu! menu-action
+  (export loading-screen Hud make-hud show! click-reply! clicked-stand show-menu! menu-action
           MenuAction Pause Resume Recover Restart SetResolution SetSensitivity)
   (import
    (snail core base)
    (only (snail core table) table-ref)
    (snail shell dom)
+   (snail shell static-resource)
    (prefix (snail shell ui) ui:)
    (snail shell game physics)
    (snail shell game atlas)
@@ -54,6 +55,40 @@
         (unless (string=? text "") ((● d set-text) n text))
         ((● d insert-node) parent n (None)) n))
 
+
+    ;; ---- Opening the city ----
+
+    (define (mib (bytes I64)) (→ String)
+      (let ((tenths (quotient (* bytes 10) 1048576)))
+        (string-append (show (quotient tenths 10)) "." (show (remainder tenths 10)))))
+
+    (define (cached-size (bytes I64)) (→ String)
+      (cond ((< bytes 1024) (string-append (show bytes) " B"))
+            ((< bytes 104858) (string-append (show (quotient bytes 1024)) " KiB"))
+            (else (string-append (mib bytes) " MiB"))))
+
+    (define (loading-screen (d Dom)) (→ (Fn StaticProgress → Unit))
+      (let* ((panel (element d ((● d document-root)) "section" "city-loading" ""))
+             (title (element d panel "p" "loading-title" "Opening San Francisco…"))
+             (bar (element d panel "progress" "city-progress" ""))
+             (detail (element d panel "p" "loading-bytes" "")))
+        ((● d set-attribute) title "role" "status")
+        ((● d set-attribute) bar "aria-label" "San Francisco city files")
+        (lambda (state)
+          (let* ((net (● state downloaded)) (local (● state cached)) (total (● state total))
+                 (done (+ net local)))
+            ((● d set-attribute) bar "max" (show (max 1 total)))
+            ((● d set-attribute) bar "value" (show done))
+            ((● d set-text) title (cond ((= done total) "Preparing the streets…")
+                                        ((> net 0) "Downloading San Francisco")
+                                        ((> local 0) "Opening cached city files")
+                                        (else "Checking city files…")))
+            ((● d set-text) detail
+             (string-append (mib done) " / " (mib total) " MiB · "
+                            (show (quotient (* done 100) (max 1 total))) "%"
+                            (if (> local 0)
+                                (string-append " · " (cached-size local) " cached")
+                                "")))))))
 
     ;; ---- Pause menu ----
 

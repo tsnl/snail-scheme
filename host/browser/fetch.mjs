@@ -6,17 +6,46 @@
 // between waits, and a dropped connection reconnects, as EventSource does,
 // which a stream that hears "error" hears as an event without data.
 
-import {byteView} from './load.mjs';
+import {byteView, objectPath} from './load.mjs';
+import {readImmutable} from './storage.mjs';
+
+// Count decoded response bytes, the same representation the publisher hashed.
+// The catalog gives the length even when HTTP compresses or omits it.
+export async function downloadStatic(url, size, signal, progress) {
+  const response = await fetch(url, {signal, cache: 'no-store'});
+  if (!response.ok) throw new Error(`${response.status} fetching ${url}`);
+  const reader = response.body?.getReader();
+  const bytes = new Uint8Array(size);
+  let received = 0;
+  if (reader) {
+    try {
+      for (;;) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        if (value.length > size - received) throw new Error('response exceeds its published byte length');
+        bytes.set(value, received);
+        received += value.length;
+        progress(received);
+      }
+    } catch (error) {
+      await reader.cancel().catch(() => {});
+      throw error;
+    } finally { reader.releaseLock(); }
+  }
+  if (received !== size) throw new Error(`expected ${size} bytes, received ${received}`);
+  return bytes;
+}
 
 export function createFetch(runtime) {
   const decoder = new TextDecoder();
-  let parts, streams, nextStream, reply = [], bytes = new Uint8Array();
+  let parts, streams, nextStream, received, reply = [], bytes = new Uint8Array();
   reset();
 
   // A program that starts knows no streams, so they close with the last.
   function reset() {
     for (const stream of streams?.values() ?? []) stream.source.close();
     streams = new Map();
+    received = new Map();
     nextStream = 1;
     parts = {method: 'GET', url: '', headers: [], body: ''};
   }
@@ -106,6 +135,32 @@ export function createFetch(runtime) {
     streams.delete(id);
   }
 
+  // A ticket owns its progress until its fetch settles. The Scheme task can
+  // sample it while waiting. finish-request exposes either bytes or an error.
+  function startStatic(ticket, size, address) {
+    const id = Number(ticket), digest = text(address), counts = received;
+    const url = new URL(objectPath(digest), new URL(parts.url, document.baseURI));
+    parts = {method: 'GET', url: '', headers: [], body: ''};
+    counts.set(id, 0);
+    tasks().start(id, async signal => {
+      let cached = true;
+      try {
+        const body = await readImmutable(digest, size, () => {
+          cached = false;
+          return downloadStatic(url, size, signal, n => counts.set(id, n));
+        }, signal);
+        return {body, cached};
+      } catch (error) {
+        signal.throwIfAborted();
+        return {failed: error.message};
+      } finally { counts.delete(id); }
+    }, result => {
+      if (result.failed !== undefined) { answer(result.failed); return -1; }
+      bytes = result.body;
+      return result.cached ? 1 : 0;
+    });
+  }
+
   const imports = {
     'request-method': address => { parts.method = text(address); },
     'request-url': address => { parts.url = text(address); },
@@ -117,6 +172,8 @@ export function createFetch(runtime) {
     'start-request': start,
     'finish-request': ticket => tasks().finish(Number(ticket)),
     'start-bytes': startBytes,
+    'start-static': startStatic,
+    'static-received': ticket => received.get(Number(ticket)) ?? -1,
     'reply-byte': index => bytes[index],
     'page-address': () => answer(globalThis.location?.href ?? ''),
     'stream-open': address => open(text(address)),
