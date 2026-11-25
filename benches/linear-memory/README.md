@@ -4,13 +4,13 @@ Each timed call casts 50,000 rays against the same twelve footprints. The rays a
 
 | Implementation | Median for 50,000 rays |
 | --- | ---: |
-| WasmGC, original pair-returning slabs | 3.63 ms |
-| WasmGC, one borrowed interval per ray | 2.12 ms |
-| Linear memory, original pair-returning slabs | 37.63 ms |
-| Linear memory, one borrowed interval per ray | 3.32 ms |
-| C in Wasm32, automatic storage | 0.69 ms |
+| WasmGC, original pair-returning slabs | 3.41 ms |
+| WasmGC, one borrowed interval per ray | 2.07 ms |
+| Linear memory, original pair-returning slabs | 36.53 ms |
+| Linear memory, one borrowed interval per ray | 3.25 ms |
+| C in Wasm32, automatic storage | 0.68 ms |
 
-Measured on Node 26.8.1 on an Intel Core Ultra 7 270K Plus. The runner warms each module three times, rotates the order in one process and takes the median of eleven timed calls. Compilation, instantiation and host I/O are outside the timed interval. Binaryen optimizes the Snail modules at `-O2`. Clang 23.1.3 optimizes C at `-O3`.
+Measured on Node 26.8.1 on an Intel Core Ultra 7 270K Plus. The runner warms each module three times, rotates the order in one process and takes the median of eleven timed calls. Compilation, instantiation and host I/O are outside the timed interval. Binaryen 132 optimizes the Snail modules at `-O2`. Clang 23.1.3 optimizes C at `-O3`.
 
 The scoped version removes the temporary pair allocations and the per-ray fold closure. On the same scoped source, WasmGC took about 64% of the linear backend's time. The C kernel took about one fifth of the scoped linear version's time. C also has contiguous wall data, different code generation and opportunities to specialize the twelve-wall traversal. This comparison measures their combined effect on this query. A whole game or the compiler can have a different allocation profile.
 
@@ -20,8 +20,8 @@ The Siegework balance program exercises the economy and combat simulation throug
 
 | Workload | WasmGC | Linear memory |
 | --- | ---: | ---: |
-| Compile the balance program with the same compiler source | 0.49 s | 1.39 s |
-| Execute the release balance program | 0.53 s | 2.90 s |
+| Compile the balance program with the same compiler source | 0.320 s | 1.045 s |
+| Execute the release balance program | 0.503 s | 2.647 s |
 
 For the compiler comparison, the historical backend hosts today's compiler, and both compiler binaries must produce byte-identical linear-memory WAT. For the simulation, each backend builds the same application source and must print exactly `tests/siegework/balance.out`.
 
@@ -29,10 +29,12 @@ Separate diagnostic builds time the linear collector inside each program's entry
 
 | Linear workload | Allocations | Allocated bytes | Collections | Total pause / elapsed | Longest pause |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Compiler | 11.45 million | 294 MB | 50 | 428 ms / 1,260 ms | 16.63 ms |
-| Simulation | 78.92 million | 5.27 GB | 1,262 | 74 ms / 3,036 ms | 0.51 ms |
+| Compiler | 11.46 million | 294 MB | 51 | 267 ms / 949 ms | 9.08 ms |
+| Simulation | 78.92 million | 5.27 GB | 1,262 | 59 ms / 2,549 ms | 0.28 ms |
 
-Removing the measured collection pauses while keeping everything else fixed would speed up these runs by at most 1.52× and 1.03× respectively. Explicit storage can also remove allocations, copies, pointer chasing and root handling. The ray comparison measures one such change. A separate Node trace reports main-isolate pauses on the WasmGC builds, including process startup.
+Removing the measured collection pauses while keeping everything else fixed would speed up these runs by at most 1.39× and 1.024× respectively. Explicit storage can also remove allocations, copies, pointer chasing and root handling. The ray comparison measures one such change.
+
+For WasmGC, a separate Node trace recorded 52 ms of main-isolate pauses in a 314 ms compiler process and 39 ms in a 510 ms simulation process. The longest pauses were 6.55 ms and 3.57 ms. These traces include host startup and JS collections. They measure time stopped on the main thread and exclude concurrent GC work. Each maximum describes one run.
 
 ## Reproduce
 
