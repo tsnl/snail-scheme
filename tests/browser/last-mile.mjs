@@ -62,6 +62,25 @@ async function choose(selector, value) {
     field.dispatchEvent(new Event('change', {bubbles: true}));
   })()`);
 }
+// Check the actual GPU reconstruction target alongside the tracer dimensions
+// reported by the HUD. The canvas remains full size for the final FXAA pass.
+async function checkPortraitPreset(preset, lines, capped) {
+  await choose('#render-resolution', preset);
+  const size = await until(async () => {
+    const match = (await read('.quality'))?.match(/^(\d+)p · (\d+)×(\d+)$/);
+    // The HUD can see the selected preset before the first resized frame.
+    // size-at rounds down both dimensions to fit the storage-buffer limit.
+    const width = Math.floor(780 * lines / 1400);
+    if (match && +match[1] === lines && +match[2] === width && Math.abs(+match[3] - lines) <= 1)
+      return [+match[2], +match[3]];
+  }, preset + ' on a portrait display', 130);
+  const {toned, canvas} = await browser.evaluate(`({
+    toned: window.tonedSize, canvas: [document.querySelector('canvas').width, document.querySelector('canvas').height]
+  })`);
+  assert.deepEqual(canvas, [780, 1400]);
+  assert.deepEqual(toned, capped ? size.map((dimension, i) => Math.min(2 * dimension, canvas[i])) : canvas);
+}
+
 async function pause() {
   await click('.pause-toggle');
   await until(() => browser.evaluate('!document.querySelector(".pause-scrim").hidden'), 'pause menu', 100);
@@ -122,6 +141,13 @@ async function visibleStreet() {
 }
 
 try {
+  await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: `
+    const createTexture = GPUDevice.prototype.createTexture;
+    GPUDevice.prototype.createTexture = function(descriptor) {
+      const texture = createTexture.call(this, descriptor);
+      if (texture.label === 'upscale/toned') window.tonedSize = [texture.width, texture.height];
+      return texture;
+    };`});
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 900, height: 600, deviceScaleFactor: 0.6, mobile: false});
   // Seed a real prior-version IndexedDB entry before the new app runs.
   const legacyFile = 'Textures/colormap.png', legacyHash = catalog[legacyFile].sha256;
@@ -168,22 +194,22 @@ try {
   await pause();
   assert.equal(await selection('#render-resolution'), '720p');
   assert.deepEqual(await browser.evaluate('[...document.querySelector("#render-resolution").options].map(o => o.value)'),
-    ['480p', '720p', '1080p']);
+    ['240p · Minimum', '360p · Low', '480p', '720p', '1080p']);
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 390, height: 700, deviceScaleFactor: 2, mobile: false});
   const narrow = await streetChart();
   assert.equal(narrow.box, local.box);
   assert.ok(narrow.labelPixels >= 10, 'street names remain legible at phone width');
   assert.ok(narrow.ratio > 1 && narrow.ratio < 3);
-  await choose('#render-resolution', '1080p');
-  await until(async () => {
-    const match = (await read('.quality'))?.match(/1080p · (\d+)×(\d+)/);
-    return match && +match[2] === 1080;
-  }, 'fixed 1080p setting on a portrait display', 130);
+  await checkPortraitPreset('360p · Low', 360, true);
+  await checkPortraitPreset('240p · Minimum', 240, true);
+  await checkPortraitPreset('480p', 480, false);
+  await checkPortraitPreset('1080p', 1080, false);
   // The high-density check above exercises the display resolution. Render the
   // keyboard drive at 300 × 190 so the software GPU can present each manoeuvre.
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 0.5, mobile: false});
-  await choose('#render-resolution', '480p');
-  await expect('.quality', '480p · ');
+  await choose('#render-resolution', '360p · Low');
+  await expect('.quality', '360p · 300×190');
+  assert.deepEqual(await browser.evaluate('window.tonedSize'), [300, 190]);
   await choose('#mouse-sensitivity', 'High');
   await click('.resume-game');
   await expect('.stage', 'PICKUP');
@@ -262,7 +288,7 @@ try {
   })()`);
   assert.deepEqual(cache, [true, 1, 14, 1, 13, 15, false]);
   await pause();
-  assert.equal(await selection('#render-resolution'), '480p');
+  assert.equal(await selection('#render-resolution'), '360p · Low');
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.recover-cab');
   await expect('.stage', 'METER RUNNING');
@@ -282,7 +308,7 @@ try {
   await ready();
   await expect('.stage', 'PICKUP');
   await pause();
-  assert.equal(await selection('#render-resolution'), '480p');
+  assert.equal(await selection('#render-resolution'), '360p · Low');
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.resume-game');
   await expect('.stage', 'PICKUP');
