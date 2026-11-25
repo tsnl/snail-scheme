@@ -83,7 +83,7 @@ assert.equal(text(widget(host, 'opening-title')), 'Siegework');
 const spoken = key => part(widget(host, key), 'text').childNodes
   .map(span => span.tagName === 'strong' ? `*${span.textContent}*` : span.textContent).join('');
 assert.equal(spoken('opening-crystal'), 'Click the *glowing crystal*');
-assert.match(widget(host, 'how-to-play').getAttribute('href'), /games\/siegework\.html$/);
+assert.equal(widget(host, 'how-to-play').getAttribute('href'), 'https://github.com/tsnl/snail-scheme/blob/main/doc/book/games/siegework.md');
 assert.ok(instances(host, 1) > 200, 'the explored ground around the hub');
 assert.equal(text(widget(host, 'energy')), '160');
 assert.equal(text(widget(host, 'nests')), '☆☆☆');

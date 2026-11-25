@@ -331,7 +331,9 @@
                 (list (Normal "Click the ") (Strong "build button") (Normal " to continue")))
           (Text (look "opening-crystal") (list (Normal "Click the ") (Strong "glowing crystal")))))
 
-    (define guide-url (→ String) "https://tsnl.github.io/snail-scheme/games/siegework.html")
+    (define guide-url
+      (→ String)
+      "https://github.com/tsnl/snail-scheme/blob/main/doc/book/games/siegework.md")
 
     ;; Whether the selected cell would take an extractor now.
     (define (extractor-offered? (game Game)) (→ Bool)
