@@ -4,7 +4,11 @@
 const handles = new WeakMap();
 const rawInstances = new WeakMap();
 const caches = new WeakMap();
-const released = new FinalizationRegistry(({heap, root, pointer}) => {
+// A live handle keeps its heap alive through handles. A finalizer holding
+// that heap strongly would keep host callbacks and their handles alive too.
+const released = new FinalizationRegistry(({owner, root, pointer}) => {
+  const heap = owner.deref();
+  if (!heap) return;
   heap['snail:gc/release-roots'](root);
   const cache = caches.get(heap).handles;
   if (!cache.get(pointer)?.deref()) cache.delete(pointer);
@@ -13,15 +17,15 @@ const released = new FinalizationRegistry(({heap, root, pointer}) => {
 function hold(heap, address) {
   const pointer = address >>> 0;
   if (!pointer) return null;
-  const cache = caches.get(heap).handles;
-  const found = cache.get(pointer)?.deref();
+  const cache = caches.get(heap);
+  const found = cache.handles.get(pointer)?.deref();
   if (found) return found;
   const root = heap['snail:gc/roots'](1);
   new DataView(heap.memory.buffer).setUint32(root >>> 0, pointer, true);
   const handle = Object.freeze(Object.create(null));
   handles.set(handle, {heap, pointer});
-  cache.set(pointer, new WeakRef(handle));
-  released.register(handle, {heap, root, pointer});
+  cache.handles.set(pointer, new WeakRef(handle));
+  released.register(handle, {owner: cache.owner, root, pointer});
   return handle;
 }
 
@@ -112,7 +116,7 @@ function exposeInstance(instance) {
   const heap = instance.exports;
   if (!heap['snail:gc/checkpoint']) return instance;
   rawInstances.set(instance, heap);
-  caches.set(heap, {handles: new Map(), free: [], foreignCode: false});
+  caches.set(heap, {owner: new WeakRef(heap), handles: new Map(), free: [], foreignCode: false});
   const api = Object.create(null);
   for (const [name, entry] of Object.entries(heap)) {
     if (name.startsWith('snail:')) continue;

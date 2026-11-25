@@ -53,14 +53,27 @@
     (dispatch-in scheduler (lambda () (mailbox-receive mailbox) (unit)))
     (unless (= (tasks-turn scheduler 0) -2) (panic "the receiver did not park"))))
 
-(define (reclaimed-receivers?) (→ Bool)
-  (park-receiver)
+(define (fill-cache (memo (Fn I64 → I64))) (→ Unit)
+  (unless (= (+ (+ (memo 1) (memo 2)) (+ (memo 3) (memo 1))) 11) (panic "wrong cache result")))
+
+;; Both memoizers link adjacent entries in both directions. The bounded
+;; case also evicts and then reinserts a key.
+(define (abandon-caches) (→ Unit)
+  (let ((inc (lambda ((n I64)) (→ I64) (+ n 1))))
+    (fill-cache (cache inc))
+    (fill-cache (lru-cache 2 inc))))
+
+(define (drop-graphs (count I64) (build (Fn → Unit))) (→ Unit)
+  (unless (= count 0) (build) (drop-graphs (- count 1) build)))
+
+(define (live-after-graphs (count I64) (build (Fn → Unit))) (→ I32)
+  (drop-graphs count build)
   (collect!)
-  (let ((before (live-bytes)))
-    (let loop ((n 128))
-      (unless (= n 0) (park-receiver) (loop (- n 1))))
-    (collect!)
-    (= before (live-bytes))))
+  (live-bytes))
+
+(define (reclaimed? (build (Fn → Unit))) (→ Bool)
+  (let ((before (live-after-graphs 1 build)))
+    (= before (live-after-graphs 128 build))))
 
 (define (main (out OutputPort)) (→ Unit)
   (stress! (i64->i32 1))
@@ -71,7 +84,9 @@
   (unless (= (with-prompt question paused (lambda (n resume) (collect!) (resume n))) 43)
     (panic "lost a suspended frame"))
   (stress! (i64->i32 0))
-  (unless (reclaimed-receivers?) (panic "unreachable mailbox waiters retained their schedulers"))
+  (unless (reclaimed? park-receiver)
+    (panic "unreachable mailbox waiters retained their schedulers"))
+  (unless (reclaimed? abandon-caches) (panic "unreachable caches retained their entries"))
   (profile! (i64->i32 1))
   (let ((slot (ref-local 0)))
     (bump! 100000 (ref! slot))
@@ -80,4 +95,5 @@
   (profile! (i64->i32 0))
   (write-line out "shared cycles, operands and frames survive collection")
   (write-line out "abandoned mailbox and scheduler cycles are reclaimed")
+  (write-line out "abandoned memoizer entry cycles are reclaimed")
   (write-line out "scoped calls allocate zero objects"))

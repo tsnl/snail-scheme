@@ -231,6 +231,12 @@ costs nothing while nothing is posted, where a loop of `yield`s would run
 every turn. `tests/programs/mailbox.scm` has two tasks posting and one
 receiving.
 
+While a receive is parked, the scheduler owns its continuation, the
+continuation keeps the mailbox, and the mailbox's waker keeps the
+scheduler. Train's image-prefetch receiver uses this path. Posting a
+message removes the wakers. If all three become unreachable first, the
+instance's collector reclaims the cycle.
+
 ## Waiting on the host
 
 A host operation that completes later, such as a socket read, waits the

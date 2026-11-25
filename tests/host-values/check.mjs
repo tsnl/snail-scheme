@@ -28,4 +28,23 @@ for (const value of [20n, -1n]) {
   for (let i = 0; i < 3; i++) assert.equal(api['optional-value'](optional), value < 0 ? -1n : value + 1n);
 }
 assert.equal(api['close-resources'](), 0);
-console.log('host values: repeated calls, aliased arguments and nullable Any');
+
+// A host callback can retain a guest handle, as a scheduler does. Drop the
+// entire instance and callback together. Its root finalizer must let both go.
+async function abandonedMemory() {
+  const host = {};
+  const ownWasi = createWasi({print: () => host.value});
+  const guest = await instantiate(module, ownWasi.getImportObject());
+  ownWasi.initialize(guest);
+  host.value = guest.exports.create(42n);
+  return new WeakRef(guest.exports.memory);
+}
+assert.ok(WebAssembly.Module.imports(module).some(entry => entry.name === 'fd_write'));
+const abandoned = await abandonedMemory();
+for (let i = 0; i < 12 && abandoned.deref(); i++) {
+  // A weak dereference keeps its target alive for the current job.
+  await new Promise(resolve => setImmediate(resolve));
+  global.gc();
+}
+assert.equal(abandoned.deref(), undefined, 'an abandoned host/guest cycle releases the entire instance');
+console.log('host values: aliases, nullable Any and collection of an abandoned instance');

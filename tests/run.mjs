@@ -92,11 +92,11 @@ async function programs(suite) {
 
 // A fixture built for `target` and handed to a script, which fails by its
 // status.
-function fixture(name, source, script, target) {
+function fixture(name, source, script, target, ...nodeOptions) {
   return async () => {
     const built = await build(source, target);
     if (built.failure) return fail(name, 'compile failed', built.failure);
-    const checked = await node(join(root, script), built.module);
+    const checked = await node(...nodeOptions, join(root, script), built.module);
     return checked.status === 0 || fail(name, 'failed', checked.stdout + checked.stderr);
   };
 }
@@ -186,7 +186,7 @@ const checks = () => [
   asyncFiles,
   toolchainAssembler,
   bookHighlighter,
-  fixture('host values', 'tests/host-values/main.scm', 'tests/host-values/check.mjs', 'node'),
+  fixture('host values', 'tests/host-values/main.scm', 'tests/host-values/check.mjs', 'node', '--expose-gc'),
   fixture('host boundary', 'tests/host-boundary/main.scm', 'tests/host-boundary/check.mjs', 'node'),
   fixture('socket boundary', 'tests/socket-boundary/main.scm', 'tests/socket-boundary/check.mjs', 'node'),
   fixture('termination', 'tests/termination/main.scm', 'tests/termination/check.mjs', 'node'),
