@@ -13,7 +13,9 @@ on:
       - Makefile
       - '**/Cargo.toml'
       - '**/Cargo.lock'
-      - tests/browser/**
+      # check.sh opens about:blank with this driver and its Chromium helper.
+      - tests/browser/page.mjs
+      - tests/browser/chromium.mjs
       - .github/workflows/devcontainer.yml
   push:
     branches: [main]

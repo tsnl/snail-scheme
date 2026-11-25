@@ -3,9 +3,9 @@ name: Pages
 on:
   pull_request:
     paths: &inputs
-      - src/apps/siegework/**
       - bootstrap/**
-      - doc/**
+      - doc/book/**
+      - doc/highlight.css
       - examples/**
       - crates/**
       - host/**
@@ -13,7 +13,7 @@ on:
       - src/**
       - tools/**
       - book.toml
-      - snail
+      - snail-scheme
       - Makefile
       - rust-toolchain.toml
       - shell.nix
@@ -59,13 +59,13 @@ jobs:
       - name: Build the book and its applications
         run: nix-shell --run 'make pages'
       - name: Upload Pages artifact
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.repository.private) || (github.event_name == 'workflow_dispatch' && inputs.publish)
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: build/pages
 
   deploy:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main' && !github.event.repository.private) || (github.event_name == 'workflow_dispatch' && inputs.publish)
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
