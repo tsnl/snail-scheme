@@ -4,7 +4,7 @@
 // wasm) loads modules with, and how `snail-scheme` passes a host strings. It decides nothing about what a program is for: the
 // browser host (host.mjs) and host/native/run-snail.mjs build on it.
 
-import {exportedCode, instantiateProgram} from './memory.mjs';
+import {exportedCode, instantiateProgram, instantiateProgramSync} from './memory.mjs';
 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 
@@ -262,7 +262,7 @@ export function wasmImports(program, memory = () => program().runtime.exports.me
       const link = prepared, {module, imports, object, bound, wasi} = link;
       prepared = null;
       if (bound !== imports.length) return LINK_FAILED;
-      try { link.instance = instantiateProgram(module, object); }
+      try { link.instance = instantiateProgramSync(module, object); }
       catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return LINK_FAILED; throw error; }
       if (wasi) wasi.initialize(link.instance);
       else link.instance.exports._initialize?.();

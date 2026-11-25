@@ -98,7 +98,7 @@ async function loadProgram(filename, wasi, host, tasks) {
   const read = file => readFile(resolve(dirname(filename), file));
   const module = await WebAssembly.compile(await readFile(filename));
   const imports = {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)};
-  const instance = instantiateProgram(module, imports);
+  const instance = await instantiateProgram(module, imports);
   wasi.initialize(instance);
   return {runtime: instance, exports: instance.exports, host};
 }

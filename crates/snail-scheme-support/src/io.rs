@@ -145,11 +145,9 @@ fn write_character(port: &mut Port, code: u32) -> Result<(), String> {
 
 // ---- Staged text ----
 
-// Rust cannot read `snail-scheme`'s managed strings, so a call that takes text is
-// preceded by `stage`: `snail-scheme` copies the scalars, four bytes each, to the address
-// it returns, and the call receives their count. The address is valid until
-// the next `stage`, and `snail-scheme` stages just before the call that reads it. The
-// buffer only grows, so zeroing it costs no more than the longest text.
+// The foreign ABI takes a snapshot immediately before its call. A string
+// copies UTF-32 scalars into this buffer. Bytes copy their length and packed
+// payload into the same aligned storage. Its address lasts until the next stage.
 thread_local! {
     static STAGED: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
 }
@@ -162,6 +160,11 @@ pub extern "C" fn stage(count: u32) -> u32 {
         }
         staged.as_mut_ptr() as u32
     })
+}
+
+#[unsafe(export_name = "snail:io/stage-bytes")]
+pub extern "C" fn stage_bytes(count: u32) -> u32 {
+    stage(1 + count.div_ceil(4))
 }
 
 pub(crate) fn staged_text(count: u32) -> Result<String, String> {

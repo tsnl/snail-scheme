@@ -95,10 +95,21 @@ function hostImports(module, imports, current) {
   return complete;
 }
 
-export function instantiateProgram(module, imports) {
-  let heap;
-  const instance = new WebAssembly.Instance(module, hostImports(module, imports, () => heap));
-  heap = instance.exports;
+// Page startup can instantiate large modules off the browser's main thread.
+export async function instantiateProgram(module, imports) {
+  const instance = await WebAssembly.instantiate(module, hostImports(module, imports, () => rawInstances.get(instance)));
+  return exposeInstance(instance);
+}
+
+// The guest's synchronous link operation returns the new instance handle in
+// the same Wasm call. It follows the same ABI as asynchronous page startup.
+export function instantiateProgramSync(module, imports) {
+  const instance = new WebAssembly.Instance(module, hostImports(module, imports, () => rawInstances.get(instance)));
+  return exposeInstance(instance);
+}
+
+function exposeInstance(instance) {
+  const heap = instance.exports;
   if (!heap['snail:gc/checkpoint']) return instance;
   rawInstances.set(instance, heap);
   caches.set(heap, {handles: new Map(), free: [], foreignCode: false});

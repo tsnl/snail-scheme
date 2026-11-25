@@ -27,7 +27,11 @@ struct Memory {
 
 impl Memory {
     fn try_new(bytes: usize) -> Option<Self> {
-        let layout = Layout::from_size_align(bytes, ALIGN).expect("GC allocation too large");
+        Self::try_aligned(bytes, ALIGN)
+    }
+
+    fn try_aligned(bytes: usize, alignment: usize) -> Option<Self> {
+        let layout = Layout::from_size_align(bytes, alignment).expect("GC allocation too large");
         let pointer = NonNull::new(unsafe { alloc_zeroed(layout) })?;
         Some(Self { pointer, layout })
     }
@@ -61,7 +65,7 @@ struct Block {
 impl Block {
     fn try_new(stride: usize) -> Option<Self> {
         Some(Self {
-            memory: Memory::try_new(BLOCK)?,
+            memory: Memory::try_aligned(BLOCK, BLOCK)?,
             stride,
             size: vec![0; BLOCK / stride].into_boxed_slice(),
             marked: vec![false; BLOCK / stride].into_boxed_slice(),
@@ -110,6 +114,49 @@ struct Large {
     marked: bool,
 }
 
+// Each small-object block begins on a block boundary. Wasm32 needs at
+// most 128K indices for its whole address space. Native test processes
+// have sparse addresses, so only their occupied indices are stored.
+#[derive(Default)]
+struct BlockIndex {
+    #[cfg(target_pointer_width = "32")]
+    pages: Vec<u32>,
+    #[cfg(not(target_pointer_width = "32"))]
+    pages: std::collections::HashMap<usize, u32>,
+}
+
+impl BlockIndex {
+    fn insert(&mut self, address: usize, index: usize) {
+        let page = address / BLOCK;
+        let entry = u32::try_from(index + 1).expect("too many heap blocks");
+        #[cfg(target_pointer_width = "32")]
+        {
+            if self.pages.len() <= page {
+                self.pages.resize(page + 1, 0);
+            }
+            self.pages[page] = entry;
+        }
+        #[cfg(not(target_pointer_width = "32"))]
+        self.pages.insert(page, entry);
+    }
+
+    fn get(&self, address: usize) -> Option<usize> {
+        let page = address / BLOCK;
+        #[cfg(target_pointer_width = "32")]
+        let entry = self.pages.get(page);
+        #[cfg(not(target_pointer_width = "32"))]
+        let entry = self.pages.get(&page);
+        entry?.checked_sub(1).map(|index| index as usize)
+    }
+
+    fn rebuild(&mut self, blocks: &[Block]) {
+        self.pages.clear();
+        for (index, block) in blocks.iter().enumerate() {
+            self.insert(block.memory.address(), index);
+        }
+    }
+}
+
 // ---- Explicit roots ----
 
 struct Frame {
@@ -150,7 +197,13 @@ impl Roots {
         } else if self.chunks[chunk].len() < length {
             self.chunks[chunk] = vec![0; length].into_boxed_slice();
         }
-        self.chunks[chunk][start..start + length].fill(0);
+        let slots = &mut self.chunks[chunk][start..start + length];
+        if untraced.is_empty() {
+            slots.fill(0);
+        } else {
+            slots[..untraced.start].fill(0);
+            slots[untraced.end..].fill(0);
+        }
         let address = self.chunks[chunk][start..].as_mut_ptr() as usize;
         self.frames.push(Frame {
             chunk,
@@ -215,7 +268,7 @@ struct Heap {
     layouts: Vec<ObjectLayout>,
     static_codes: Box<[Code]>,
     blocks: Vec<Block>,
-    block_at: BTreeMap<usize, usize>,
+    block_at: BlockIndex,
     large: BTreeMap<usize, Large>,
     roots: Roots,
     current: [usize; CLASSES],
@@ -320,16 +373,16 @@ impl Heap {
         if address == 0 || !address.is_multiple_of(ALIGN) {
             return None;
         }
-        if let Some((&base, &index)) = self.block_at.range(..=address).next_back() {
+        if let Some(index) = self.block_at.get(address) {
             let block = &mut self.blocks[index];
-            let offset = address - base;
-            if offset < BLOCK && offset.is_multiple_of(block.stride) {
+            let offset = address % BLOCK;
+            if offset.is_multiple_of(block.stride) {
                 let slot = offset / block.stride;
                 if block.size[slot] != 0 && !std::mem::replace(&mut block.marked[slot], true) {
                     return Some(usize::from(block.size[slot]));
                 }
-                return None;
             }
+            return None;
         }
         let object = self.large.get_mut(&address)?;
         (!std::mem::replace(&mut object.marked, true)).then_some(object.memory.layout.size())
@@ -375,12 +428,7 @@ impl Heap {
             spare |= live == 0;
             keep
         });
-        self.block_at = self
-            .blocks
-            .iter()
-            .enumerate()
-            .map(|(index, block)| (block.memory.address(), index))
-            .collect();
+        self.block_at.rebuild(&self.blocks);
         self.large.retain(|_, object| {
             let marked = object.marked;
             if marked {
@@ -401,12 +449,10 @@ impl Heap {
     }
 
     fn object_start(&self, address: usize) -> bool {
-        if let Some((&base, &index)) = self.block_at.range(..=address).next_back() {
+        if let Some(index) = self.block_at.get(address) {
             let block = &self.blocks[index];
-            let offset = address - base;
-            if offset % block.stride == 0 && block.containing(offset).is_some() {
-                return true;
-            }
+            let offset = address % BLOCK;
+            return offset.is_multiple_of(block.stride) && block.containing(offset).is_some();
         }
         self.large.contains_key(&address)
     }

@@ -43,8 +43,13 @@
        (declared (List String))
        (exports (List Wat))
        (data (List Wat))
+       (frame-site (Fn String Expr Expr → FrameSite))
        (lambdas (Table Wat))
        (helpers (Table String))))
+
+    (record FrameSite
+      ((references (List String))
+       (joins (Table String))))
 
     ;; Output builders update a selected mutable field. Every use selects
     ;; a field on an already named module or function builder.
@@ -99,16 +104,15 @@
     ;; Characters outside Wasm's identifier set are replaced.
 
     (define (mangle (text String)) (→ String)
-      (array->string (array-map mangle-char (string->array text))))
+      (string-generate (string-length text) (lambda (i) (mangle-char (string-ref text i)))))
 
     (define (mangle-char (c Char)) (→ Char)
-      (cond ((char=? c #\space) #\_)
-            ((char=? c #\,) #\~)
-            ((char=? c #\() #\<)
-            ((char=? c #\)) #\>)
-            ((member? c (list #\" #\; #\[ #\] #\{ #\})) #\_)
-            ((and (> (char->integer c) 32) (< (char->integer c) 127)) c)
-            (else #\_)))
+      (case c
+        ((#\,) #\~)
+        ((#\() #\<)
+        ((#\)) #\>)
+        ((#\" #\; #\[ #\] #\{ #\}) #\_)
+        (else (if (and (> (char->integer c) 32) (< (char->integer c) 127)) c #\_))))
 
     (define (wasm-id (text String)) (→ String)
       (string-append "$" (mangle text)))
@@ -132,19 +136,20 @@
 
     (define (wat-hash (hash I64) (tree Wat)) (→ I64)
       (match tree
-        ((Word text)
-         (array-fold (lambda (h c) (fnv-step h (char->integer c)))
-                     (fnv-step hash 32)
-                     (string->array text)))
+        ((Word text) (fnv-text (fnv-step hash 32) text))
         ((Node items) (fold-left wat-hash (fnv-step hash 40) items))))
 
     (define (wat=? (a Wat) (b Wat)) (→ Bool)
-      (match (new Pair (first a) (second b))
-        ((Pair (Word x) (Word y)) (string=? x y))
-        ((Pair (Node xs) (Node ys))
-         (and (= (length xs) (length ys))
-              (every? (lambda (pair) (wat=? (● pair first) (● pair second))) (zip xs ys))))
-        (_ #f)))
+      (match a
+        ((Word x) (match b ((Word y) (string=? x y)) (_ #f)))
+        ((Node xs) (match b ((Node ys) (wat-list=? xs ys)) (_ #f)))))
+
+    (define (wat-list=? (xs (List Wat)) (ys (List Wat))) (→ Bool)
+      (match xs
+        ((Nil) (null? ys))
+        ((Cons x rest) (match ys
+                         ((Cons y others) (and (wat=? x y) (wat-list=? rest others)))
+                         (_ #f)))))
 
     (define (wat-rename (from String) (to String) (tree Wat)) (→ Wat)
       (match tree
@@ -521,8 +526,10 @@
                 (zip params reps)))
 
     (define (param-wats (params (List String)) (reps (List Rep))) (→ (List Wat))
+      ;; Source arguments are actual values. Optional host handovers are
+      ;; converted to their Snail constructors before reaching these entries.
       (map
-       (lambda (pair) (wat "param" (id (wasm-id (● pair first))) (rep->wat (● pair second))))
+       (lambda (pair) (wat "param" (id (wasm-id (● pair first))) (nonnull (● pair second))))
        (zip params reps)))
 
     (define (emit-function! (m Module) (name String) (function Expr)) (→ Unit)
@@ -679,20 +686,25 @@
         (string-append (substring text 0 1) "0" (substring text 1 (string-length text))))
        (else text)))
 
-    ;; String literals are immutable globals, built once.
+    ;; String literals are immutable globals. The passive segment holds the
+    ;; UTF-32 payload, copied once at startup by the memory backend.
 
     (define string-literal
       (cache
        (lambda ((m Module) (text String)) (→ Wat)
-         (let ((global (keyed-id "string" text)) (array (array-type m (Scalar "i32"))))
+         (let* ((global (keyed-id "string" text)) (segment (string-append global ".data"))
+                (array (array-type m (Scalar "i32")))
+                (bytes (array-generate (* 4 (string-length text))
+                                       (lambda (i)
+                                         (i32->u8 (i64->i32
+                                                   (word-byte
+                                                    (char->integer (string-ref text (quotient i 4)))
+                                                    (remainder i 4))))))))
+           (push! (● m data) (wat "data" (id segment) (Word (bytes-wat-string bytes))))
            (push! (● m globals)
                   (wat "global" (id global) (ref-wat array)
-                       (wat* "array.new_fixed"
-                             (Cons (id array)
-                                   (Cons (int (string-length text))
-                                         (map (lambda (c)
-                                                (wat "i32.const" (int (char->integer c))))
-                                              (string->list text)))))))
+                       (wat "array.new_data" (id array) (id segment) (wat "i32.const" (int 0))
+                            (wat "i32.const" (int (string-length text))))))
            (wat "global.get" (id global))))))
 
     ;; A byte literal is a passive data segment, one byte per byte, so large
@@ -1669,8 +1681,8 @@
               ((not (● (data-type-of m name) enum?))
                (fields-code fn (data-type m type) 0 case type args value fail))
               (else
-               ;; A case's own type is registered only when its fields are
-               ;; read, so a field-less case never declares one.
+               ;; The constructor writes the immutable tag and its matching
+               ;; layout together. Passing the tag test proves these offsets.
                (let ((base (data-type m type)))
                  (Cons (wat "br_if"
                             (id fail)
@@ -1679,15 +1691,14 @@
                                  (wat "i32.const" (int (● case tag)))))
                        (if (every? wild? args)
                            (Nil)
-                           (let* ((case-id (case-type m type case))
-                                  (cast (declare-temp! fn (Reference case-id))))
-                             (Cons (wat "local.set"
-                                        (id cast)
-                                        (wat "ref.cast"
-                                             (ref-wat case-id)
-                                             value))
-                                   (fields-code fn case-id 1 case type args
-                                                (wat "local.get" (id cast)) fail))))))))))
+                           (fields-code fn
+                                        (case-type m type case)
+                                        1
+                                        case
+                                        type
+                                        args
+                                        value
+                                        fail))))))))
 
     (define (wild? (pattern Pattern)) (→ Bool)
       (match pattern
@@ -2079,8 +2090,9 @@
 
     (define (frame (fn Fn) (name String) (value Expr) (body Expr)) (→ Wat)
       (let* ((m (● fn module))
+             (site ((● m frame-site) name value body))
              (captured (filter (lambda (local) (and (not (string=? local name)) (local? fn local)))
-                               (delete-duplicates string=? (expr-references body))))
+                               (● site references)))
              (entries (map (lambda (local) (new Pair (first local) (second (capture-rep fn local))))
                            captured))
              (type
@@ -2088,14 +2100,16 @@
                m
                (frame-type m)
                (map (lambda (record) (● record second)) entries)))
-             (join
-              (emit-join!
-               (Fn-exit-set (new-fn m) (Some (ToRunner)))
-               name
-               value
-               body
-               entries
-               type)))
+             (key (string-concatenate
+                   (map (lambda (part) (string-append (i64->string (string-length part)) ":" part))
+                        (Cons type captured))))
+             (join (match (table-ref (● site joins) key)
+                     ((Some code) code)
+                     ((None)
+                      (let ((code (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner)))
+                                              name value body entries type)))
+                        (put! (● site joins) key code)
+                        code)))))
         (wat* "struct.new"
               (append (list (id type) (wat "ref.func" (id join)))
                       (map (lambda (local) (variable fn local unchecked)) captured)))))
@@ -3365,60 +3379,35 @@
     ;; Strings transfer UTF32 scalars and return their count. Bytes transfer
     ;; a little-endian u32 length followed by packed bytes and return its
     ;; address, so a leaf host import reads memory without reentering Wasm.
-    ;; stage reserves four bytes per slot: count+1 safely holds either layout.
+    ;; The allocation is in words for text and in bytes plus a length for
+    ;; binary data. Both source representations are already packed.
 
     (define (stage-helper (m Module) (bytes? Bool)) (→ String)
-      (let ((type (if bytes? (TCon "Array" (list (TCon "U8" (Nil)))) (TCon "String" (Nil))))
-            (stage (import! m
-                            (new Import (module "snail.core.support") (symbol "snail:io/stage"))
-                            (list (Scalar "i32"))
-                            (Some (Scalar "i32")))))
+      (let* ((name (if bytes? "snail:io/stage-bytes" "snail:io/stage"))
+             (stage (import! m (new Import (module "snail.core.support") (symbol name))
+                             (list (Scalar "i32")) (Some (Scalar "i32")))))
         (template-helper! m (if bytes? "stage.bytes" "stage.text") ""
-                          "(func {id} (param $value {type}) (result i32)
-    (local $address i32) (local $index i32) (local $text (ref null {array})) (local $length i32)
-    (local.set $text {data})
-    (local.set $length {length})
-    {guard}
-    (local.set $address (call {stage} {capacity}))
+                          "(func {id} (param $value (ref null {array})) (result i32)
+    (local $address i32) (local $length i32)
+    (local.set $length (array.len (local.get $value)))
+    (local.set $address (call {stage} (local.get $length)))
     {header}
-    (block $done
-      (loop $next
-        (br_if $done (i32.ge_u (local.get $index) (local.get $length)))
-        ({store} (i32.add (i32.add (local.get $address) (i32.const {offset})) (i32.shl (local.get $index) (i32.const {shift})))
-                 ({get} {array} (local.get $text) (local.get $index)))
-        (local.set $index (i32.add (local.get $index) (i32.const 1)))
-        (br $next)))
+    (memory.copy (i32.add (local.get $address) (i32.const {offset}))
+                 (array.payload (local.get $value))
+                 (i32.shl (local.get $length) (i32.const {shift})))
     {result})"
-                          (list
-                           (new Pair
-                             (first "type")
-                             (second (wat->text (rep->wat (rep m type)))))
-                           (new Pair (first "data") (second "(local.get $value)"))
-                           (new Pair (first "length") (second "(array.len (local.get $value))"))
-                           (new Pair
-                             (first "array")
-                             (second (array-type m (Scalar (if bytes? "i8" "i32")))))
-                           (new Pair (first "stage") (second stage))
-                           (new Pair (first "guard")
-                                (second (if bytes?
-                                            "(if (i32.eq (local.get $length) (i32.const -1)) (then (unreachable)))"
-                                            "")))
-                           (new Pair (first "capacity")
-                                (second (if bytes?
-                                            "(i32.add (local.get $length) (i32.const 1))"
-                                            "(local.get $length)")))
-                           (new Pair (first "header")
-                                (second (if bytes?
-                                            "(i32.store (local.get $address) (local.get $length))"
-                                            "")))
-                           (new Pair (first "store") (second (if bytes? "i32.store8" "i32.store")))
-                           (new Pair (first "get") (second (if bytes? "array.get_u" "array.get")))
-                           (new Pair (first "offset") (second (if bytes? "4" "0")))
-                           (new Pair (first "shift") (second (if bytes? "0" "2")))
-                           (new Pair (first "result")
-                                (second (if bytes?
-                                            "(local.get $address)"
-                                            "(local.get $length)")))))))
+                          (list (new Pair (first "array")
+                                     (second (array-type m (Scalar (if bytes? "i8" "i32")))))
+                                (new Pair (first "stage") (second stage))
+                                (new Pair (first "header")
+                                     (second (if bytes?
+                                                 "(i32.store (local.get $address) (local.get $length))"
+                                                 "")))
+                                (new Pair (first "offset") (second (if bytes? "4" "0")))
+                                (new Pair (first "shift") (second (if bytes? "0" "2")))
+                                (new Pair (first "result")
+                                     (second
+                                      (if bytes? "(local.get $address)" "(local.get $length)")))))))
 
     ;; Sends the message to the runtime one scalar at a time, then stops.
 
@@ -3472,6 +3461,12 @@
            (imports (Nil))
            (globals (Nil))
            (functions (Nil)) (declared (Nil)) (exports (Nil)) (data (Nil))
+           ;; The ordinary path and earlier joins visit the same normalized
+           ;; let. Share its code before traversing that continuation again.
+           ;; Its capture names and layout distinguish lexical environments.
+           (frame-site (cache (lambda ((name String) (value Expr) (body Expr)) (→ FrameSite)
+                                (new FrameSite (references (expr-references body))
+                                     (joins (empty-table))))))
            (lambdas (empty-table)) (helpers (empty-table))))
 
     ;; The entry's start takes the scheduler that main runs on. `main` is

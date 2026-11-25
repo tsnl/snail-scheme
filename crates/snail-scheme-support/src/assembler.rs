@@ -216,6 +216,24 @@ mod tests {
     }
 
     #[test]
+    fn program_validation_rejects_engine_gc_and_typed_calls() {
+        let modules = [
+            r#"(module (type $s (struct (field i32)))
+                 (func (export "main") (result i32)
+                   (struct.get $s 0 (struct.new $s (i32.const 1)))))"#,
+            r#"(module (type $t (func)) (func $f) (elem declare func $f)
+                 (func (export "main") (call_ref $t (ref.func $f))))"#,
+        ];
+        for text in modules {
+            let bytes = assemble(text).unwrap();
+            wasmparser::Validator::new_with_features(wasmparser::WasmFeatures::all())
+                .validate_all(&bytes)
+                .unwrap();
+            assert!(validate_program(&bytes).is_err());
+        }
+    }
+
+    #[test]
     fn links_public_exports_and_prunes_private_imports() {
         let runtime = assemble(
             r#"(module

@@ -114,6 +114,7 @@
    library-items
    fnv-offset
    fnv-step
+   fnv-text
    fnv-1a
    type-id
    case-type-id
@@ -879,9 +880,12 @@
     ;; FNV-1a over the code points.
 
     (define (fnv-1a (text String)) (→ I64)
-      (array-fold (lambda (hash c) (fnv-step hash (char->integer c)))
-                  fnv-offset
-                  (string->array text)))
+      (fnv-text fnv-offset text))
+
+    (define (fnv-text (initial I64) (text String)) (→ I64)
+      (let loop ((i 0) (hash initial))
+        (if (= i (string-length text)) hash
+            (loop (+ i 1) (fnv-step hash (char->integer (string-ref text i)))))))
 
     ;; A TypeId is a hash as a signed 32-bit value, which Wasm's i32 holds.
 
