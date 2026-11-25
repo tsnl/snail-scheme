@@ -1,4 +1,4 @@
-;; First-hit environment lighting. In the temporal dispatch the input is
+;; First-hit direct lighting. In the temporal dispatch the input is
 ;; last frame's history and the output is scratch. In primary the input is
 ;; the completed scratch plane and the output is this frame's history.
 ((var storage read) (@group 0) (@binding 15) (reservoir_input (array SurfaceReservoir)))
@@ -7,26 +7,26 @@
 
 (var (@group 0) (@binding 17) (motion (texture_2d f32)))
 
-;; The environment's part of direct light. The BSDF escape in shade
-;; supplies the complementary MIS weight. Visibility comes from occlude.
-(fn direct_light ((s Surface) (v vec3f) (d vec3f) (pdf f32)) (-> vec3f)
-    (if ((or (<= pdf 0.0) (<= (dot (get s geometric) d) 0.0)) (return (vec3f 0.0))))
-    (return (* (environment_light d) (evaluated s v d) (balanced pdf (density s v d)))))
+(const FRESH_DRAWS 4)
 
-(fn light_target ((s Surface) (v vec3f) (d vec3f) (pdf f32)) (-> f32)
-    (return (dot (direct_light s v d pdf) (vec3f 0.2126 0.7152 0.0722))))
+;; Both passes use the same independent exploration draw for this receiver.
+;; An exploratory path scores unshadowed energy and still teaches history.
+(fn sampling_history ((h VisibilityHistory) (pixel u32)) (-> VisibilityHistory)
+    (let u (* (f32 (>> (seeded pixel 3u) 8u)) (/ 1.0 16777216.0)))
+    (if ((< u (get wave guiding exploration)) (return (VisibilityHistory))))
+    (return h))
 
-;; Fresh environment candidates for each pixel that actually traces a path.
-(fn fresh_draws () (-> i32)
-    (return (select 4 2 (!= (get tracing frame w) 0))))
-
-(fn fresh_samples ((s Surface) (v vec3f) (seed (ptr function u32))) (-> Reservoir)
+(fn fresh_samples ((s Surface) (v vec3f) (h VisibilityHistory) (seed (ptr function u32)))
+    (-> Reservoir)
     (var (r Reservoir))
-    (for ((var i 0) (< i (fresh_draws)) (+= i 1))
-         (let draw (environment_sample
-                    (vec4f (random seed) (random seed) (random seed) (random seed))))
-         (let sample (LightSample (get draw xyz) (light_target s v (get draw xyz) (get draw w))))
-         (reservoir_draw (address-of r) sample (get draw w) (random seed)))
+    (let fraction (mesh_fraction))
+    (for ((var i 0) (< i FRESH_DRAWS) (+= i 1))
+         (let draw (draw_proposal s v fraction seed))
+         (let sample (LightSample (get draw direction)
+                                  (selection_energy h (get draw key) (get draw value))))
+         (if ((reservoir_draw (address-of r) sample (get draw pdf) (random seed))
+              (= (get r emitter) (max 0 (get draw key)))
+              (= (get r coordinates) (get draw coordinates)))))
     (return r))
 
 ;; Clip z is affine in view-space depth for both camera projections.
@@ -34,52 +34,47 @@
 (fn clip_depth ((camera_matrix mat4x4f) (position vec3f)) (-> f32)
     (return (get (* camera_matrix (vec4f position 1.0)) z)))
 
-(fn compatible_reservoir ((p vec2i) (normal vec3f) (z f32) (triangle u32)) (-> Reservoir)
+(fn compatible_site ((p vec2i) (normal vec3f) (z f32) (triangle u32)) (-> SurfaceReservoir)
     (if ((or (any (< p (vec2i 0))) (any (>= p (vec2i (textureDimensions depth)))))
-         (return (Reservoir))))
+         (return (SurfaceReservoir))))
     (let site (at reservoir_input (pixel_index p)))
     (if ((or (and (!= triangle NONE) (!= triangle (u32 (get site triangle))))
              (< (dot (unfolded (get site normal)) normal) 0.9)
              (> (abs (- (get site clip_depth) z)) (* 0.02 (max (abs z) 0.001))))
-         (return (Reservoir))))
-    (return (get site reservoir)))
+         (return (SurfaceReservoir))))
+    (return site))
 
-(fn reuse ((r (ptr function Reservoir)) (s Surface) (v vec3f) (donor Reservoir) (m i32) (u f32))
+(fn reuse ((r (ptr function Reservoir)) (s Surface) (v vec3f) (h VisibilityHistory)
+           (donor Reservoir) (m i32) (u f32))
     (var target_value 0.0)
+    (var candidate donor)
     (if ((> (get donor weight_sum) 0.0)
-         (let d (get donor selected direction))
-         (= target_value (light_target s v d (environment_pdf d)))))
-    (reservoir_merge r donor target_value m u))
+         (let draw (selected_proposal s v donor (mesh_fraction)))
+         (= (get candidate selected direction) (get draw direction))
+         (= target_value (selection_energy h (get draw key) (get draw value)))))
+    (reservoir_merge r candidate target_value m u))
 
-(fn temporal_reuse ((r (ptr function Reservoir)) (s Surface) (v vec3f) (p vec2i) (u f32))
-    (let size (vec2f (textureDimensions depth)))
-    (let q (- (+ (vec2f p) 0.5) (* (get (textureLoad motion p 0) xy) size)))
+(fn previous_site ((s Surface) (p vec2i) (travel vec2f)) (-> SurfaceReservoir)
+    (if ((<= (get tracing reuse) 0) (return (SurfaceReservoir))))
+    (let q (- (+ (vec2f p) 0.5) travel))
     (let z (get (textureLoad emission p 0) w))
-    (let donor (compatible_reservoir (vec2i (floor q)) (get s normal) z
-                                     (get (textureLoad triangles p 0) x)))
-    ;; Fast screen motion leaves too little overlap for an old direction to
-    ;; stand for twenty frames of proposals. Fresh samples take over quickly.
-    (let travel (length (* (get (textureLoad motion p 0) xy) size)))
-    (let cap (select
-              (select 20 2 (== (get tracing frame z) 2))
-              1
-              (and (== (get tracing frame z) 2) (> travel 1.5))))
-    (reuse r s v donor (min (get donor count) (* cap (fresh_draws))) u))
+    (return (compatible_site (vec2i (floor q)) (get s normal) z
+                             (get (textureLoad triangles p 0) x))))
 
-(fn column_parity ((y u32)) (-> u32)
-    (return (bit-and (+ y (u32 (get tracing frame x))) 1u)))
-
-;; In a checkerboard dispatch each lane covers one pixel of its row's parity.
-(fn sample_pixel ((id vec2u)) (-> vec2u)
-    (if ((== (get tracing frame w) 0) (return id)))
-    (return (vec2u (+ (* 2u (get id x)) (column_parity (get id y))) (get id y))))
+;; Fast motion leaves too little overlap for an old sample to stand for
+;; twenty frames of proposals.
+(fn temporal_count ((count i32) (travel vec2f)) (-> i32)
+    (var cap (get wave guiding history_limit))
+    (if ((== (get tracing reuse) 2)
+         (= cap (min cap (select 2.0 1.0 (> (length travel) 1.5))))))
+    (return (min count (i32 (* cap (f32 FRESH_DRAWS))))))
 
 (fn (@compute)
     (@workgroup_size 8 8)
     temporal_reservoirs
     (((@builtin global_invocation_id) id vec3u))
     (let size (textureDimensions depth))
-    (let p (vec2i (sample_pixel (get id xy))))
+    (let p (vec2i (get id xy)))
     (if ((any (>= (vec2u p) size)) (return)))
     (let i (pixel_index p))
     (let z (textureLoad depth p 0))
@@ -87,36 +82,45 @@
          (= (at reservoir_output i) (SurfaceReservoir)) (return)))
     (let s (first_surface p z))
     (let v (normalize (- (get camera eye xyz) (get s position))))
-    (var seed (seeded (+ i (u32 (get tracing frame y))) 2u))
-    (var r (fresh_samples s v (address-of seed)))
-    (if ((!= (get tracing frame z) 0)
-         (temporal_reuse (address-of r) s v p (random (address-of seed)))))
+    (let index (+ i (u32 (get tracing layer_offset))))
+    (let travel (* (get (textureLoad motion p 0) xy) (vec2f size)))
+    (let previous (previous_site s p travel))
+    (var visibility (get previous visibility))
+    ;; Both paths shade the same rasterized point. The
+    ;; second can already use the first shadow test at this exact pixel.
+    (if ((> (get tracing sample_index) 0)
+         (= visibility (get (at reservoir_input i) visibility))))
+    (let h (sampling_history visibility index))
+    (var seed (seeded index 2u))
+    (var r (fresh_samples s v h (address-of seed)))
+    (let donor (get previous reservoir))
+    (if ((> (get donor count) 0)
+         (reuse (address-of r) s v h donor (temporal_count (get donor count) travel)
+                (random (address-of seed)))))
     (let depth_now (clip_depth (get camera view_projection) (get s position)))
     (= (at reservoir_output i)
        (SurfaceReservoir r
                          (get (textureLoad normals p 0) xy)
                          (i32 (get (textureLoad triangles p 0) x))
-                         depth_now)))
+                         depth_now visibility)))
 
-;; The four axial neighbors for a full frame, the four diagonal neighbors
-;; for a checkerboard. Every donor was written by this temporal dispatch,
-;; including when the blended layer uses the same scratch plane.
+;; Each axial neighbor belongs to this temporal dispatch, including when
+;; the blended layer uses the same scratch plane.
 (fn spatial_reservoir
-    ((s Surface) (v vec3f) (p vec2i) (site SurfaceReservoir) (seed (ptr function u32)))
+    ((s Surface) (v vec3f) (p vec2i) (site SurfaceReservoir) (h VisibilityHistory)
+     (seed (ptr function u32)))
     (-> Reservoir)
     (var r (get site reservoir))
-    (let offsets (array (vec2i -1 0) (vec2i 1 0) (vec2i 0 -1) (vec2i 0 1)
-                        (vec2i -1 -1) (vec2i 1 1) (vec2i 1 -1) (vec2i -1 1)))
-    (let start (* 4u (u32 (get tracing frame w))))
-    (let q (+ p (at offsets (+ start (u32 (* 4.0 (random seed)))))))
-    (let donor (compatible_reservoir q (get s normal) (get site clip_depth) NONE))
-    (reuse (address-of r) s v donor (get donor count) (random seed))
+    (let offsets (array (vec2i -1 0) (vec2i 1 0) (vec2i 0 -1) (vec2i 0 1)))
+    (let q (+ p (at offsets (u32 (* 4.0 (random seed))))))
+    (let donor (get (compatible_site q (get s normal) (get site clip_depth) NONE) reservoir))
+    (reuse (address-of r) s v h donor (get donor count) (random seed))
     (return r))
 
-(fn reservoir_shadow ((r Reservoir) (s Surface) (v vec3f) (air vec3f) (pixel u32) (seed u32))
-    (var sky (vec3f 0.0))
-    (let d (get r selected direction))
+(fn reservoir_shadow ((r Reservoir) (s Surface) (v vec3f) (air vec3f) (h VisibilityHistory)
+                      (pixel u32) (seed u32))
+    (var (draw Proposal))
     (if ((> (get r weight_sum) 0.0)
-         (let light (* (direct_light s v d (environment_pdf d)) (reservoir_weight r)))
-         (if ((finite3 light) (= sky light)))))
-    (direct_shadow s v air d sky pixel seed))
+         (= draw (selected_proposal s v r (mesh_fraction)))
+         (*= (get draw value) (reservoir_weight r))))
+    (direct_shadow s v air draw h pixel seed))

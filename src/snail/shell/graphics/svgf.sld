@@ -18,7 +18,7 @@
    resize-svgf
    svgf-moments
    release-svgf
-   filter-svgf filter-svgf-frame filter-svgf-history)
+   filter-svgf filter-svgf-frame)
   (import
    (snail core base)
    (snail shell gpu)
@@ -90,7 +90,7 @@
                        (atrous (compute-kernel gpu module "svgf" "atrous"))
                        (remodulate (compute-kernel gpu module "svgf" "remodulate"))
                        (filtering
-                        (uniform-buffer gpu "svgf/filtering" (filtering-bytes #t 1.0 #f #t))))
+                        (uniform-buffer gpu "svgf/filtering" (filtering-bytes #t 1.0 #t))))
                  inputs
                  light
                  width
@@ -118,9 +118,8 @@
 
     ;; ---- A frame ----
 
-    ;; `moved` when the camera moved since the last frame: a moving
-    ;; camera keeps 32 frames at most and gives each at least an eighth, a
-    ;; still one keeps averaging.
+    ;; Motion keeps at most four observations and gives the current one at
+    ;; least 40% weight. A still frame keeps averaging.
     (define (filter-svgf (gpu Gpu)
                          (encoder GpuCommandEncoder)
                          (svgf Svgf)
@@ -130,52 +129,49 @@
       (filter-svgf-frame gpu encoder svgf moved exposure #f))
     (define (filter-svgf-frame (gpu Gpu) (encoder GpuCommandEncoder) (svgf Svgf)
                                (moved Bool) (exposure F32) (cut Bool)) (→ Svgf)
-                               (filter-svgf-history gpu encoder svgf moved exposure #f cut))
-    (define (filter-svgf-history (gpu Gpu) (encoder GpuCommandEncoder) (svgf Svgf)
-                                 (moved Bool) (exposure F32) (quick Bool) (cut Bool)) (→ Svgf)
-                                 (let ((kernels (● svgf kernels)) (parity (● svgf parity)))
-                                   ((● gpu write-buffer)
-                                    (● kernels filtering)
-                                    0
-                                    (filtering-bytes moved exposure quick cut))
-                                   (let ((first ((● gpu begin-compute-pass) encoder)))
-                                     (over-screen gpu
-                                                  first
-                                                  svgf
-                                                  (● kernels temporal)
-                                                  (list-ref (● svgf temporal-groups) parity))
-                                     (over-screen gpu
-                                                  first
-                                                  svgf
-                                                  (● kernels variance)
-                                                  (list-ref (● svgf variance-groups) parity))
-                                     (over-screen gpu
-                                                  first
-                                                  svgf
-                                                  (● kernels atrous)
-                                                  (list-ref (● svgf atrous-groups) 0))
-                                     ((● gpu end-compute-pass) first))
-                                   ((● gpu copy-texture-to-texture) encoder
-                                    (whole-texture (● (plane (● svgf planes) "pong") texture))
-                                    (whole-texture
-                                     (● (history (● svgf planes) "color" parity) texture))
-                                    (● svgf width)
-                                    (● svgf height))
-                                   (let ((rest ((● gpu begin-compute-pass) encoder)))
-                                     (for-each (lambda (level)
-                                                 (over-screen gpu rest
-                                                              svgf
-                                                              (● kernels atrous)
-                                                              (list-ref (● svgf atrous-groups)
-                                                                        level)))
-                                               (list 1 2 3 4))
-                                     (over-screen gpu
-                                                  rest
-                                                  svgf
-                                                  (● kernels remodulate)
-                                                  (● svgf remodulate-group))
-                                     ((● gpu end-compute-pass) rest))
-                                   (Svgf-parity-set svgf (- 1 parity))))
+                               (let ((kernels (● svgf kernels)) (parity (● svgf parity)))
+                                 ((● gpu write-buffer)
+                                  (● kernels filtering)
+                                  0
+                                  (filtering-bytes moved exposure cut))
+                                 (let ((first ((● gpu begin-compute-pass) encoder)))
+                                   (over-screen gpu
+                                                first
+                                                svgf
+                                                (● kernels temporal)
+                                                (list-ref (● svgf temporal-groups) parity))
+                                   (over-screen gpu
+                                                first
+                                                svgf
+                                                (● kernels variance)
+                                                (list-ref (● svgf variance-groups) parity))
+                                   (over-screen gpu
+                                                first
+                                                svgf
+                                                (● kernels atrous)
+                                                (list-ref (● svgf atrous-groups) 0))
+                                   ((● gpu end-compute-pass) first))
+                                 ((● gpu copy-texture-to-texture) encoder
+                                  (whole-texture (● (plane (● svgf planes) "pong") texture))
+                                  (whole-texture
+                                   (● (history (● svgf planes) "color" parity) texture))
+                                  (● svgf width)
+                                  (● svgf height))
+                                 (let ((rest ((● gpu begin-compute-pass) encoder)))
+                                   (for-each (lambda (level)
+                                               (over-screen gpu rest
+                                                            svgf
+                                                            (● kernels atrous)
+                                                            (list-ref (● svgf atrous-groups)
+                                                                      level)))
+                                             (list 1 2 3 4))
+                                   (over-screen gpu
+                                                rest
+                                                svgf
+                                                (● kernels remodulate)
+                                                (● svgf remodulate-group))
+                                   ((● gpu end-compute-pass) rest))
+                                 (Svgf-parity-set svgf (- 1 parity))))
 
     (define (over-screen (gpu Gpu) (pass GpuComputePass)
                          (svgf Svgf)
@@ -188,12 +184,11 @@
 
     ;; Slot 0 for the temporal filter and the light, slots 1 to 5 for the
     ;; à-trous levels' steps.
-    (define (filtering-bytes (moved Bool) (exposure F32) (quick Bool) (cut Bool)) (→ Bytes)
+    (define (filtering-bytes (moved Bool) (exposure F32) (cut Bool)) (→ Bytes)
       (uniform-slots filtering-shape
                      (map (lambda (limits) (new Filtering (limits limits)))
                           (Cons (cond (cut (new Vec4f (x 1.0) (y 1.0) (z 0.0) (w exposure)))
-                                      (quick (new Vec4f (x 4.0) (y 0.40) (z 0.0) (w exposure)))
-                                      (moved (new Vec4f (x 32.0) (y 0.125) (z 0.0) (w exposure)))
+                                      (moved (new Vec4f (x 4.0) (y 0.40) (z 0.0) (w exposure)))
                                       (else (new Vec4f (x 4096.0) (y 0.0) (z 0.0) (w exposure))))
                                 (map (lambda (stride)
                                        (new Vec4f (x 0.0) (y 0.0) (z stride) (w 0.0)))

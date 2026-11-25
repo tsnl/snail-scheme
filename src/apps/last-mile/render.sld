@@ -588,9 +588,10 @@
              (low? (<= lines 360))
              ;; Bound the temporal history and tone map on a dense laptop display.
              ;; The final FXAA pass scales the resolved street to the canvas.
-             (sampling (Reconstruct (if low? (min width (* 2 (● size first))) width)
-                                    (if low? (min height (* 2 (● size second))) height)
-                                    (● settings samples)))
+             (output (new TraceSettings
+                       (display-width (if low? (min width (* 2 (● size first))) width))
+                       (display-height (if low? (min height (* 2 (● size second))) height))
+                       (samples (● settings samples))))
              (time (+ (i64->f64 (● w tick)) t))
              (changed (not (= (● r time) time)))
              (focus (display-body (carrier (● before game)) (carrier w) t))
@@ -615,14 +616,14 @@
         (when changed (refit-tracer! gpu (● r tracer)))
         (let ((view (view-of gpu (● canvas texture) 1)))
           (set! (● r tracer)
-                (draw-sampled-traced gpu
-                                     (resize-tracer gpu (● r tracer) (● size first) (● size second))
-                                     view
-                                     (Camera3D-scene-time-set camera (f64->f32 (* time 0.05)))
-                                     (/ 1.0 (i32->f32 (● size second)))
-                                     (street-exposure (clock-minute w))
-                                     (● settings bounces)
-                                     changed
-                                     sampling))
+                (draw-traced gpu
+                             (resize-tracer gpu (● r tracer) (● size first) (● size second))
+                             view
+                             (Camera3D-scene-time-set camera (f64->f32 (* time 0.05)))
+                             (/ 1.0 (i32->f32 (● size second)))
+                             (street-exposure (clock-minute w))
+                             (● settings bounces)
+                             changed
+                             output))
           ((● gpu destroy) (ViewObject view))
           ((● gpu work-done)))))))

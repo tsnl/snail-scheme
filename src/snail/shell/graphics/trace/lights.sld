@@ -32,6 +32,11 @@
     (define texel (→ (Shape Vec4f)) (shape))
     (define (as-float (n I64)) (→ F32) (f64->f32 (i64->f64 n)))
     (define (words (p Punctual)) (→ (List Vec4f)) (list (● p position) (● p intensity) (● p axis)))
+    ;; Every grid copy of a fixture has the same ID in intensity.w. Moving
+    ;; slots come first, followed by the static lights in scene order.
+    (define (numbered (index I64) (p Punctual)) (→ Punctual)
+      (let ((rgb (● p intensity)))
+        (Punctual-intensity-set p (v4 (● rgb x) (● rgb y) (● rgb z) (as-float (+ index 1))))))
     (define (bounds (lights (List Punctual))) (→ Vec4f)
       (fold-left (lambda (b lamp)
                    (let ((p (● lamp position)))
@@ -92,10 +97,12 @@
              (span (max (- (● b z) (● b x)) (- (● b w) (● b y))))
              (side (max 1 (min 48 (f64->i64 (ceiling (/ (f32->f64 span) 24.0))))))
              (step (max 1.0 (/ span (as-float side)))))
-        (upload-grid gpu (v4 (● b x) (● b y) step (as-float side))
-                     (array->list (cell-lights lights b step side)) capacity)))
+        (let ((static (map-indexed (lambda (i p) (numbered (+ capacity i) p)) lights)))
+          (upload-grid gpu (v4 (● b x) (● b y) step (as-float side))
+                       (array->list (cell-lights static b step side)) capacity))))
     (define (update-moving-lights! (gpu Gpu) (g LightGrid) (lights (List Punctual))) (→ Unit)
       (let* ((n (length lights)) (width (i64->i32 (+ 1 (* 3 n)))))
         (when (> n (● g moving-capacity)) (panic "moving lights exceed the scene capacity"))
         ((● gpu write-texture) (whole-texture (● g plane texture)) (* 16 width) width 1
-         (pack texel (Cons (v4 (as-float n) 0.0 0.0 0.0) (concatenate (map words lights)))))))))
+         (pack texel (Cons (v4 (as-float n) 0.0 0.0 0.0)
+                           (concatenate (map words (map-indexed numbered lights))))))))))

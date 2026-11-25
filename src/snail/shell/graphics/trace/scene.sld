@@ -15,6 +15,11 @@
   (export
    Scene
    SurfaceMaterial
+   EmitterTable
+   Scene-emitters-set
+   scene-emitters
+   make-emitter-table
+   release-emitter-table
    load-scene
    upload-scene upload-lit-scene upload-with-images
    SceneImages
@@ -46,7 +51,7 @@
    (snail shell graphics gltf)
    (only (snail shell graphics bvh) Triangles)
    (snail shell graphics trace lights)
-   (only (snail shell graphics raster) release-plane)
+   (only (snail shell graphics raster) Plane make-plane release-plane)
    (snail shell graphics trace shaders))
   (begin
 
@@ -66,6 +71,7 @@
        (users I64)))
     (record Scene
       ((lights LightGrid)
+       (emitters EmitterTable)
        (vertices GpuBuffer)
        (indices GpuBuffer)
        (materials GpuBuffer)
@@ -174,15 +180,18 @@
       (→ Scene)
       (let* ((counts (placed-counts gltf))
              (geometry (unpacked gpu gltf counts buffers))
+             (materials (storage-of gpu "scene/materials"
+                                    (pack material-shape
+                                          (map surface-material (scene-materials gltf)))))
              (bounds (gltf-bounds gltf)))
         (set! (● images users) (+ (● images users) 1))
         (new Scene
           (lights lights)
+          (emitters (make-emitter-table gpu (scene-emitters gltf)
+                                        (● geometry first) (● geometry second) materials))
           (vertices (● geometry first))
           (indices (● geometry second))
-          (materials (storage-of gpu "scene/materials"
-                                 (pack material-shape
-                                       (map surface-material (scene-materials gltf)))))
+          (materials materials)
           (images images)
           (layers-view ((● gpu create-view) (● images texture)
                         (new TextureViewDescriptor
@@ -200,6 +209,7 @@
 
     (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit)
       (release-plane gpu (● scene lights plane))
+      (release-emitter-table gpu (● scene emitters))
       (for-each (lambda (buffer) ((● gpu destroy) (BufferObject buffer)))
                 (list (● scene vertices) (● scene indices) (● scene materials)))
       ((● gpu destroy) (ViewObject (● scene layers-view)))
@@ -207,6 +217,131 @@
         (set! (● images users) (- (● images users) 1))
         (when (= (● images users) 0) ((● gpu destroy) (TextureObject (● images texture)))))
       ((● gpu destroy) (SamplerObject (● scene sampler))))
+
+    ;; ---- Sampling mesh lights ----
+
+    ;; One entry per opaque triangle with constant emission, in triangle ID
+    ;; order. Other emissive materials are still evaluated at ordinary hits.
+    (record EmitterTable
+      ((triangles Plane)
+       (distribution Plane)
+       (count I64)))
+
+    (define (scene-emitters (gltf Gltf)) (→ (List I32))
+      (let ((materials (list->array (scene-materials gltf))))
+        (let loop ((placed (● gltf placed)) (first 0) (ids (ann (Nil) (List I32))))
+          (match placed
+            ((Nil) (reverse ids))
+            ((Cons p tail)
+             (let* ((prim (● p primitive)) (n (quotient (index-count prim) 3))
+                    (m (array-ref materials (max 0 (● prim material)))))
+               (loop tail (+ first n)
+                     (if (and (= (● m alpha) 0) (< (● m emissive-texture) 0)
+                              (any? (lambda (v) (> v 0.0)) (● m emissive)))
+                         (fold-left (lambda (out i) (Cons (i64->i32 (+ first i)) out)) ids (iota n))
+                         ids))))))))
+
+    (define triangle-id-shape (→ (Shape I32)) (shape))
+
+    ;; Forward sampling and the inverse lookup at a BSDF hit must name
+    ;; exactly the same set of triangles.
+    (define (emitter-count (ids (List I32))) (→ I64)
+      (let loop ((rest ids) (previous (ann -1 I32)) (n 0))
+        (match rest
+          ((Nil) n)
+          ((Cons id tail)
+           (unless (> id previous)
+             (panic "emitter triangle IDs must be nonnegative and strictly increasing"))
+           (loop tail id (+ n 1))))))
+
+    ;; Each row stores emission.rgb and inclusive sums of rest area × luminance.
+    ;; The extra column holds cumulative row sums. The GPU reads the same
+    ;; unpacked triangles as the tracer. No vertex readback is needed.
+    (define (make-emitter-table (gpu Gpu) (ids (List I32)) (vertices GpuBuffer)
+                                (indices GpuBuffer) (materials GpuBuffer)) (→ EmitterTable)
+                                (let* ((n (emitter-count ids))
+                                       (width (max 1 (f64->i64 (ceiling (sqrt (i64->f64 n))))))
+                                       (height (max 1 (quotient (+ n (- width 1)) width)))
+                                       (w (i64->i32 width)) (h (i64->i32 height))
+                                       (triangles (make-plane gpu "emitters/triangles" w h (R32Uint)
+                                                              (list (TextureCopySrc)
+                                                                    (TextureBinding)
+                                                                    (TextureCopyDst))))
+                                       (table (make-plane gpu
+                                                          "emitters/distribution"
+                                                          (+ w 1)
+                                                          h
+                                                          (Rgba32Float)
+                                                          (list (TextureCopySrc) (TextureBinding)
+                                                                (StorageBinding)))))
+                                  ((● gpu write-texture)
+                                   (whole-texture (● triangles texture))
+                                   (* 4 w)
+                                   w
+                                   h
+                                   (pack triangle-id-shape
+                                         (append ids
+                                                 (map (lambda (_) -1)
+                                                      (iota (- (* width height) n))))))
+                                  (when (> n 0)
+                                    (weigh-emitters gpu
+                                                    triangles
+                                                    table
+                                                    vertices
+                                                    indices
+                                                    materials
+                                                    height))
+                                  (new EmitterTable
+                                    (triangles triangles)
+                                    (distribution table)
+                                    (count n))))
+
+    (define (weigh-emitters (gpu Gpu) (ids Plane) (table Plane) (vertices GpuBuffer)
+                            (indices GpuBuffer) (materials GpuBuffer) (rows I64)) (→ Unit)
+                            (let* ((module ((● gpu create-shader-module) (new ShaderModuleDescriptor
+                                                                           (label "emitters/weigh")
+                                                                           (code
+                                                                            (string-append
+                                                                             (declarations
+                                                                              material-shape)
+                                                                             scene-shader
+                                                                             emitter-build-shader)))))
+                                   (sums (storage-buffer gpu "emitters/row-sums" (* 4 rows) (Nil)))
+                                   (encoder ((● gpu create-command-encoder)))
+                                   (pass ((● gpu begin-compute-pass) encoder))
+                                   (shared (list (TextureEntry 0 (● ids view))
+                                                 (TextureEntry 1 (● table view))
+                                                 (BufferEntry 2 sums 0 0)))
+                                   (weigh (compute-kernel gpu module "emitters" "weigh_rows"))
+                                   (marginal
+                                    (compute-kernel gpu module "emitters" "weigh_marginal"))
+                                   (inputs (kernel-group gpu weigh 0 "emitters/table" shared))
+                                   (mesh (kernel-group gpu weigh 1 "emitters/mesh"
+                                                       (list (BufferEntry 0 vertices 0 0)
+                                                             (BufferEntry 1 indices 0 0)
+                                                             (BufferEntry 2 materials 0 0))))
+                                   (output
+                                    (kernel-group gpu marginal 0 "emitters/marginal" shared)))
+                              ((● gpu set-compute-pipeline) pass weigh)
+                              ((● gpu set-compute-bind-group) pass 0 inputs)
+                              ((● gpu set-compute-bind-group) pass 1 mesh)
+                              (dispatch-items gpu pass rows 64)
+                              ((● gpu set-compute-pipeline) pass marginal)
+                              ((● gpu set-compute-bind-group) pass 0 output)
+                              ((● gpu dispatch-workgroups) pass 1 1 1)
+                              ((● gpu end-compute-pass) pass)
+                              ((● gpu submit) (list ((● gpu finish) encoder)))
+                              (for-each (lambda (object) ((● gpu destroy) object))
+                                        (list (BufferObject sums)
+                                              (ModuleObject module)
+                                              (ComputePipelineObject weigh)
+                                              (ComputePipelineObject marginal)
+                                              (BindGroupObject inputs)
+                                              (BindGroupObject mesh) (BindGroupObject output)))))
+
+    (define (release-emitter-table (gpu Gpu) (table EmitterTable)) (→ Unit)
+      (release-plane gpu (● table triangles))
+      (release-plane gpu (● table distribution)))
 
     ;; ---- Moving geometry ----
 

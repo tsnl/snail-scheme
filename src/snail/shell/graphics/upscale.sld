@@ -11,11 +11,20 @@
    (only (snail shell graphics animation) unit-matrix matrix-product v4)
    (only (snail shell graphics shaders) upscale-shader))
   (begin
-    ;; Eight centered subpixel locations. Positive y is down in image space.
+    ;; Reverse the base-b digits of n across the radix point.
+    (define (radical-inverse (n I64) (base I64)) (→ F64)
+      (let ((step (/ 1.0 (i64->f64 base))))
+        (let loop ((digits n) (place step) (value 0.0))
+          (if (= digits 0) value
+              (loop (quotient digits base) (* place step)
+                    (+ value (* place (i64->f64 (remainder digits base)))))))))
+
+    ;; Halton(2,3), starting at index one. The offset is measured from
+    ;; the center of an internal pixel, with positive y down.
     (define (sample-phase (frame I32)) (→ Vec2f)
-      (let* ((i (i32->i64 (i32-and frame 7))) (j (list-ref (list 0 4 2 6 1 5 3 7) i)))
-        (new Vec2f (x (- (* 0.125 (+ (i64->f32 i) 0.5)) 0.5))
-             (y (- (* 0.125 (+ (i64->f32 j) 0.5)) 0.5)))))
+      (let ((index (+ 1 (i32->i64 (i32-and frame 2147483647)))))
+        (new Vec2f (x (f64->f32 (- (radical-inverse index 2) 0.5)))
+             (y (f64->f32 (- (radical-inverse index 3) 0.5))))))
     (define (jitter-camera (c Camera3D) (j Vec2f) (width I32) (height I32)) (→ Camera3D)
       (let* ((x (/ (* -2.0 (● j x)) (i32->f32 width))) (y (/ (* 2.0 (● j y)) (i32->f32 height)))
              (shift (lambda (a b) (Mat4x4f-w-set unit-matrix (v4 a b 0.0 1.0)))))
@@ -25,6 +34,7 @@
     (record Upscaler
       ((width I32)
        (height I32)
+       (age I32)
        (kernel GpuComputePipeline)
        (uniform GpuBuffer)
        (colors (List Plane))
@@ -33,19 +43,26 @@
        (groups (List GpuBindGroup))
        (tone-groups (List GpuBindGroup))
        (fxaa-group GpuBindGroup)))
-    (define shift-shape (→ (Shape Vec4f)) (shape))
+    (record DisplayFrame
+      ((jitter Vec2f)
+       (previous-jitter Vec2f)
+       (still-weight F32)
+       (valid I32))
+      (deriving Pod))
+    (define display-shape (→ (Shape DisplayFrame)) (shape))
     (define camera-shape (→ (Shape Camera3D)) (shape))
     (define (make-upscaler (gpu Gpu) (post Post) (camera GpuBuffer) (depth Plane) (front Plane)
                            (planes (List Plane)) (w I32) (h I32)) (→ Upscaler)
                            (let* ((module ((● gpu create-shader-module)
                                            (new ShaderModuleDescriptor (label "upscale")
                                                 (code (string-append (declarations camera-shape)
+                                                                     (declarations display-shape)
                                                                      upscale-shader)))))
                                   (kernel (compute-kernel gpu module "upscale" "resolve"))
                                   (uniform (uniform-buffer gpu
                                                            "upscale/jitter"
-                                                           (pod-bytes shift-shape
-                                                                      (v4 0.0 0.0 2.0 2.0))))
+                                                           (make-array (stride display-shape)
+                                                                       (i32->u8 0))))
                                   (history (lambda (label format)
                                              (map (lambda (_)
                                                     (make-plane gpu
@@ -75,7 +92,7 @@
                              ((● gpu destroy) (ModuleObject module))
                              (new Upscaler
                                (width w)
-                               (height h)
+                               (height h) (age 0)
                                (kernel kernel)
                                (uniform uniform)
                                (colors colors)
@@ -125,30 +142,35 @@
                                                                (SamplerEntry 2
                                                                              (● post sampler))))))))
     (define (resolve-upscaled (gpu Gpu) (encoder GpuCommandEncoder) (canvas GpuTextureView)
-                              (u Upscaler) (post Post) (frame I32) (valid Bool)) (→ Unit)
-                              (let* ((i (i32->i64 (i32-and frame 1)))
-                                     (j (sample-phase frame))
-                                     (p (sample-phase (- frame 1)))
-                                     (pass ((● gpu begin-compute-pass) encoder)))
-                                ((● gpu write-buffer)
-                                 (● u uniform)
-                                 0
-                                 (pod-bytes shift-shape
-                                            (v4 (● j x) (● j y) (if valid (● p x) 2.0) (● p y))))
-                                ((● gpu set-compute-pipeline) pass (● u kernel))
-                                ((● gpu set-compute-bind-group) pass 0 (list-ref (● u groups) i))
-                                ((● gpu dispatch-workgroups)
-                                 pass
-                                 (quotient (+ (● u width) 7) 8)
-                                 (quotient (+ (● u height) 7) 8)
-                                 1)
-                                ((● gpu end-compute-pass) pass)
-                                (screen-pass gpu
-                                             encoder
-                                             (● u toned view)
-                                             (● post tone)
-                                             (list-ref (● u tone-groups) i))
-                                (screen-pass gpu encoder canvas (● post fxaa) (● u fxaa-group))))
+                              (u Upscaler) (post Post) (frame I32) (valid Bool) (moving Bool))
+      (→ Upscaler)
+      (let* ((i (i32->i64 (i32-and frame 1)))
+             (age (if (and valid (not moving)) (min 16 (+ (● u age) 1)) 1))
+             (pass ((● gpu begin-compute-pass) encoder)))
+        ((● gpu write-buffer)
+         (● u uniform)
+         0
+         (pod-bytes display-shape
+                    (new DisplayFrame
+                      (jitter (sample-phase frame))
+                      (previous-jitter (sample-phase (- frame 1)))
+                      (still-weight (/ (i32->f32 (- age 1)) (i32->f32 age)))
+                      (valid (if valid 1 0)))))
+        ((● gpu set-compute-pipeline) pass (● u kernel))
+        ((● gpu set-compute-bind-group) pass 0 (list-ref (● u groups) i))
+        ((● gpu dispatch-workgroups)
+         pass
+         (quotient (+ (● u width) 7) 8)
+         (quotient (+ (● u height) 7) 8)
+         1)
+        ((● gpu end-compute-pass) pass)
+        (screen-pass gpu
+                     encoder
+                     (● u toned view)
+                     (● post tone)
+                     (list-ref (● u tone-groups) i))
+        (screen-pass gpu encoder canvas (● post fxaa) (● u fxaa-group))
+        (Upscaler-age-set u age)))
     (define (release-upscaler (gpu Gpu) (u Upscaler)) (→ Unit)
       (for-each (lambda (g) ((● gpu destroy) (BindGroupObject g)))
                 (append (● u groups) (Cons (● u fxaa-group) (● u tone-groups))))
