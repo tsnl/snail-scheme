@@ -1,0 +1,37 @@
+#!/bin/sh
+# Build both source versions on each backend with the same optimization flags.
+set -eu
+if [ "$#" -ne 2 ]; then
+  echo 'usage: sh benches/linear-memory/build WASMGC_CHECKOUT OUTPUT_DIRECTORY' >&2
+  exit 2
+fi
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+control=$(CDPATH= cd -- "$1" && pwd)
+mkdir -p "$2"
+out=$(CDPATH= cd -- "$2" && pwd)
+
+kernels() {
+  checkout=$1 backend=$2 gc=$3
+  "$checkout/scripts/bootstrap" > "$out/$backend.tools"
+  { read -r cli && read -r runtime && read -r toolchain; } < "$out/$backend.tools"
+  linker=$checkout/build/wasm-snail-scheme-support-toolchain/release/snail-link
+  for physics in shared scoped; do
+    case $physics in
+      shared) sources=$control/src ;;
+      scoped) sources=$root/src ;;
+    esac
+    target=$out/$backend-$physics
+    node --no-warnings "$checkout/host/native/run-snail.mjs" "$cli" "$checkout" "$runtime" "$toolchain" \
+      compile node "$root/benches/linear-memory/rays.scm" "$target.wat" "$sources"
+    "$linker" "$target.wat" "$runtime" "$target.wasm"
+    wasm-opt "$gc" --enable-reference-types --enable-tail-call --enable-bulk-memory \
+      --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-multivalue \
+      -O2 "$target.wasm" -o "$target.release.wasm"
+  done
+}
+
+kernels "$control" wasmgc --enable-gc
+kernels "$root" linear --disable-gc
+"${WASM_CC:-clang}" --target=wasm32 -O3 -nostdlib -Wl,--no-entry "$root/benches/linear-memory/rays.c" -o "$out/c.wasm"
+node "$root/benches/linear-memory/compare.mjs" "$out/wasmgc-shared.release.wasm" "$out/wasmgc-scoped.release.wasm" \
+  "$out/linear-shared.release.wasm" "$out/linear-scoped.release.wasm" "$out/c.wasm"
