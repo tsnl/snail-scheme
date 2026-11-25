@@ -75,6 +75,16 @@
   (let ((before (live-after-graphs 1 build)))
     (= before (live-after-graphs 128 build))))
 
+;; At the next iteration only scalar arguments survive. A collection there
+;; must release the previous iteration's list even while this frame is live.
+(define (live-in-loop (count I64) (seen I64)) (→ I32)
+  (if (= seen 0)
+      (let ((items (iota count)))
+        (match items
+          ((Cons _ rest) (live-in-loop count (+ 1 (length rest))))
+          ((Nil) (panic "sample needs a nonempty list"))))
+      (begin (collect!) (live-bytes))))
+
 (define (main (out OutputPort)) (→ Unit)
   (stress! (i64->i32 1))
   (let ((links (list->array (list (cycle) (link 11)))))
@@ -87,6 +97,8 @@
   (unless (reclaimed? park-receiver)
     (panic "unreachable mailbox waiters retained their schedulers"))
   (unless (reclaimed? abandon-caches) (panic "unreachable caches retained their entries"))
+  (unless (= (live-in-loop 2 0) (live-in-loop 1024 0))
+    (panic "the tail loop retained a previous iteration's list"))
   (profile! (i64->i32 1))
   (let ((slot (ref-local 0)))
     (bump! 100000 (ref! slot))

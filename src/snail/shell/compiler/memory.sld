@@ -467,6 +467,14 @@
          ((string=? op "") tree)
          ((member? op (list "result" "param" "local")) (annotation tree))
          ((string=? op "local.get") (read-local fn (word (at args 0))))
+         ;; A self tail loop evaluates changed scalar arguments on the operand
+         ;; stack before rebinding any formal. Managed stores always carry a
+         ;; value expression so write-local can also update the frame root.
+         ((and (string=? op "local.set") (= (length args) 1))
+          (let ((name (word (at args 0))))
+            (if (reference? (lookup (● fn local-types) name))
+                (panic "internal error: stack assignment to a reference")
+                (wat "local.set" (Word (local-name fn name))))))
          ((member? op (list "local.set" "local.tee"))
           (write-local fn
                        (word (at args 0))
