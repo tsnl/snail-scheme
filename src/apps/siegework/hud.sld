@@ -333,7 +333,7 @@
 
     (define guide-url
       (→ String)
-      "https://github.com/tsnl/snail-scheme/blob/main/doc/book/games/siegework.md")
+      "https://snail-scheme.pages.dev/games/siegework")
 
     ;; Whether the selected cell would take an extractor now.
     (define (extractor-offered? (game Game)) (→ Bool)
