@@ -31,6 +31,15 @@
     ((Ok value) value)
     ((Err _) (panic "missing fixture export"))))
 
+(define (exported (wasm Wasm) (instance Module) (name String)) (→ Funcref)
+  (match (module-export wasm instance name)
+    ((Ok function) function)
+    ((Err error) (panic (load-error-message error)))))
+
+;; Foreign function handles own traced code descriptors in the receiving instance.
+(define (rotate (n I64) (left Funcref) (right Funcref)) (→ Funcref)
+  (if (= n 0) left (rotate (- n 1) right left)))
+
 (define (expect (out OutputPort) (label String) (condition Bool)) (→ Unit)
   (if condition (write-line out label) (panic label)))
 
@@ -44,6 +53,9 @@
          (old (provider wasm bytes)) (updated (provider wasm bytes))
          (reader (compiled wasm (a-bytes)))
          (before (consumer wasm reader old)) (after (consumer wasm reader updated)))
+    (let* ((tick (exported wasm old "tick")) (read (exported wasm old "value"))
+           (selected (ann (unsafe-cast (rotate 10001 tick read)) (Fn → I32))))
+      (unless (= (selected) (i64->i32 1)) (panic "tail recursion lost the selected export")))
     (expect out "initialized once" (= (answer wasm old "tick") 2))
     (expect out "existing import keeps provider" (= (answer wasm before "value") 2))
     (expect out "new import uses new provider" (= (answer wasm after "value") 1))
