@@ -134,7 +134,14 @@ The Pages workflow builds pull requests and publishes changes from `main`
 to Cloudflare Pages. A maintainer can also publish a selected ref with the
 workflow’s **Publish** input. The deploy job receives only the built site.
 
-For initial setup, sign in to Wrangler and create the Direct Upload project
-once with `wrangler pages project create snail-scheme --production-branch main`.
+For initial setup, verify the account email and sign in to Wrangler. Create
+the Direct Upload project once.
+
+```sh
+wrangler pages project create snail-scheme --production-branch main --force
+```
+
+In the pinned Wrangler release, `--force` selects the Pages API for project
+creation. Subsequent uploads target the existing project by name.
 Set the repository Actions variable `CLOUDFLARE_ACCOUNT_ID` and the secret
 `CLOUDFLARE_API_TOKEN` with Cloudflare Pages Edit permission for that account.
