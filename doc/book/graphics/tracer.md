@@ -46,6 +46,14 @@ and `retrace` each replace one record and bind again, so no bind group
 names a target or a scene that is gone. The libraries share the few steps
 every set of compute kernels repeats, in `(snail shell graphics kernel)`.
 
+### Temporal reconstruction
+
+Pass `(Reconstruct display-width display-height samples)` to `draw-sampled-traced` for one or two paths per internal pixel. Both paths share the rasterized first hit. Each traces its own light and BSDF draws, and their radiances are averaged before denoising. Only the first path carries a reservoir into the next frame.
+
+Eight subpixel camera positions sample different parts of each output pixel over successive frames. The display resolve reconstructs linear HDR from the same foreground surface, removes camera jitter from motion, and reprojects four display-history taps. Each tap must match the triangle and previous projected depth. Motion, changes in light and newly exposed surfaces shorten reuse. Sky and blended surfaces use current samples. Tone mapping and FXAA run at the output size.
+
+In this mode, temporal ReSTIR accepts at most two batches of old candidates, or one above 1.5 pixels of motion. SVGF keeps at most four observations and gives the current sample at least 40% weight. Camera cuts, target replacements and scene changes start fresh history.
+
 ## The wavefront
 
 A path is not one long kernel but a sequence of small ones, each its own
@@ -114,7 +122,7 @@ sample's multiplier is `W = (S / M) / t`, or zero for an empty selection.
 
 The motion vector locates one previous pixel. Its normal must agree with
 the current normal (dot product at least 0.9), and the two depths must
-agree within 2% in the previous camera's projection. The surface pass projects the previous pose of the same triangle and carries its clip-space depth in the emission target’s alpha channel. Both ReSTIR and SVGF compare against that depth when geometry moves. The donor represents
+agree within 2% in the previous camera's projection. The surface pass projects the previous pose of the same triangle and carries its clip-space depth in the emission target’s alpha channel. Both ReSTIR and SVGF check the temporal donor’s triangle identity and compare against that depth when geometry moves. The donor represents
 up to 20 times the number of fresh candidates at the receiver. The spatial
 step chooses one of the four axial neighbors on a full frame or one of the
 four diagonal neighbors on a checkerboard. Each donor belongs to the
@@ -252,6 +260,20 @@ Start with a mesh and one joint. A vertex fully weighted to that joint follows i
 4. Give `skin-scene` the fixed topology and vertex influences once. At each draw, `deform-scene!` blends the palette matrices on the GPU, transforms positions, normals and tangents, and records the displacement back to the preceding draw. Refit the BVH after a pose changes. Camera visibility and Monte Carlo shadow queries then use the same triangles. SVGF receives their motion vectors and FXAA runs after tone mapping.
 
 The reader supports floating-point transform keys, unsigned byte or unsigned short joint indices, and floating-point or normalized unsigned integer weights. It reports unsupported cubic samplers, morph-weight channels, sparse accessors and additional vertex influence sets. The mechanical hinge fixture in `tests/programs/data/hinge.gltf` has a non-joint ancestor, reversed node order and mixed weights. [glTF skins and animations](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#skins)
+
+## Render a still
+
+The Node host can render a PNG directly from a local glTF or GLB with the same WebGPU tracer. Run from the repository root.
+
+```sh
+./snail-scheme run --target node tools/render.scm scene=scene.glb output=preview.png width=1280 height=720 samples=64 bounces=4
+./snail-scheme run --target node tools/render.scm scene=sf stand=0 minute=1040 output=hyde.png
+./snail-scheme run --target node tools/render.scm scene=taxi brake=1 eye=2.7,1.35,-3.8 target=0,0.65,0 output=braking.png
+```
+
+`sf` builds the actual street neighbourhood, vehicles, people, lamps and sky at one of the 16 taxi stands. `taxi` and `sedan` show the vehicle on a flat surface. An external model resolves buffers and images relative to its file and is framed from its bounds. Supply both `eye` and `target` to choose a camera in scene coordinates. `minute` is local solar time in minutes after midnight. `layers` sets the square texture-layer size for external models and vehicle previews.
+
+`(snail shell graphics still)` renders a fixed camera into an offscreen texture and returns the updated tracer and tightly packed RGBA bytes. It traces every pixel on every sample, with up to 4,096 observations and eight bounces. Image dimensions must fit the device’s ray-buffer limit. Offline frames use the stationary SVGF history. The live game’s frame cap and short driving history apply only to the interactive mode.
 
 ## The viewer
 

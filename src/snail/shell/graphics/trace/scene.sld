@@ -16,12 +16,14 @@
    Scene
    SurfaceMaterial
    load-scene
-   upload-scene upload-lit-scene
+   upload-scene upload-lit-scene upload-with-images
+   SceneImages
    scene-materials
    ObjectPose
    MovingScene
    moving-scene
    skin-scene
+   SkinLayout pack-skin skin-with-layout
    pose-matrix
    deform-scene!
    pose-scene!
@@ -55,12 +57,19 @@
     ;; all its levels and the sampler that repeats it, the box around
     ;; every vertex, low corner then high, and whether any material is
     ;; blended, which the tracer draws as a layer of its own.
+    ;; Each scene holds one reference to its texture array. Neighbouring scenes
+    ;; can share an ordered image table while either remains drawable.
+    (record SceneImages
+      ((texture GpuTexture)
+       (size I32)
+       (count I64)
+       (users I64)))
     (record Scene
       ((lights LightGrid)
        (vertices GpuBuffer)
        (indices GpuBuffer)
        (materials GpuBuffer)
-       (layers GpuTexture)
+       (images SceneImages)
        (layers-view GpuTextureView)
        (sampler GpuSampler)
        (vertex-count I64)
@@ -133,19 +142,40 @@
              (layers (load-layers gpu (map (lambda (image) (source-bytes image files buffers))
                                            (● gltf images))
                                   layer-size)))
-        (on-device gpu gltf buffers layers layer-size (light-grid gpu lights capacity))))
+        (on-device gpu gltf buffers
+                   (new SceneImages
+                     (texture layers)
+                     (size layer-size)
+                     (count (length (● gltf images)))
+                     (users 0))
+                   (light-grid gpu lights capacity))))
+
+    ;; The caller supplies the same ordered glTF image table. Only vertex
+    ;; buffers are read; a district change never decodes the same images again.
+    (define (upload-with-images (gpu Gpu) (read (Fn (List String) → (List Bytes)))
+                                (gltf Gltf)
+                                (images SceneImages)
+                                (lights (List Punctual))
+                                (capacity I64))
+      (→ Scene)
+      (unless (= (length (● gltf images)) (● images count)) (panic "scene image table changed"))
+      (let* ((paths (source-paths (map (lambda (b) (● b source)) (● gltf buffers))))
+             (files (zip paths (read paths))))
+        (on-device gpu gltf (map (lambda (b) (buffer-bytes b files)) (● gltf buffers))
+                   images (light-grid gpu lights capacity))))
 
     ;; Nothing refuses once the layers are loaded, so a scene refused
     ;; leaves nothing on the device.
     (define (on-device (gpu Gpu)
                        (gltf Gltf)
                        (buffers (List Bytes))
-                       (layers GpuTexture)
-                       (layer-size I32) (lights LightGrid))
+                       (images SceneImages)
+                       (lights LightGrid))
       (→ Scene)
       (let* ((counts (placed-counts gltf))
              (geometry (unpacked gpu gltf counts buffers))
              (bounds (gltf-bounds gltf)))
+        (set! (● images users) (+ (● images users) 1))
         (new Scene
           (lights lights)
           (vertices (● geometry first))
@@ -153,12 +183,12 @@
           (materials (storage-of gpu "scene/materials"
                                  (pack material-shape
                                        (map surface-material (scene-materials gltf)))))
-          (layers layers)
-          (layers-view ((● gpu create-view) layers
+          (images images)
+          (layers-view ((● gpu create-view) (● images texture)
                         (new TextureViewDescriptor
                           (dimension (View2dArray))
                           (base-mip 0)
-                          (mips (levels layer-size))
+                          (mips (levels (● images size)))
                           (base-layer 0)
                           (layers 0))))
           (sampler (repeating-sampler gpu))
@@ -173,7 +203,9 @@
       (for-each (lambda (buffer) ((● gpu destroy) (BufferObject buffer)))
                 (list (● scene vertices) (● scene indices) (● scene materials)))
       ((● gpu destroy) (ViewObject (● scene layers-view)))
-      ((● gpu destroy) (TextureObject (● scene layers)))
+      (let ((images (● scene images)))
+        (set! (● images users) (- (● images users) 1))
+        (when (= (● images users) 0) ((● gpu destroy) (TextureObject (● images texture)))))
       ((● gpu destroy) (SamplerObject (● scene sampler))))
 
     ;; ---- Moving geometry ----
@@ -232,12 +264,25 @@
     ;; Static vertices precede the influenced suffix. Own the original scene
     ;; as the immutable bind mesh and keep its topology and material bindings.
     (define (skin-scene (gpu Gpu) (source Scene) (bindings (List SkinBinding))) (→ MovingScene)
-      (let* ((binding (combined-binding bindings))
-             (influences (● binding vertices))
-             (joints (● binding slots))
-             (total (length influences)) (size (* vertex-stride (● source vertex-count))))
+      (skin-with-layout gpu source (pack-skin bindings)))
+
+    ;; Packing the same cast of actors once avoids traversing all their vertex
+    ;; influences whenever only the static prefix of the world changes.
+    (record SkinLayout
+      ((bytes Bytes)
+       (joints I64)
+       (vertices I64)))
+    (define (pack-skin (bindings (List SkinBinding))) (→ SkinLayout)
+      (let* ((b (combined-binding bindings)) (vs (● b vertices)))
+        (new SkinLayout
+          (bytes (pack influence-shape vs))
+          (joints (● b slots))
+          (vertices (length vs)))))
+    (define (skin-with-layout (gpu Gpu) (source Scene) (layout SkinLayout)) (→ MovingScene)
+      (let* ((joints (● layout joints))
+             (total (● layout vertices)) (size (* vertex-stride (● source vertex-count))))
         (unless (and (> total 0) (<= total (● source vertex-count))) (panic "invalid skin size"))
-        (let* ((ids (storage-of gpu "scene/influences" (pack influence-shape influences)))
+        (let* ((ids (storage-of gpu "scene/influences" (● layout bytes)))
                (world (storage-buffer gpu "scene/world" size (list (CopyDst) (CopySrc))))
                (poses (storage-buffer gpu
                                       "scene/joints"
@@ -248,6 +293,7 @@
                              (code (string-append (declarations unpack-shape) unpack-shader)))))
                (kernel (compute-kernel gpu module "scene" "pose_vertices"))
                (encoder ((● gpu create-command-encoder))))
+          ((● gpu destroy) (ModuleObject module))
           ((● gpu copy-buffer-to-buffer) encoder (● source vertices) 0 world 0 (i64->i32 size))
           ((● gpu submit) (list ((● gpu finish) encoder)))
           (new MovingScene (scene (Scene-vertices-set source world)) (rest (● source vertices))
@@ -288,13 +334,15 @@
 
     ;; The files the scene's buffers and images name.
     (define (file-paths (gltf Gltf)) (→ (List String))
+      (source-paths
+       (append (map (lambda (buffer) (● buffer source)) (● gltf buffers)) (● gltf images))))
+    (define (source-paths (sources (List Source))) (→ (List String))
       (fold-right (lambda (source paths)
                     (match source
                       ((FileSource path) (Cons path paths))
                       (_ paths)))
                   (Nil)
-                  (append (map (lambda (buffer) (● buffer source)) (● gltf buffers))
-                          (● gltf images))))
+                  sources))
 
     ;; A scene with something to draw, at least a unit across.
     (define (drawable (gltf Gltf)) (→ Gltf)
@@ -502,6 +550,7 @@
                 "unpack_triangles"
                 triangle-count
                 (append read (list (BufferEntry 3 indices 0 0))))
+        ((● gpu destroy) (ModuleObject module))
         ((● gpu end-compute-pass) pass)
         ((● gpu submit) (list ((● gpu finish) encoder)))))
 

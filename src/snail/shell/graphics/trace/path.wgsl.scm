@@ -324,6 +324,7 @@
 (fn seeded ((pixel u32) (salt u32)) (-> u32)
     (return (pcg (bit-xor pixel
                           (pcg (+ (* (u32 (get tracing frame x)) 64u)
+                                  (* (u32 (get tracing view z)) 2246822519u)
                                   (* (u32 (get wave step x)) 4u)
                                   salt))))))
 
@@ -445,6 +446,10 @@
 ;; wave's radiance starts, 0 for the first hits and a pixel count past
 ;; them for the layer's, whose pixels with no blended surface, their
 ;; alpha 0, make no path.
+(fn begin_radiance ((index u32) (value vec4f))
+    (if ((== (get tracing view z) 0.0) (= (at radiance index) value))
+        (else (+= (at radiance index) value))))
+
 (fn (@compute) (@workgroup_size 8 8) primary (((@builtin global_invocation_id) id vec3u))
     (let size (textureDimensions depth))
     (let pixel (vec2i (sample_pixel (get id xy))))
@@ -453,26 +458,28 @@
     (let index (+ i (u32 (get tracing frame y))))
     (var site (at reservoir_input i))
     (if ((== (get site reservoir count) 0)
-         (= (at reservoir_output i) site)
+         (if ((== (get tracing view z) 0.0) (= (at reservoir_output i) site)))
          (if ((uncovered pixel) (= (at radiance index) (vec4f 0.0)) (return)))
          (let ndc (- (* (/ (+ (vec2f pixel) 0.5) (vec2f size)) 2.0) 1.0))
          (let far (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) 1.0 1.0)))
-         (= (at radiance index)
-            (vec4f
-             (environment_light (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz))))
-             1.0))
+         (begin_radiance index
+                         (vec4f
+                          (environment_light
+                           (normalize (- (/ (get far xyz) (get far w)) (get camera eye xyz))))
+                          1.0))
          (return)))
     (let s (first_surface pixel (textureLoad depth pixel 0)))
     (let sight (- (get s position) (get camera eye xyz)))
     (let air (aerial_transmission (length sight)))
-    (= (at radiance index)
-       (vec4f
-        (+ (* air (get (textureLoad emission pixel 0) xyz)) (aerial_light (normalize sight) air))
-        1.0))
+    (begin_radiance index
+                    (vec4f
+                     (+ (* air (get (textureLoad emission pixel 0) xyz))
+                        (aerial_light (normalize sight) air))
+                     1.0))
     (var seed (seeded index 0u))
     (let v (- (normalize sight)))
     (= (get site reservoir) (spatial_reservoir s v pixel site (address-of seed)))
-    (= (at reservoir_output i) site)
+    (if ((== (get tracing view z) 0.0) (= (at reservoir_output i) site)))
     (reservoir_shadow (get site reservoir) s v air index (pcg seed))
     (let spread (get tracing view x))
     (scatter_ray s v air index (* spread (length sight)) spread (address-of seed)))
@@ -515,4 +522,7 @@
     ;; Mark it so SVGF keeps the sample count that produced its history.
     (let held (and (!= (get tracing frame w) 0)
                    (!= (bit-and (get id x) 1u) (column_parity (get id y)))))
-    (textureStore noisy pixel (vec4f (get (at radiance index) xyz) (select 1.0 -1.0 held))))
+    (textureStore noisy
+                  pixel
+                  (vec4f (* (get (at radiance index) xyz) (get tracing view w))
+                         (select 1.0 -1.0 held))))
