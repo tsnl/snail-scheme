@@ -13,7 +13,7 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 | Stage | Library | What it does |
 | --- | --- | --- |
 | Surfaces | `trace/surface.wgsl.scm` | Rasterizes the first hits into a G-buffer: shading normal, albedo, material, motion, the triangle drawn, and depth. A scene with blended materials also gets the nearest blended surface in front of them, in a second G-buffer, the blended layer. |
-| Direct light | `restir`, `trace/restir.wgsl.scm` | Resamples environment directions at each first hit, using its light, the previous frame and a neighboring pixel. |
+| Direct light | `restir`, `trace/restir.wgsl.scm` | Resamples sky directions and points on emissive triangles at each first hit, with candidates from this pixel, the previous frame and a neighbor. |
 | Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries, for each layer. |
 | Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure, for each layer. |
 | Compose | `trace/compose.wgsl.scm` | Blends the blended layer's light over the first hits', by its alpha. |
@@ -65,12 +65,11 @@ temporal_reservoirs → primary → [occlude → connect → intersect → shade
 
 - `temporal_reservoirs` draws fresh light candidates and merges reprojected history.
 - `primary` places the [first hit](#first-hits) on its triangle, merges a neighbor's reservoir, emits the selected shadow ray and scatters the BSDF ray.
-- `shade` samples the surface's BSDF for the next bounce and the
-  environment for a shadow ray, appending each to its queue.
+- `shade` samples the surface's BSDF for the next bounce and direct
+  lighting for a shadow ray, appending each to its queue.
 - `occlude` and `intersect` are the BVH's queries over a queue.
-- `connect` adds the light of each shadow ray that reached the sky,
-  weighted by multiple importance sampling against the BSDF ray that
-  might have found it.
+- `connect` adds the selected light's weighted contribution when the
+  shadow segment is clear.
 - `gather` writes each pixel's radiance for SVGF.
 
 Two ray queues alternate between bounces, with one shadow queue. Each holds
@@ -107,18 +106,45 @@ normal, so it is no larger for the triangle.
 
 ## Biased ReSTIR direct lighting
 
-A sampled first hit draws four candidate directions on a full frame and two
-on a checkerboard frame, all from the environment's importance table. The
-RGB contribution of a direction is its radiance times the BSDF, cosine and
-the environment's power-heuristic weight. The BSDF ray
-that escapes to the environment still supplies the complementary weight.
-The scalar target `t` is the luminance of that unshadowed RGB contribution.
+A sampled first hit draws four candidates on a full frame and two on a
+checkerboard frame. When both the sky and mesh emit, each candidate has
+equal odds of coming from either family. A single emitting family gets all
+the draws. The sky sampler chooses a direction from its importance table
+and solar disc. The mesh sampler chooses a triangle in proportion to its
+initial world-space area times its emitted luminance, then a uniform point
+on it. Opaque triangles with constant emission are eligible. Textured,
+masked and blended emitters still contribute when a path hits them.
 
-A reservoir holds the selected direction and its target, a weight sum `S`
-and a count `M`. A fresh draw with proposal density `q` contributes `t / q`
+Consider a patch of area `dA` on a triangle of current area `A`. If the
+sampler chooses that triangle with probability `p` including the family
+choice, the chance of landing in the patch is `p × dA / A`. The area
+density is therefore `q = p / A`. In the shader the sampling domain is the
+triangle with unit mass, so `q = p` and the RGB integrand contains
+`J = A × abs(cos at the light) / distance²`. This puts it in the same
+units as the proposal and preserves the point when the light moves or
+changes area. The sky uses solid angle directly.
+
+The scalar target `t` is the luminance of the unshadowed RGB contribution
+at the receiver. This includes emitted radiance, the receiver's BSDF and
+cosine, the change of measure above, and the power-heuristic weight for light
+sampling. A BSDF ray that hits the emitter or escapes to the sky supplies
+the complementary weight. A camera looking directly at the sign sees its
+full emitted radiance.
+
+A reservoir holds the selected direction and its target, a weight sum `S`,
+a count `M`, and the identity and coordinates of a selected emitter. A
+fresh draw with proposal density `q` contributes `t / q`
 to the sum. Zero-weight draws still count. A draw of weight `w` replaces
 the selection with probability `w / S` after the addition. The selected
 sample's multiplier is `W = (S / M) / t`, or zero for an empty selection.
+
+The proposal and the replacement draw answer different questions. A light
+arrives at rate `q`, so giving each arrival weight `t / q` makes its expected
+weight proportional to `t`. After seeing the stream, candidate `i` has
+selection probability `w_i / S`. Every later replacement multiplied its
+survival odds by the old sum divided by the new sum. Those factors telescope.
+With equal weights the next candidate replaces the previous selection with
+probability `1 / M`, the ordinary unknown-length reservoir rule.
 
 The motion vector locates one previous pixel. Its normal must agree with
 the current normal (dot product at least 0.9), and the two depths must
@@ -139,12 +165,21 @@ query. Each layer owns its final history and both take turns using one
 temporal scratch buffer. A sky or uncovered pixel writes empty history.
 A sky bake increments the environment revision. The next draw fills both checkerboard parities with fresh proposals. A direction on last minute’s dim sky can now fall inside the bright solar disc, so its old selection weight belongs to a different proposal distribution. Resizing or replacing the scene or environment also starts a new history.
 
-`upload-lit-scene` takes finite-range punctual lights and capacity for moving ones. A ground-plane grid lists static lights whose influence overlaps each cell. Vehicles update a short list of moving lights with `update-moving-lights!`. At each surface, the tracer evaluates the lights in that cell and the moving list with the material BSDF, inverse-square falloff and optional spot cone. A weighted draw chooses one local or environment contribution, divides by its selection probability, and traces a single visibility ray. For a point or spot source the ray ends at the light. Geometry beyond it cannot cast a shadow on the receiving surface.
+`upload-lit-scene` takes finite-range punctual lights and capacity for moving ones. A ground-plane grid lists static lights whose influence overlaps each cell. Vehicles update a short list of moving lights with `update-moving-lights!`. The punctual lights compete with the weighted sky or mesh estimate for one shadow ray. A finite ray runs from the offset receiver to the selected light. Later bounces use one fresh sky or mesh candidate and the same visibility step. Last Mile's storefront strips illuminate the shop and pavement from their actual triangles.
 
 A pixel skipped by the checkerboard keeps its reservoir and the last radiance
 in its layer's slot. `gather` marks that radiance with a negative alpha in the
 noisy texture. SVGF carries forward the pixel's illumination, moments and
 observation count, and runs its spatial filters at full resolution.
+
+The GPU regression lights a white wall with a two-triangle rectangle against
+a black sky. Numerical integration at its center gives 0.3000 linear
+radiance. Across its 9×9 near-constant wall patch, direct sampling measured
+0.2981 over 12 frames and BSDF-only sampling measured 0.2980 over 24.
+Raw sample variances were 0.0369 and 0.2151 respectively. Moving the blocker
+behind the sign preserves the light. Moving it between the wall and sign
+extinguishes it. A separate pose test moves the sign across a stationary
+receiver while reusing its reservoir.
 
 ## The blended layer
 
@@ -274,6 +309,33 @@ The Node host can render a PNG directly from a local glTF or GLB with the same W
 `sf` builds the actual street neighbourhood, vehicles, people, lamps and sky at one of the 16 taxi stands. `taxi` and `sedan` show the vehicle on a flat surface. An external model resolves buffers and images relative to its file and is framed from its bounds. Supply both `eye` and `target` to choose a camera in scene coordinates. `minute` is local solar time in minutes after midnight. `layers` sets the square texture-layer size for external models and vehicle previews.
 
 `(snail shell graphics still)` renders a fixed camera into an offscreen texture and returns the updated tracer and tightly packed RGBA bytes. It traces every pixel on every sample, with up to 4,096 observations and eight bounces. Image dimensions must fit the device’s ray-buffer limit. Offline frames use the stationary SVGF history. The live game’s frame cap and short driving history apply only to the interactive mode.
+
+### Capture reconstruction inputs and a reference
+
+This view faces Busacca Gallery near the Hyde Street stand. The command writes
+a cold, full-resolution 1 spp training input and a 128 spp reference at the
+same camera and scene time.
+
+```sh
+./snail-scheme run --target node tools/render.scm scene=sf stand=0 minute=1380 \
+  eye=-142.32,84.50,271.08 target=-138.32,83.45,278.08 \
+  width=240 height=135 bounces=2 samples=128 capture=gallery
+```
+
+`gallery.noisy.rgba32f` and `gallery.reference.rgba32f` contain row-major,
+little-endian float32 RGB radiance and a coverage marker. The reference
+averages fresh observations on the GPU using a disjoint seed range with
+temporal and spatial reuse disabled. Both images precede SVGF, exposure and
+tone mapping. Each file holds all opaque pixels first, followed by the
+blended layer when present. The blended layer's albedo alpha gives its
+compositing weight. The JSON file records dimensions, layer order, seeds,
+sample count and bounce depth.
+
+The matching `.opaque.*` and `.blended.*` files contain the native,
+tightly packed G-buffer planes. Their names give the channel formats.
+They carry octahedral normals, emission and previous clip depth, sRGB
+albedo with linear alpha, material factors, UV motion, triangle IDs
+and hardware depth. The `.camera` file contains the `Camera3D` Pod bytes.
 
 ## The viewer
 

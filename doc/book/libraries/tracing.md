@@ -45,10 +45,13 @@ row a thread, and averages them down to the width asked for.
 ## `(snail shell graphics restir)`
 
 `reservoir-shader` supplies the WGSL types and operations for weighted
-directional reservoir sampling. `LightSample` holds a direction and its
-scalar target. `Reservoir` exposes the selected sample, weight sum and
-represented proposal count. `reservoir_draw` adds a draw with its proposal
-density. `reservoir_merge` takes a donor, its target at the receiver and
+reservoir sampling. `LightSample` holds a direction and its scalar target.
+`Reservoir` exposes the sample, weight sum, represented proposal count,
+one-based emitter slot (zero for a sky direction), and two packed 16-bit
+square coordinates. Reflecting the square across its diagonal yields the
+uniform barycentric point on that triangle. `reservoir_draw` adds a draw
+with its proposal density and returns whether it was selected.
+`reservoir_merge` takes a donor, its target at the receiver and
 the count it contributes. Each accepts a uniform random draw for selection.
 `reservoir_weight` derives the final shading multiplier.
 
@@ -85,6 +88,18 @@ tracing read the same buffers, so what is drawn is what rays hit. A
 scene's `blended` says whether any material is blended, so that the
 tracer makes its blended layer only for a scene that has one.
 
+`Scene.emitters` holds an `EmitterTable` built during upload. Its
+`triangles` plane contains sorted scene triangle IDs as `r32uint`,
+padded with 0xffffffff. Its `distribution` plane holds emitted RGB and
+inclusive row weights as `rgba32float`. An extra column holds the cumulative
+weight of the rows. The tracing shaders read these planes at scene bindings
+6 and 7. Both planes support texture readback. Sampling weights use the upload pose. A reused point reads the
+current vertex buffer. `make-emitter-table` takes sorted, distinct triangle
+IDs and the unpacked vertex, index and material buffers. A scene made with
+`Scene-emitters-set` borrows the original geometry, images and sampler.
+Release the owning scene once and release a separately allocated replacement
+table with `release-emitter-table`.
+
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/trace/scene.sld)
 
 ## `(snail shell graphics svgf)`
@@ -116,6 +131,14 @@ scene and environment with the same pipelines and targets, and
 `draw-traced` draws a frame, its paths bouncing as many times as it asks,
 up to `most-bounces`. Still frames trace alternating halves of a checkerboard.
 Pass `(EveryPixel)` to `draw-sampled-traced` for full-rate sampling.
+`encode-trace-observation` takes a caller-owned command encoder, tracer,
+camera, pixel spread, bounce depth and random seed. It writes the G-buffer,
+per-layer radiance and noisy targets for one fresh full-resolution sample.
+The caller can encode reconstruction or a readback next, then submit.
+Submit before writing the next observation into the same kit. Use
+`discard-trace-history` when returning to interactive checkerboarding after
+overwriting the raw targets. `(snail shell graphics still)` provides
+`read-traced-radiance` and `trace-reference` for the [capture format](../graphics/tracer.md#capture-reconstruction-inputs-and-a-reference).
 `tracer-frames` counts the frames since the camera last moved or the bounces
 changed. [A frame](../graphics/tracer.md#a-frame)
 

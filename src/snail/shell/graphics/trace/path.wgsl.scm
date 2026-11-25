@@ -5,19 +5,17 @@
 ;; queries of (snail shell graphics bvh). The renderer is enlighten's
 ;; (tsnl/enlighten, archive/main-v1): metallic-roughness shading, Lambert
 ;; diffuse and GGX reflection sampled by visible normals, mixed with one
-;; probability at every vertex; light from the environment
-;; (environment-light.wgsl.scm), resampled at first hits by biased ReSTIR
-;; (restir.wgsl.scm), sampled at later hits with a shadow ray, and seen
-;; by rays that leave the scene, the two direct-light strategies
-;; weighted by multiple importance sampling (the power heuristic);
-;; emission wherever a path hits it; Russian roulette after the third
-;; bounce; textures at the level of the ray cone's footprint.
+;; probability at every vertex. Sky and mesh light proposals share one
+;; shadow ray with the punctual lights. Biased ReSTIR resamples first hits.
+;; Later hits use a fresh proposal and the complementary BSDF-hit weight.
+;; Russian roulette begins after the third bounce. Texture lookups use
+;; the ray cone's footprint.
 ;;
 ;;   primary    from each pixel's first hit: its emission, or the
 ;;              environment behind it, into `radiance`; a shadow ray
-;;              toward the environment into `shadows`; and the scattered
+;;              toward the selected light into `shadows`; and the scattered
 ;;              ray into `outgoing`
-;;   connect    the environment's light, where a shadow ray met nothing,
+;;   connect    the selected light, where a shadow ray met nothing,
 ;;              into `radiance` (after the queries' `occlude`)
 ;;   shade      at each ray's hit (after `intersect`): the environment
 ;;              if it met nothing, else the surface's emission, then, but
@@ -212,8 +210,11 @@
 ;; The power heuristic's weight for a sample of density `chosen` that
 ;; the other strategy would take with density `other`.
 (fn balanced ((chosen f32) (other f32)) (-> f32)
-    (let c2 (* chosen chosen))
-    (return (/ c2 (max (+ c2 (* other other)) 1e-30))))
+    (let scale (max chosen other))
+    (if ((<= scale 0.0) (return 0.0)))
+    (let c (/ chosen scale))
+    (let o (/ other scale))
+    (return (/ (* c c) (+ (* c c) (* o o)))))
 
 ;; ---- Scattering ----
 
@@ -342,9 +343,9 @@
     (return (textureLoad lamps (vec2i (% i width) (/ i width)) 0)))
 
 ;; Each eligible source competes by its unoccluded contribution. Starting the
-;; reservoir with the already weighted sky estimate preserves its BSDF MIS.
+;; reservoir with the weighted sky or triangle estimate preserves its BSDF MIS.
 ;; A delta light has no BSDF-hit competitor. Only the winner needs visibility.
-(struct DirectSample (direction vec3f) (distance f32) (light vec3f) (total f32))
+(struct DirectSample (endpoint vec3f) (local bool) (light vec3f) (total f32))
 
 (fn consider_lamp ((draw (ptr function DirectSample)) (i i32) (s Surface) (v vec3f)
                    (seed (ptr function u32)))
@@ -369,13 +370,18 @@
     (if ((or (<= importance 0.0) (not (finite3 light))) (return)))
     (let total (+ (get (deref draw) total) importance))
     (if ((< (* (random seed) total) importance)
-         (= (deref draw) (DirectSample dir dist light total)))
+         (= (deref draw) (DirectSample (get p xyz) true light total)))
         (else (= (get (deref draw) total) total))))
 
 (fn direct_shadow
-    ((s Surface) (v vec3f) (weight vec3f) (d vec3f) (sky vec3f) (pixel u32) (salt u32))
+    ((s Surface) (v vec3f) (weight vec3f) (proposal Proposal) (pixel u32) (salt u32))
     (var seed salt)
-    (var draw (DirectSample d 1e30 sky (dot sky env_luma)))
+    (let value (select (vec3f 0.0) (get proposal value) (finite3 (get proposal value))))
+    (var draw
+         (DirectSample (get proposal endpoint)
+                       (!= (get proposal emitter) 0)
+                       value
+                       (dot value env_luma)))
     (let moving (i32 (get (lamp_word 0) x)))
     (for ((var k 0) (< k moving) (+= k 1))
          (consider_lamp (address-of draw) (+ 1 (* 3 k)) s v (address-of seed)))
@@ -392,22 +398,23 @@
                              (address-of seed)))))
     (if ((<= (get draw total) 0.0) (return)))
     (let light (* weight (get draw light) (/ (get draw total) (dot (get draw light) env_luma))))
-    (var ray (ray_from s (get draw direction) salt (vec4f light ((bitcast f32) pixel)) (vec4f 0.0)))
-    ;; Measure from the biased ray origin so geometry behind a fixture cannot shadow it.
-    (= (get ray origin w)
-       (- (get draw distance) (dot (- (get ray origin xyz) (get s position)) (get draw direction))))
+    (var d (get draw endpoint))
+    (if ((get draw local) (= d (- d (get s position)))))
+    (var ray (ray_from s d salt (vec4f light ((bitcast f32) pixel)) (vec4f 0.0)))
+    (if ((get draw local)
+         (let segment (- (get draw endpoint) (get ray origin xyz)))
+         (let distance (length segment))
+         (if ((<= (dot segment d) 0.0) (return)))
+         (= (get ray origin w) distance)
+         (= (get ray direction xyz) (/ segment distance))))
     (let slot (atomicAdd (address-of (at counts (u32 (get wave slots z)))) 1u))
     (= (at shadows slot) ray))
 
-(fn sample_environment
+(fn sample_direct
     ((s Surface) (v vec3f) (path_weight vec3f) (pixel u32) (seed (ptr function u32)))
-    (let chosen (environment_sample
-                 (vec4f (random seed) (random seed) (random seed) (random seed))))
-    (let toward (get chosen xyz))
-    (var sky (vec3f 0.0))
-    (if
-     ((> (get chosen w) 0.0) (= sky (/ (direct_light s v toward (get chosen w)) (get chosen w)))))
-    (direct_shadow s v path_weight toward sky pixel (pcg (deref seed))))
+    (var p (draw_proposal s v (mesh_fraction) seed))
+    (if ((> (get p pdf) 0.0) (/= (get p value) (get p pdf))))
+    (direct_shadow s v path_weight p pixel (pcg (deref seed))))
 
 (fn scatter_ray
     ((s Surface)
@@ -458,7 +465,8 @@
     (let index (+ i (u32 (get tracing frame y))))
     (var site (at reservoir_input i))
     (if ((== (get site reservoir count) 0)
-         (if ((== (get tracing view z) 0.0) (= (at reservoir_output i) site)))
+         (if ((and (>= (get tracing frame z) 0) (== (get tracing view z) 0.0))
+              (= (at reservoir_output i) site)))
          (if ((uncovered pixel) (= (at radiance index) (vec4f 0.0)) (return)))
          (let ndc (- (* (/ (+ (vec2f pixel) 0.5) (vec2f size)) 2.0) 1.0))
          (let far (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) 1.0 1.0)))
@@ -478,8 +486,10 @@
                      1.0))
     (var seed (seeded index 0u))
     (let v (- (normalize sight)))
-    (= (get site reservoir) (spatial_reservoir s v pixel site (address-of seed)))
-    (if ((== (get tracing view z) 0.0) (= (at reservoir_output i) site)))
+    (if ((>= (get tracing frame z) 0)
+         (= (get site reservoir) (spatial_reservoir s v pixel site (address-of seed)))))
+    (if ((and (>= (get tracing frame z) 0) (== (get tracing view z) 0.0))
+         (= (at reservoir_output i) site)))
     (reservoir_shadow (get site reservoir) s v air index (pcg seed))
     (let spread (get tracing view x))
     (scatter_ray s v air index (* spread (length sight)) spread (address-of seed)))
@@ -501,16 +511,18 @@
     (let l (get ray direction xyz))
     (let triangle (get ray hit triangle))
     (if ((== triangle NONE)
-         (let seen (balanced (get ray more z) (environment_pdf l)))
+         (let seen (balanced (get ray more z) (* (- 1.0 (mesh_fraction)) (environment_pdf l))))
          (+= (at radiance pixel) (vec4f (* weight (environment_light l) seen) 0.0))
          (return)))
     (let width (+ (get ray more x) (* (get ray more y) (get ray hit t))))
     (var s (hit_surface triangle (get ray hit barycentric) (- l) width))
     (= (get s position) (+ (get ray origin xyz) (* l (get ray hit t))))
-    (+= (at radiance pixel) (vec4f (* weight (get s emission)) 0.0))
+    (if ((any (> (get s emission) (vec3f 0.0)))
+         (+= (at radiance pixel)
+             (vec4f (* weight (get s emission) (emission_weight ray triangle)) 0.0))))
     (if ((!= (get wave step y) 0) (return)))
     (var seed (seeded pixel 1u))
-    (sample_environment s (- l) weight pixel (address-of seed))
+    (sample_direct s (- l) weight pixel (address-of seed))
     (scatter_ray s (- l) weight pixel width (get ray more y) (address-of seed)))
 
 (fn (@compute) (@workgroup_size 8 8) gather (((@builtin global_invocation_id) id vec3u))

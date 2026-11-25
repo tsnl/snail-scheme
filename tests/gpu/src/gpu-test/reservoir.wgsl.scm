@@ -10,14 +10,17 @@
     (reservoir_draw (address-of r) y 0.5 0.25)
     (if ((or (!= (get r selected direction y) 1.0) (!= (reservoir_weight r) 1.5)) (return false)))
     (var (merged Reservoir))
+    (= (get r emitter) 19)
+    (= (get r coordinates) 65538)
     (reservoir_merge (address-of merged) r 2.0 2 0.5)
     (reservoir_merge (address-of merged) r 0.0 4 0.0)
-    (return (and (== (get merged count) 6) (== (get merged weight_sum) 6.0)
+    (return (and (== (get merged emitter) 19) (== (get merged coordinates) 65538)
+                 (== (get merged count) 6) (== (get merged weight_sum) 6.0)
                  (== (reservoir_weight merged) 0.5) (== (reservoir_weight (Reservoir)) 0.0))))
 
 ((var storage read) (@group 0) (@binding 0) (history (array SurfaceReservoir)))
 
-((var storage read_write) (@group 0) (@binding 1) (result (array vec4u 3)))
+((var storage read_write) (@group 0) (@binding 1) (result (array vec4u 4)))
 
 (var (@group 0) (@binding 2) (noisy (texture_2d f32)))
 
@@ -44,6 +47,14 @@
     ;; cos(45)/pi. Missing the shadow contribution or counting it twice
     ;; puts the raw radiance outside this interval.
     (let rgb (get (textureLoad noisy (vec2i (/ (textureDimensions noisy) 2u)) 0) xyz))
+    (let size (textureDimensions noisy))
+    (var raw (vec2f 0.0))
+    (for ((var y 0u) (< y (get size y)) (+= y 1u))
+         (for ((var x 0u) (< x (get size x)) (+= x 1u))
+              (let red (get (textureLoad noisy (vec2u x y) 0) x))
+              (+= raw (vec2f red (* red red)))))
+    (= (at result 3) (vec4u ((bitcast vec2u) (/ raw (f32 (* (get size x) (get size y)))))
+                            (u32 (get r emitter)) ((bitcast u32) (get r selected direction x))))
     (var brightness 2u)
     (if ((all (== rgb (vec3f 0.0))) (= brightness 0u))
         ((and (all (> rgb (vec3f 0.14))) (all (< rgb (vec3f 0.34)))) (= brightness 1u)))

@@ -1,4 +1,4 @@
-;; Directional reservoirs for resampled importance sampling. The Pod records
+;; Light reservoirs for resampled importance sampling. The Pod records
 ;; are the shader's types and the layout a caller can read back from the GPU.
 (define-library (snail shell graphics restir)
   (export
@@ -23,7 +23,11 @@
     (record Reservoir
       ((selected LightSample)
        (weight-sum F32)
-       (count I32))
+       (count I32)
+       ;; Zero names the sky. For a mesh sample these are its one-based
+       ;; emitter-table slot and two packed 16-bit uniform sample coordinates.
+       (emitter I32)
+       (coordinates I32))
       (deriving Pod))
 
     ;; Octahedral normal, primitive ID and previous-camera clip depth occupy

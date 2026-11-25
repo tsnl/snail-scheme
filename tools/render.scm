@@ -57,6 +57,65 @@
   ((tracer Tracer)
    (camera Camera3D)))
 
+;; Reconstruction inputs and targets share the camera, geometry and frame size.
+;; Preserve the G-buffer's native formats and layer order for tensor consumers.
+(define camera-shape (→ (Shape Camera3D)) (shape))
+(define (capture-guides (gpu Gpu) (fs Fs) (prefix String) (planes (List Plane)) (depth Plane)
+                        (width I32) (height I32)) (→ Unit)
+                        (for-each (lambda (entry)
+                                    (let ((format (● entry second)))
+                                      (write-bytes fs (string-append prefix "." (● format first))
+                                                   (read-plane gpu
+                                                               (● entry first)
+                                                               width
+                                                               height
+                                                               (● format second)))))
+                                  (zip (append planes (list depth))
+                                       (zip (list "normal.rg16f"
+                                                  "emission.rgba16f"
+                                                  "albedo.rgba8srgb"
+                                                  "material.rgba8"
+                                                  "motion.rg16f" "triangle.r32u" "depth.f32")
+                                            (list 4 8 4 4 4 4 4)))))
+
+(define (capture (gpu Gpu) (fs Fs) (shot Shot) (prefix String) (samples I64) (bounces I64)) (→ Unit)
+  (let* ((t (● shot tracer)) (camera (● shot camera))
+         (w (● t targets width)) (h (● t targets height)) (spread (/ 1.0 (i32->f32 h)))
+         (target (make-plane gpu "capture/display" w h (Rgba8Unorm) (list (RenderAttachment))))
+         (noisy (draw-sampled-traced gpu (discard-trace-history t) (● target view)
+                                     camera spread 1.0 bounces #f (EveryPixel)))
+         (first (● noisy frame)))
+    (write-bytes fs (string-append prefix ".noisy.rgba32f") (read-traced-radiance gpu noisy))
+    (write-bytes fs (string-append prefix ".camera") (pod-bytes camera-shape camera))
+    (capture-guides gpu
+                    fs
+                    (string-append prefix ".opaque")
+                    (● t targets planes)
+                    (● t targets depth)
+                    w
+                    h)
+    (match (● t targets blended)
+      ((Some b)
+       (capture-guides gpu fs (string-append prefix ".blended") (● b planes) (● b depth) w h))
+      (_ (unit)))
+    (write-bytes fs (string-append prefix ".reference.rgba32f")
+                 (trace-reference gpu noisy camera spread bounces first samples))
+    (write-file fs (string-append prefix ".json")
+                (string-append "{\"width\":" (show w) ",\"height\":" (show h) ",\"layers\":"
+                               (match (● t targets blended)
+                                 ((Some _) "[\"opaque\",\"blended\"]")
+                                 (_ "[\"opaque\"]"))
+                               ",\"noisySeed\":"
+                               (show (● t frame))
+                               ",\"firstReferenceSeed\":"
+                               (show first)
+                               ",\"referenceSamples\":"
+                               (show samples)
+                               ",\"bounces\":"
+                               (show bounces)
+                               "}"))
+    (release-plane gpu target)))
+
 (define (street (gpu Gpu) (files Resources) (stand I64) (minute I64) (w I32) (h I32) (aspect F64))
   (→ Shot)
   (let* ((shift (new-world)) (world (● shift game))
@@ -139,7 +198,16 @@
                                   (PinholeRange 0.8 0.05 32000.0)
                                   aspect
                                   1.0)))
-           (draw (render-still gpu (● shot tracer) camera spp depth (street-exposure minute))))
-      (write-bytes fs path (rgba->png w h (● draw second)))
-      (write-line out (string-append path " · " (show width) "×" (show height) " · "
-                                     (show spp) " samples/pixel · " (show depth) " bounces")))))
+           (prefix (setting args "capture" "")))
+      (if (string=? prefix "")
+          (let ((draw (render-still gpu (● shot tracer) camera spp depth (street-exposure minute))))
+            (write-bytes fs path (rgba->png w h (● draw second)))
+            (write-line out (string-append path " · " (show width) "×" (show height) " · "
+                                           (show spp) " samples/pixel · " (show depth) " bounces")))
+          (begin
+            (capture gpu fs (new Shot (tracer (● shot tracer)) (camera camera)) prefix spp depth)
+            (write-line out
+                        (string-append prefix
+                                       ".json · 1 spp input and "
+                                       (show spp)
+                                       " spp reference")))))))

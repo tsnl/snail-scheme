@@ -1,4 +1,4 @@
-;; First-hit environment lighting. In the temporal dispatch the input is
+;; First-hit direct lighting. In the temporal dispatch the input is
 ;; last frame's history and the output is scratch. In primary the input is
 ;; the completed scratch plane and the output is this frame's history.
 ((var storage read) (@group 0) (@binding 15) (reservoir_input (array SurfaceReservoir)))
@@ -7,26 +7,19 @@
 
 (var (@group 0) (@binding 17) (motion (texture_2d f32)))
 
-;; The environment's part of direct light. The BSDF escape in shade
-;; supplies the complementary MIS weight. Visibility comes from occlude.
-(fn direct_light ((s Surface) (v vec3f) (d vec3f) (pdf f32)) (-> vec3f)
-    (if ((or (<= pdf 0.0) (<= (dot (get s geometric) d) 0.0)) (return (vec3f 0.0))))
-    (return (* (environment_light d) (evaluated s v d) (balanced pdf (density s v d)))))
-
-(fn light_target ((s Surface) (v vec3f) (d vec3f) (pdf f32)) (-> f32)
-    (return (dot (direct_light s v d pdf) (vec3f 0.2126 0.7152 0.0722))))
-
-;; Fresh environment candidates for each pixel that actually traces a path.
+;; Fresh candidates for each pixel that actually traces a path.
 (fn fresh_draws () (-> i32)
     (return (select 4 2 (!= (get tracing frame w) 0))))
 
 (fn fresh_samples ((s Surface) (v vec3f) (seed (ptr function u32))) (-> Reservoir)
     (var (r Reservoir))
+    (let fraction (mesh_fraction))
     (for ((var i 0) (< i (fresh_draws)) (+= i 1))
-         (let draw (environment_sample
-                    (vec4f (random seed) (random seed) (random seed) (random seed))))
-         (let sample (LightSample (get draw xyz) (light_target s v (get draw xyz) (get draw w))))
-         (reservoir_draw (address-of r) sample (get draw w) (random seed)))
+         (let draw (draw_proposal s v fraction seed))
+         (let sample (LightSample (get draw direction) (dot (get draw value) env_luma)))
+         (if ((reservoir_draw (address-of r) sample (get draw pdf) (random seed))
+              (= (get r emitter) (get draw emitter))
+              (= (get r coordinates) (get draw coordinates)))))
     (return r))
 
 ;; Clip z is affine in view-space depth for both camera projections.
@@ -46,10 +39,12 @@
 
 (fn reuse ((r (ptr function Reservoir)) (s Surface) (v vec3f) (donor Reservoir) (m i32) (u f32))
     (var target_value 0.0)
+    (var candidate donor)
     (if ((> (get donor weight_sum) 0.0)
-         (let d (get donor selected direction))
-         (= target_value (light_target s v d (environment_pdf d)))))
-    (reservoir_merge r donor target_value m u))
+         (let draw (selected_proposal s v donor (mesh_fraction)))
+         (= (get candidate selected direction) (get draw direction))
+         (= target_value (dot (get draw value) env_luma))))
+    (reservoir_merge r candidate target_value m u))
 
 (fn temporal_reuse ((r (ptr function Reservoir)) (s Surface) (v vec3f) (p vec2i) (u f32))
     (let size (vec2f (textureDimensions depth)))
@@ -89,7 +84,7 @@
     (let v (normalize (- (get camera eye xyz) (get s position))))
     (var seed (seeded (+ i (u32 (get tracing frame y))) 2u))
     (var r (fresh_samples s v (address-of seed)))
-    (if ((!= (get tracing frame z) 0)
+    (if ((> (get tracing frame z) 0)
          (temporal_reuse (address-of r) s v p (random (address-of seed)))))
     (let depth_now (clip_depth (get camera view_projection) (get s position)))
     (= (at reservoir_output i)
@@ -114,9 +109,8 @@
     (return r))
 
 (fn reservoir_shadow ((r Reservoir) (s Surface) (v vec3f) (air vec3f) (pixel u32) (seed u32))
-    (var sky (vec3f 0.0))
-    (let d (get r selected direction))
+    (var (draw Proposal))
     (if ((> (get r weight_sum) 0.0)
-         (let light (* (direct_light s v d (environment_pdf d)) (reservoir_weight r)))
-         (if ((finite3 light) (= sky light)))))
-    (direct_shadow s v air d sky pixel seed))
+         (= draw (selected_proposal s v r (mesh_fraction)))
+         (*= (get draw value) (reservoir_weight r))))
+    (direct_shadow s v air draw pixel seed))

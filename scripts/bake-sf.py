@@ -461,14 +461,14 @@ class Mesh:
         for i in range(4):
             self.quad(mat, lo[i], lo[i - 1], hi[i - 1], hi[i])
 
-    def light(self, x, y, z, kind):
+    def street_light(self, x, y, z):
         self.lamps.append(
             struct.pack(
                 "<HHHBB",
                 round((x - self.x) * 100),
                 round((y + 12) * 100),
                 round((z - self.z) * 100),
-                kind,
+                0,
                 0,
             )
         )
@@ -485,7 +485,7 @@ class Mesh:
             y + 4.02,
             math.atan2(dz, dx),
         )
-        self.light(x + dx, y + 3.98, z + dz, 0)
+        self.street_light(x + dx, y + 3.98, z + dz)
 
     def encode(self):
         # A tile's positions and UVs share an eight-byte vertex. The GPU unpacks
@@ -564,7 +564,6 @@ def street_props(mesh, props, roads, occupancy):
                 a,
             )
             mesh.box("lamp", x - dx * 0.19, z - dz * 0.19, 1.9, 0.15, 0.26, y + 2.02, a)
-            mesh.light(x - dx * 0.35, y + 1.98, z - dz * 0.35, 1)
             shops.append((round(x - mesh.x), round(z - mesh.z), name))
             if ident % 3 == 0:
                 mesh.box("bin", x - dx * 1.5, z - dz * 1.5, 0.58, 0.55, 0.91, y)

@@ -1,7 +1,6 @@
 ;; The path tracer's shaders, printed to WGSL when this library is built,
 ;; each from the file of its name: `unpack-shader` from unpack.wgsl.scm,
-;; and so `layers-shader`, `surface-shader`, `scene-shader`,
-;; `path-shader`, `restir-shader` and `compose-shader`.
+;; the emitter, path, reservoir and reference kernels follow the same convention.
 (generate-library (snail shell graphics trace shaders)
                   (import
                    (snail core base)
@@ -24,6 +23,15 @@
                                           (new Pair
                                             (first "scene-shader")
                                             (second (link-file "scene.wgsl.scm")))
+                                          (new Pair
+                                            (first "emitter-build-shader")
+                                            (second (link-file "emitter-build.wgsl.scm")))
+                                          (new Pair
+                                            (first "emitter-light-shader")
+                                            (second (link-file "emitter-light.wgsl.scm")))
+                                          (new Pair
+                                            (first "reference-shader")
+                                            (second (link-file "reference.wgsl.scm")))
                                           (new Pair
                                             (first "path-shader")
                                             (second (link-file "path.wgsl.scm")))
