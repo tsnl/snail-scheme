@@ -177,12 +177,30 @@
                            ((Deliver) (● (current-drop w) stop)) (_ (● w cab position)))))))
     (define (on-foot-walls (g Area) (w Game) (p XZ) (reach F64)) (→ (List Footprint))
       (Cons (parked-footprint (● w cab) sedan) (area-solids g p reach)))
+    ;; A legacy save may be moving without a saved fleet. Restore only cars
+    ;; with a safe lane behind it. Keep a smaller fleet if no lane qualifies.
+    (define (initial-traffic (g Area) (r Roads) (b Body) (occupied (List XZ))) (→ (List Motor))
+      (if (< (distance (● b velocity) (xz 0.0 0.0)) 1.0)
+          (map (lambda (i) (seed-motor r (● b position) i)) (iota 5))
+          (let loop ((i 0) (cars (Nil)) (positions occupied))
+            (if (or (= i 64) (= (length cars) 5)) (reverse cars)
+                (match (replacement-motor g r b positions i)
+                  ((Some m)
+                   (loop (+ i 1) (Cons m cars) (Cons (● (motor-body r m) position) positions)))
+                  (_ (loop (+ i 1) cars positions)))))))
     (define (populate! (g Area) (r Roads) (s CabShift)) (→ Unit)
       (let* ((w (● s game)) (p (● (carrier w) position)))
         (set! (● s falls) (Nil)) (set! (● s braking) (Nil))
-        (set! (● w traffic) (map (lambda (i) (seed-motor r p i)) (iota 5)))
-        (set! (● w residents) (map (lambda (i) (sidewalk-walker g r p (+ i 5))) (iota 6)))
-        (set! (● s cars) (take (● s cars) (min 1 (length (● s cars))))) (ensure-cars! g r s)))
+        (when (null? (● w residents))
+          (set! (● w residents) (map (lambda (i) (sidewalk-walker g r p (+ i 5))) (iota 6))))
+        (when (null? (● w traffic))
+          (set! (● w traffic)
+                (initial-traffic g
+                                 r
+                                 (● w cab)
+                                 (map (lambda (p) (● p body position)) (● w residents))))
+          (set! (● s cars) (take (● s cars) (min 1 (length (● s cars))))))
+        (ensure-cars! g r s)))
     (define (offer! (w Game) (dispatch I64)) (→ Unit)
       (set! (● w dispatch) dispatch) (set! (● w metres) 0.0) (set! (● w fare) (Waiting))
       (set! (● w passenger) (waiting-rider (current-pickup w))) (set! (● w passenger-gait) resting)
@@ -323,11 +341,26 @@
             (drive 0.0 0.0 #t))))
     (define (local-motor (g Area) (roads Roads) (w Game) (m Motor) (c RigidBody)
                          (nearby (List XZ)) (i I64)) (→ (Pair Motor RigidBody))
-                         (let ((at (● w cab position)) (b (chassis-body c)))
-                           (if (or (> (distance at (● b position)) 190.0) (= (● m from) (● m to)))
-                               (let ((spawn (seed-motor roads at (+ i (modulo (● w tick) 17)))))
-                                 (new Pair (first spawn) (second (spawn-motor g roads spawn))))
-                               (new Pair (first (traffic-route roads m b nearby)) (second c)))))
+                         (let* ((b (chassis-body c))
+                                (cab (● w cab))
+                                (d (distance (● cab position) (● b position)))
+                                (dead (= (● m from) (● m to)))
+                                (try (and (or (> d 190.0) (and dead (> d 130.0)))
+                                          (= (modulo (● w tick) 15) (* 2 i))))
+                                (next (if try
+                                          (replacement-motor g
+                                                             roads
+                                                             cab
+                                                             nearby
+                                                             (+ (quotient (● w tick) 15) (* 37 i)))
+                                          (None))))
+                           (match next
+                             ((Some spawn)
+                              (new Pair (first spawn) (second (spawn-motor g roads spawn))))
+                             ((None)
+                              (new Pair
+                                (first (if dead m (traffic-route roads m b nearby)))
+                                (second c))))))
     (define (near-car? (pos XZ) (cars (List RigidBody)) (radius F64)) (→ Bool)
       (any? (lambda (c) (< (distance pos (xz (● c center x) (● c center z))) radius)) cars))
     (define (walker-at (g Area) (b Body) (active (Option RigidBody)) (cars (List RigidBody)))

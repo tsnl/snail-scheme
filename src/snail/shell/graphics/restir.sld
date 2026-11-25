@@ -26,11 +26,12 @@
        (count I32))
       (deriving Pod))
 
-    ;; The donor's normal and clip z before the perspective divide.
-    ;; Both fit in 16 bytes. A pixel with no surface has count zero.
+    ;; Octahedral normal, primitive ID and previous-camera clip depth occupy
+    ;; 16 bytes. Only spatial reuse may borrow a neighbouring triangle.
     (record SurfaceReservoir
       ((reservoir Reservoir)
-       (normal Vec3f)
+       (normal Vec2f)
+       (triangle I32)
        (clip-depth F32))
       (deriving Pod))
 

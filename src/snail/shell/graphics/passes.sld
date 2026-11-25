@@ -25,7 +25,7 @@
    Photographic
    make-post
    resize-post
-   draw-post)
+   draw-post screen-pass screen-group)
   (import
    (snail core base)
    (snail shell gpu)

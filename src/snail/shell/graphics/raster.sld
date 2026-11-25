@@ -25,6 +25,7 @@
    PinholeRange
    Parallel
    Camera3D
+   Camera3D-view-projection-set Camera3D-inverse-set
    Camera3D-scene-time-set
    camera-3d
    Style

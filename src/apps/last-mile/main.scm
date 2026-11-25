@@ -27,6 +27,8 @@
    (use Bool)
    (paused Bool)
    (redraw Bool)
+   (next-frame I64)
+   (last-frame I64)
    (locked Bool)
    (yaw F64)
    (pitch F64)
@@ -40,7 +42,7 @@
     (wide #f) (choice (modulo (● w game dispatch) 16))
     (use #f)
     (paused #f)
-    (redraw #t)
+    (redraw #t) (next-frame 0) (last-frame -1)
     (locked #f)
     (yaw 0.0)
     (pitch 0.28)
@@ -159,31 +161,46 @@
 
 ;; ---- Page and save ----
 
-(define (play (events Events) (gpu Gpu) (dom Dom) (renderer Renderer) (hud Hud)
+(define frame-period (→ I64) 33333334)
+
+;; Carry the deadline across refresh ticks. Missed slots are skipped. A late
+;; tick cannot start a second frame on the next 60 or 120 Hz refresh.
+(define (present! (c Controls) (clock Clock)) (→ (Option I32))
+  (let* ((now ((● clock monotonic-nanoseconds))) (last (● c last-frame)) (due (● c next-frame)))
+    (if (and (>= last 0) (or (< (+ now 1000000) due) (< (- now last) 32333334))) (None)
+        (begin (set! (● c last-frame) now)
+               (set! (● c next-frame) (if (or (< last 0) (>= (- now due) frame-period))
+                                          (+ now frame-period) (+ due frame-period)))
+               (Some (if (< last 0) 0 (i64->i32 (min 250 (quotient (- now last) 1000000)))))))))
+
+(define (play (events Events) (clock Clock) (gpu Gpu) (dom Dom) (renderer Renderer) (hud Hud)
               (g Area) (roads Roads) (world Shift) (save (Fn Shift → Unit))) (→ Unit)
               (let ((c (controls world)))
                 (let loop ((s world) (since 100))
                   (let ((w (● s game)))
                     (match (next-event events)
                       ((FrameEvent ms)
-                       (when (null? (● w traffic))
+                       (when (null? (● w residents))
                          (focus-area! g (● (carrier w) position))
                          (populate! g roads s)
                          (set! (● c before) (snapshot s)) (reset-view! renderer))
                        (elapsed! g roads c s ms)
+                       (unless (● c paused) (prepare-street! gpu renderer (carrier w)))
                        (let ((due (>= (+ since ms) 100)))
                          (when due (show! dom hud g roads w (● c paused) (● c wide) (● c choice)
                                           (render-resolution renderer (● s resolution))))
                          ;; The pause menu keeps the last presented street on screen. Resize
                          ;; and quality changes request a fresh trace at the chosen dimensions.
                          (when (or (not (● c paused)) (● c redraw))
-                           (draw! renderer
-                                  gpu
-                                  (● c before)
-                                  s
-                                  (/ (i64->f64 (● c carry)) (i64->f64 tick-ms))
-                                  (● c yaw) (● c pitch) ms)
-                           (set! (● c redraw) #f))
+                           (match (present! c clock)
+                             ((Some elapsed) (draw! renderer
+                                                    gpu
+                                                    (● c before)
+                                                    s
+                                                    (/ (i64->f64 (● c carry)) (i64->f64 tick-ms))
+                                                    (● c yaw) (● c pitch) elapsed)
+                              (set! (● c redraw) #f))
+                             ((None) (unit))))
                          ((● events report-ready)) (loop s (if due 0 (+ since ms)))))
                       ((InputEvent event)
                        (let ((paused (● c paused)))
@@ -203,6 +220,7 @@
                       ((SaveRequested) (save s) (loop s since)) (_ (loop s since)))))))
 
 (define (main (events Events)
+              (clock Clock)
               (gpu Gpu)
               (dom Dom)
               (resources Resources)
@@ -232,5 +250,5 @@
                                                            models
                                                            g
                                                            w)))
-                    ((Ok renderer) (play events gpu dom renderer hud g roads w save))
+                    ((Ok renderer) (play events clock gpu dom renderer hud g roads w save))
                     ((Err why) (write-line out why) (panic why))))))))

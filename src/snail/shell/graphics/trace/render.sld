@@ -28,16 +28,17 @@
    most-bounces
    TraceSampling
    EveryPixel
+   Reconstruct
    Checkerboard
    draw-sampled-traced
-   make-tracer
+   make-tracer make-graded-tracer
    make-moving-tracer
    make-graded-moving-tracer
    discard-trace-history
    refit-tracer!
    draw-moving-traced
    resize-tracer
-   retrace
+   retrace retrace-built
    draw-traced
    tracer-frames)
   (import
@@ -47,6 +48,7 @@
    (snail shell graphics kernel)
    (snail shell graphics raster)
    (snail shell graphics passes)
+   (snail shell graphics upscale)
    (snail shell graphics bvh)
    (snail shell graphics restir)
    (snail shell graphics svgf)
@@ -100,6 +102,7 @@
        (svgf Svgf)
        (blended-svgf (Option Svgf))
        (post Post)
+       (upscale (Option Upscaler))
        (last (Option Camera3D))
        (bounces I64)
        (still I32)
@@ -118,6 +121,7 @@
        (camera GpuBuffer)
        (tracing GpuBuffer)
        (blended-tracing GpuBuffer)
+       (second-sample GpuBuffer)
        (wave GpuBuffer)
        (counts GpuBuffer)
        (cleared-counts GpuBuffer)
@@ -175,7 +179,15 @@
                          (height I32)
                          (layer-size I32))
       (→ Tracer)
-      (tracer-over gpu (world-of gpu scene environment #f) format width height layer-size (Filmic)))
+      (make-graded-tracer gpu scene environment format width height layer-size (Filmic)))
+    (define (make-graded-tracer (gpu Gpu) (scene Scene) (environment Environment)
+                                (format TextureFormat)
+                                (width I32)
+                                (height I32)
+                                (layer-size I32)
+                                (tone Tone))
+      (→ Tracer)
+      (tracer-over gpu (world-of gpu scene environment #f) format width height layer-size tone))
 
     (define (make-moving-tracer (gpu Gpu) (scene Scene) (environment Environment)
                                 (format TextureFormat)
@@ -210,7 +222,7 @@
                                               width
                                               height))
                              (blended-svgf (refiltered gpu kit (None) targets))
-                             (post post)
+                             (post post) (upscale (None))
                              (last (None))
                              (bounces 0)
                              (still 0)
@@ -226,7 +238,7 @@
             (rebound gpu tracer
                      (● tracer world)
                      (targets-for gpu width height (● tracer world scene blended))
-                     (resize-post gpu (● tracer post) width height)))))
+                     (resize-post gpu (● tracer post) width height) #t))))
 
     ;; The tracer drawing another scene in another environment with the
     ;; same pipelines and targets, but for a blended layer the new scene
@@ -234,18 +246,29 @@
     ;; environment are the caller's, as they were given.
     (define (retrace (gpu Gpu) (tracer Tracer) (scene Scene) (environment Environment))
       (→ Tracer)
-      (let ((moving (match (● tracer world bvh refitter) ((Some _) #t) (_ #f)))
-            (targets (● tracer targets)))
+      (let ((build (match (● tracer world bvh refitter) ((Some _) build-moving-bvh) (_ build-bvh))))
+        (retrace-built gpu tracer scene environment (build gpu (scene-triangles scene)))))
+
+    ;; The new tree may be prepared while the previous neighbourhood draws.
+    ;; Ownership transfers here. A scene cut invalidates history, but the same
+    ;; render targets and filter allocations can hold the new first frame.
+    (define (retrace-built (gpu Gpu)
+                           (tracer Tracer)
+                           (scene Scene)
+                           (environment Environment)
+                           (tree Bvh))
+      (→ Tracer)
+      (let* ((targets (● tracer targets))
+             (resize (if (some-blended? targets) (not (● scene blended)) (● scene blended))))
         (release-bvh gpu (● tracer world bvh))
-        (rebound gpu
-                 tracer
-                 (world-of gpu scene environment moving)
-                 (if (if (some-blended? targets) (● scene blended) (not (● scene blended)))
-                     targets
-                     (begin
-                       (release-targets gpu targets)
-                       (targets-for gpu (● targets width) (● targets height) (● scene blended))))
-                 (● tracer post))))
+        (rebound gpu tracer (new World (scene scene) (bvh tree) (environment environment))
+                 (if resize (begin (release-targets gpu targets)
+                                   (targets-for gpu
+                                                (● targets width)
+                                                (● targets height)
+                                                (● scene blended)))
+                     targets)
+                 (● tracer post) resize)))
 
     (define (some-blended? (targets Targets)) (→ Bool)
       (match (● targets blended)
@@ -255,8 +278,14 @@
     ;; The tracer over another world or other targets: new bindings in
     ;; place of the old, the filters told of the planes, and a history
     ;; that starts again, from a camera that has not moved.
-    (define (rebound (gpu Gpu) (tracer Tracer) (world World) (targets Targets) (post Post))
+    (define (rebound (gpu Gpu)
+                     (tracer Tracer)
+                     (world World)
+                     (targets Targets)
+                     (post Post)
+                     (resize Bool))
       (→ Tracer)
+      (when resize (match (● tracer upscale) ((Some u) (release-upscaler gpu u)) (_ (unit))))
       (for-each (lambda (group) ((● gpu destroy) (BindGroupObject group)))
                 (groups-of (● tracer bindings)))
       (new Tracer
@@ -264,13 +293,15 @@
         (world world)
         (targets targets)
         (bindings (bind gpu (● tracer kit) world targets))
-        (svgf (resize-svgf gpu (● tracer svgf)
-                           (svgf-inputs (● tracer kit) targets)
-                           (● post targets light-view)
-                           (● targets width)
-                           (● targets height)))
-        (blended-svgf (refiltered gpu (● tracer kit) (● tracer blended-svgf) targets))
-        (post post)
+        (svgf (if resize (resize-svgf gpu (● tracer svgf)
+                                      (svgf-inputs (● tracer kit) targets)
+                                      (● post targets light-view)
+                                      (● targets width)
+                                      (● targets height)) (● tracer svgf)))
+        (blended-svgf (if resize
+                          (refiltered gpu (● tracer kit) (● tracer blended-svgf) targets)
+                          (● tracer blended-svgf)))
+        (post post) (upscale (if resize (None) (● tracer upscale)))
         (last (None))
         (bounces (● tracer bounces))
         (still 0)
@@ -306,6 +337,7 @@
     (define (filtered (kit Kit) (planes (List Plane)) (depth Plane) (noisy Plane)) (→ SvgfInputs)
       (new SvgfInputs
         (noisy (● noisy view))
+        (triangles (● (list-ref planes 5) view))
         (normals (● (list-ref planes 0) view))
         (emission (● (list-ref planes 1) view))
         (albedo (● (list-ref planes 2) view))
@@ -319,13 +351,34 @@
     ;; The first frame and a camera or scene change cover every pixel.
     (enum TraceSampling
       (EveryPixel)
-      (Checkerboard))
+      (Checkerboard)
+      (Reconstruct ((width I32) (height I32) (samples I32))))
 
     ;; One frame: the G-buffers, the paths of each, which scatter at most
     ;; `bounces` times, the filters, the blended layer composed over the
     ;; first hits, the post passes. The history starts again, as for a
     ;; moving camera, when the camera's uniform or the bounces differ from
     ;; the last frame's, as they do on the first.
+    (define (scaled-output (gpu Gpu) (t Tracer) (sampling TraceSampling)) (→ (Option Upscaler))
+      (let ((old (● t upscale)))
+        (match sampling
+          ((Reconstruct w h n)
+           (unless (and (> w 0) (> h 0) (or (= n 1) (= n 2)))
+             (panic "invalid reconstruction size or sample count"))
+           (if (match old ((Some u) (and (= w (● u width)) (= h (● u height)))) (_ #f)) old
+               (begin (match old ((Some u) (release-upscaler gpu u)) (_ (unit)))
+                      (Some (make-upscaler gpu
+                                           (● t post)
+                                           (● t kit camera)
+                                           (● t targets depth)
+                                           (match (● t targets blended)
+                                             ((Some b) (● b depth))
+                                             (_ (● t targets depth)))
+                                           (● t targets planes)
+                                           w
+                                           h)))))
+          (_ (match old ((Some u) (release-upscaler gpu u)) (_ (unit))) (None)))))
+
     (define (discard-trace-history (t Tracer)) (→ Tracer)
       (Tracer-last-set (Tracer-sky-revision-set t -1) (None)))
 
@@ -350,13 +403,23 @@
       (→ Tracer)
       (unless (and (>= bounces 1) (<= bounces most-bounces))
         (panic (string-append "bounces outside 1 to " (show most-bounces))))
-      (let* ((same-sky (= (● tracer sky-revision) (● tracer world environment revision)))
+      (let* ((out (scaled-output gpu tracer sampling))
+             (quick (match out ((Some _) #t) (_ #f)))
+             (samples (match sampling ((Reconstruct _ _ n) n) (_ 1)))
+             (view-camera (match out
+                            ((Some _)
+                             (jitter-camera camera
+                                            (sample-phase (● tracer frame))
+                                            (● tracer targets width)
+                                            (● tracer targets height)))
+                            (_ camera)))
+             (same-sky (= (● tracer sky-revision) (● tracer world environment revision)))
              (still (if (or (not same-sky) moved
                             (not (= bounces (● tracer bounces)))
                             (not (same-camera? (● tracer last) camera)))
                         0
                         (+ (● tracer still) 1)))
-             (checker (match sampling ((Checkerboard) (> still 0)) ((EveryPixel) #f)))
+             (checker (match sampling ((Checkerboard) (> still 0)) (_ #f)))
              (width (● tracer targets width))
              (columns (if checker (quotient (+ width 1) 2) width))
              (encoder ((● gpu create-command-encoder)))
@@ -364,11 +427,11 @@
         ((● gpu write-buffer)
          (● kit camera)
          0
-         (pod-bytes camera-shape (after (● tracer last) camera)))
+         (pod-bytes camera-shape (after (● tracer last) view-camera)))
         ((● gpu write-buffer)
          (● kit tracing)
          0
-         (pod-bytes tracing-shape (tracing-of tracer spread checker 0)))
+         (pod-bytes tracing-shape (tracing-of tracer spread checker 0 0 samples quick)))
         ((● gpu write-buffer)
          (● kit blended-tracing)
          0
@@ -376,21 +439,45 @@
                     (tracing-of tracer
                                 spread
                                 checker
-                                (* (● tracer targets width) (● tracer targets height)))))
+                                (* (● tracer targets width) (● tracer targets height))
+                                0
+                                samples
+                                quick)))
         ((● gpu write-buffer) (● kit wave) 0 (waves bounces))
         ((● gpu write-buffer) (● kit counts) 0 (zeros counts-size))
         (draw-surfaces gpu encoder tracer)
-        (trace-paths gpu encoder tracer (● tracer bindings paths) columns bounces)
-        (trace-blended gpu encoder tracer columns bounces)
-        (let ((svgf (filter-svgf-frame gpu
-                                       encoder
-                                       (● tracer svgf)
-                                       (= still 0)
-                                       exposure
-                                       (match (● tracer last) ((None) #t) (_ #f))))
-              (blended-svgf (filter-blended gpu encoder tracer (= still 0) exposure)))
+        (trace-sample gpu encoder tracer columns bounces (= samples 1))
+        (when (= samples 2)
+          (let* ((bytes (i64->i32 (stride tracing-shape)))
+                 (layer (* (● tracer targets width) (● tracer targets height)))
+                 (second (● kit second-sample)))
+            ((● gpu write-buffer)
+             second
+             0
+             (pack tracing-shape (list (tracing-of tracer spread #f 0 1 samples quick)
+                                       (tracing-of tracer spread #f layer 1 samples quick))))
+            ((● gpu copy-buffer-to-buffer) encoder second 0 (● kit tracing) 0 bytes)
+            ((● gpu copy-buffer-to-buffer) encoder second bytes (● kit blended-tracing) 0 bytes)
+            (clear-counts gpu encoder kit)
+            (trace-sample gpu encoder tracer columns bounces #t)))
+        (let ((svgf (filter-svgf-history gpu
+                                         encoder
+                                         (● tracer svgf)
+                                         (= still 0)
+                                         exposure quick
+                                         (match (● tracer last) ((None) #t) (_ #f))))
+              (blended-svgf (filter-blended gpu encoder tracer (= still 0) exposure quick)))
           (draw-composed gpu encoder tracer)
-          (draw-post gpu encoder canvas (● tracer post))
+          (match out
+            ((Some u) (resolve-upscaled gpu encoder canvas u (● tracer post) (● tracer frame)
+                                        (and same-sky
+                                             (match (● tracer upscale)
+                                               ((Some prior)
+                                                (and (= (● prior width) (● u width))
+                                                     (= (● prior height) (● u height))))
+                                               (_ #f))
+                                             (match (● tracer last) ((Some _) #t) (_ #f)))))
+            (_ (draw-post gpu encoder canvas (● tracer post))))
           ((● gpu submit) (list ((● gpu finish) encoder)))
           (new Tracer
             (kit kit)
@@ -400,44 +487,48 @@
             (svgf svgf)
             (blended-svgf blended-svgf)
             (post (● tracer post))
-            (last (Some camera))
+            (upscale out) (last (Some view-camera))
             (bounces bounces)
             (still still)
             (sky-revision (● tracer world environment revision)) (frame (+ (● tracer frame) 1))))))
 
-    ;; The blended layer's paths, after the first hits' and from counts
-    ;; cleared again, where the scene has the layer.
-    (define (trace-blended (gpu Gpu)
-                           (encoder GpuCommandEncoder)
-                           (tracer Tracer)
-                           (columns I32)
-                           (bounces I64))
+    (define (clear-counts (gpu Gpu) (encoder GpuCommandEncoder) (kit Kit)) (→ Unit)
+      ((● gpu copy-buffer-to-buffer)
+       encoder
+       (● kit cleared-counts)
+       0
+       (● kit counts)
+       0
+       (i64->i32 counts-size)))
+
+    ;; Both samples reuse the bounded ray queues. Only the first exports a
+    ;; reservoir to the next frame. Gather their mean before denoising.
+    (define (trace-sample (gpu Gpu)
+                          (encoder GpuCommandEncoder)
+                          (tracer Tracer)
+                          (columns I32)
+                          (bounces I64)
+                          (last Bool))
       (→ Unit)
+      (trace-paths gpu encoder tracer (● tracer bindings paths) columns bounces last)
       (match (● tracer bindings blended)
-        ((Some groups)
-         (let ((kit (● tracer kit)))
-           ((● gpu copy-buffer-to-buffer) encoder
-            (● kit cleared-counts)
-            0
-            (● kit counts)
-            0
-            (i64->i32 counts-size))
-           (trace-paths gpu encoder tracer (● groups paths) columns bounces)))
+        ((Some groups) (clear-counts gpu encoder (● tracer kit))
+         (trace-paths gpu encoder tracer (● groups paths) columns bounces last))
         ((None) (unit))))
 
     (define (filter-blended (gpu Gpu) (encoder GpuCommandEncoder)
                             (tracer Tracer)
                             (moved Bool)
-                            (exposure F32))
+                            (exposure F32) (quick Bool))
       (→ (Option Svgf))
       (match (● tracer blended-svgf)
         ((Some svgf)
-         (Some (filter-svgf-frame gpu
-                                  encoder
-                                  svgf
-                                  moved
-                                  exposure
-                                  (match (● tracer last) ((None) #t) (_ #f)))))
+         (Some (filter-svgf-history gpu
+                                    encoder
+                                    svgf
+                                    moved
+                                    exposure quick
+                                    (match (● tracer last) ((None) #t) (_ #f)))))
         ((None) (None))))
 
     ;; The wavefront, in one compute pass: the first hits' paths, or the
@@ -447,7 +538,7 @@
     ;; longest possible queue, one ray per sampled column per row.
     (define (trace-paths (gpu Gpu) (encoder GpuCommandEncoder)
                          (tracer Tracer)
-                         (paths PathGroups) (columns I32) (bounces I64))
+                         (paths PathGroups) (columns I32) (bounces I64) (last Bool))
       (→ Unit)
       (let* ((pass ((● gpu begin-compute-pass) encoder))
              (steps (● tracer kit steps))
@@ -478,7 +569,8 @@
                     ((● gpu set-compute-bind-group) pass 2 (● bound shade-environment))
                     (over-queue gpu pass (● steps shade) (● bounce shade) capacity))
                   (take (● bound bounces) bounces))
-        (over-screen gpu pass (● targets width) height (● steps gather) (● paths gather))
+        (when last
+          (over-screen gpu pass (● targets width) height (● steps gather) (● paths gather)))
         ((● gpu end-compute-pass) pass)))
 
     (define (over-screen (gpu Gpu) (pass GpuComputePass)
@@ -523,11 +615,25 @@
         ((None) #f)))
 
     ;; A wave's uniform, its radiance starting at `start`.
-    (define (tracing-of (tracer Tracer) (spread F32) (checker Bool) (start I32)) (→ Tracing)
+    (define (tracing-of (tracer Tracer)
+                        (spread F32)
+                        (checker Bool)
+                        (start I32)
+                        (index I32)
+                        (samples I32)
+                        (quick Bool))
+      (→ Tracing)
       (new Tracing
-        (view (new Vec4f (x spread) (y (i32->f32 (● tracer kit layer-size))) (z 0.0) (w 0.0)))
+        (view (new Vec4f
+                (x spread)
+                (y (i32->f32 (● tracer kit layer-size)))
+                (z (i32->f32 index))
+                (w (/ 1.0 (i32->f32 samples)))))
         (frame (new Vec4i (x (● tracer frame)) (y start)
-                    (z (if (= (● tracer sky-revision) (● tracer world environment revision)) 1 0))
+                    (z (if (and (= index 0)
+                                (= (● tracer sky-revision) (● tracer world environment revision)))
+                           (if quick 2 1)
+                           0))
                     (w (if checker 1 0))))))
 
     ;; Every triangle's first hit, in one draw; then, where the scene has
@@ -951,6 +1057,10 @@
         (steps (path-steps gpu))
         (rays (make-ray-kernels gpu (string-append (declarations material-shape) scene-shader)))
         (camera (uniform-buffer gpu "trace/camera" (zeros (stride camera-shape))))
+        (second-sample (storage-buffer gpu
+                                       "trace/second-sample"
+                                       (* 2 (stride tracing-shape))
+                                       (list (CopySrc) (CopyDst))))
         (tracing (uniform-buffer gpu "trace/tracing" (zeros (stride tracing-shape))))
         (blended-tracing
          (uniform-buffer gpu "trace/blended-tracing" (zeros (stride tracing-shape))))
