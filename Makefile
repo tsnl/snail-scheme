@@ -96,11 +96,12 @@ splats:
 PAGES_APPS = siegework viewer splats hearsay
 
 pages: $(PAGES_APPS)
-	"$(MDBOOK)" build --dest-dir build/pages
+	"$(MDBOOK)" build --dest-dir build/pages-input
 	for app in $(PAGES_APPS); do \
-	  mkdir -p build/pages/play/$$app && \
-	  cp -R build/src/apps/$$app/main/. build/pages/play/$$app/ && \
-	  test -f build/pages/play/$$app/main.wasm || exit 1; \
+	  mkdir -p build/pages-input/play/$$app && \
+	  cp -R build/src/apps/$$app/main/. build/pages-input/play/$$app/ && \
+	  test -f build/pages-input/play/$$app/main.wasm || exit 1; \
 	done
+	python3 host/cloudflare/pack.py build/pages-input build/pages
 	test -f build/pages/index.html
 	test -f build/pages/games/siegework.html

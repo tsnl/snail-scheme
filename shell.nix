@@ -56,6 +56,7 @@ pkgs.mkShell {
       rustup
       nodejs_26
       mdbook
+      python3
       tree-sitter
       binaryen
     ]

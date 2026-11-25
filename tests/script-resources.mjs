@@ -20,7 +20,7 @@ import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {createWasi, linkModule, objectPath, runMain} from '../host/browser/load.mjs';
+import {blobPartSize, createWasi, linkModule, objectPath, partPath, runMain} from '../host/browser/load.mjs';
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
@@ -30,7 +30,7 @@ const output = join(project, 'build/main');
 const run = path => execute(process.execPath, ['--no-warnings', join(root, 'host/native/run-snail.mjs'), path]);
 const write = async (name, contents) => { await mkdir(join(project, name, '..'), {recursive: true}); await writeFile(join(project, name), contents); };
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
-const hero = Buffer.from([1, 2, 3, 255]), villain = Buffer.from([7]);
+const hero = Buffer.from([1, 2, 3, 255]), villain = Buffer.from([7, 8, 9, 10]);
 const resource = (directory, bytes) => readFile(join(directory, objectPath(digest(bytes))));
 
 // The browser host fetches a static page's files relative to its module,
@@ -50,11 +50,11 @@ async function pageOutput(directory, name) {
     const read = async file => {
       const response = await fetch(new URL(file, base));
       if (!response.ok) throw new Error(`${response.status} fetching ${file}`);
-      return new Uint8Array(await response.arrayBuffer());
+      return response.arrayBuffer();
     };
     const wasi = createWasi({print: (fd, line) => lines.push(line)});
     let program;
-    const tasks = createTasks(() => program && taskExports(program));
+    const tasks = createTasks(() => program && taskExports(program), {reportError(error) { throw error; }});
     program = await linkModule(read, name, wasi, {}, () => tasks);
     runMain(program.exports, tasks);
     try { await tasks.drive(); }
@@ -92,7 +92,7 @@ try {
     assert.match(remembered, new RegExp(`^${digest(bytes)} ${bytes.length} \\d+ \\S*art/${name}\\.bin$`, 'm'));
   await writeFile(digests, remembered.replace(`${digest(hero)} `, `${digest(villain)} `));
   await build('cli');
-  assert.equal((await run(join(output, 'main.wasm'))).stdout, '7\n', 'a remembered digest is trusted');
+  assert.equal((await run(join(output, 'main.wasm'))).stdout, '7,8,9,10\n', 'a remembered digest is trusted');
   await writeFile(digests, remembered);
   await build('cli');
   // The workspace's store holds each file once, and every build names it
@@ -140,6 +140,45 @@ try {
   await rm(join(project, 'main.resources/link'));
   await write('public/resources.json', '{}');
   await assert.rejects(build('page'), /public file conflicts with a build artifact/);
+  await rm(join(project, 'public/resources.json'));
+
+  // The identical file is both published by name and linked by the program.
+  const large = Buffer.alloc(blobPartSize + 3, 17);
+  large.set([93, 94, 95, 96], blobPartSize - 1);
+  await write('main.resources/large.bin', large);
+  await write('main.resources/exact.bin', large.subarray(0, blobPartSize));
+  await write('main.resources/empty.bin', Buffer.alloc(0));
+  await write('main.scm', `(import (snail core base) (snail core io) (snail shell resource))
+    (define (main (out OutputPort) (resources Resources)) (→ Unit)
+      (let ((b (read-resource resources (link-file "main.resources/large.bin"))))
+        (write-line out (string-join (list (show (array-length b))
+          (show (u8->i32 (array-ref b 24999999))) (show (u8->i32 (array-ref b 25000000)))
+          (show (u8->i32 (array-ref b 25000002)))) ","))))`);
+  const sha = digest(large), paths = [partPath(sha, 0), partPath(sha, 1)];
+  const expected = '25000003,93,94,96';
+  await build('cli');
+  const manifest = JSON.parse(await readFile(join(output, 'resources.json')));
+  assert.deepEqual(manifest['large.bin'], {sha256: sha, size: large.length});
+  for (const file of ['empty.bin', 'exact.bin']) {
+    const {sha256, size} = manifest[file];
+    assert.equal((await stat(join(output, objectPath(sha256)))).size, size);
+    await assert.rejects(stat(join(output, partPath(sha256, 0))), {code: 'ENOENT'});
+  }
+  await assert.rejects(stat(join(output, objectPath(sha))), {code: 'ENOENT'});
+  for (const [i, path] of paths.entries()) {
+    const file = await stat(join(output, path));
+    assert.equal(file.size, i === 0 ? blobPartSize : 3);
+    assert.equal(file.ino, (await stat(join(shared, path.slice('store/'.length)))).ino);
+  }
+  assert.equal((await run(join(output, 'main.wasm'))).stdout.trim(), expected);
+  await rm(join(shared, paths[1].slice('store/'.length)));
+  await build('page');
+  const multipart = await pageOutput(output, 'main.wasm');
+  assert.equal(multipart.output, expected);
+  assert.deepEqual(multipart.fetched.filter(path => path.startsWith('/store/')), paths.map(path => '/' + path));
+  // Correct length and wrong contents must fail the full digest check.
+  await writeFile(join(output, paths[1]), Buffer.from([0, 0, 0]));
+  await assert.rejects(pageOutput(output, 'main.wasm'), /SHA-256/);
   console.log('script resources passed');
 } finally {
   await rm(project, {recursive: true, force: true});

@@ -91,9 +91,9 @@ function withStubs(module, imports, stubbed, stub) {
 
 // A module asks for each file it links, `link-file` in (snail shell
 // resource), by importing a function from "snail.runtime.link" named for
-// the SHA-256 of the file's bytes, which answers the file's handle. A
-// handle is only that name: the host reads the file, an object of the
-// program's store at store/sha256/AB/DIGEST, the first time a task asks for
+// the SHA-256 of the file's bytes (plus its length for multipart files).
+// The import answers a handle. The host reads the file from the
+// program's store the first time a task asks for
 // its bytes, and keeps them, so a file the program never reads is never
 // fetched. Handles index `files`, one for each digest the program has
 // linked, which only grows. The bytes under a digest never change, so a
@@ -113,7 +113,10 @@ function linkImports(read, modules, files) {
 }
 
 async function readLinked({name, read}) {
-  try { return new Uint8Array(await read(name)); }
+  try {
+    const [digest, size] = name.split(':');
+    return new Uint8Array(await read(digest, size === undefined ? undefined : Number(size)));
+  }
   catch (error) { throw new Error(`cannot read the linked file ${name}: ${error.message}`, {cause: error}); }
 }
 
@@ -121,7 +124,41 @@ async function readLinked({name, read}) {
 // the digest's first two hex digits, as every build lays out its store
 // (the builder's "Linked files").
 export const objectPath = digest => `store/sha256/${digest.slice(0, 2)}/${digest}`;
-const objectReader = read => digest => read(objectPath(digest));
+export const blobPartSize = 25_000_000;
+export const partPath = (digest, index) => `store/chunks/${digest.slice(0, 2)}/${digest}/${index}`;
+
+// The import or resource catalog gives the length. Each numbered part has
+// exactly its portion of that length, including a full-sized final part.
+export async function readBlobParts(digest, size, read) {
+  if (!/^[0-9a-f]{64}$/.test(digest) || !Number.isSafeInteger(size) || size <= blobPartSize || size > 0x7fffffff)
+    throw new Error('invalid multipart blob identity or byte length');
+  let bytes;
+  for (let offset = 0, index = 0; offset < size; offset += blobPartSize, index++) {
+    const length = Math.min(size - offset, blobPartSize);
+    const raw = await read(partPath(digest, index), length, offset);
+    const part = ArrayBuffer.isView(raw) ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength) : new Uint8Array(raw);
+    if (part.length !== length) throw new Error(`part ${index} of ${digest}: expected ${length} bytes, received ${part.length}`);
+    bytes ??= new Uint8Array(size);
+    bytes.set(part, offset);
+  }
+  return bytes;
+}
+
+export function readStoredBlob(read, digest, size) {
+  return size === undefined ? read(objectPath(digest)) : readBlobParts(digest, size, path => read(path));
+}
+
+export async function matchesDigest(bytes, digest) {
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('') === digest;
+}
+
+const objectReader = read => async (digest, size) => {
+  const bytes = await readStoredBlob(read, digest, size);
+  if (size !== undefined && globalThis.crypto?.subtle && !await matchesDigest(bytes, digest))
+    throw new Error('multipart blob did not match SHA-256 ' + digest);
+  return bytes;
+};
 
 // The `Resources` capability of (snail shell resource): a task starts reading a
 // file by handle under its ticket (tasks.mjs), finishes the ticket for

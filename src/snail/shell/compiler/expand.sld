@@ -8,6 +8,7 @@
    expand-program
    Generate
    LinkedFile
+   blob-part-size
    digested-file
    program-links)
   (import
@@ -263,6 +264,10 @@
        (path String)
        (size I64)
        (modified I64)))
+
+    ;; Small links retain their original import name. A multipart link also
+    ;; tells the host its byte length, so it can request exactly its parts.
+    (define blob-part-size (→ I64) 25000000)
 
     ;; A `link-handle` as the library's body expands: the global its
     ;; expression calls, its path made canonical, where that finds the
@@ -598,8 +603,11 @@
         (modified (● status modified))))
 
     (define (link-import (file LinkedFile)) (→ Value)
-      (Foreign (new Import (module "snail.runtime.link") (symbol (● file digest)))
-               (mono-scheme (TFun (Nil) (TCon "I32" (Nil))))))
+      (let ((name (if (> (● file size) blob-part-size)
+                      (string-append (● file digest) ":" (i64->string (● file size)))
+                      (● file digest))))
+        (Foreign (new Import (module "snail.runtime.link") (symbol name))
+                 (mono-scheme (TFun (Nil) (TCon "I32" (Nil)))))))
 
     (define (file-digest (fs Fs) (path String)) (→ String)
       (bytes->hex (sha256 (read-bytes fs path))))

@@ -70,6 +70,8 @@ that its file ships ([linked files](../snail-scheme/types.md#linked-files)).
 
 On HTTPS or localhost the browser looks up each digest in Cache Storage, promotes verified entries from the earlier IndexedDB cache, and counts incoming response bytes when it needs a download. An interrupted or invalid response never enters the cache. If storage fills up, the current run can still use the verified response. The page, Wasm and small catalog load on navigation. An offline application shell requires separate handling. Saved application state continues to use IndexedDB.
 
+Above 25,000,000 bytes the browser fetches numbered parts in order. Progress counts bytes across part boundaries. It checks each part’s length and the reassembled file’s SHA-256 before writing cache entries of at most 25,000,000 bytes. It writes part zero last, so a partial cache write is retried. A retry after an interrupted download starts with the first part. Existing whole-file cache entries migrate when read. When the first part returns HTTP 404, the reader can still fetch an older publisher’s single object.
+
 For a Snail HTTP server, call `static-resource-service` from `(snail shell static-resource serve)` once with the server’s `Resources` and the linked path/resource pairs for the bundle. The returned function takes the request method and decoded path segments relative to the mount. It answers `Some Response` for a known catalog or object on GET or HEAD, and `None` lets the server try its next route. The HTTP exchange writes the correct HEAD framing. [Publishing a catalog](../snail-scheme/scripts.md#static-resource-catalogs) · [Linking a client build into a server](../snail-scheme/projects.md#embedding-a-build)
 
 ## `(snail shell process)`
