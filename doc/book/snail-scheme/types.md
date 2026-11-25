@@ -284,9 +284,9 @@ references. JavaScript can retain those references and pass them to synchronous
 Wasm constructors/projectors, but cannot inspect their fields or substitute a
 JavaScript object, string or typed array. Exposed `String` and `Bytes` are opaque
 managed references; the staging convention above applies to calls into foreign imports.
-Affine values, including records that contain them, cannot cross this unrestricted
-boundary. Exposed signatures remain monomorphic; a parameter whose type the
-target provides is a capability the build supplies, and the rest are the host's.
+Call-scoped refs can only be passed between Snail functions. Exposed signatures
+remain monomorphic. The build supplies parameters whose types the target
+provides as capabilities. The host supplies the rest.
 A function export may infer its concrete signature, and then asks its
 target for nothing; its type variables still generalize, so an unannotated
 generic identity function cannot be exposed.
