@@ -61,7 +61,7 @@ producer's `main` asks its target for each
 compile-time declarations. Recipe inputs, failures and cycles are tracked
 by the [compiler input protocol](compilers.md#compiler-inputs).
 
-A native producer can also run a build tool. Last Mile links its Ink sources in the recipe, asks for `Processes` to run inklecate, and returns ordinary dialogue definitions for the game. Both browser and Node builds use that producer. [Ink recipe](../games/last-mile.md#write-dialogue-in-ink)
+A native producer can also run a build tool. The Ink recipe links its sources, asks for `Processes` to run inklecate, and returns ordinary dialogue definitions. Both browser and Node builds use that producer. [Compiling Ink](../libraries/games.md#compiling-ink)
 
 `link-file` resolves relative to the recipe's own file.
 The first embeds a dependency as a literal; the second makes a linked resource

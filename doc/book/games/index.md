@@ -12,5 +12,3 @@ save.
   prototypes to play: the rumor mill and the favor ledger.
   **[Play them](../play/hearsay/)**. Its characters are drawn from
   Liberated Pixel Cup art, credited on the Credits screen of its menu.
-
-- Pick up Rosa on Russian Hill, follow the GPS, and work a taxi shift across San Francisco. [Last Mile Taxi](last-mile.md) · [Play](../play/last-mile/).

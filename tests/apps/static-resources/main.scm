@@ -1,0 +1,22 @@
+(import
+ (snail core base)
+ (snail core table)
+ (snail shell dom)
+ (snail shell fetch)
+ (only (snail shell page) Events)
+ (snail shell static-resource))
+
+(define (main (fetch Fetch) (store StaticResources) (dom Dom) (events Events)) (→ Unit)
+  (let* ((attr (lambda (key value) ((● dom set-attribute) ((● dom document-root)) key value)))
+         (progress (lambda ((p StaticProgress)) (→ Unit)
+                     (attr "data-progress"
+                           (string-append (show (● p downloaded)) "/" (show (● p cached))
+                                          "/" (show (● p total))))))
+         (url "resources.json"))
+    (match (fetch-catalog fetch url)
+      ((Err why) (attr "data-result" why))
+      ((Ok catalog)
+       (match (acquire-files store url catalog progress)
+         ((Ok files) (attr "data-result" (show (table-count files))))
+         ((Err why) (attr "data-result" why))))))
+  ((● events report-ready)))
