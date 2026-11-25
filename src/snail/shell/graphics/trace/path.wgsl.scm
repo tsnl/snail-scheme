@@ -334,22 +334,79 @@
                  payload
                  more)))
 
-(fn shadow_ray ((s Surface) (d vec3f) (light vec3f) (pixel u32) (seed u32))
-    (let slot (atomicAdd (address-of (at counts (u32 (get wave slots z)))) 1u))
-    (= (at shadows slot) (ray_from s d seed (vec4f light ((bitcast f32) pixel)) (vec4f 0.0))))
+(var (@group 1) (@binding 5) (lamps (texture_2d f32)))
 
-;; The environment proposal at later bounces.
+(fn lamp_word ((i i32)) (-> vec4f)
+    (let width (i32 (get (textureDimensions lamps) x)))
+    (return (textureLoad lamps (vec2i (% i width) (/ i width)) 0)))
+
+;; Each eligible source competes by its unoccluded contribution. Starting the
+;; reservoir with the already weighted sky estimate preserves its BSDF MIS.
+;; A delta light has no BSDF-hit competitor. Only the winner needs visibility.
+(struct DirectSample (direction vec3f) (distance f32) (light vec3f) (total f32))
+
+(fn consider_lamp ((draw (ptr function DirectSample)) (i i32) (s Surface) (v vec3f)
+                   (seed (ptr function u32)))
+    (let p (lamp_word i))
+    (let delta (- (get p xyz) (get s position)))
+    (let d2 (dot delta delta))
+    (if ((or (>= d2 (* (get p w) (get p w))) (< d2 1e-8)) (return)))
+    (let dist (sqrt d2))
+    (let dir (/ delta dist))
+    (if ((<= (dot (get s geometric) dir) 0.0) (return)))
+    (let axis (lamp_word (+ i 2)))
+    (var angular 1.0)
+    (if ((>= (get axis w) 0.0)
+         (= angular
+            (smoothstep (get axis w) (mix (get axis w) 1.0 0.45) (dot (- dir) (get axis xyz))))
+         (if ((<= angular 0.0) (return)))))
+    (let q (/ d2 (* (get p w) (get p w))))
+    (let falloff (- 1.0 (* q q)))
+    (let light (* (evaluated s v dir) (get (lamp_word (+ i 1)) xyz)
+                  (/ (* angular falloff falloff) (max 0.01 d2))))
+    (let importance (dot light env_luma))
+    (if ((or (<= importance 0.0) (not (finite3 light))) (return)))
+    (let total (+ (get (deref draw) total) importance))
+    (if ((< (* (random seed) total) importance)
+         (= (deref draw) (DirectSample dir dist light total)))
+        (else (= (get (deref draw) total) total))))
+
+(fn direct_shadow
+    ((s Surface) (v vec3f) (weight vec3f) (d vec3f) (sky vec3f) (pixel u32) (salt u32))
+    (var seed salt)
+    (var draw (DirectSample d 1e30 sky (dot sky env_luma)))
+    (let moving (i32 (get (lamp_word 0) x)))
+    (for ((var k 0) (< k moving) (+= k 1))
+         (consider_lamp (address-of draw) (+ 1 (* 3 k)) s v (address-of seed)))
+    (let width (i32 (get (textureDimensions lamps) x)))
+    (let grid (lamp_word width))
+    (let cell (vec2i (floor (/ (- (get s position xz) (get grid xy)) (get grid z)))))
+    (if ((and (all (>= cell (vec2i 0))) (all (< cell (vec2i (i32 (get grid w))))))
+         (let span (lamp_word (+ width 1 (get cell x) (* (get cell y) (i32 (get grid w))))))
+         (for ((var k 0) (< k (i32 (get span y))) (+= k 1))
+              (consider_lamp (address-of draw)
+                             (+ (i32 (get span x)) (* 3 k))
+                             s
+                             v
+                             (address-of seed)))))
+    (if ((<= (get draw total) 0.0) (return)))
+    (let light (* weight (get draw light) (/ (get draw total) (dot (get draw light) env_luma))))
+    (var ray (ray_from s (get draw direction) salt (vec4f light ((bitcast f32) pixel)) (vec4f 0.0)))
+    ;; Measure from the biased ray origin so geometry behind a fixture cannot shadow it.
+    (= (get ray origin w)
+       (- (get draw distance) (dot (- (get ray origin xyz) (get s position)) (get draw direction))))
+    (let slot (atomicAdd (address-of (at counts (u32 (get wave slots z)))) 1u))
+    (= (at shadows slot) ray))
+
 (fn sample_environment
     ((s Surface) (v vec3f) (path_weight vec3f) (pixel u32) (seed (ptr function u32)))
     (let chosen (environment_sample
                  (vec4f (random seed) (random seed) (random seed) (random seed))))
     (let toward (get chosen xyz))
-    (let f (evaluated s v toward))
-    (if ((and (> (get chosen w) 0.0) (> (dot f f) 0.0))
-         (let light (*
-                     (environment_light toward)
-                     (/ (balanced (get chosen w) (density s v toward)) (get chosen w))))
-         (shadow_ray s toward (* path_weight f light) pixel (pcg (deref seed))))))
+    (var sky (vec3f 0.0))
+    (if
+     ((> (get chosen w) 0.0) (= sky (/ (direct_light s v toward (get chosen w)) (get chosen w)))))
+    (direct_shadow s v path_weight toward sky pixel (pcg (deref seed))))
 
 (fn scatter_ray
     ((s Surface)

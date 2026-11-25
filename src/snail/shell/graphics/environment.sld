@@ -54,7 +54,8 @@
     ;; Radiance and its cumulative sampling table, plus two texels holding
     ;; an optional solar disc's direction, angular radius and irradiance.
     (record Environment
-      ((radiance Plane)
+      ((revision I64)
+       (radiance Plane)
        (table Plane)
        (disc Plane)))
 
@@ -267,10 +268,10 @@
 
     (define (new-sky-light (gpu Gpu) (width I64) (s EnvironmentShape) (entry String)) (→ SkyLight)
       (let* ((h (quotient width 2))
-             (env (new Environment
-                    (radiance (plane gpu "environment/radiance" width h (Rgba32Float)))
-                    (table (plane gpu "environment/table" (+ width 1) (+ h 1) (R32Float)))
-                    (disc (plane gpu "environment/disc" 2 1 (Rgba32Float)))))
+             (env (new Environment (revision 0)
+                       (radiance (plane gpu "environment/radiance" width h (Rgba32Float)))
+                       (table (plane gpu "environment/table" (+ width 1) (+ h 1) (R32Float)))
+                       (disc (plane gpu "environment/disc" 2 1 (Rgba32Float)))))
              (light (new SkyLight
                       (environment env)
                       (kernels (environment-kernels gpu (list "sky" "atmosphere" "solar_disc")))
@@ -293,6 +294,7 @@
              (entries (list (TextureEntry 5 (● e radiance view))
                             (buffer 6 (● light sums))
                             (TextureEntry 7 (● e table view)))))
+        (set! (● e revision) (+ (● e revision) 1))
         ((● gpu write-buffer) (● light uniform) 0 (pod-bytes shape-shape s))
         (bound gpu pass (● light kernels) entry (list uniform (TextureEntry 4 (● e radiance view))))
         (dispatch-texels gpu pass (i64->i32 w) (i64->i32 h))
@@ -341,7 +343,7 @@
         ((● gpu destroy) (BufferObject sums))
         (for-each (lambda (named) ((● gpu destroy) (ComputePipelineObject (● named second))))
                   kernels)
-        (new Environment (radiance radiance) (table table)
+        (new Environment (revision 0) (radiance radiance) (table table)
              (disc (plane gpu "environment/disc" 2 1 (Rgba32Float))))))
 
     (define (release-environment (gpu Gpu) (environment Environment)) (→ Unit)

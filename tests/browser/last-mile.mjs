@@ -43,7 +43,7 @@ async function restart(accept) {
   await clicked;
 }
 const ready = () => until(async () => {
-  const {ready, error} = await browser.evaluate('({...document.body.dataset})');
+  const {ready, error} = await browser.evaluate('document.body && ({...document.body.dataset})') ?? {};
   if (error) throw new Error(error);
   return ready;
 }, 'first rendered frame', 130);
@@ -150,6 +150,11 @@ try {
   await key('b', false);
   await expect('.meter', '$4.00');
   await expect('h2', 'Jones Street');
+  const fareHour = parseInt(await read('.time'), 10);
+  await tap('l');
+  await until(async () => parseInt(await read('.time'), 10) % 12 === (fareHour + 6) % 12, 'time change during the fare');
+  await expect('.stage', 'METER RUNNING');
+
   await tap('1');
   await expect('.speech', 'Leavenworth');
   await until(() => browser.evaluate('document.querySelector(".route").style.backgroundImage.includes("polyline")'), 'GPS polyline');

@@ -1,7 +1,19 @@
 ;; Road grip acts only while the wheels meet the ground. Gravity and impact
 ;; impulses always act on the free chassis, including a parked or overturned car.
 (define-library (snail shell game chassis)
-  (export Drive drive road-chassis chassis-body CarStep car-step step-cars! chassis-clearance)
+  (export Drive
+          drive
+          road-chassis
+          chassis-body
+          CarStep
+          car-step
+          step-cars!
+          step-traffic!
+          WalkerStep
+          walker-step
+          walker-body
+          walker-height
+          chassis-clearance)
   (import
    (snail core base)
    (snail shell math)
@@ -196,23 +208,133 @@
                                                             dt)
                                            contacts))))
                            (pair-contacts others shape reach dt) others)))))
+    ;; ---- Pedestrian contacts ----
+
+    ;; A standing person's contact volume extends from shoes to shoulders.
+    ;; Until a moving vehicle touches it the walker remains under foot control.
+    (define walker-height (→ F64) 0.82)
+    (record WalkerStep
+      ((body RigidBody)
+       (road RoadPatch)
+       (active Bool)))
+    (define (walker-body (b RigidBody) (heading F64)) (→ Body)
+      (new Body (position (flat (● b center))) (velocity (flat (velocity b))) (heading heading)))
+    (define (walker-step (g Area) (b Body) (motion (Option RigidBody))) (→ WalkerStep)
+      (let* ((p (● b position)) (road (road-patch g p (area-solids g p 3.0)))
+             (physical (match motion ((Some c) (copy-rigid c))
+                              (_ (let ((c (box-body 72.0 (v3 0.55 1.64 0.42)
+                                                    (v+ (● road point) (v3 0.0 walker-height 0.0))
+                                                    (around-y (negate (● b heading))))))
+                                   (set! (● c momentum)
+                                         (scaled (v3 (● b velocity x) 0.0 (● b velocity z)) 72.0))
+                                   c)))))
+        (new WalkerStep (body physical) (road road) (active (match motion ((Some _) #t) (_ #f))))))
+    (define person-shape (→ (List Ball))
+      (list (ball (v3 0.0 0.49 0.0) 0.33) (ball (v3 0.0 0.08 0.0) 0.34)
+            (ball (v3 0.0 -0.50 0.0) 0.32)))
+    ;; The car-car hull rounds the bumpers at a single height. Where a
+    ;; standing walker meets a bonnet or boot, the contact plane rises.
+    ;; The solver applies the same impulse in opposite directions to both bodies.
+    (define (bonnet-contact (hit Contact) (dt F64)) (→ Contact)
+      (let* ((car (● hit b)) (q (● car orientation))
+             (at (unrotated q (v- (● hit point) (● car center))))
+             (n (unrotated q (● hit normal))))
+        (if (or (< (abs (● at z)) 1.2) (< (abs (● n z)) 0.5) (< (● (rotated q up) y) 0.65))
+            hit
+            (contact (● hit a) car (● hit point)
+                     (rotated q (v3 (● n x) (max (● n y) 0.56) (● n z))) 0.0 0.04 0.15 dt))))
+    (define (walker-contacts! (w WalkerStep) (cars (List CarStep)) (shape (List Ball))
+                              (fixed RigidBody) (dt F64)) (→ (List Contact))
+                              (let* ((b (● w body))
+                                     (volume (world-balls b person-shape))
+                                     (road (● w road))
+                                     (hits (fold-left (lambda (out car)
+                                                        (let ((c (● car body)))
+                                                          (if (or (> (squared (v- (● b center)
+                                                                                  (● c center)))
+                                                                     18.0)
+                                                                  (and (not (● w active))
+                                                                       (< (squared (velocity c))
+                                                                          0.16)))
+                                                              out
+                                                              (let ((hits (sphere-contacts b
+                                                                                           (if (● w
+                                                                                                  active)
+                                                                                               volume
+                                                                                               (take
+                                                                                                volume
+                                                                                                2))
+                                                                                           c
+                                                                                           (world-balls
+                                                                                            c
+                                                                                            shape)
+                                                                                           0.32
+                                                                                           0.16
+                                                                                           dt)))
+                                                                (append (if (● w active)
+                                                                            hits
+                                                                            (map (lambda (hit)
+                                                                                   (bonnet-contact
+                                                                                    hit
+                                                                                    dt))
+                                                                                 hits))
+                                                                        out)))))
+                                                      (Nil) cars)))
+                                (unless (null? hits) (set! (● w active) #t))
+                                (if (not (● w active)) (Nil)
+                                    (begin (accelerate! b (v3 0.0 -9.81 0.0) dt)
+                                           (fold-left (lambda (out part)
+                                                        (match (plane-contact b
+                                                                              fixed
+                                                                              part
+                                                                              (● road point)
+                                                                              (● road normal)
+                                                                              0.78
+                                                                              dt)
+                                                          ((Some c) (Cons c out)) (_ out)))
+                                                      (append hits
+                                                              (wall-contacts b
+                                                                             fixed
+                                                                             volume
+                                                                             (● road walls)
+                                                                             dt))
+                                                      volume)))))
     ;; At the speed limit two oncoming bumpers move less than a hull diameter
     ;; relative to each other in one substep. Contacts are visited in car order.
     (define (step-cars! (size CarDimensions) (cars (List CarStep)) (seconds F64)) (→ Unit)
-      (let* ((shape (hull size)) (wheels (tyres size)) (fixed (fixed-body))
-             (count (max 1 (f64->i64 (ceiling (/ seconds 0.0125)))))
-             (dt (/ seconds (i64->f64 count))))
-        (when (> dt 0.0)
-          (for-each (lambda (_)
-                      (let ((contacts (concatenate (map (lambda (c)
-                                                          (street-forces! c
-                                                                          size
-                                                                          fixed
-                                                                          shape
-                                                                          wheels
-                                                                          dt))
-                                                        cars))))
-                        (solve-contacts!
-                         (append (pair-contacts cars shape (+ 1.0 (● size length)) dt) contacts)
-                         6)
-                        (for-each (lambda (s) (integrate! (● s body) dt)) cars))) (iota count)))))))
+      (step-traffic! size cars (Nil) seconds))
+    (define (step-traffic! (size CarDimensions) (cars (List CarStep)) (people (List WalkerStep))
+                           (seconds F64)) (→ Unit)
+                           (let* ((shape (hull size)) (wheels (tyres size)) (fixed (fixed-body))
+                                  (count (max 1 (f64->i64 (ceiling (/ seconds 0.0125)))))
+                                  (dt (/ seconds (i64->f64 count))))
+                             (when (> dt 0.0)
+                               (for-each (lambda (_)
+                                           (let ((contacts (concatenate (map (lambda (c)
+                                                                               (street-forces! c
+                                                                                               size
+                                                                                               fixed
+                                                                                               shape
+                                                                                               wheels
+                                                                                               dt))
+                                                                             cars))))
+                                             (solve-contacts!
+                                              (append (concatenate (map (lambda (p)
+                                                                          (walker-contacts! p
+                                                                                            cars
+                                                                                            shape
+                                                                                            fixed
+                                                                                            dt))
+                                                                        people))
+                                                      (append (pair-contacts cars
+                                                                             shape
+                                                                             (+ 1.0 (● size length))
+                                                                             dt)
+                                                              contacts))
+                                              6)
+                                             (for-each (lambda (s) (integrate! (● s body) dt)) cars)
+                                             (for-each (lambda (p)
+                                                         (when (● p active)
+                                                           (integrate! (● p body) dt)))
+                                                       people)))
+                                         (iota count)))))))
