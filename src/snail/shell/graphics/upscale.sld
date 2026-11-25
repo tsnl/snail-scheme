@@ -37,13 +37,11 @@
     (define camera-shape (→ (Shape Camera3D)) (shape))
     (define (make-upscaler (gpu Gpu) (post Post) (camera GpuBuffer) (depth Plane) (front Plane)
                            (planes (List Plane)) (w I32) (h I32)) (→ Upscaler)
-                           (let* ((kernel (compute-kernel gpu ((● gpu create-shader-module)
-                                                               (new ShaderModuleDescriptor
-                                                                 (label "upscale")
-                                                                 (code (string-append
-                                                                        (declarations camera-shape)
-                                                                        upscale-shader))))
-                                                          "upscale" "resolve"))
+                           (let* ((module ((● gpu create-shader-module)
+                                           (new ShaderModuleDescriptor (label "upscale")
+                                                (code (string-append (declarations camera-shape)
+                                                                     upscale-shader)))))
+                                  (kernel (compute-kernel gpu module "upscale" "resolve"))
                                   (uniform (uniform-buffer gpu
                                                            "upscale/jitter"
                                                            (pod-bytes shift-shape
@@ -74,6 +72,7 @@
                                          (TextureEntry 5 (● (list-ref planes 1) view))
                                          (TextureEntry 6 (● (list-ref planes 5) view))
                                          (TextureEntry 11 (● front view)))))
+                             ((● gpu destroy) (ModuleObject module))
                              (new Upscaler
                                (width w)
                                (height h)

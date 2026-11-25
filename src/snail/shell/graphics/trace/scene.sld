@@ -293,6 +293,7 @@
                              (code (string-append (declarations unpack-shape) unpack-shader)))))
                (kernel (compute-kernel gpu module "scene" "pose_vertices"))
                (encoder ((● gpu create-command-encoder))))
+          ((● gpu destroy) (ModuleObject module))
           ((● gpu copy-buffer-to-buffer) encoder (● source vertices) 0 world 0 (i64->i32 size))
           ((● gpu submit) (list ((● gpu finish) encoder)))
           (new MovingScene (scene (Scene-vertices-set source world)) (rest (● source vertices))
@@ -549,6 +550,7 @@
                 "unpack_triangles"
                 triangle-count
                 (append read (list (BufferEntry 3 indices 0 0))))
+        ((● gpu destroy) (ModuleObject module))
         ((● gpu end-compute-pass) pass)
         ((● gpu submit) (list ((● gpu finish) encoder)))))
 
