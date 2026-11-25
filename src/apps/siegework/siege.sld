@@ -257,7 +257,8 @@
                           (eq-bool? (● route burrower) burrower)))
                    (● world routes))
         ((Some route) (new Pair (first (● route field)) (second world)))
-        ((None) (let ((field (distance-field (passable world burrower) (goal-cells world goal))))
+        ((None) (let ((field (search-distances (● world land paths) (passable world burrower)
+                                               (goal-cells world goal))))
                   (new Pair (first field)
                        (second (World-routes-set world
                                                  (take
@@ -285,11 +286,10 @@
     (define (passable (world World) (burrower Bool)) (→ (Array Bool))
       (array-generate (* map-size map-size)
                       (lambda (index)
-                        (let ((cell (index-cell index)))
-                          (match (ground-at (● world land) cell)
-                            ((Rock) (or burrower (opened? world cell)))
-                            ((Water) #f)
-                            (_ #t))))))
+                        (match (array-ref (● world land ground) index)
+                          ((Rock) (or burrower (array-ref (● world opened) index)))
+                          ((Water) #f)
+                          (_ #t)))))
 
     ;; ---- Movement ----
 

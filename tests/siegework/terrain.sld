@@ -103,7 +103,23 @@
         land
         (first-of biome (+ seed 1)))))
 
+(define (check-paths) (→ Unit)
+  (let* ((paths (make-path-queue)) (count (* map-size map-size)) (open (make-array count #f))
+         (corner (index-cell (- map-size 1))))
+    (for-each (lambda (i) (array-set! open i #t)) (list (- map-size 2) map-size))
+    (let* ((first (search-distances paths open (list corner corner)))
+           (second (search-distances paths open (list (index-cell 0) corner)))
+           (empty (search-distances paths open (Nil))))
+      (unless (and (= (array-ref first (- map-size 1)) 0) (= (array-ref first (- map-size 2)) 1)
+                   (= (array-ref first map-size) -1) (= (array-ref second map-size) 1)
+                   (= (array-ref empty 0) -1))
+        (panic "distance fields lost a closed goal, crossed a row edge or shared their result")))
+    (let ((all (search-distances paths open (Cons corner (map index-cell (iota count))))))
+      (unless (array-fold (lambda (ok n) (and ok (= n 0))) #t all)
+        (panic "the queue did not fit every goal")))))
+
 (define (main (out OutputPort)) (→ Unit)
+  (check-paths)
 
   (for-each (lambda (seed) (describe out seed)) (list 1 2 3 4 5 6 7 8))
   (let ((lands (map (lambda (i) (new-land (+ i 1))) (iota 64))))

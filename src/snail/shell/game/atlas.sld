@@ -13,6 +13,7 @@
           area-height
           area-slope
           area-solids
+          area-trace-distance
           nearest-sign
           sector-id)
   (import
@@ -189,17 +190,32 @@
       (/ (- (area-height g (offset p axis (* 0.5 span)))
             (area-height g (offset p axis (* -0.5 span))))
          span))
-    (define (area-solids (a Area) (p XZ) (reach F64)) (→ (List Footprint))
+    (define (near-sector? (ground Terrain) (side F64) (p XZ) (reach F64)) (→ Bool)
+      (let ((x (- (● p x) (i64->f64 (● ground west)))) (z (- (● p z) (i64->f64 (● ground north)))))
+        (and (>= x (- 0.0 reach)) (<= x (+ side reach))
+             (>= z (- 0.0 reach)) (<= z (+ side reach)))))
+
+    (define (fold-area-spans (a Area) (p XZ) (radius F64) (initial A)
+                             (visit (Fn A F64 F64 F64 F64 → A)))
+      (→ A) (∀ (A))
       (let ((side (i64->f64 (● a atlas side))))
         (fold-left (lambda (out s)
-                     (let* ((g (● s ground))
-                            (x (- (● p x) (i64->f64 (● g west))))
-                            (z (- (● p z) (i64->f64 (● g north)))))
-                       (if (and (>= x (- 0.0 reach))
-                                (<= x (+ side reach))
-                                (>= z (- 0.0 reach))
-                                (<= z (+ side reach)))
-                           (append (nearby-solids g p reach) out) out))) (Nil) (● a sectors))))
+                     (let ((g (● s ground)))
+                       (if (near-sector? g side p radius)
+                           (fold-solid-spans g p radius out visit) out)))
+                   initial (● a sectors))))
+
+    (define (area-solids (a Area) (p XZ) (reach F64)) (→ (List Footprint))
+      (fold-area-spans a p reach (Nil) collect-footprint))
+
+    ;; The camera needs only the nearest distance. Read the resident spans
+    ;; directly, retaining one scalar as the scan moves between sectors.
+    (define (area-trace-distance (a Area) (p XZ) (direction XZ) (reach F64)) (→ F64)
+      (let ((radius (* reach (max 1.0 (max (abs (● direction x)) (abs (● direction z)))))))
+        (fold-area-spans a p radius reach
+                         (lambda (nearest west east north south)
+                           (ray-box-distance p direction nearest west east north south)))))
+
     (define (nearest-sign (a Area) (p XZ)) (→ String)
       (let ((near (fold-left (lambda (best s)
                                (fold-left (lambda (v sign) (let ((d (distance p (● sign position))))

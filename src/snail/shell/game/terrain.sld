@@ -1,7 +1,13 @@
 ;; A metre-space ground mesh. Each cell indexes its own triangles, so contact
 ;; uses the same plane the renderer draws, including the bevel on a kerb.
 (define-library (snail shell game terrain)
-  (export Terrain read-terrain ground-height ground-slope nearby-solids)
+  (export Terrain
+          read-terrain
+          ground-height
+          ground-slope
+          nearby-solids
+          fold-solid-spans
+          collect-footprint)
   (import
    (snail core base)
    (snail shell little-endian)
@@ -115,8 +121,9 @@
 
     ;; Buildings and trunks form metre-wide scanline strips. Road surfaces
     ;; and sidewalks belong solely to the ground mesh and never block a sweep.
-    (define (scan (g Terrain) (row I64) (low F64) (high F64) (acc (List Footprint)))
-      (→ (List Footprint))
+    (define (scan (g Terrain) (row I64) (low F64) (high F64) (acc A)
+                  (visit (Fn A F64 F64 F64 F64 → A)))
+      (→ A) (∀ (A))
       (let* ((b (● g data))
              (end (entry b (● g lines) (+ row 1)))
              (z (i64->f64 (+ (● g north) row))))
@@ -125,12 +132,24 @@
               (let* ((at (+ (● g spans) (* i 4))) (x (i64->f64 (+ (● g west) (u16 b at))))
                      (right (i64->f64 (+ (● g west) (u16 b (+ at 2))))))
                 (cond ((> x high) out) ((< right low) (loop (+ i 1) out))
-                      (else (loop (+ i 1) (Cons (new Footprint (west x) (east right)
-                                                     (north z) (south (+ z 1.0))) out)))))))))
+                      (else (loop (+ i 1) (visit out x right z (+ z 1.0))))))))))
 
-    (define (nearby-solids (g Terrain) (p XZ) (reach F64)) (→ (List Footprint))
+    (define (fold-solid-spans (g Terrain) (p XZ) (reach F64) (initial A)
+                              (visit (Fn A F64 F64 F64 F64 → A)))
+      (→ A) (∀ (A))
       (let* ((low (i64->f64 (● g north))) (z (- (● p z) low))
              (last (min (* (● g rows) (● g cell)) (+ 1 (f64->i64 (floor (+ z reach)))))))
-        (let loop ((j (max 0 (f64->i64 (floor (- z reach))))) (out (Nil)))
+        (let loop ((j (max 0 (f64->i64 (floor (- z reach))))) (out initial))
           (if (>= j last) out
-              (loop (+ j 1) (scan g j (- (● p x) reach) (+ (● p x) reach) out))))))))
+              (loop (+ j 1) (scan g j (- (● p x) reach) (+ (● p x) reach) out visit))))))
+
+    (define (collect-footprint (walls (List Footprint))
+                               (west F64)
+                               (east F64)
+                               (north F64)
+                               (south F64))
+      (→ (List Footprint))
+      (Cons (new Footprint (west west) (east east) (north north) (south south)) walls))
+
+    (define (nearby-solids (g Terrain) (p XZ) (reach F64)) (→ (List Footprint))
+      (fold-solid-spans g p reach (Nil) collect-footprint))))
