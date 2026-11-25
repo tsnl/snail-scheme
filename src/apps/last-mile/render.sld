@@ -582,7 +582,15 @@
              (canvas ((● gpu current-texture)))
              (width (● canvas width))
              (height (● canvas height))
-             (size (size-at width height (● now resolution) (● r pixel-limit)))
+             (lines (● now resolution))
+             (size (size-at width height lines (● r pixel-limit)))
+             (low? (<= lines 360))
+             ;; Bound the temporal history and tone map on a dense laptop display.
+             ;; The final FXAA pass scales the resolved street to the canvas.
+             (sampling (if low?
+                           (Reconstruct (min width (* 2 (● size first)))
+                                        (min height (* 2 (● size second))) 1)
+                           (Reconstruct width height (if (= lines 480) 2 1))))
              (time (+ (i64->f64 (● w tick)) t))
              (changed (not (= (● r time) time)))
              (focus (display-body (carrier (● before game)) (carrier w) t))
@@ -613,10 +621,8 @@
                                      (Camera3D-scene-time-set camera (f64->f32 (* time 0.05)))
                                      (/ 1.0 (i32->f32 (● size second)))
                                      (street-exposure (clock-minute w))
-                                     2
+                                     (if low? 1 2)
                                      changed
-                                     (Reconstruct width
-                                                  height
-                                                  (if (= (● now resolution) 480) 2 1))))
+                                     sampling))
           ((● gpu destroy) (ViewObject view))
           ((● gpu work-done)))))))

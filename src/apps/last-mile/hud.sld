@@ -116,6 +116,12 @@
              (select (element d parent "select" "setting" "")))
         ((● d set-attribute) label "for" id) ((● d set-attribute) select "id" id)
         (for-each (lambda (s) (element d select "option" "" s) (unit)) choices) select))
+    (define render-presets (→ (List I32)) (list 240 360 480 720 1080))
+    (define (preset-name (lines I32)) (→ String)
+      (case lines
+        ((240) "240p · Minimum")
+        ((360) "360p · Low")
+        (else (string-append (show lines) "p"))))
     (define (make-menu (d Dom) (root Node) (screen Node)) (→ PauseMenu)
       (let* ((toggle (element d root "button" "pause-toggle" "Pause"))
              (panel (element d root "div" "pause-scrim" ""))
@@ -123,9 +129,9 @@
              (title (element d card "h2" "pause-title" "Shift paused"))
              (quality (menu-select d
                                    card
-                                   "Render resolution"
+                                   "Graphics preset"
                                    "render-resolution"
-                                   (list "480p" "720p" "1080p")))
+                                   (map preset-name render-presets)))
              (look (menu-select d
                                 card
                                 "Mouse sensitivity"
@@ -160,8 +166,9 @@
       (let ((m (● h menu)) (value (● d string-property)))
         (cond ((= id (● m quality-change id))
                (let ((s (value (● m quality) "value")))
-                 (Some (SetResolution
-                        (cond ((string=? s "480p") 480) ((string=? s "1080p") 1080) (else 720))))))
+                 (match (find (lambda (n) (string=? s (preset-name n))) render-presets)
+                   ((Some n) (Some (SetResolution n)))
+                   ((None) (None)))))
               ((= id (● m look-change id))
                (let ((s (value (● m look) "value")))
                  (Some
@@ -179,7 +186,7 @@
           ((● d set-string-property)
            (● m quality)
            "value"
-           (string-append (show (● s resolution)) "p"))
+           (preset-name (● s resolution)))
           ((● d set-string-property) (● m look) "value" (sensitivity-name (● s sensitivity))))))
     (define (stand-marker (a Atlas) (i I64)) (→ (ui:Html I64))
       (let ((s (stand (pickup-index i))))
