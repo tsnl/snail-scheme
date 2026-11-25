@@ -114,7 +114,9 @@ filtered on its own, then blended over them by its alpha
 canvas, `resize-tracer` follows the canvas, `retrace` gives it another
 scene and environment with the same pipelines and targets, and
 `draw-traced` draws a frame, its paths bouncing as many times as it asks,
-up to `most-bounces`; `tracer-frames` counts the frames since the camera
-last moved or the bounces changed ([a frame](../graphics/tracer.md#a-frame)).
+up to `most-bounces`. Still frames trace alternating halves of a checkerboard.
+Pass `(EveryPixel)` to `draw-sampled-traced` for full-rate sampling.
+`tracer-frames` counts the frames since the camera last moved or the bounces
+changed. [A frame](../graphics/tracer.md#a-frame)
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/trace/render.sld)

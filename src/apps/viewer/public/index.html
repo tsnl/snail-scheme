@@ -55,7 +55,8 @@
     // The panel folds away once something is dropped.
     const models = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/f0920f5b32d172a30efe3f9257e965918831e6ea/Models/';
     const lights = 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/';
-    const sampling = new URLSearchParams(location.search).get('spp') === '0.5' ? '&spp=0.5' : '';
+    const spp = new URLSearchParams(location.search).get('spp');
+    const sampling = spp === '0.5' || spp === '1' ? `&spp=${spp}` : '';
     const status = document.getElementById('status');
     addEventListener('drop', () => { document.getElementById('open').open = false; });
     function drop(address) {

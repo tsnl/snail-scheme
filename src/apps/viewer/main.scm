@@ -8,13 +8,12 @@
 ;; to Khronos's sample models and Poly Haven's environments, are fetched
 ;; by the browser from where they are published. The page's query chooses
 ;; the same way: `?model=ADDRESS&env=ADDRESS`, and `&eye=x,y,z,yaw,pitch`
-;; places the camera. With &spp=0.5 a still frame traces a checkerboard.
-;; Without an eye, the camera looks at the scene from
-;; outside. Files that cannot be shown leave the view as it was, and the
-;; page says why. The frames average while the camera holds still. Keys
-;; set what a frame costs, which the page keeps for the next visit: 1 to
-;; 8 how many times a path bounces, and - and = how many pixels are
-;; traced.
+;; places the camera. Still frames trace a checkerboard by default, and
+;; &spp=1 traces every pixel. Without an eye, the camera looks at the
+;; scene from outside. Files that cannot be shown leave the view as it
+;; was, and the page says why. The frames average while the camera holds
+;; still. Keys 1 to 8 set the bounce count, and - and = set the resolution.
+;; The page keeps these settings for the next visit.
 (import
  (snail core base)
  (snail core io)
@@ -484,8 +483,7 @@
   (let* ((format (● ((● gpu request-device)) format))
          (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
          (address ((● fetch page-address)))
-         (sampling
-          (match (parameter address "spp") ((Some "0.5") (Checkerboard)) (_ (EveryPixel)))))
+         (sampling (match (parameter address "spp") ((Some "1") (EveryPixel)) (_ (Checkerboard)))))
     (match (match (query-files address)
              ((Nil) (new Pair (first (None)) (second outside)))
              (files
