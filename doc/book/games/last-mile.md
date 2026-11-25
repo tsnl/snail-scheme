@@ -25,7 +25,16 @@ python3 -m http.server 4193 --bind 127.0.0.1 --directory build/src/apps/last-mil
 
 A glowing 5.5-metre ring marks the active stop on the street. It clears when the receipt is paid and follows the next dispatch, including consecutive pickups at the same curb. The local minimap draws street widths, buildings, names, parks and water as vectors from the nine resident sectors. The route and cab marker stay sharp as the map follows the cab. M opens a separate citywide overview. The gold diamond marks the next curb. The traced line and turn instruction follow the directed street graph. The meter charges a fictional $4 flag drop and $0.50 for every 160 metres driven with the passenger aboard. Time, riders, traffic, cab position, dialogue, receipts and the shift total save in the browser. The taxi game uses its own save slot.
 
-Choose 480p, 720p (the default) or 1080p in the pause menu. The choice stays fixed throughout the drive. The taximeter shows the actual dimensions, fitted to the canvas and the device’s WebGPU buffer limit. The game presents at up to 30 frames per second. Each 480p pixel gets two independent light paths per presented frame. The higher settings get one. A jittered temporal resolve reconstructs the street at display resolution, with FXAA on the final image. The map and instruments also use display resolution. Mouse sensitivity and render resolution are saved immediately.
+Choose a fixed **Graphics preset** in the pause menu. The taximeter shows the street’s traced dimensions, fitted to the canvas aspect ratio and the GPU buffer limit. On integrated graphics, start with **360p · Low** and try **240p · Minimum** if driving still feels slow.
+
+| Preset | Light paths per pixel | Bounces per path | Temporal reconstruction |
+| --- | ---: | ---: | --- |
+| 240p · Minimum | 1 | 1 | Up to twice the traced width and height |
+| 360p · Low | 1 | 1 | Up to twice the traced width and height |
+| 480p | 2 | 2 | Display resolution |
+| 720p (default), 1080p | 1 | 2 | Display resolution |
+
+Low and Minimum keep ray-traced shadows and direct light from the sun, sky, and vehicle lamps. One fewer bounce reduces indirect light. FXAA presents the street at the canvas size. The minimap and instruments use display resolution at every setting. The game caps presentation at 30 frames per second and saves graphics and mouse settings as soon as they change.
 
 **Recover cab** seats the driver in a stopped cab on a nearby clear lane. The current fare, meter, earnings, dialogue and shift clock carry over. **Restart game** asks for confirmation and starts a new shift at Hyde and Lombard with Rosa waiting and zero earnings. Both settings carry over to the new game. Saves from the earlier driving model resume with their fare and street population.
 
