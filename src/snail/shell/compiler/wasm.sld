@@ -44,6 +44,11 @@
        (exports (List Wat))
        (data (List Wat))
        (frame-site (Fn String Expr Expr → FrameSite))
+       (string-literals (Table Wat))
+       (byte-segments (Table Wat))
+       (integer-tables (Table Wat))
+       (closure-globals (Table Wat))
+       (singleton-globals (Table Wat))
        (lambdas (Table Wat))
        (helpers (Table String))))
 
@@ -70,12 +75,15 @@
                (first name)
                (second (match function ((Word text) (parse-wat text)) (_ function))))))
 
-    ;; A global or data segment that a module declares once, at its first
-    ;; use, is declared by a cached function of the module and what names
-    ;; it: a later use skips the declaration and gets the same reference,
-    ;; since a cache hit skips the function's writes. A cache's keys
-    ;; compare strings and numbers by value and the module by identity, so
-    ;; such a function takes those and nothing else.
+    ;; A module owns its declarations. The first use of a full key emits
+    ;; the declaration and retains its read instruction until emission ends.
+    (define-syntax intern!
+      (syntax-rules ()
+        ((_ entries key declaration)
+         (let ((k key))
+           (match (table-ref entries k)
+             ((Some found) found)
+             ((None) (let ((read declaration)) (put! entries k read) read)))))))
 
     ;; An import declared once: the first request for `key` declares it
     ;; under `name`, and later ones find that name.
@@ -689,23 +697,23 @@
     ;; String literals are immutable globals. The passive segment holds the
     ;; UTF-32 payload, copied once at startup by the memory backend.
 
-    (define string-literal
-      (cache
-       (lambda ((m Module) (text String)) (→ Wat)
-         (let* ((global (keyed-id "string" text)) (segment (string-append global ".data"))
-                (array (array-type m (Scalar "i32")))
-                (bytes (array-generate (* 4 (string-length text))
-                                       (lambda (i)
-                                         (i32->u8 (i64->i32
-                                                   (word-byte
-                                                    (char->integer (string-ref text (quotient i 4)))
-                                                    (remainder i 4))))))))
-           (push! (● m data) (wat "data" (id segment) (Word (bytes-wat-string bytes))))
-           (push! (● m globals)
-                  (wat "global" (id global) (ref-wat array)
-                       (wat "array.new_data" (id array) (id segment) (wat "i32.const" (int 0))
-                            (wat "i32.const" (int (string-length text))))))
-           (wat "global.get" (id global))))))
+    (define (string-literal (m Module) (text String)) (→ Wat)
+      (intern! (● m string-literals) text
+               (let* ((global (keyed-id "string" text)) (segment (string-append global ".data"))
+                      (array (array-type m (Scalar "i32")))
+                      (bytes (array-generate (* 4 (string-length text))
+                                             (lambda (i)
+                                               (i32->u8 (i64->i32
+                                                         (word-byte
+                                                          (char->integer
+                                                           (string-ref text (quotient i 4)))
+                                                          (remainder i 4))))))))
+                 (push! (● m data) (wat "data" (id segment) (Word (bytes-wat-string bytes))))
+                 (push! (● m globals)
+                        (wat "global" (id global) (ref-wat array)
+                             (wat "array.new_data" (id array) (id segment) (wat "i32.const" (int 0))
+                                  (wat "i32.const" (int (string-length text))))))
+                 (wat "global.get" (id global)))))
 
     ;; A byte literal is a passive data segment, one byte per byte, so large
     ;; data such as images costs no more than its size. `array.new_data` is
@@ -715,16 +723,15 @@
     (define (bytes-literal (m Module) (bytes Bytes)) (→ Wat)
       (bytes-segment m (bytes-wat-string bytes) (array-length bytes)))
 
-    (define bytes-segment
-      (cache
-       (lambda ((m Module) (text String) (length I64)) (→ Wat)
-         (let ((segment (keyed-id "bytes" text)))
-           (push! (● m data) (wat "data" (id segment) (Word text)))
-           (wat "array.new_data"
-                (id (array-type m (Scalar "i8")))
-                (id segment)
-                (wat "i32.const" (int 0))
-                (wat "i32.const" (int length)))))))
+    (define (bytes-segment (m Module) (text String) (length I64)) (→ Wat)
+      (intern! (● m byte-segments) text
+               (let ((segment (keyed-id "bytes" text)))
+                 (push! (● m data) (wat "data" (id segment) (Word text)))
+                 (wat "array.new_data"
+                      (id (array-type m (Scalar "i8")))
+                      (id segment)
+                      (wat "i32.const" (int 0))
+                      (wat "i32.const" (int length))))))
 
     ;; ---- Constant arrays ----
 
@@ -740,28 +747,27 @@
 
     ;; The table of `count` elements whose bytes are `data`.
 
-    (define integer-table
-      (cache
-       (lambda ((m Module) (element String) (data String) (count I64)) (→ Wat)
-         (let* ((array (array-type m (element-rep m (TCon element (Nil)))))
-                (key (string-append element ":" data))
-                (segment (keyed-id "constants" key))
-                (global (keyed-id "table" key)))
-           (push! (● m data) (wat "data" (id segment) (Word data)))
-           (push! (● m globals)
-                  (wat "global"
-                       (id global)
-                       (wat "mut" (ref-wat array))
-                       (wat "ref.null" (id array))))
-           (wat "block"
-                (wat "result" (ref-wat array))
-                (wat "if" (wat "ref.is_null" (wat "global.get" (id global)))
-                     (wat "then"
-                          (wat "global.set" (id global)
-                               (wat "array.new_data" (id array) (id segment)
-                                    (wat "i32.const" (int 0))
-                                    (wat "i32.const" (int count))))))
-                (wat "global.get" (id global)))))))
+    (define (integer-table (m Module) (element String) (data String) (count I64)) (→ Wat)
+      (let ((key (string-append element ":" data)))
+        (intern! (● m integer-tables) key
+                 (let* ((array (array-type m (element-rep m (TCon element (Nil)))))
+                        (segment (keyed-id "constants" key))
+                        (global (keyed-id "table" key)))
+                   (push! (● m data) (wat "data" (id segment) (Word data)))
+                   (push! (● m globals)
+                          (wat "global"
+                               (id global)
+                               (wat "mut" (ref-wat array))
+                               (wat "ref.null" (id array))))
+                   (wat "block"
+                        (wat "result" (ref-wat array))
+                        (wat "if" (wat "ref.is_null" (wat "global.get" (id global)))
+                             (wat "then"
+                                  (wat "global.set" (id global)
+                                       (wat "array.new_data" (id array) (id segment)
+                                            (wat "i32.const" (int 0))
+                                            (wat "i32.const" (int count))))))
+                        (wat "global.get" (id global)))))))
 
     ;; Each element's bytes, least significant first, at its width in the
     ;; array: one for U8, eight for I64, four otherwise. A negative value is
@@ -910,16 +916,15 @@
              (base (closure-type m (● signature first) (● signature second))))
         (closure-global m (lambda-function! m function self (Nil) base) base)))
 
-    (define closure-global
-      (cache
-       (lambda ((m Module) (code String) (base String)) (→ Wat)
-         (let ((global (derived-id "closure" code)))
-           (push! (● m globals)
-                  (wat "global"
-                       (id global)
-                       (ref-wat base)
-                       (wat "struct.new" (id base) (wat "ref.func" (id code)))))
-           (wat "global.get" (id global))))))
+    (define (closure-global (m Module) (code String) (base String)) (→ Wat)
+      (intern! (● m closure-globals) code
+               (let ((global (derived-id "closure" code)))
+                 (push! (● m globals)
+                        (wat "global"
+                             (id global)
+                             (ref-wat base)
+                             (wat "struct.new" (id base) (wat "ref.func" (id code)))))
+                 (wat "global.get" (id global)))))
 
     ;; A closure with captures copies each captured local into its fields.
     (define (closure-with-captures (fn Fn)
@@ -1222,14 +1227,13 @@
                         (data-type m type)
                         (● case tag)))
 
-    (define singleton-global
-      (cache
-       (lambda ((m Module) (key String) (base String) (tag I64)) (→ Wat)
-         (let ((global (keyed-id "value" key)))
-           (push! (● m globals)
-                  (wat "global" (id global) (ref-wat base)
-                       (wat "struct.new" (id base) (wat "i32.const" (int tag)))))
-           (wat "global.get" (id global))))))
+    (define (singleton-global (m Module) (key String) (base String) (tag I64)) (→ Wat)
+      (intern! (● m singleton-globals) key
+               (let ((global (keyed-id "value" key)))
+                 (push! (● m globals)
+                        (wat "global" (id global) (ref-wat base)
+                             (wat "struct.new" (id base) (wat "i32.const" (int tag)))))
+                 (wat "global.get" (id global)))))
 
     ;; ---- Arrays ----
 
@@ -3467,6 +3471,11 @@
            (frame-site (cache (lambda ((name String) (value Expr) (body Expr)) (→ FrameSite)
                                 (new FrameSite (references (expr-references body))
                                      (joins (empty-table))))))
+           (string-literals (empty-table))
+           (byte-segments (empty-table))
+           (integer-tables (empty-table))
+           (closure-globals (empty-table))
+           (singleton-globals (empty-table))
            (lambdas (empty-table)) (helpers (empty-table))))
 
     ;; The entry's start takes the scheduler that main runs on. `main` is

@@ -199,7 +199,9 @@ length word and the storage required for its bytes.
 The emitter interns concrete layouts before traversing their fields,
 allowing recursive object graphs. Finite budgets diagnose expanding type or
 specialization families instead of exhausting the host. Ordinary recursive
-nominal types reuse their existing type entry.
+nominal types reuse their existing type entry. Each emission owns its
+interned literals, closure globals and enum singletons. Repeated emissions
+in one compiler instance release these tables with their output builders.
 
 The `cache` and `lru-cache` primitives preserve their callback's parameter
 types and result type. The checker requires a known function
@@ -209,6 +211,11 @@ Preparation rejects raw `Funcref` keys. The Wasm
 backend builds an ordinary closure capturing its callback and a private typed
 hash table; no module globals are involved. The Chez adapter implements the same wrapper and key
 semantics. See [cached functions](terms.md#cached-functions).
+
+The Wasm representation links neighboring entries in both directions to
+track recency and rehash its buckets. This forms cycles in both bounded
+and unbounded caches with multiple entries. The collector reclaims the
+entries after their wrapper and any external references become unreachable.
 
 ### Suspension and frames
 
@@ -266,7 +273,10 @@ Each linked program owns a memory, layout identities and a function table.
 The linker validates the delivered bytes with WasmGC and typed function
 references disabled. A host-held reference carries its allocating instance.
 The Node and browser hosts check its instance, layout and nullability before
-a public call. An independently instantiated program can exchange scalars and
+a public call. A live JavaScript handle roots its object and keeps its
+instance alive. Its finalizer holds a weak reference to the instance, so
+abandoning a host callback together with its guest handles releases the
+whole graph. An independently instantiated program can exchange scalars and
 bytes through its declared interface.
 
 `snail-scheme` types are checked at compile time, each library against its

@@ -1,3 +1,4 @@
 shared cycles, operands and frames survive collection
 abandoned mailbox and scheduler cycles are reclaimed
+abandoned memoizer entry cycles are reclaimed
 scoped calls allocate zero objects
