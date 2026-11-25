@@ -82,11 +82,18 @@
   (let* ((t (● shot tracer)) (camera (● shot camera))
          (w (● t targets width)) (h (● t targets height)) (spread (/ 1.0 (i32->f32 h)))
          (target (make-plane gpu "capture/display" w h (Rgba8Unorm) (list (RenderAttachment))))
-         (noisy (draw-sampled-traced gpu (discard-trace-history t) (● target view)
-                                     camera spread 1.0 bounces #f (EveryPixel)))
+         (noisy (draw-traced gpu (discard-trace-history t) (● target view)
+                             camera
+                             spread
+                             1.0
+                             bounces
+                             #f
+                             (new TraceSettings (display-width w) (display-height h) (samples 1))))
+         (raster (match (● noisy last) ((Some view) (● view raster))
+                        (_ (panic "capture has no rasterized frame"))))
          (first (● noisy frame)))
     (write-bytes fs (string-append prefix ".noisy.rgba32f") (read-traced-radiance gpu noisy))
-    (write-bytes fs (string-append prefix ".camera") (pod-bytes camera-shape camera))
+    (write-bytes fs (string-append prefix ".camera") (pod-bytes camera-shape raster))
     (capture-guides gpu
                     fs
                     (string-append prefix ".opaque")
@@ -99,7 +106,7 @@
        (capture-guides gpu fs (string-append prefix ".blended") (● b planes) (● b depth) w h))
       (_ (unit)))
     (write-bytes fs (string-append prefix ".reference.rgba32f")
-                 (trace-reference gpu noisy camera spread bounces first samples))
+                 (trace-reference gpu noisy raster spread bounces first samples))
     (write-file fs (string-append prefix ".json")
                 (string-append "{\"width\":" (show w) ",\"height\":" (show h) ",\"layers\":"
                                (match (● t targets blended)

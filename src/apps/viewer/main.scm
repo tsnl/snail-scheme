@@ -8,8 +8,8 @@
 ;; to Khronos's sample models and Poly Haven's environments, are fetched
 ;; by the browser from where they are published. The page's query chooses
 ;; the same way: `?model=ADDRESS&env=ADDRESS`, and `&eye=x,y,z,yaw,pitch`
-;; places the camera. Still frames trace a checkerboard by default, and
-;; &spp=1 traces every pixel. Without an eye, the camera looks at the
+;; places the camera. Each pixel gets one path by default. Add &spp=2
+;; for two paths per pixel. Without an eye, the camera looks at the
 ;; scene from outside. Files that cannot be shown leave the view as it
 ;; was, and the page says why. The frames average while the camera holds
 ;; still. Keys 1 to 8 set the bounce count, and - and = set the resolution.
@@ -33,7 +33,7 @@
  (only (snail shell fetch) Fetch)
  (only (snail shell dom) Dom)
  (snail shell files)
- (only (snail shell gpu) Gpu view-of TextureFormat)
+ (only (snail shell gpu) Gpu view-of ViewObject TextureFormat)
  (snail shell graphics pod)
  (snail shell graphics raster)
  (only (snail shell graphics gltf) uri-path unreadable attempt-reading)
@@ -110,7 +110,7 @@
 
 ;; What a frame costs: how many times its paths bounce, and how many
 ;; times the pixels it traces are halved from the canvas's, each side
-;; shrinking by the square root of two, for Post to scale up to the
+;; shrinking by the square root of two, for the display resolve to fill the
 ;; canvas. The page's save holds them.
 (record Settings
   ((bounces I64)
@@ -189,7 +189,7 @@
                    (out OutputPort)
                    (format TextureFormat)
                    (save (Fn Settings → Unit))
-                   (sampling TraceSampling)
+                   (samples I32)
                    (view (Option View))
                    (fly Fly)
                    (settings Settings))
@@ -200,7 +200,7 @@
        (match view
          ((Some shown)
           (let* ((fly (flown fly elapsed))
-                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly settings sampling))))
+                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly settings samples))))
             ((● gpu work-done))
             ((● events report-ready))
             (loop (Some shown) fly settings (timed out timing elapsed))))
@@ -225,18 +225,19 @@
 
 ;; A frame drawn into the canvas, from where the fly is, traced at the
 ;; size and with the bounces the settings ask for.
-(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly) (settings Settings) (sampling TraceSampling))
+(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly) (settings Settings) (samples I32))
   (→ Tracer)
-  (let* ((canvas ((● gpu current-texture)))
-         (height (traced settings (● canvas height))))
-    (draw-sampled-traced gpu (resize-tracer gpu tracer (traced settings (● canvas width)) height)
-                         (view-of gpu (● canvas texture) 1)
-                         (fly-camera fly
-                                     (/ (i32->f64 (● canvas width))
-                                        (i32->f64 (max 1 (● canvas height)))))
-                         (fly-spread height)
-                         (fly-exposure fly)
-                         (● settings bounces) #f sampling)))
+  (let* ((canvas ((● gpu current-texture))) (view (view-of gpu (● canvas texture) 1))
+         (w (● canvas width)) (h (● canvas height)) (height (traced settings h))
+         (frame (draw-traced gpu (resize-tracer gpu tracer (traced settings w) height)
+                             view (fly-camera fly (/ (i32->f64 w) (i32->f64 (max 1 h))))
+                             (fly-spread height) (fly-exposure fly) (● settings bounces) #f
+                             (new TraceSettings
+                               (display-width w)
+                               (display-height h)
+                               (samples samples)))))
+    ((● gpu destroy) (ViewObject view))
+    frame))
 
 ;; Frames and milliseconds since the last report, which comes every two
 ;; seconds.
@@ -483,10 +484,10 @@
   (let* ((format (● ((● gpu request-device)) format))
          (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
          (address ((● fetch page-address)))
-         (sampling (match (parameter address "spp") ((Some "1") (EveryPixel)) (_ (Checkerboard)))))
+         (samples (match (parameter address "spp") ((Some "2") (ann 2 I32)) (_ 1))))
     (match (match (query-files address)
              ((Nil) (new Pair (first (None)) (second outside)))
              (files
               (opened gpu dom fetch out format settings (None) outside files (query-eye address))))
       ((Pair view fly)
-       (view-loop gpu dom picker events fetch out format save sampling view fly settings)))))
+       (view-loop gpu dom picker events fetch out format save samples view fly settings)))))

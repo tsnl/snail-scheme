@@ -37,8 +37,9 @@
 ;;
 ;; A ray's `payload` is the path's weight and its pixel's index, `more`
 ;; the cone's width at the ray's origin, its spread, and the density it
-;; was scattered with; a shadow ray's `payload` the light it brings and
-;; its pixel. `Camera3D`, `Tracing`, `Wave` and `SurfaceMaterial` come
+;; was scattered with. A shadow ray carries light and pixel in `payload`
+;; and the light key to observe in the last word. The BVH writes only the hit.
+;; `Camera3D`, `Tracing`, `Wave` and `SurfaceMaterial` come
 ;; from Pod; the scene is group 1 (scene.wgsl.scm), the environment
 ;; group 2.
 (struct RayHit
@@ -51,7 +52,8 @@
         (direction vec4f)
         (hit RayHit)
         (payload vec4f)
-        (more vec4f))
+        (more vec3f)
+        (feedback_key i32))
 
 (const NONE 4294967295u)
 
@@ -148,7 +150,7 @@
     (let du (- (uv_of b) (uv_of a)))
     (let dv (- (uv_of c) (uv_of a)))
     (let texels (* (abs (- (* (get du x) (get dv y)) (* (get du y) (get dv x))))
-                   (* (get tracing view y) (get tracing view y))))
+                   (* (get tracing layer_size) (get tracing layer_size))))
     (let ratio (/ texels (max world 1e-20)))
     (return
      (max 0.0 (+ (* 0.5 (log2 (max ratio 1e-20))) (log2 (/ (max width 1e-8) (max facing 0.05)))))))
@@ -324,17 +326,17 @@
 
 (fn seeded ((pixel u32) (salt u32)) (-> u32)
     (return (pcg (bit-xor pixel
-                          (pcg (+ (* (u32 (get tracing frame x)) 64u)
-                                  (* (u32 (get tracing view z)) 2246822519u)
+                          (pcg (+ (* (u32 (get tracing frame)) 64u)
+                                  (* (u32 (get tracing sample_index)) 2246822519u)
                                   (* (u32 (get wave step x)) 4u)
                                   salt))))))
 
-(fn ray_from ((s Surface) (direction vec3f) (seed u32) (payload vec4f) (more vec4f)) (-> Ray)
+(fn ray_from ((s Surface) (direction vec3f) (seed u32) (payload vec4f) (more vec3f)) (-> Ray)
     (return (Ray (vec4f (leaving s direction) 1e30)
                  (vec4f direction ((bitcast f32) seed))
                  (RayHit 0.0 0u (vec2f 0.0))
                  payload
-                 more)))
+                 more 0)))
 
 (var (@group 1) (@binding 5) (lamps (texture_2d f32)))
 
@@ -342,12 +344,13 @@
     (let width (i32 (get (textureDimensions lamps) x)))
     (return (textureLoad lamps (vec2i (% i width) (/ i width)) 0)))
 
-;; Each eligible source competes by its unoccluded contribution. Starting the
-;; reservoir with the weighted sky or triangle estimate preserves its BSDF MIS.
+;; Each eligible source competes by its expected visible contribution. Starting
+;; with the weighted sky or triangle estimate preserves its BSDF MIS.
 ;; A delta light has no BSDF-hit competitor. Only the winner needs visibility.
-(struct DirectSample (endpoint vec3f) (local bool) (light vec3f) (total f32))
+(struct DirectSample (endpoint vec3f) (key i32) (light vec3f) (total f32))
 
 (fn consider_lamp ((draw (ptr function DirectSample)) (i i32) (s Surface) (v vec3f)
+                   (h VisibilityHistory)
                    (seed (ptr function u32)))
     (let p (lamp_word i))
     (let delta (- (get p xyz) (get s position)))
@@ -364,27 +367,33 @@
          (if ((<= angular 0.0) (return)))))
     (let q (/ d2 (* (get p w) (get p w))))
     (let falloff (- 1.0 (* q q)))
-    (let light (* (evaluated s v dir) (get (lamp_word (+ i 1)) xyz)
+    (let intensity (lamp_word (+ i 1)))
+    (let light (* (evaluated s v dir) (get intensity xyz)
                   (/ (* angular falloff falloff) (max 0.01 d2))))
-    (let importance (dot light env_luma))
+    ;; A directly uploaded grid may leave the ID zero. Its entry address
+    ;; still identifies a finite light.
+    (let id (i32 (get intensity w)))
+    (let key (- SUN_KEY (select i id (> id 0))))
+    (let importance (selection_energy h key light))
     (if ((or (<= importance 0.0) (not (finite3 light))) (return)))
     (let total (+ (get (deref draw) total) importance))
     (if ((< (* (random seed) total) importance)
-         (= (deref draw) (DirectSample (get p xyz) true light total)))
+         (= (deref draw) (DirectSample (get p xyz) key light total)))
         (else (= (get (deref draw) total) total))))
 
+(fn writes_reservoir () (-> bool)
+    (return (and (>= (get tracing reuse) 0) (== (get tracing sample_index) 0))))
+
 (fn direct_shadow
-    ((s Surface) (v vec3f) (weight vec3f) (proposal Proposal) (pixel u32) (salt u32))
+    ((s Surface) (v vec3f) (weight vec3f) (proposal Proposal) (h VisibilityHistory)
+     (pixel u32) (salt u32))
     (var seed salt)
     (let value (select (vec3f 0.0) (get proposal value) (finite3 (get proposal value))))
-    (var draw
-         (DirectSample (get proposal endpoint)
-                       (!= (get proposal emitter) 0)
-                       value
-                       (dot value env_luma)))
+    (let key (get proposal key))
+    (var draw (DirectSample (get proposal endpoint) key value (selection_energy h key value)))
     (let moving (i32 (get (lamp_word 0) x)))
     (for ((var k 0) (< k moving) (+= k 1))
-         (consider_lamp (address-of draw) (+ 1 (* 3 k)) s v (address-of seed)))
+         (consider_lamp (address-of draw) (+ 1 (* 3 k)) s v h (address-of seed)))
     (let width (i32 (get (textureDimensions lamps) x)))
     (let grid (lamp_word width))
     (let cell (vec2i (floor (/ (- (get s position xz) (get grid xy)) (get grid z)))))
@@ -395,13 +404,18 @@
                              (+ (i32 (get span x)) (* 3 k))
                              s
                              v
+                             h
                              (address-of seed)))))
     (if ((<= (get draw total) 0.0) (return)))
-    (let light (* weight (get draw light) (/ (get draw total) (dot (get draw light) env_luma))))
+    (let priority (selection_energy h (get draw key) (get draw light)))
+    (let light (* weight (get draw light) (/ (get draw total) priority)))
+    (let local (or (> (get draw key) 0) (< (get draw key) SUN_KEY)))
     (var d (get draw endpoint))
-    (if ((get draw local) (= d (- d (get s position)))))
-    (var ray (ray_from s d salt (vec4f light ((bitcast f32) pixel)) (vec4f 0.0)))
-    (if ((get draw local)
+    (if (local (= d (- d (get s position)))))
+    (var ray (ray_from s d salt (vec4f light ((bitcast f32) pixel)) (vec3f 0.0)))
+    (if ((and (== (get wave step x) 0) (>= (get tracing reuse) 0))
+         (= (get ray feedback_key) (get draw key))))
+    (if (local
          (let segment (- (get draw endpoint) (get ray origin xyz)))
          (let distance (length segment))
          (if ((<= (dot segment d) 0.0) (return)))
@@ -414,7 +428,7 @@
     ((s Surface) (v vec3f) (path_weight vec3f) (pixel u32) (seed (ptr function u32)))
     (var p (draw_proposal s v (mesh_fraction) seed))
     (if ((> (get p pdf) 0.0) (/= (get p value) (get p pdf))))
-    (direct_shadow s v path_weight p pixel (pcg (deref seed))))
+    (direct_shadow s v path_weight p (VisibilityHistory) pixel (pcg (deref seed))))
 
 (fn scatter_ray
     ((s Surface)
@@ -439,7 +453,7 @@
                  l
                  (pcg (deref seed))
                  (vec4f weight ((bitcast f32) pixel))
-                 (vec4f width (+ spread (* 0.25 (get s roughness))) p 0.0))))
+                 (vec3f width (+ spread (* 0.25 (get s roughness))) p))))
 
 ;; ---- Steps ----
 
@@ -447,26 +461,25 @@
     (return (+ (u32 (get pixel x)) (* (u32 (get pixel y)) (get (textureDimensions depth) x)))))
 
 (fn uncovered ((pixel vec2i)) (-> bool)
-    (return (and (> (get tracing frame y) 0) (== (get (textureLoad albedo pixel 0) w) 0.0))))
+    (return (and (> (get tracing layer_offset) 0) (== (get (textureLoad albedo pixel 0) w) 0.0))))
 
-;; The first hits' paths, or the layer's: `tracing.frame.y` is where the
+;; The first hits' paths, or the layer's: `tracing.layer_offset` is where the
 ;; wave's radiance starts, 0 for the first hits and a pixel count past
 ;; them for the layer's, whose pixels with no blended surface, their
 ;; alpha 0, make no path.
 (fn begin_radiance ((index u32) (value vec4f))
-    (if ((== (get tracing view z) 0.0) (= (at radiance index) value))
+    (if ((== (get tracing sample_index) 0) (= (at radiance index) value))
         (else (+= (at radiance index) value))))
 
 (fn (@compute) (@workgroup_size 8 8) primary (((@builtin global_invocation_id) id vec3u))
     (let size (textureDimensions depth))
-    (let pixel (vec2i (sample_pixel (get id xy))))
+    (let pixel (vec2i (get id xy)))
     (if ((any (>= (vec2u pixel) size)) (return)))
     (let i (pixel_index pixel))
-    (let index (+ i (u32 (get tracing frame y))))
+    (let index (+ i (u32 (get tracing layer_offset))))
     (var site (at reservoir_input i))
     (if ((== (get site reservoir count) 0)
-         (if ((and (>= (get tracing frame z) 0) (== (get tracing view z) 0.0))
-              (= (at reservoir_output i) site)))
+         (if ((writes_reservoir) (= (at reservoir_output i) site)))
          (if ((uncovered pixel) (= (at radiance index) (vec4f 0.0)) (return)))
          (let ndc (- (* (/ (+ (vec2f pixel) 0.5) (vec2f size)) 2.0) 1.0))
          (let far (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) 1.0 1.0)))
@@ -486,21 +499,32 @@
                      1.0))
     (var seed (seeded index 0u))
     (let v (- (normalize sight)))
-    (if ((>= (get tracing frame z) 0)
-         (= (get site reservoir) (spatial_reservoir s v pixel site (address-of seed)))))
-    (if ((and (>= (get tracing frame z) 0) (== (get tracing view z) 0.0))
-         (= (at reservoir_output i) site)))
-    (reservoir_shadow (get site reservoir) s v air index (pcg seed))
-    (let spread (get tracing view x))
+    (let h (sampling_history (get site visibility) index))
+    (if ((>= (get tracing reuse) 0)
+         (= (get site reservoir) (spatial_reservoir s v pixel site h (address-of seed)))))
+    (if ((writes_reservoir) (= (at reservoir_output i) site)))
+    (reservoir_shadow (get site reservoir) s v air h index (pcg seed))
+    (let spread (get tracing spread))
     (scatter_ray s v air index (* spread (length sight)) spread (address-of seed)))
+
+;; One first-hit shadow per sampled pixel writes its own layer's history.
+((var storage read_write) (@group 1) (@binding 8) (shadow_sites (array SurfaceReservoir)))
 
 (fn (@compute) (@workgroup_size 64) connect (((@builtin global_invocation_id) id vec3u))
     (let i (queue_item id))
     (if ((>= i (atomicLoad (address-of (at counts (u32 (get wave slots z)))))) (return)))
     (let ray (at shadows i))
-    (if ((== (get ray hit triangle) NONE)
-         (let pixel ((bitcast u32) (get ray payload w)))
-         (+= (at radiance pixel) (vec4f (get ray payload xyz) 0.0)))))
+    (let pixel ((bitcast u32) (get ray payload w)))
+    (let clear (== (get ray hit triangle) NONE))
+    (if (clear (+= (at radiance pixel) (vec4f (get ray payload xyz) 0.0))))
+    (if ((!= (get ray feedback_key) 0)
+         (let i (% pixel (arrayLength (address-of shadow_sites))))
+         (let h (get (at shadow_sites i) visibility))
+         (= (get (at shadow_sites i) visibility)
+            (observe_visibility h
+                                (get ray feedback_key)
+                                clear
+                                (get wave guiding visibility_gain))))))
 
 (fn (@compute) (@workgroup_size 64) shade (((@builtin global_invocation_id) id vec3u))
     (let i (queue_item id))
@@ -529,12 +553,7 @@
     (let size (textureDimensions depth))
     (if ((or (>= (get id x) (get size x)) (>= (get id y) (get size y))) (return)))
     (let pixel (vec2i (get id xy)))
-    (let index (+ (pixel_index pixel) (u32 (get tracing frame y))))
-    ;; A held pixel still has its last radiance in this layer's slot.
-    ;; Mark it so SVGF keeps the sample count that produced its history.
-    (let held (and (!= (get tracing frame w) 0)
-                   (!= (bit-and (get id x) 1u) (column_parity (get id y)))))
+    (let index (+ (pixel_index pixel) (u32 (get tracing layer_offset))))
     (textureStore noisy
                   pixel
-                  (vec4f (* (get (at radiance index) xyz) (get tracing view w))
-                         (select 1.0 -1.0 held))))
+                  (vec4f (* (get (at radiance index) xyz) (get tracing sample_weight)) 1.0)))

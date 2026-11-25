@@ -130,12 +130,15 @@
                                   (let ((pixels (read-rgba gpu target width height)))
                                     (release-plane gpu target)
                                     (new Pair (first frame) (second pixels)))
-                                  (let ((next (draw-sampled-traced gpu frame (● target view) camera
-                                                                   (/ 1.0 (i32->f32 height))
-                                                                   exposure
-                                                                   bounces
-                                                                   #f
-                                                                   (EveryPixel))))
+                                  (let ((next (draw-traced gpu frame (● target view) camera
+                                                           (/ 1.0 (i32->f32 height))
+                                                           exposure
+                                                           bounces
+                                                           #f
+                                                           (new TraceSettings
+                                                             (display-width width)
+                                                             (display-height height)
+                                                             (samples 1)))))
                                     ;; Bound the queued frames for large offline sample counts.
                                     (when (= (modulo i 8) 7) ((● gpu work-done)))
                                     (loop next (+ i 1)))))))))

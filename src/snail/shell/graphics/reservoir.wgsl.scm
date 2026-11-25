@@ -34,3 +34,20 @@
     (if ((reservoir_update r sample (* target_value (reservoir_weight donor) (f32 m)) m u)
          (= (get (deref r) emitter) (get donor emitter))
          (= (get (deref r) coordinates) (get donor coordinates)))))
+
+;; ---- Visibility observations ----
+
+;; Zero-initialized keys are empty. An untried light has even odds.
+(fn expected_visibility ((h VisibilityHistory) (key i32)) (-> f32)
+    (if ((== key (get h recent key)) (return (get h recent visibility)))
+        ((== key (get h previous key)) (return (get h previous visibility))))
+    (return 0.5))
+
+;; Remember the two most recently tested distinct lights at this receiver.
+(fn observe_visibility ((h VisibilityHistory) (key i32) (clear bool) (gain f32))
+    (-> VisibilityHistory)
+    (let estimate (mix (expected_visibility h key) (select 0.0 1.0 clear) gain))
+    (var next h)
+    (if ((!= key (get h recent key)) (= (get next previous) (get h recent))))
+    (= (get next recent) (LightVisibility key estimate))
+    (return next))

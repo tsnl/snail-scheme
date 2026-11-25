@@ -17,26 +17,21 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 | Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries, for each layer. |
 | Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure, for each layer. |
 | Compose | `trace/compose.wgsl.scm` | Blends the blended layer's light over the first hits', by its alpha. |
-| Post | `passes` | Hable's filmic curve, sRGB encoding, and FXAA. |
+| Display | `upscale`, `passes` | Reconstruct on the stable display grid, then tone map, encode sRGB and apply FXAA. |
 
-`make-tracer` takes a `Scene`, an `Environment`, the canvas format and size,
-and builds every pipeline and target once; `resize-tracer` remakes the
-targets for a new size, and `draw-traced` draws a frame for a camera, its
-paths scattering at most as many times as the frame asks, one to
-`most-bounces` (eight). A tracer smaller than the canvas still draws into
-all of it, since the last pass samples the picture by screen coordinates.
-A camera that holds still keeps accumulating: `tracer-frames` counts the
-frames since it last moved or the bounces last changed, either of which
-starts the history again.
+`resize-tracer` sets the internal render grid. Every draw traces every internal
+pixel. Pass the dimensions of the output view and the number of paths per
+pixel to the same entry point at every render scale.
 
-`draw-traced` and `draw-moving-traced` use checkerboard sampling by default.
-The first frame traces every pixel. Successive still frames alternate the
-two halves of the checkerboard on both layers, averaging 0.5 path samples
-per pixel (spp) per frame. Three frames from a cold start give each surface
-pixel two new paths. A resize, a replacement scene or environment, a change
-in camera or bounce count, or a reported geometry change (`moved`) triggers
-a full frame. To trace every pixel on every frame, call
-`(draw-sampled-traced gpu tracer canvas camera spread exposure bounces moved (EveryPixel))`.
+```scheme
+(draw-traced gpu tracer canvas camera spread exposure bounces moved
+  (new TraceSettings (display-width width) (display-height height) (samples 1)))
+```
+
+Choose one or two paths per pixel and one to eight bounces. Report geometry
+or lighting motion with `moved`. The tracer compares the unjittered cameras
+to detect camera motion. `tracer-frames` counts still frames since the
+last movement or history reset.
 
 A `Tracer` holds a record for each lifetime: a `Kit` of what is made once,
 the pipelines and uniforms; a `World` of the scene, its BVH and the
@@ -48,11 +43,36 @@ every set of compute kernels repeats, in `(snail shell graphics kernel)`.
 
 ### Temporal reconstruction
 
-Pass `(Reconstruct display-width display-height samples)` to `draw-sampled-traced` for one or two paths per internal pixel. Both paths share the rasterized first hit. Each traces its own light and BSDF draws, and their radiances are averaged before denoising. Only the first path carries a reservoir into the next frame.
+Each frame offsets the camera by the next point of a Halton sequence in
+bases 2 and 3. The sequence starts at index one, with half a pixel
+subtracted from each coordinate. The first two offsets are (0, −1/6) and
+(−1/4, 1/6) in internal pixels. Both paths at two spp share that first
+hit, trace separate light and BSDF draws, and contribute to a mean before
+SVGF. Both update visibility. Only the first carries a reservoir into
+the next frame. [Halton sampling in *Physically Based Rendering*](https://pbr-book.org/4ed/Sampling_and_Reconstruction/Halton_Sampler)
 
-Eight subpixel camera positions sample different parts of each output pixel over successive frames. The display resolve reconstructs linear HDR from the same foreground surface, removes camera jitter from motion, and reprojects four display-history taps. Each tap must match the triangle and previous projected depth. Motion, changes in light and newly exposed surfaces shorten reuse. Sky and blended surfaces use current samples. Tone mapping and FXAA run at the output size.
+The per-layer radiance buffer holds summed RGB with the observation count
+in alpha. `read-traced-radiance` returns these accumulator bytes. `gather`
+divides RGB by the requested path count when writing the noisy texture for SVGF.
 
-In this mode, temporal ReSTIR accepts at most two batches of old candidates, or one above 1.5 pixels of motion. SVGF keeps at most four observations and gives the current sample at least 40% weight. Camera cuts, target replacements and scene changes start fresh history.
+SVGF uses the motion between the two jittered G-buffers to find past
+observations of the same surface. The display resolve runs at native
+size as well as at larger output sizes. In a stationary view it averages
+linear HDR at each display pixel. Its history grows to 16 frames, after
+which each new observation has weight 1/16. At a silhouette, samples can
+legitimately see different surfaces within that pixel. During motion,
+the resolve removes the change in jitter from the G-buffer motion vector.
+Each of its four display-history taps must match the triangle and previous
+projected depth. Moving sky and blended surfaces use current samples.
+Tone mapping and FXAA run at the output size.
+
+Camera or reported scene motion limits temporal ReSTIR to two batches of
+old candidates, or one above 1.5 pixels of motion. Moving SVGF keeps up
+to four observations and gives the current one at least 40% weight.
+Use `discard-trace-history` for a camera cut. A changed sky, scene, bounce
+depth or render grid starts fresh history. Changing only the display
+size or exposure starts a new display history and preserves render-grid
+history.
 
 ## The wavefront
 
@@ -69,7 +89,8 @@ temporal_reservoirs → primary → [occlude → connect → intersect → shade
   lighting for a shadow ray, appending each to its queue.
 - `occlude` and `intersect` are the BVH's queries over a queue.
 - `connect` adds the selected light's weighted contribution when the
-  shadow segment is clear.
+  shadow segment is clear. It records the outcome of the first hit's shadow
+  test in the owning layer's history.
 - `gather` writes each pixel's radiance for SVGF.
 
 Two ray queues alternate between bounces, with one shadow queue. Each holds
@@ -80,9 +101,8 @@ atomic count kept per bounce, 256 bytes apart. Russian roulette may end a
 path after its third bounce.
 
 A queue kernel is dispatched over the maximum number of paths for this draw.
-On a checkerboard, each row dispatches half its columns, rounded up, and a
-lane's column and row parity locate its pixel. Threads past the queue's
-actual count return at once. Chromium validates each indirect dispatch,
+Each layer dispatches one lane per internal pixel. Threads past the actual
+queue count return at once. Chromium validates each indirect dispatch,
 which takes about half a millisecond of wall time, more than the wasted
 threads cost.
 
@@ -106,8 +126,7 @@ normal, so it is no larger for the triangle.
 
 ## Biased ReSTIR direct lighting
 
-A sampled first hit draws four candidates on a full frame and two on a
-checkerboard frame. When both the sky and mesh emit, each candidate has
+Each path draws four fresh candidates at its first hit. When both the sky and mesh emit, each candidate has
 equal odds of coming from either family. A single emitting family gets all
 the draws. The sky sampler chooses a direction from its importance table
 and solar disc. The mesh sampler chooses a triangle in proportion to its
@@ -125,9 +144,10 @@ units as the proposal and preserves the point when the light moves or
 changes area. The sky uses solid angle directly.
 
 The scalar target `t` is the luminance of the unshadowed RGB contribution
-at the receiver. This includes emitted radiance, the receiver's BSDF and
-cosine, the change of measure above, and the power-heuristic weight for light
-sampling. A BSDF ray that hits the emitter or escapes to the sky supplies
+times the receiver's estimate of visibility. The RGB includes emitted
+radiance, the receiver's BSDF and cosine, the change of measure above, and
+the power-heuristic weight for light sampling. A BSDF ray that hits the
+emitter or escapes to the sky supplies
 the complementary weight. A camera looking directly at the sign sees its
 full emitted radiance.
 
@@ -150,8 +170,7 @@ The motion vector locates one previous pixel. Its normal must agree with
 the current normal (dot product at least 0.9), and the two depths must
 agree within 2% in the previous camera's projection. The surface pass projects the previous pose of the same triangle and carries its clip-space depth in the emission target’s alpha channel. Both ReSTIR and SVGF check the temporal donor’s triangle identity and compare against that depth when geometry moves. The donor represents
 up to 20 times the number of fresh candidates at the receiver. The spatial
-step chooses one of the four axial neighbors on a full frame or one of the
-four diagonal neighbors on a checkerboard. Each donor belongs to the
+step chooses one of the four axial neighbors. Each donor belongs to the
 completed temporal pass and uses the same surface test in the current
 projection. Each accepted donor contributes its represented count `m` and
 weight `target_here × W_donor × m`. The biased estimator
@@ -160,17 +179,12 @@ contributed at only some of those surfaces. This can lose energy at surface
 boundaries. [Bitterli et al., 2020](https://research.nvidia.com/publication/2020-07_spatiotemporal-reservoir-resampling-real-time-ray-tracing-dynamic-direct)
 
 Only the final direction needs a visibility test. Its shadow ray carries
-the receiving surface's RGB contribution times `W` into the usual BVH
-query. Each layer owns its final history and both take turns using one
+the receiving surface's RGB contribution with its sampling correction into
+the BVH query. Each layer owns its final history and both take turns using one
 temporal scratch buffer. A sky or uncovered pixel writes empty history.
-A sky bake increments the environment revision. The next draw fills both checkerboard parities with fresh proposals. A direction on last minute’s dim sky can now fall inside the bright solar disc, so its old selection weight belongs to a different proposal distribution. Resizing or replacing the scene or environment also starts a new history.
+A sky bake increments the environment revision. The next draw starts every pixel with fresh proposals. A direction on last minute’s dim sky can now fall inside the bright solar disc, so its old selection weight belongs to a different proposal distribution. Resizing or replacing the scene or environment also starts a new history.
 
 `upload-lit-scene` takes finite-range punctual lights and capacity for moving ones. A ground-plane grid lists static lights whose influence overlaps each cell. Vehicles update a short list of moving lights with `update-moving-lights!`. The punctual lights compete with the weighted sky or mesh estimate for one shadow ray. A finite ray runs from the offset receiver to the selected light. Later bounces use one fresh sky or mesh candidate and the same visibility step. Last Mile's storefront strips illuminate the shop and pavement from their actual triangles.
-
-A pixel skipped by the checkerboard keeps its reservoir and the last radiance
-in its layer's slot. `gather` marks that radiance with a negative alpha in the
-noisy texture. SVGF carries forward the pixel's illumination, moments and
-observation count, and runs its spatial filters at full resolution.
 
 The GPU regression lights a white wall with a two-triangle rectangle against
 a black sky. Numerical integration at its center gives 0.3000 linear
@@ -180,6 +194,77 @@ Raw sample variances were 0.0369 and 0.2151 respectively. Moving the blocker
 behind the sign preserves the light. Moving it between the wall and sign
 extinguishes it. A separate pose test moves the sign across a stationary
 receiver while reusing its reservoir.
+
+### Learning which lights reach a surface
+
+Each first hit remembers the two distinct sources its shadow rays most
+recently tested. A new source starts with a visibility estimate of ½. A
+shadow observation moves the estimate toward one for a clear ray or zero
+for a blocked ray. A source can be one emissive triangle, a punctual
+light, the analytic solar disc, or one of six sky regions. Points on a
+partly covered triangle can give different answers.
+
+The estimate scales the target for fresh candidates, reused candidates at
+the receiver, and the final choice among punctual lights and the ReSTIR
+sample. Each selection divides out its own priority when weighting the RGB.
+An interior surface can therefore spend more rays on a dim lamp it can see.
+A fresh shadow test on the winning direction determines its contribution.
+
+A fraction of shaded first hits scores its candidates by unshadowed energy
+to explore. Both kinds of selection update the receiver from the ray they
+actually traced. A surface
+that fails reprojection starts with empty visibility history. A spatial
+neighbor can suggest a light sample, while visibility estimates always
+belong to the receiver. Independent reference samples use neutral priorities.
+
+Set the minimum exploration fraction and the recovery target in displayed
+frames on the tracer. This example asks for at least one exploratory path
+in eight and a 12-frame response (0.4 seconds at 30 fps).
+
+```scheme
+(Tracer-guiding-set tracer
+  (new LightGuiding (exploration-floor 0.125) (recovery-frames 12)))
+```
+
+Recovery means closing 90% of the expected gap from the old visibility to
+the new one for a retained light that wins every probe. Let `N` be the
+number of shadow opportunities per receiver in the requested frames.
+With `T` displayed frames and `s` paths per pixel, `N = T × s`.
+The per-opportunity response is `r = 1 − 0.1^(1/N)`. The actual probe
+probability is `p = max(exploration-floor, r)`, and each observation
+uses gain `a = r/p`. With probes alone the expected remaining gap after
+`N` opportunities is `(1 − p a)^N = 0.1`. A higher exploration floor
+buys more frequent probes with smaller updates. A shorter target can raise
+exploration so that one clear observation suffices.
+
+For a fully uncovered light that wins a fraction `s` of probes, the chance
+of at least one rediscovery is `1 − (1 − p s)^N` under constant independent
+odds. Its expected residual visibility error from probes alone scales as
+`(1 − p s a)^N`. Guided wins also teach the receiver. Actual reservoir
+selection depends on the light's energy relative to the other candidates.
+Rare proposals, partial occlusion and eviction can extend the wait.
+
+The same response rate sets a positive visibility floor `min(½, r)` for
+candidate weighting. Temporal donor count is capped at `(1 − r)/r` times
+the fresh count, using one **reservoir write per frame** at either sample count. Thus fresh proposals account for at least `r` of
+the represented temporal stream. The existing caps of 20, or less while
+driving, can shorten this memory. The default is a ⅛ exploration floor
+and a 48-frame recovery target.
+
+In the 9×9 indoor regression a screen blocks a bright patch of sky and a
+weaker lamp lights the wall. Each receiver casts one shadow ray per frame.
+Energy-only selection with reservoir reuse sends 75% of those rays toward
+the blocked sky and gives raw red-channel variance of 0.0156. With a ⅛
+exploration floor, shortening the recovery target spends more rays on the
+blocked sky and finds the opening sooner.
+
+| Recovery target | Sky rays while blocked¹ | Raw variance while blocked | Sky rays in first 4 open frames | Sky rays in next 12 | Mean radiance in those 12 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 48 frames | 38% | 0.00460 | 47% | 75% | 0.2856 |
+| 12 frames | 46% | 0.00580 | 60% | 77% | 0.2876 |
+
+¹ Measured over 12 frames after 20 warm-up frames. The open-room reference
+averaged 32 independent samples per pixel and gave 0.2886.
 
 ## The blended layer
 
@@ -272,7 +357,7 @@ Last Mile uses the same surface, path, SVGF and post passes for a moving cast.
 A `MovingScene` owns a static prefix of world vertices and one contiguous range
 of local vertices per moving object or skinned mesh. `pose-scene!` writes the posed vertices
 and their displacement from the previous draw. The surface pass uses that
-displacement for motion vectors and the expected previous depth. SVGF stores the current clip-space depth and octahedral normal for validation on the next frame. During motion each new observation receives at least one eighth of the accumulated illumination weight. Both primary visibility and secondary rays
+displacement for motion vectors and the expected previous depth. SVGF stores the current clip-space depth and octahedral normal for validation on the next frame. During motion each new observation receives at least 40% of the accumulated illumination weight. Both primary visibility and secondary rays
 consume the same world-space triangles. Mesh topology and materials stay fixed.
 
 `make-moving-tracer` keeps the leaf order and binary tree for those triangles.
@@ -308,7 +393,7 @@ The Node host can render a PNG directly from a local glTF or GLB with the same W
 
 `sf` builds the actual street neighbourhood, vehicles, people, lamps and sky at one of the 16 taxi stands. `taxi` and `sedan` show the vehicle on a flat surface. An external model resolves buffers and images relative to its file and is framed from its bounds. Supply both `eye` and `target` to choose a camera in scene coordinates. `minute` is local solar time in minutes after midnight. `layers` sets the square texture-layer size for external models and vehicle previews.
 
-`(snail shell graphics still)` renders a fixed camera into an offscreen texture and returns the updated tracer and tightly packed RGBA bytes. It traces every pixel on every sample, with up to 4,096 observations and eight bounces. Image dimensions must fit the device’s ray-buffer limit. Offline frames use the stationary SVGF history. The live game’s frame cap and short driving history apply only to the interactive mode.
+`(snail shell graphics still)` renders a fixed camera into an offscreen texture and returns the updated tracer and tightly packed RGBA bytes. It traces every pixel on every sample, with up to 4,096 observations and eight bounces. Image dimensions must fit the device’s ray-buffer limit. Offline frames use the stationary SVGF history. Last Mile caps its own frame rate and reports movement while driving.
 
 ### Capture reconstruction inputs and a reference
 
@@ -335,7 +420,7 @@ The matching `.opaque.*` and `.blended.*` files contain the native,
 tightly packed G-buffer planes. Their names give the channel formats.
 They carry octahedral normals, emission and previous clip depth, sRGB
 albedo with linear alpha, material factors, UV motion, triangle IDs
-and hardware depth. The `.camera` file contains the `Camera3D` Pod bytes.
+and hardware depth. The `.camera` file contains the actual jittered `Camera3D` Pod bytes. The reference uses that same subpixel position for every independent lighting observation.
 
 ## The viewer
 
@@ -374,10 +459,8 @@ Clicking one drops it on the page. So the site publishes none of them,
 and a model's license is its publisher's to state. The page's query
 chooses the same way: `?model=ADDRESS&env=ADDRESS`, each an address
 `fetch` reads, such as a path on the page's server, and
-`&eye=x,y,z,yaw,pitch` for the camera. The viewer uses checkerboard sampling
-on still frames by default. Add `?spp=1` to trace every pixel on every frame,
-or append `&spp=1` to an existing query. An explicit `spp=0.5` also selects
-checkerboard sampling.
+`&eye=x,y,z,yaw,pitch` for the camera. The viewer starts with one path per internal pixel.
+Use `?spp=2`, or append `&spp=2` to an existing query, for two paths.
 
 Files that cannot be shown leave the view as it was, and the page says why:
 a `.gltf` chosen without the files it names, an address that answers 404, a
@@ -410,10 +493,12 @@ On an RTX 5090 through Dawn, a 768 by 512 scene with two boxes on a ground
 plane took 0.264 ms for the four-bounce wavefront before ReSTIR, 0.390 ms
 with full-rate ReSTIR and 0.263 ms with the still-frame checkerboard.
 These are median GPU pass times over 405 frames per mode, after 15 warm-up
-frames in each of three runs. Each reservoir entry occupies 48 bytes,
-including the depth and normal used for reuse.
+frames in each of three runs, before visibility guiding. The current
+`SurfaceReservoir` occupies 64 bytes, including 16 for visibility history.
 
 ### Fewer path samples
+
+The following historical comparison includes the retired checkerboard schedule.
 
 The two boxes on a ground plane were lit by a sky with a sun and rendered
 at 384 by 256 from empty history, with four bounces. The reference averaged
@@ -439,6 +524,30 @@ median GPU pass time per still frame was 0.420 ms for the original tracer,
 On the uniform white wall at 384 by 256 with one
 bounce, the same two-spp checkerboard budget gave 0.00646 filtered RMSE.
 The original tracer at eight spp reached 0.00541.
+
+A second comparison kept learned visibility enabled on both schedules,
+immediately before adding native-resolution jitter. At two accumulated
+paths per pixel, full coverage in two frames took **0.633 ms** with
+filtered RMSE **0.01462**. Alternating coverage needed three frames and
+**0.888 ms**, with filtered RMSE **0.01526**. A single warm frame on the
+alternating schedule took 0.286 ms versus 0.318 ms at full coverage.
+This used the same 384×256 scene and 54,781 surface pixels, a fresh
+4,096-spp reference, 32 cold starts for error, and the median GPU time
+over 124 cold starts on the RTX 5090.
+
+### Subpixel jitter
+
+At 192×128, the same two-box scene was rendered with four bounces and
+one path per pixel per frame. Both runs used the same seeds, SVGF and
+display resolve. Only the camera offsets changed. The reference averages
+128 independent paths at each of 16 regularly spaced subpixel positions
+(2,048 spp). Error covers the entire resolved linear-HDR image over 16
+cold starts, before tone mapping and FXAA.
+
+| Frames | Fixed pixel centers, RMSE | Halton jitter, RMSE |
+| ---: | ---: | ---: |
+| 8 | 0.02268 | 0.01489 |
+| 16 | 0.02233 | 0.01403 |
 
 ### Browser scenes
 

@@ -4,11 +4,18 @@
   (export
    LightSample
    Reservoir
+   LightVisibility
+   VisibilityHistory
+   LightGuiding
+   GuidingRates
+   default-light-guiding
+   light-guiding-rates
    SurfaceReservoir
    reservoir-shader
    reservoir-buffer)
   (import
    (snail core base)
+   (only (snail shell math) expt)
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics kernel)
@@ -30,14 +37,63 @@
        (coordinates I32))
       (deriving Pod))
 
-    ;; Octahedral normal, primitive ID and previous-camera clip depth occupy
-    ;; 16 bytes. Only spatial reuse may borrow a neighbouring triangle.
+    (record LightVisibility
+      ((key I32)
+       (visibility F32))
+      (deriving Pod))
+
+    (record VisibilityHistory
+      ((recent LightVisibility)
+       (previous LightVisibility))
+      (deriving Pod))
+
+    ;; A neighbor can supply a light sample. Only the same reprojected
+    ;; surface can supply observations of which lights it could see.
     (record SurfaceReservoir
       ((reservoir Reservoir)
        (normal Vec2f)
        (triangle I32)
-       (clip-depth F32))
+       (clip-depth F32)
+       (visibility VisibilityHistory))
       (deriving Pod))
+
+    ;; ---- Light selection and recovery ----
+
+    (record LightGuiding
+      ((exploration-floor F32)
+       (recovery-frames I32)))
+
+    (define (default-light-guiding) (→ LightGuiding)
+      (new LightGuiding (exploration-floor 0.125) (recovery-frames 48)))
+
+    (record GuidingRates
+      ((exploration F32)
+       (visibility-gain F32)
+       (visibility-floor F32)
+       (history-limit F32))
+      (deriving Pod))
+
+    ;; Close 90% of the gap in N opportunities: (1 - rate)^N = 0.1.
+    (define (recovery-rate (n F64)) (→ F64) (- 1.0 (expt 0.1 (/ 1.0 n))))
+
+    ;; Only the first path writes a reservoir. Every path can observe visibility.
+    ;; For a light that wins each probe, expected progress per path is probe × gain.
+    (define (light-guiding-rates (settings LightGuiding) (samples I32))
+      (→ GuidingRates)
+      (let ((floor (● settings exploration-floor)) (frames (● settings recovery-frames)))
+        (unless (and (>= floor 0.0) (<= floor 1.0) (> frames 0) (or (= samples 1) (= samples 2)))
+          (panic
+           "light guiding needs an exploration floor in [0,1], positive frames and 1 or 2 paths"))
+        (let* ((turnover (recovery-rate (i32->f64 frames)))
+               (rate (recovery-rate (* (i32->f64 frames) (i32->f64 samples))))
+               (probe (max (f32->f64 floor) rate)))
+          (new GuidingRates
+            (exploration (f64->f32 probe))
+            (visibility-gain (f64->f32 (/ rate probe)))
+            (visibility-floor (f64->f32 (min 0.5 rate)))
+            (history-limit (f64->f32 (min 20.0 (/ (- 1.0 turnover) turnover))))))))
+
+    ;; ---- Shader and storage ----
 
     (define surface-shape (→ (Shape SurfaceReservoir)) (shape))
     (define reservoir-shader

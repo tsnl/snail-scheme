@@ -1,7 +1,7 @@
 ;; Reconstruction happens in the stable display grid. Raw G-buffer motion
 ;; includes both projections' jitter. Subtract their difference exactly once.
 ((var uniform) (@group 0) (@binding 0) (camera Camera3D))
-((var uniform) (@group 0) (@binding 1) (shift vec4f))
+((var uniform) (@group 0) (@binding 1) (display DisplayFrame))
 (var (@group 0) (@binding 2) (light (texture_2d f32)))
 (var (@group 0) (@binding 3) (depth texture_depth_2d))
 (var (@group 0) (@binding 4) (motion (texture_2d f32)))
@@ -30,7 +30,7 @@
     (if ((any (>= dest out_size)) (return)))
     (let size (vec2i (textureDimensions light)))
     (let uv (/ (+ (vec2f dest) 0.5) (vec2f out_size)))
-    (let low (- (* uv (vec2f size)) (get shift xy) 0.5))
+    (let low (- (* uv (vec2f size)) (get display jitter) 0.5))
     (let p (clamp (vec2i (floor (+ low 0.5))) (vec2i 0) (- size 1)))
     (let z (textureLoad depth p 0))
     (let key (surface_key p z))
@@ -50,15 +50,18 @@
     (/= current (max 0.00001 weight))
     (let velocity (+
                    (get (textureLoad motion p 0) xy)
-                   (/ (- (get shift xy) (get shift zw)) (vec2f size))))
+                   (/ (- (get display jitter) (get display previous_jitter)) (vec2f size))))
     (let prev_uv (- uv velocity))
     (let before (- (* prev_uv (vec2f out_size)) 0.5))
     (let base (vec2i (floor before))) (let f (fract before))
     (let expected (get (textureLoad emission p 0) w))
     (var history (vec3f 0.0)) (var coverage 0.0)
-    ;; A sentinel previous jitter invalidates the whole history on a cut or resize.
-    ;; Sky and translucency can lack a stable opaque surface. Use fresh sky color.
-    (if ((and (< (get shift z) 1.0) (!= key 0u) (!= key 0xffffffffu) (> expected 0.0))
+    ;; Motion needs a corresponding opaque surface in the previous display.
+    (if ((and (!= (get display valid) 0)
+              (== (get display still_weight) 0.0)
+              (!= key 0u)
+              (!= key 0xffffffffu)
+              (> expected 0.0))
          (for ((var k 0) (< k 4) (+= k 1))
               (let o (vec2i (bit-and k 1) (>> k 1))) (let q (+ base o))
               (if ((or (any (< q (vec2i 0))) (any (>= q out_size))) (continue)))
@@ -79,7 +82,11 @@
          (let near (dot (- (vec2f p) low) (- (vec2f p) low)))
          (let keep (* coverage stable (mix 0.54 0.78 (min 1.0 (* 3.0 near)))))
          (= current (mix current (clamp history (- lo 0.006) (+ hi 0.006)) keep))))
-    (textureStore resolved
-                  dest
-                  (vec4f (expanded (clamp current (vec3f 0.0) (vec3f 0.99998))) current_z))
+    (var rgb (expanded (clamp current (vec3f 0.0) (vec3f 0.99998))))
+    ;; In a still view successive samples can land on opposite sides of an
+    ;; edge. Their linear radiances integrate coverage of the same display pixel.
+    (if ((> (get display still_weight) 0.0)
+         (= rgb
+            (mix rgb (get (textureLoad previous_color dest 0) rgb) (get display still_weight)))))
+    (textureStore resolved dest (vec4f rgb current_z))
     (textureStore surface_id dest (vec4u key 0u 0u 0u)))

@@ -64,14 +64,34 @@
         (pdf f32)
         (value vec3f)
         (endpoint vec3f)
-        (emitter i32)
+        (key i32)
         (coordinates i32))
+
+;; Six equal-solid-angle sky regions: four around the horizon and two
+;; polar caps. The analytic solar disc has its own key at any elevation.
+;; Mesh slots are positive. Punctual IDs follow the sky's negative keys.
+(const SUN_KEY -7)
+
+(fn sky_key ((d vec3f)) (-> i32)
+    (let sun (textureLoad environment_disc (vec2i 0 0) 0))
+    (if ((and (>= (dot d (get sun xyz)) (get sun w))
+              (any (> (get (textureLoad environment_disc (vec2i 1 0) 0) xyz) (vec3f 0.0))))
+         (return SUN_KEY)))
+    (if ((> (get d y) (/ 2.0 3.0)) (return -5))
+        ((< (get d y) (/ -2.0 3.0)) (return -6)))
+    (return (- -1 (i32 (> (get d x) 0.0)) (* 2 (i32 (> (get d z) 0.0))))))
+
+;; A positive target even after many misses keeps every contributing
+;; sample in the estimator's support. Only the shadow ray measures RGB.
+(fn selection_energy ((h VisibilityHistory) (key i32) (value vec3f)) (-> f32)
+    (return (* (dot value env_luma) (max (get wave guiding visibility_floor)
+                                         (expected_visibility h key)))))
 
 (fn sky_proposal ((s Surface) (v vec3f) (d vec3f) (pdf f32)) (-> Proposal)
     (var value (vec3f 0.0))
     (if ((and (> pdf 0.0) (> (dot (get s geometric) d) 0.0))
          (= value (* (environment_light d) (evaluated s v d) (balanced pdf (density s v d))))))
-    (return (Proposal d pdf value d 0 0)))
+    (return (Proposal d pdf value d (sky_key d) 0)))
 
 (fn triangle_proposal ((s Surface) (v vec3f) (slot i32) (coordinates i32) (fraction f32))
     (-> Proposal)
@@ -89,7 +109,7 @@
     (let r2 (dot delta delta))
     (var (p Proposal))
     (= (get p pdf) (* fraction (emitter_mass cell)))
-    (= (get p emitter) slot)
+    (= (get p key) slot)
     (= (get p coordinates) coordinates)
     (if ((<= r2 1e-16) (return p)))
     (let d (/ delta (sqrt r2)))
