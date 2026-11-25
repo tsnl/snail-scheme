@@ -1,15 +1,9 @@
-;; Prepared concrete code to WasmGC. Declarations and function bodies are
-;; fixed before emission; no source specialization or validation happens here.
-;; This backend decides representations:
-;; scalars are Wasm numbers, enums whose cases have no fields are i32 tags,
-;; other data are GC structs (enum cases are subtypes of a tagged base), a
-;; field holding a record keeps a reference to that object,
-;; sequences are GC arrays, and functions are closures holding a typed
-;; function reference. A direct self tail call loops, and other tail calls
-;; transfer to their callee. A whole program becomes one module. A suspension
-;; leaves a record in one global, which each caller tests after a call that
-;; may yield, saving the rest of its work as a frame, back to the
-;; `with-prompt` it is aimed at; `resume` runs those frames again, once.
+;; Prepare one program's layouts and instructions. Scalars stay in Wasm
+;; registers. Other values have concrete record, array or closure layouts.
+;; The physical pass assigns byte offsets, roots and function table slots.
+;; Direct self tail calls with stable managed arguments loop at their entry.
+;; A suspension unwinds one frame at a time to its prompt. Its one-shot
+;; continuation holds closure frames for the remainder of those calls.
 (define-library (snail shell compiler wasm)
   (export
    emit-module
@@ -17,6 +11,8 @@
   (import
    (snail core base)
    (snail core table)
+   (snail shell compiler wat)
+   (snail shell compiler memory)
    (snail shell compiler read)
    (snail shell compiler core)
    (only (snail shell compiler specialize)
@@ -29,126 +25,9 @@
          may-resume?))
   (begin
 
-    ;; ---- Text ----
-
-    ;; A WAT S-expression is a word, such as a keyword, identifier, number,
-    ;; string literal or a preformatted helper, or a parenthesized node.
-    (enum Wat
-      (Word
-       ((text String)))
-      (Node
-       ((items (List Wat)))))
-
-    ;; `(wat "i32.add" a b)` is the node `(i32.add a b)`.
-    (define-syntax wat
-      (syntax-rules ()
-        ((_ head item ...) (Node (list (Word head) item ...)))))
-
-    ;; A node whose items after the head form a list.
-
-    (define (wat* (head String) (items (List Wat))) (→ Wat)
-      (Node (Cons (Word head) items)))
-
-    (define (int (n I64)) (→ Wat)
-      (Word (i64->string n)))
-
-    ;; Top-level module fields and function instructions start new lines.
-
-    (define (wat->string (module Wat)) (→ String)
-      (match module
-        ((Node (Cons _ fields))
-         (string-concatenate
-          (reverse (Cons ")\n"
-                         (fold-left (lambda (pieces field) (write-field field (Cons "\n  " pieces)))
-                                    (list "(module")
-                                    fields)))))
-        (_ (panic "internal error: not a module"))))
-
-    (define (field->string (field Wat)) (→ String)
-      (string-concatenate (reverse (write-field field (Nil)))))
-
-    (define (write-field (field Wat) (pieces (List String))) (→ (List String))
-      (match field
-        ((Node (Cons (Word head) parts))
-         (if (or (string=? head "func") (string=? head "rec"))
-             (Cons ")"
-                   (fold-left (lambda (pieces part)
-                                (write-wat part
-                                           (Cons (if (own-line? head part) "\n    " " ") pieces)))
-                              (Cons head (Cons "(" pieces)) parts))
-             (write-wat field pieces)))
-        (_ (write-wat field pieces))))
-
-    (define (own-line? (head String) (part Wat)) (→ Bool)
-      (match part
-        ((Node (Cons (Word inner) _))
-         (or (string=? head "rec")
-             (not (member? inner (list "type" "param" "result" "local" "export")))))
-        (_ #f)))
-
-    ;; Pieces accumulate in reverse.
-
-    (define (write-wat (wat Wat) (pieces (List String))) (→ (List String))
-      (match wat
-        ((Word text) (Cons text pieces))
-        ((Node (Nil)) (Cons "()" pieces))
-        ((Node (Cons first rest))
-         (Cons ")"
-               (fold-left (lambda (pieces item) (write-wat item (Cons " " pieces)))
-                          (write-wat first (Cons "(" pieces))
-                          rest)))))
-
-    ;; Wasm strings are UTF-8 bytes; anything beyond printable ASCII is escaped.
-
-    (define (wat-string (text String)) (→ Wat)
-      (Word (string-append "\"" (string-concatenate (map escape-char (string->list text))) "\"")))
-
-    (define (escape-char (c Char)) (→ String)
-      (let ((code (char->integer c)))
-        (if (and (>= code 32) (< code 127) (not (= code 34)) (not (= code 92)))
-            (list->string (list c))
-            (string-concatenate (map (lambda (byte)
-                                       (string-append "\\"
-                                                      (hex-digit (quotient byte 16))
-                                                      (hex-digit (remainder byte 16))))
-                                     (utf-8-bytes code))))))
-
-    (define (hex-digit (value I64)) (→ String)
-      (substring "0123456789abcdef" value (+ value 1)))
-
-    (define (utf-8-bytes (code I64)) (→ (List I64))
-      (cond ((< code 128) (list code))
-            ((< code 2048) (list (+ 192 (quotient code 64)) (+ 128 (remainder code 64))))
-            ((< code 65536)
-             (list (+ 224 (quotient code 4096))
-                   (+ 128 (remainder (quotient code 64) 64))
-                   (+ 128 (remainder code 64))))
-            (else (list (+ 240 (quotient code 262144)) (+ 128 (remainder (quotient code 4096) 64))
-                        (+ 128 (remainder (quotient code 64) 64)) (+ 128 (remainder code 64))))))
-
-    ;; Fills each `{name}` in a template of fixed WAT text.
-
-    (define (fill (template String) (bindings (List (Pair String String)))) (→ String)
-      (let loop ((chars (string->list template)) (pieces (Nil)))
-        (match chars
-          ((Nil) (string-concatenate (reverse pieces)))
-          ((Cons #\{ rest)
-           (let ((name (list->string (take-until rest #\}))))
-             (match (assoc-ref bindings name)
-               ((Some value) (loop (list-drop rest (+ (string-length name) 1)) (Cons value pieces)))
-               ((None) (loop rest (Cons "{" pieces))))))
-          ((Cons c rest) (loop rest (Cons (list->string (list c)) pieces))))))
-
-    (define (take-until (chars (List Char)) (stop Char)) (→ (List Char))
-      (let loop ((chars chars) (taken (Nil)))
-        (match chars
-          ((Cons c rest) (if (char=? c stop) (reverse taken) (loop rest (Cons c taken))))
-          ((Nil) (reverse taken)))))
-
     ;; ---- Module state ----
 
-    ;; GC types are registered on first use. Functions are kept as text,
-    ;; other fields as trees. `lambdas` holds each lambda's text by its
+    ;; Layouts are registered on first use. Module fields remain typed trees. `lambdas` holds each lambda's text by its
     ;; name; `helpers` caches imports and helper functions by key.
     ;; `declarations` is fixed metadata: it holds no source bodies, recipes
     ;; or pending work. Only the Wasm output builders change during emission.
@@ -160,7 +39,7 @@
        (types (List Wat))
        (imports (List Wat))
        (globals (List Wat))
-       (functions (List (Pair String String)))
+       (functions (List (Pair String Wat)))
        (declared (List String))
        (exports (List Wat))
        (data (List Wat))
@@ -177,12 +56,14 @@
       (syntax-rules ()
         ((_ place key value) (set! place (table-set place key value)))))
 
-    ;; A function is written out as soon as it is emitted. The module's
-    ;; functions are most of its text, and holding their trees until the end
-    ;; made every collection copy them.
+    ;; Fixed helper templates join generated instructions before layout
+    ;; selection so their calls and temporaries follow the same root rules.
 
     (define (push-function! (m Module) (name String) (function Wat)) (→ Unit)
-      (push! (● m functions) (new Pair (first name) (second (field->string function)))))
+      (push! (● m functions)
+             (new Pair
+               (first name)
+               (second (match function ((Word text) (parse-wat text)) (_ function))))))
 
     ;; A global or data segment that a module declares once, at its first
     ;; use, is declared by a cached function of the module and what names
@@ -349,7 +230,7 @@
            (("RefSlot")
             (let ((value (ref-payload type)))
               (if (ref-scalar? value)
-                  (Reference (array-type m (element-rep m value)))
+                  (Reference (scalar-slot-type m value))
                   (rep m value))))
            (("Funcref") (Scalar "funcref"))
            (("Array" "ConstantArray")
@@ -464,7 +345,7 @@
         ((TCon name _) name)
         (_ (panic "internal error: not a named type"))))
 
-    ;; A record is one GC struct. An enum is a base struct holding the tag,
+    ;; A record has one concrete layout. An enum is a base struct holding the tag,
     ;; with a final subtype for each case that has fields; a field-less case
     ;; is the base struct itself. The base is registered first because a
     ;; supertype must precede its subtypes.
@@ -1468,29 +1349,36 @@
 
     ;; ---- Scoped storage ----
 
-    ;; Scalars occupy one WasmGC array element. A flat record's fields are
-    ;; already inline in one struct. Copying them into private storage or
-    ;; out as a snapshot keeps ordinary mutable record aliases independent.
-    (define (ref-copy (fn Fn) (type Type) (source Wat)) (→ Wat)
+    ;; The scoped-parameter checker proves that this storage cannot escape
+    ;; its activation. A private slot occupies an aligned extent in the
+    ;; frame. A record snapshot can escape and gets ordinary record storage.
+    (define (scalar-slot-type (m Module) (type Type)) (→ String)
+      (let* ((r (rep m type)) (key (string-append "slot." (rep-key r))) (name (wasm-id key)))
+        (match (known-type m key)
+          ((Some found) found)
+          ((None) (register-type! m key name
+                                  (wat "type" (id name)
+                                       (wat "struct" (wat "field" (wat "mut" (rep->wat r))))))))))
+
+    (define (ref-copy (fn Fn) (type Type) (source Wat) (storage String)) (→ Wat)
       (let* ((m (● fn module)) (holder (data-type m type))
              (from (declare-temp! fn (ref-wat holder)))
              (slots (iota (length (● (record-case m type) fields)))))
         (wat "block" (wat "result" (ref-wat holder))
              (wat "local.set" (id from) source)
-             (wat* "struct.new" (Cons (id holder)
-                                      (map (lambda (i)
-                                             (wat "struct.get"
-                                                  (id holder)
-                                                  (int i)
-                                                  (wat "local.get" (id from))))
-                                           slots))))))
+             (wat* storage (Cons (id holder)
+                                 (map (lambda (i)
+                                        (wat "struct.get"
+                                             (id holder)
+                                             (int i)
+                                             (wat "local.get" (id from))))
+                                      slots))))))
 
     ;; Evaluate both operands once before changing any field.
     (define (ref-write (fn Fn) (type Type) (target Wat) (source Wat)) (→ (List Wat))
       (let ((m (● fn module)) (done (wat "i32.const" (int 0))))
         (if (ref-scalar? type)
-            (list (wat "array.set" (id (array-type m (element-rep m type)))
-                       target (wat "i32.const" (int 0)) source) done)
+            (list (wat "struct.set" (id (scalar-slot-type m type)) (int 0) target source) done)
             (let* ((holder (data-type m type)) (to (declare-temp! fn (ref-wat holder)))
                    (from (declare-temp! fn (ref-wat holder)))
                    (slots (iota (length (● (record-case m type) fields)))))
@@ -2787,18 +2675,14 @@
           (("ref-local")
            (let ((value (first-type types)))
              (list (if (ref-scalar? value)
-                       (wat "array.new_fixed"
-                            (id (array-type m (element-rep m value)))
-                            (int 1)
-                            (arg 0))
-                       ;; A freshly constructed struct already has private storage.
+                       (wat "frame.struct.new" (id (scalar-slot-type m value)) (arg 0))
                        (match (arg 0)
-                         ((Node (Cons (Word "struct.new") _)) (arg 0))
-                         (_ (ref-copy fn value (arg 0))))))))
+                         ((Node (Cons (Word "struct.new") fields)) (wat* "frame.struct.new" fields))
+                         (_ (ref-copy fn value (arg 0) "frame.struct.new")))))))
           (("ref-get")
            (list (if (ref-scalar? type)
-                     (array-read m type (arg 0) (wat "i32.const" (int 0)))
-                     (ref-copy fn type (arg 0)))))
+                     (wat "struct.get" (id (scalar-slot-type m type)) (int 0) (arg 0))
+                     (ref-copy fn type (arg 0) "struct.new"))))
           (("ref-set!") (ref-write fn (list-ref types 1) (arg 0) (arg 1)))
           (("cache")
            (list (cached-function m type (wat "i64.const" (int 0)) (arg 0) #f)))
@@ -3565,86 +3449,6 @@
                            (new Pair (first "character") (second character))
                            (new Pair (first "raise") (second raise))))))
 
-    (define (wat->text (wat Wat)) (→ String)
-      (string-concatenate (reverse (write-wat wat (Nil)))))
-
-    ;; ---- Type groups ----
-
-    ;; Two modules share a GC type only when both declare it in identical
-    ;; recursion groups, so a module puts each type in the smallest group it
-    ;; can: the types that refer to one another. That group is closed under
-    ;; references, so every module that uses one of its types declares all
-    ;; of them; listed by name, and after the groups they refer to, they are
-    ;; declared the same way everywhere. Cases of one enum with the same
-    ;; fields may share a type, since a match tests the tag before it casts.
-    ;; Types are numbered in the order of their names.
-
-    (define (type-groups (definitions (List Wat))) (→ (List Wat))
-      (let* ((named (fold-left (lambda (table definition)
-                                 (table-set table (type-definition-name definition) definition))
-                               (empty-table) definitions))
-             (names (list->array (list-sort string<? (map type-definition-name definitions))))
-             (numbers
-              (fold-left (lambda (table index) (table-set table (array-ref names index) index))
-                         (empty-table)
-                         (iota (array-length names)))))
-        (map (lambda (component)
-               (group-wat named (map (lambda (index) (array-ref names index)) component)))
-             (strong-components
-              (array-map (lambda (name) (type-edges named numbers name)) names)))))
-
-    (define (type-definition-name (definition Wat)) (→ String)
-      (match definition
-        ((Node (Cons _ (Cons (Word name) _))) name)
-        (_ (panic "internal error: not a type definition"))))
-
-    ;; The numbers of the types a definition refers to, in the order of
-    ;; their names: its fields, parameters, results and supertype.
-
-    (define (type-edges (named (Table Wat)) (numbers (Table I64)) (name String)) (→ (List I64))
-      (map (lambda (word) (table-number numbers word))
-           (list-sort string<? (delete-duplicates string=?
-                                                  (filter (lambda (word)
-                                                            (and (not (string=? word name))
-                                                                 (table-contains? numbers word)))
-                                                          (wat-words
-                                                           (table-ref-or-wat named name)))))))
-
-    (define (table-number (table (Table I64)) (key String)) (→ I64)
-      (match (table-ref table key)
-        ((Some number) number)
-        ((None) (panic "internal error: unknown type"))))
-
-    (define (table-ref-or-wat (table (Table Wat)) (key String)) (→ Wat)
-      (match (table-ref table key)
-        ((Some value) value)
-        ((None) (panic "internal error: unknown type"))))
-
-    (define (wat-words (wat Wat)) (→ (List String))
-      (match wat
-        ((Word text) (list text))
-        ((Node items) (concatenate (map wat-words items)))))
-
-    (define (group-wat (named (Table Wat)) (group (List String))) (→ Wat)
-      (match group
-        ((Cons name (Nil)) (table-ref-or-wat named name))
-        (_ (wat* "rec"
-                 (map (lambda (name) (table-ref-or-wat named name))
-                      (list-sort (lambda (a b)
-                                   (let ((left (super-depth named a)) (right (super-depth named b)))
-                                     (if (= left right) (string<? a b) (< left right)))) group))))))
-
-    ;; Recursive field references may point forward, but supertypes must
-    ;; precede their subtypes even inside one recursive group.
-    (define (super-depth (named (Table Wat)) (name String)) (→ I64)
-      (match (table-ref-or-wat named name)
-        ((Node (Cons (Word "type") (Cons _ (Cons (Node (Cons (Word "sub") parts)) (Nil)))))
-         (match (find (lambda (part)
-                        (match part ((Word name) (table-contains? named name)) (_ #f))) parts)
-           ((Some (Word parent)) (+ 1 (super-depth named parent)))
-           (_ 0)))
-        (_ 0)))
-
     ;; ---- Modules ----
 
     ;; The prepared input contains concrete functions,
@@ -3657,7 +3461,7 @@
                   (● prepared definitions))
         (for-each (lambda (item) (emit-exposure! m item)) (● prepared exposed))
         (match (● prepared entry) ((Some name) (emit-main! m name)) (_ (unit)))
-        (module-wat m)))
+        (lower-memory (module-wat m))))
 
     (define (new-module (declarations Declarations) (suspensions Suspensions)) (→ Module)
       (new Module (declarations declarations)
@@ -3685,21 +3489,15 @@
                 (wat "export" (wat-string "main:body") (wat "func" (id (wasm-id start))))))
         ((None) (panic "internal error: the entry's start has no definition"))))
 
-    ;; The fields in the order Wasm requires: types in their recursion
-    ;; groups, then imports, globals, declared function references, exports,
-    ;; code and the data segments of byte literals. Every module imports the
-    ;; runtime's linear memory, where staged text goes; once linked, the two
-    ;; share it.
-    ;; Declarations are listed by name, so the text is the same whichever
-    ;; order they were emitted in. Only the types constrain their order, and
-    ;; `type-groups` settles it.
+    ;; Physical lowering sees all layouts and imported signatures before
+    ;; it visits functions. Name order gives the bootstrap stable layout IDs.
 
     (define (module-wat (m Module)) (→ Wat)
       (let ((declared
              (list-sort string<? (delete-duplicates string=? (● m declared)))))
         (wat* "module"
               (concatenate
-               (list (type-groups (reverse (● m types)))
+               (list (sorted-declarations (● m types))
                      (Cons (wat "import"
                                 (wat-string "snail.core.support")
                                 (wat-string "memory")
@@ -3712,7 +3510,7 @@
                                      (Cons (Word "declare")
                                            (Cons (Word "func") (map id declared))))))
                      (sorted-declarations (● m exports))
-                     (map (lambda (entry) (Word (● entry second)))
+                     (map (lambda (entry) (● entry second))
                           (sort-named (● m functions)))
                      (sorted-declarations (● m data)))))))
 

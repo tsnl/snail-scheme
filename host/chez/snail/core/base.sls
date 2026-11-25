@@ -384,7 +384,7 @@
   ;; ---- Memoized closures ----
 
   ;; Keys are argument tuples. Strings compare by content, floats by bits,
-  ;; and other heap values by identity, as in the WasmGC implementation.
+  ;; and other heap values by identity, as in the compiled implementation.
   (define (cache-float-bits value)
     (let ((bytes (make-bytevector 8)))
       (bytevector-ieee-double-native-set! bytes 0 value)

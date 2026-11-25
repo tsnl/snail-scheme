@@ -3,6 +3,7 @@ import {readFile, writeFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
 import {linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
+import {instantiateProgram} from '../browser/memory.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
@@ -97,7 +98,7 @@ async function loadProgram(filename, wasi, host, tasks) {
   const read = file => readFile(resolve(dirname(filename), file));
   const module = await WebAssembly.compile(await readFile(filename));
   const imports = {...wasi.getImportObject(), ...host, ...linkedFileImports(read, module, tasks)};
-  const instance = await WebAssembly.instantiate(module, imports);
+  const instance = instantiateProgram(module, imports);
   wasi.initialize(instance);
   return {runtime: instance, exports: instance.exports, host};
 }

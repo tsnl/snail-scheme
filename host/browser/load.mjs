@@ -4,6 +4,8 @@
 // wasm) loads modules with, and how `snail-scheme` passes a host strings. It decides nothing about what a program is for: the
 // browser host (host.mjs) and host/native/run-snail.mjs build on it.
 
+import {exportedCode, instantiateProgram} from './memory.mjs';
+
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 
 // ---- WASI ----
@@ -72,8 +74,8 @@ export function createWasi({args = [], print}) {
 // Instantiates a compiled module whose WASI imports may be incomplete, as
 // createWasi's are: each missing WASI function answers ENOSYS. Any other
 // missing import still fails to link.
-export function instantiate(module, imports) {
-  return WebAssembly.instantiate(module, withStubs(module, imports, ['wasi_snapshot_preview1'], () => () => ENOSYS));
+export async function instantiate(module, imports) {
+  return instantiateProgram(module, withStubs(module, imports, ['wasi_snapshot_preview1'], () => () => ENOSYS));
 }
 
 // The imports with each missing function of the modules named in `stubbed`
@@ -239,7 +241,7 @@ export function wasmImports(program, memory = () => program().runtime.exports.me
       catch (error) { if (error instanceof WebAssembly.CompileError) return INVALID_MODULE; throw error; }
     },
     'has-export': handle => typeof instance(handle).exports[strings.take()[0]] === 'function',
-    'export-function': handle => instance(handle).exports[strings.take()[0]],
+    'export-function': handle => exportedCode(instance(handle), strings.take()[0], program().runtime),
     'import-count': module => WebAssembly.Module.imports(modules[module]).length,
     'import-at'(module, index) {
       const entry = WebAssembly.Module.imports(modules[module])[index];
@@ -260,7 +262,7 @@ export function wasmImports(program, memory = () => program().runtime.exports.me
       const link = prepared, {module, imports, object, bound, wasi} = link;
       prepared = null;
       if (bound !== imports.length) return LINK_FAILED;
-      try { link.instance = new WebAssembly.Instance(module, object); }
+      try { link.instance = instantiateProgram(module, object); }
       catch (error) { if (error instanceof WebAssembly.LinkError || error instanceof TypeError) return LINK_FAILED; throw error; }
       if (wasi) wasi.initialize(link.instance);
       else link.instance.exports._initialize?.();

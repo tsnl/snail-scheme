@@ -67,7 +67,7 @@ Chez Scheme, rather than another interpreter also named `scheme`; set `CHEZ`
 if necessary. The compiler's explicit stage-zero adapter handles its library
 syntax and typed forms. No R7RS library installation is needed.
 
-Node must support WasmGC and WebAssembly tail calls. Rustup reads the pinned
+Node must support WebAssembly tail calls, function tables and bulk memory. Rustup reads the pinned
 Rust release and Wasm target from `rust-toolchain.toml`. If a platform's packages
 are older, the Nix environment is the reproducible route used by CI.
 

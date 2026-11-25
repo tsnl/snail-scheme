@@ -1,13 +1,14 @@
 //! Scalar host services linked into `snail-scheme`'s Wasm programs.
 //!
-//! Managed values remain in compiled `snail-scheme`. Rust owns streams behind scalar
-//! IDs and path-reply scratch; it never holds guest GC roots.
+//! The linked heap owns shared objects and published roots. Streams and path
+//! replies belong to their scalar services, with explicit resource lifetimes.
 
 // Ordinary cargo tests exercise helpers independently of a Wasm engine.
 #![cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 
 #[cfg(feature = "assembler")]
 pub mod assembler;
+mod heap;
 mod host;
 mod io;
 mod paths;

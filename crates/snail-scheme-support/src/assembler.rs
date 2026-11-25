@@ -41,7 +41,20 @@ pub fn link(text: &str, runtime: &[u8]) -> Result<Vec<u8>, String> {
         ],
         false,
     )?;
-    merge(&[("program", &public_exports(&merged)?)], true)
+    let linked = merge(&[("program", &public_exports(&merged)?)], true)?;
+    validate_program(&linked)?;
+    Ok(linked)
+}
+
+// Validate the delivered artifact, after the linker remaps both tables and
+// types. Every executable host can disable GC and typed function references.
+fn validate_program(bytes: &[u8]) -> Result<(), String> {
+    use wasmparser::{Validator, WasmFeatures};
+    let features = WasmFeatures::all() - WasmFeatures::GC - WasmFeatures::FUNCTION_REFERENCES;
+    Validator::new_with_features(features)
+        .validate_all(bytes)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 fn merge(inputs: &[(&str, &[u8])], prune: bool) -> Result<Vec<u8>, String> {
@@ -68,7 +81,7 @@ fn public_exports(bytes: &[u8]) -> Result<Vec<u8>, String> {
             let mut section = ExportSection::new();
             for export in exports {
                 let export = export.map_err(|error| error.to_string())?;
-                if !export.name.starts_with("snail:") && !export.name.starts_with("diagnostics/") {
+                if host_export(export.name) {
                     wasm_encoder::reencode::RoundtripReencoder
                         .parse_export(&mut section, export)
                         .map_err(|error| error.to_string())?;
@@ -83,6 +96,26 @@ fn public_exports(bytes: &[u8]) -> Result<Vec<u8>, String> {
         }
     }
     Ok(module.finish())
+}
+
+// Descriptors and root operations implement the host view of managed values.
+// All other scalar services become private once the program is linked.
+fn host_export(name: &str) -> bool {
+    name.starts_with("snail:abi/")
+        || name.starts_with("snail:foreign/")
+        || name.starts_with("snail:global/")
+        || matches!(
+            name,
+            "snail:table"
+                | "snail:gc/roots"
+                | "snail:gc/release-roots"
+                | "snail:gc/checkpoint"
+                | "snail:gc/restore"
+                | "snail:gc/host-check"
+                | "snail:gc/code-new"
+                | "snail:gc/dead-code"
+        )
+        || (!name.starts_with("snail:") && !name.starts_with("diagnostics/"))
 }
 
 // ---- Results ----
@@ -154,25 +187,22 @@ pub extern "C" fn output_byte(index: i32) -> i32 {
 mod tests {
     use super::*;
 
-    // The constructs the compiler relies on: a recursion group of GC types,
-    // a subtype, a cast and a tail call through a function reference.
+    // A closure's environment is an address. The table checks the signature
+    // of its entry on the tail call.
     const PROGRAM: &str = r#"(module
-  (rec
-    (type $fn (func (param (ref $closure)) (param i64) (result i64)))
-    (type $closure (sub (struct (field (ref $fn))))))
-  (type $box (sub final $closure (struct (field (ref $fn)) (field i64))))
-  (elem declare func $add)
-  (func $add (type $fn) (param $self (ref $closure)) (param $x i64) (result i64)
-    (i64.add (local.get $x) (struct.get $box 1 (ref.cast (ref $box) (local.get $self)))))
+  (type $fn (func (param i32 i64) (result i64)))
+  (table 1 funcref) (elem (i32.const 0) $add)
+  (memory 1)
+  (func $add (type $fn) (param $self i32) (param $x i64) (result i64)
+    (i64.add (local.get $x) (i64.load offset=8 (local.get $self))))
   (func (export "main") (result i64)
-    (local $c (ref $closure))
-    (local.set $c (struct.new $box (ref.func $add) (i64.const 1)))
-    (return_call_ref $fn (local.get $c) (i64.const 41) (struct.get $closure 0 (local.get $c)))))"#;
+    (i64.store offset=8 (i32.const 16) (i64.const 1))
+    (return_call_indirect (type $fn) (i32.const 16) (i64.const 41) (i32.const 0))))"#;
 
     #[test]
-    fn assembles_gc_types_casts_and_tail_calls() {
+    fn assembles_linear_closures_and_tail_calls() {
         let module = assemble(PROGRAM).expect("the program assembles");
-        assert_eq!(&module[0..4], b"\0asm");
+        validate_program(&module).unwrap();
     }
 
     #[test]
@@ -197,10 +227,9 @@ mod tests {
         )
         .unwrap();
         let program = r#"(module
-          (type $box (struct (field i32)))
           (import "snail.core.support" "snail:answer" (func $answer (result i32)))
           (import "unused" "host-function" (func $unused))
-          (global (export "yielding") (mut (ref null $box)) ref.null $box)
+          (global (export "yielding") (mut i32) i32.const 0)
           (func (export "main") (export "user/function") (result i32) call $answer)
           (export "snail:unused" (func $unused))
           (export "diagnostics/unused" (func $unused)))"#;

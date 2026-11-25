@@ -5,8 +5,8 @@
 // the language server, `snail-scheme lsp`, which is a `snail-scheme` program
 // (src/snail/shell/lsp.sld).
 //
-// Zed's extension host loads a component without WasmGC, so the extension
-// cannot be compiled from `snail-scheme`; it stays this small.
+// Zed loads this extension through its component ABI. The Snail compiler
+// emits core WebAssembly modules. This adapter implements Zed's entry point.
 
 use zed_extension_api::{self as zed, settings::LspSettings, LanguageServerId, Result, Worktree};
 

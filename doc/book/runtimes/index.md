@@ -1,6 +1,6 @@
 # Runtimes
 
-`snail-scheme`'s shipping target is WebAssembly GC. Tasks are suspended
+`snail-scheme`'s shipping target is WebAssembly with linear memory. Tasks are suspended
 computations, scheduled in `snail-scheme`; a host drives the scheduler and
 completes the operations tasks wait on. A runtime supplies the platform's
 capabilities and owns the computations that use them. Each
@@ -79,7 +79,7 @@ collector made the compiler compiling itself take 46 s against Node's 1.3 s
 second host to keep for no program that needed it. A target for a new host
 handles the portable subset of capabilities
 ([scripts](../snail-scheme/scripts.md)) and adds its own. workerd's isolates
-are not OS processes, and its WasmGC and import support must be checked
+are not OS processes, and its tail-call and import support must be checked
 before promising compatibility.
 
 The Rust support module, `snail.core.support` from
