@@ -534,10 +534,7 @@
                             (center (xz (● rig focus x) (● rig focus z)))
                             (ahead (forward (+ (if seated (● rig heading) (● b heading)) yaw)))
                             (back (xz (negate (● ahead x)) (negate (● ahead z))))
-                            (limit (max 0.20 (- (trace-distance center back (+ length 0.45)
-                                                                (area-solids g
-                                                                             center
-                                                                             (+ length 1.0)))
+                            (limit (max 0.20 (- (area-trace-distance g center back (+ length 0.45))
                                                 0.45)))
                             (wanted (* length (cos pitch)))
                             (d (min limit
