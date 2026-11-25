@@ -1,7 +1,13 @@
 ;; Vehicles advance along directed road edges. Drivers yield to the car or
 ;; pedestrian ahead of them; sidewalk walkers use the existing gait machine.
 (define-library (snail shell game traffic)
-  (export Motor drive-with-traffic seed-motor motor-body advance-motor sidewalk-walker)
+  (export Motor
+          Motor-metres-set
+          drive-with-traffic
+          seed-motor
+          motor-body
+          advance-motor
+          sidewalk-walker)
   (import
    (snail core base)
    (snail shell math)

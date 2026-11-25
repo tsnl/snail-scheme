@@ -44,3 +44,15 @@ kbd { padding:1px 4px;border:1px solid #b3b7ad;border-radius:2px;background:#172
 .map-credit {bottom:3px;left:6px;background:#162630cc;color:#d5ded8;font:10px/1.15 system-ui,sans-serif;padding:1px 4px;}.map-credit a{color:inherit;}
 #status {top:42%;left:50%;transform:translate(-50%,-50%);padding:14px 17px;background:#182326;color:#fff0c0;}
 @media(max-width:650px){.mast,.radar,.keys{left:10px}.dispatch,.dash{right:10px}.mast,.dispatch{top:12px}.dash,.radar{bottom:70px}.keys{max-width:95vw;flex-wrap:wrap;gap:5px}.radar{width:clamp(188px,50vw,255px)}.dash{min-width:104px}.dispatch{padding:8px}.radar.wide{width:94vw}}
+
+.pause-toggle,.pause-card button,.setting {font:inherit;color:inherit;cursor:pointer}
+.pause-toggle {position:absolute;right:18px;bottom:12px;pointer-events:auto;background:#182326e8;border:1px solid #768783;padding:5px 12px;border-radius:4px}
+.pause-scrim {position:fixed;inset:0;display:grid;place-items:center;background:#10191d99;pointer-events:auto;z-index:5;padding:16px}
+.pause-scrim[hidden],.pause-toggle[hidden] {display:none}
+.pause-card {box-sizing:border-box;width:min(360px,100%);max-height:100%;overflow:auto;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:#1a2528;color:#faf7eb;padding:24px;border-top:3px solid #ffcf56;box-shadow:0 12px 40px #07121680}
+.pause-title,.pause-card button {grid-column:1 / -1}
+.pause-title {margin:0 0 6px}
+.setting-label {font-size:14px}.setting {color-scheme:dark;background:#293638;border:1px solid #768783;border-radius:3px;padding:5px}
+.pause-card button {min-height:36px;background:#2a393a;border:1px solid #70817c;border-radius:3px}
+.pause-card .resume-game {background:#ffcf56;border-color:#ffcf56;color:#202729;font-weight:700;margin-top:6px}
+.pause-card .restart-game {background:transparent}.pause-card :focus-visible,.pause-toggle:focus-visible {outline:2px solid #fff3c3;outline-offset:2px}

@@ -16,6 +16,7 @@
    Svgf
    make-svgf
    resize-svgf
+   svgf-moments
    release-svgf
    filter-svgf)
   (import
@@ -116,7 +117,7 @@
     ;; ---- A frame ----
 
     ;; `moved` when the camera moved since the last frame: a moving
-    ;; camera keeps 32 frames at most and gives each at least a fifth, a
+    ;; camera keeps 32 frames at most and gives each at least an eighth, a
     ;; still one keeps averaging.
     (define (filter-svgf (gpu Gpu)
                          (encoder GpuCommandEncoder)
@@ -171,7 +172,7 @@
       (uniform-slots filtering-shape
                      (map (lambda (limits) (new Filtering (limits limits)))
                           (Cons (if moved
-                                    (new Vec4f (x 32.0) (y 0.2) (z 0.0) (w exposure))
+                                    (new Vec4f (x 32.0) (y 0.125) (z 0.0) (w exposure))
                                     (new Vec4f (x 4096.0) (y 0.0) (z 0.0) (w exposure)))
                                 (map (lambda (stride)
                                        (new Vec4f (x 0.0) (y 0.0) (z stride) (w 0.0)))
@@ -190,6 +191,11 @@
     (define plane-names
       (→ (List String))
       (list "integrated" "ping" "pong" "color" "color" "moments" "moments" "place" "place"))
+
+    ;; The completed frame stores its two luminance moments and observation
+    ;; count in RGB. The other parity is the next draw's destination.
+    (define (svgf-moments (s Svgf)) (→ GpuTextureView)
+      (● (history (● s planes) "moments" (- 1 (● s parity))) view))
 
     (define (plane (planes (List Plane)) (name String)) (→ Plane) (history planes name 0))
 
