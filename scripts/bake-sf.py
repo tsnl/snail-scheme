@@ -1052,11 +1052,37 @@ def build_tile(task):
 # ---- Distant geometry and overview ----
 
 
+def lower_relief(fine, stride):
+    """A continuous coarse mesh below every triangle of the detailed DEM."""
+    corners = fine[::stride, ::stride]
+    a, b = corners[:-1, :-1], corners[:-1, 1:]
+    d, c = corners[1:, :-1], corners[1:, 1:]
+    rows, cols = a.shape
+    excess = np.zeros_like(a)
+    # Both grids use the NW to SE diagonal. The difference between their
+    # planes reaches its maximum at a fine vertex, including on that diagonal.
+    for j in range(stride + 1):
+        for i in range(stride + 1):
+            u, v = i / stride, j / stride
+            coarse = (a + (b - a) * u + (c - b) * v if i >= j
+                      else a + (c - d) * u + (d - a) * v)
+            detail = fine[j:j + rows * stride:stride, i:i + cols * stride:stride]
+            np.maximum(excess, coarse - detail, out=excess)
+    # Neighbours share their corner heights. A quarter metre covers both
+    # centimetre quantization and the depth precision of the distant mesh.
+    drop = np.zeros_like(corners)
+    for j, i in ((0, 0), (0, 1), (1, 0), (1, 1)):
+        shared = drop[j:j + rows, i:i + cols]
+        np.maximum(shared, excess, out=shared)
+    return corners - drop - 0.25
+
+
 def distant_city(buildings):
     # Coarse relief, water and the tallest actual buildings remain visible beyond
     # the detailed streets. The lower surface sits beneath nearby contact meshes.
     groups = collections.defaultdict(list)
     step = 128
+    relief = lower_relief(samples, step // STEP)
     xs, zs = np.meshgrid(np.arange(west, east, step), np.arange(north, south, step))
     dry_cells = shapely.contains_xy(land, xs + step / 2, zs + step / 2)
     # All cells meeting an ocean corner share its sea level. From a bluff,
@@ -1071,17 +1097,11 @@ def distant_city(buildings):
             x0, x1, z0, z1 = x, x + step, z, z + step
             if dry_cells[row, col]:
                 corners = [(x0, z0), (x1, z0), (x1, z1), (x0, z1)]
-                vs = [
-                    (a, -0.15 if (a, b) in wet_corners else height(a, b) - 4.0, b)
-                    for a, b in corners
-                ]
+                vs = []
+                for (a, b), (dx, dz) in zip(corners, ((0, 0), (1, 0), (1, 1), (0, 1))):
+                    y = relief[row + dz, col + dx]
+                    vs.append((a, min(y, -0.15) if (a, b) in wet_corners else y, b))
                 ground = groups["land"]
-                if any(corner in wet_corners for corner in corners):
-                    cx, cz = x + step / 2, z + step / 2
-                    center = (cx, max(-0.15, height(cx, cz) - 4.0), cz)
-                    for a, b in zip(vs, vs[1:] + vs[:1]):
-                        ground.extend((center, b, a))
-                    continue
             else:
                 # Continue seaward cells across the optical horizon. Driving
                 # and collision still use the original survey bounds.

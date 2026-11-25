@@ -1,0 +1,145 @@
+;; Render a PNG with the same WebGPU tracer as the browser, without a window.
+;; ./snail-scheme run --target node tools/render.scm scene=sf output=street.png
+(import
+ (snail core base)
+ (snail core io)
+ (snail shell json)
+ (snail shell json read)
+ (snail shell resource)
+ (snail shell gpu)
+ (snail shell png)
+ (snail shell graphics pod)
+ (snail shell graphics raster)
+ (only (snail shell graphics bvh) ray-size)
+ (snail shell graphics environment)
+ (snail shell graphics gltf)
+ (snail shell graphics trace scene)
+ (snail shell graphics trace render)
+ (snail shell graphics still)
+ (only (snail shell graphics passes) Photographic)
+ (only (snail shell graphics animation) unit-matrix)
+ (only (snail shell graphics fly) fly-over fly-camera)
+ (only (snail shell app) item Box Vec3 rgb)
+ (only (snail shell game scenery) with-shapes)
+ (snail shell game atlas)
+ (snail shell game roads)
+ (apps last-mile assets)
+ (apps last-mile game)
+ (apps last-mile lamps)
+ (only (apps last-mile render) make-street-renderer street-camera street-exposure sky-at))
+
+(define (setting (args Arguments) (key String) (fallback String)) (→ String)
+  (let* ((prefix (string-append key "=")) (n (string-length prefix)))
+    (match (find (lambda (s) (and (>= (string-length s) n) (string=? prefix (substring s 0 n))))
+                 (list-tail (command-line args) 1))
+      ((Some arg) (substring arg n (string-length arg)))
+      (_ fallback))))
+(define (number (args Arguments) (key String) (default I64) (lo I64) (hi I64)) (→ I64)
+  (match (string->i64 (setting args key (show default)))
+    ((Some n)
+     (if (and (>= n lo) (<= n hi))
+         n
+         (panic (string-append key " outside " (show lo) ".." (show hi)))))
+    (_ (panic (string-append key " must be an integer")))))
+(define (coordinate (x Json)) (→ F32)
+  (match x ((JsonInteger n) (f64->f32 (i64->f64 n))) ((JsonNumber n) (f64->f32 n))
+         (_ (panic "camera coordinates must be numbers"))))
+(define (point (text String)) (→ Vec3f)
+  (match (string->json (string-append "[" text "]"))
+    ((Some (JsonArray xs))
+     (unless (= (length xs) 3) (panic "camera positions need x,y,z"))
+     (new Vec3f
+       (x (coordinate (list-ref xs 0)))
+       (y (coordinate (list-ref xs 1)))
+       (z (coordinate (list-ref xs 2)))))
+    (_ (panic "camera positions need x,y,z"))))
+(record Shot
+  ((tracer Tracer)
+   (camera Camera3D)))
+
+(define (street (gpu Gpu) (files Resources) (stand I64) (minute I64) (w I32) (h I32) (aspect F64))
+  (→ Shot)
+  (let* ((shift (new-world)) (world (● shift game))
+         (atlas (read-atlas (read-resources files city-bands)))
+         (roads (read-roads (read-resource files streets-model))))
+    (start-stand! world stand)
+    (set! (● world clock-offset) minute)
+    (set! (● shift resolution) (max w h))
+    (let ((ground (open-area atlas (● world cab position))))
+      (populate! ground roads shift)
+      (let ((r (make-street-renderer gpu (lambda (paths) (art-reader files paths))
+                                     (read-resources files
+                                                     (list taxi-model
+                                                           other-model
+                                                           people-model
+                                                           horizon-model))
+                                     ground shift w h)))
+        (new Shot (tracer (● r tracer)) (camera (street-camera r shift aspect)))))))
+(define (vehicle (gpu Gpu) (files Resources) (taxi Bool) (braking Bool) (layers I32)) (→ Scene)
+  (let* ((source (read-gltf (read-resource files (if taxi taxi-model other-model)) "./"))
+         (car (parked-car source taxi braking))
+         (floor (item (Box) (new Vec3 (x 0.0) (y -0.10) (z 0.0))
+                      (new Vec3 (x 42.0) (y 0.10) (z 54.0)) 0.0 (rgb 97 101 106))))
+    (upload-lit-scene gpu (lambda (paths) (art-reader files paths)) (with-shapes car (list floor))
+                      layers (car-lights unit-matrix taxi braking) 0)))
+(define (model-shot (gpu Gpu) (fs Fs) (files Resources) (name String) (braking Bool) (minute I64)
+                    (w I32) (h I32) (aspect F64) (layers I32)) (→ Shot)
+                    (let* ((car (or (string=? name "taxi") (string=? name "sedan")))
+                           (scene (if car (vehicle gpu files (string=? name "taxi") braking layers)
+                                      (load-scene gpu
+                                                  (lambda (paths)
+                                                    (map (lambda (p) (read-bytes fs p)) paths))
+                                                  name
+                                                  layers)))
+                           (sky (make-atmosphere-light gpu (sky-at minute 0) 1024))
+                           (camera (if car
+                                       (camera-3d (point "3.0,1.8,4.0")
+                                                  (point "0,0.65,0")
+                                                  (PinholeRange 0.8 0.05 32000.0)
+                                                  aspect
+                                                  1.0)
+                                       (fly-camera (fly-over (● scene low) (● scene high))
+                                                   aspect))))
+                      (new Shot
+                        (tracer (make-graded-tracer gpu
+                                                    scene
+                                                    (● sky environment)
+                                                    (Rgba8Unorm)
+                                                    w
+                                                    h
+                                                    layers
+                                                    (Photographic)))
+                        (camera camera))))
+(define (main (args Arguments) (fs Fs) (files Resources) (out OutputPort) (host Host)) (→ Unit)
+  (let* ((name (setting args "scene" "sf")) (path (setting args "output" "render.png"))
+         (width (number args "width" 960 1 16384)) (height (number args "height" 540 1 16384))
+         (w (i64->i32 width)) (h (i64->i32 height)) (aspect (/ (i64->f64 width) (i64->f64 height)))
+         (spp (number args "samples" 16 1 4096)) (depth (number args "bounces" 3 1 most-bounces))
+         (minute (number args "minute" 1040 0 1439))
+         (layers (i64->i32 (number args "layers" 256 1 4096)))
+         (eye (setting args "eye" "")) (target (setting args "target" ""))
+         (gpu (host-gpu host)) (info ((● gpu request-device))))
+    (unless (<= (* ray-size (* width height)) (i32->i64 (● info storage-binding-size)))
+      (panic "image exceeds the GPU ray-buffer limit; reduce width or height"))
+    (unless (if (string=? eye "") (string=? target "") (not (string=? target "")))
+      (panic "supply eye and target together"))
+    (let* ((shot (if (string=? name "sf")
+                     (street gpu files (number args "stand" 0 0 15) minute w h aspect)
+                     (match (attempt-reading (lambda ()
+                                               (model-shot gpu
+                                                           fs
+                                                           files
+                                                           name
+                                                           (= (number args "brake" 0 0 1) 1)
+                                                           minute w h aspect layers)))
+                       ((Ok s) s) ((Err why) (panic why)))))
+           (camera (if (string=? eye "") (● shot camera)
+                       (camera-3d (point eye)
+                                  (point target)
+                                  (PinholeRange 0.8 0.05 32000.0)
+                                  aspect
+                                  1.0)))
+           (draw (render-still gpu (● shot tracer) camera spp depth (street-exposure minute))))
+      (write-bytes fs path (rgba->png w h (● draw second)))
+      (write-line out (string-append path " · " (show width) "×" (show height) " · "
+                                     (show spp) " samples/pixel · " (show depth) " bounces")))))

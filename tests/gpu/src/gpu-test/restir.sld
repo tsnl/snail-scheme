@@ -16,6 +16,8 @@
    (only (snail shell graphics svgf) svgf-moments)
    (snail shell graphics restir)
    (snail shell graphics trace render)
+   (only (snail shell graphics still) read-rgba)
+   (only (snail shell little-endian) u32)
    (snail shell graphics trace scene)
    (snail shell graphics trace lights)
    (only (gpu-test shaders) inspect-reservoir))
@@ -163,6 +165,72 @@
                                         (release-scene gpu lit)
                                         (release-scene gpu occluded)
                                         short)))))
+    ;; A passing lamp changes illumination while the receiver's motion stays
+    ;; zero. Measure the final display pixel, including both temporal filters.
+    (define (headlamp-trail (gpu Gpu) (t Tracer) (night Environment) (plane Plane)
+                            (draw (Fn Tracer I32 → Tracer)) (center I64)) (→ Unit)
+                            (let* ((s (test-wall gpu #f (Nil) 1))
+                                   (read-level (lambda ()
+                                                 (u8->i32
+                                                  (array-ref (read-rgba gpu plane 17 15) center)))))
+                              (update-moving-lights! gpu
+                                                     (● s lights)
+                                                     (list (lamp 0.5 1.05 6.0 0.8)))
+                              (let* ((lit (fold-left (lambda (frame _) (draw frame 2))
+                                                     (retrace gpu t s night)
+                                                     (iota 8)))
+                                     (on (read-level)))
+                                (update-moving-lights! gpu (● s lights) (Nil))
+                                (let* ((one (draw lit 2))
+                                       (two (draw one 2))
+                                       (after-two (read-level)))
+                                  (draw (draw two 2) 2)
+                                  (let ((after-four (read-level)))
+                                    (unless (and (> on 40)
+                                                 (< (* after-two 3) on)
+                                                 (< (* after-four 7) on))
+                                      (panic
+                                       (string-append "stationary surface kept a passing light: "
+                                                      (show on)
+                                                      " / "
+                                                      (show after-two) " / " (show after-four)))))))
+                              (release-scene gpu s)))
+    ;; A flat lit wall has the same energy at two paths/pixel as at one.
+    ;; Exercise all eight jitter phases, short driving histories, an odd-sized
+    ;; display readback and a scene cut from daylight straight to darkness.
+    (define (check-reconstruction (gpu Gpu) (t Tracer) (scene Scene) (night Environment)
+                                  (kernel GpuComputePipeline) (result GpuBuffer) (back GpuBuffer))
+      (→ Unit)
+      (let* ((plane (make-plane gpu
+                                "test/upscale"
+                                17
+                                15
+                                (Rgba8Unorm)
+                                (list (RenderAttachment) (TextureCopySrc))))
+             (draw (lambda ((frame Tracer) (count I32)) (→ Tracer)
+                     (draw-sampled-traced gpu
+                                          frame
+                                          (● plane view)
+                                          (looking 4.0 0.0)
+                                          0.12
+                                          1.0
+                                          1
+                                          #t
+                                          (Reconstruct 17 15 count))))
+             (center (* 4 (+ (* 7 17) 8)))
+             (warm (fold-left (lambda (frame i) (draw frame (if (= i 0) 1 2))) t (iota 12)))
+             (check (inspect gpu kernel warm result back))
+             (bright (read-rgba gpu plane 17 15)))
+        (unless (and (= (u32 check 8) 1) (>= (u32 check 32) 1) (<= (u32 check 32) 4)
+                     (> (u32 check 36) 4) (<= (u32 check 36) 24)
+                     (> (u8->i32 (array-ref bright center)) 20))
+          (panic "driving sample energy, short history, or display reconstruction failed"))
+        (let* ((dim (draw (retrace gpu warm scene night) 2)) (dark (read-rgba gpu plane 17 15)))
+          (unless (and (= (u8->i32 (array-ref dark center)) 0)
+                       (= (u8->i32 (array-ref dark (+ center 3))) 255))
+            (panic "reconstructed display carried radiance across a scene cut"))
+          (headlamp-trail gpu dim night plane draw center))
+        (release-plane gpu plane)))
     (define (check-restir (gpu Gpu)) (→ String)
       (let* ((scene (wall gpu #f)) (blocked (wall gpu #t)) (day (sky gpu 1.0)) (night (sky gpu 0.0))
              (canvas (make-plane gpu "test/restir" 9 9 (Rgba8Unorm) (list (RenderAttachment))))
@@ -199,7 +267,7 @@
              (old-sky (draw (retrace gpu local scene (● mutable environment)) front 8 0 0)))
         (update-sky! gpu mutable (test-sky 1.0))
         ;; A changed sky uses fresh proposals despite keeping its textures and camera.
-        (draw old-sky front 8 1 1)
+        (check-reconstruction gpu (draw old-sky front 8 1 1) scene night kernel result back)
         (release-scene gpu (● local world scene))
         (release-sky-light gpu mutable)
         ((● gpu destroy) (BufferObject result))

@@ -35,8 +35,10 @@
                                             (first "sun-shader")
                                             (second (link-file "sun.wgsl.scm")))
                                           (new Pair
-                                            (first "post-shader")
-                                            (second (link-file "post.wgsl.scm")))
+                                            (first "upscale-shader")
+                                            (second (link-file "upscale.wgsl.scm")))
+                                          (new Pair (first "post-shader")
+                                               (second (link-file "post.wgsl.scm")))
                                           (new Pair
                                             (first "scan-shader")
                                             (second (link-file "scan.wgsl.scm")))

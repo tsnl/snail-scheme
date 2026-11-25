@@ -37,7 +37,7 @@
    Vec4h
    Vec2i
    Vec4i
-   Mat4x4f
+   Mat4x4f Mat4x4f-w-set
    declarations
    stride
    pack

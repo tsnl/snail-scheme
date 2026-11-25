@@ -4,7 +4,7 @@
   (export Motor
           Motor-metres-set
           drive-with-traffic
-          seed-motor
+          seed-motor replacement-motor
           motor-body
           advance-motor
           sidewalk-walker)
@@ -52,6 +52,30 @@
           (metres (* 0.43 (edge-distance r from to)))
           (speed 2.4)
           (seed seed))))
+    ;; Recycle at most one car outside the driver's view of the road ahead.
+    ;; Check the snapped lane position; a long edge can cross the original target.
+    (define (replacement-motor (g Area) (r Roads) (driver Body) (occupied (List XZ)) (seed I64))
+      (→ (Option Motor))
+      (let* ((p (● driver position)) (v (● driver velocity)) (speed (distance v (xz 0.0 0.0)))
+             (heading (if (> speed 1.0) (heading-to (xz 0.0 0.0) v) (● driver heading)))
+             (dir (forward heading))
+             (angle (+ heading (* 0.12 (- (i64->f64 (modulo seed 15)) 7.0))))
+             (target (offset p (forward angle) (negate (+ 105.0 (i64->f64 (modulo seed 48))))))
+             (from (nearest-road r target)) (to (next-road r -1 from (random-step seed)))
+             (m (new Motor
+                  (from from)
+                  (to to)
+                  (metres (* 0.43 (edge-distance r from to)))
+                  (speed 2.4)
+                  (seed (random-step seed))))
+             (q (● (motor-body r m) position)) (d (distance p q))
+             (ahead (+ (* (● dir x) (- (● q x) (● p x))) (* (● dir z) (- (● q z) (● p z)))))
+             (id (sector-id (● g atlas) q)))
+        (if (and (not (= from to)) (< ahead -12.0) (>= d (max 70.0 (* 3.0 speed))) (< d 180.0)
+                 (any? (lambda (s) (= id (● s id))) (● g sectors))
+                 (clear? q 2.3 (area-solids g q 4.0))
+                 (every? (lambda (other) (> (distance q other) 9.0)) occupied))
+            (Some m) (None))))
     (define (motor-body (r Roads) (m Motor)) (→ Body)
       (follow-edge r (● m from) (● m to) (● m metres) 1.7))
     (define (in-lane? (b Body) (p XZ)) (→ Bool)

@@ -133,17 +133,15 @@
              (nodes (storage-buffer gpu "bvh/nodes" (* 32 (- (* 2 n) 1)) (Nil)))
              (spare (storage-buffer gpu "bvh/spare" (* 32 (- (* 2 n) 1)) (Nil)))
              (wide (storage-buffer gpu "bvh/wide" (* 64 (max 1 (- n 1))) (Nil)))
+             (module ((● gpu create-shader-module)
+                      (new ShaderModuleDescriptor
+                        (label "bvh")
+                        (code (string-append (declarations build-shape) bvh-shader)))))
              (kernels (new Kernels
-                        (pipelines (pipelines-of gpu ((● gpu create-shader-module)
-                                                      (new ShaderModuleDescriptor
-                                                        (label "bvh")
-                                                        (code
-                                                         (string-append
-                                                          (declarations
-                                                           build-shape)
-                                                          bvh-shader))))))
+                        (pipelines (pipelines-of gpu module))
                         (build build)
                         (encoder ((● gpu create-command-encoder))))))
+        ((● gpu destroy) (ModuleObject module))
         (let ((pass ((● gpu begin-compute-pass) (● kernels encoder))))
           (run gpu kernels
                pass

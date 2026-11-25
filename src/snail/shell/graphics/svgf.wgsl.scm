@@ -58,6 +58,8 @@
 
 ((var uniform) (@group 0) (@binding 17) (filtering Filtering))
 
+(var (@group 0) (@binding 18) (triangles (texture_2d u32)))
+
 ;; ---- Pixels ----
 
 (fn inside ((id vec3u)) (-> bool)
@@ -126,6 +128,7 @@
     (var total 0.0)
     ;; The rasterizer projects the *previous pose* of a moving triangle.
     ;; Comparing its current world position would discard its own history.
+    (let key (f32 (+ 1u (get (textureLoad triangles p 0) x))))
     (let previous_z (get (textureLoad emission p 0) w))
     (let tolerance (* 0.02 (max 0.001 (abs previous_z))))
     (for ((var k 0) (< k 4) (+= k 1))
@@ -133,7 +136,7 @@
          (let q (+ base offset))
          (if ((or (any (< q (vec2i 0))) (any (>= q (vec2i size)))) (continue)))
          (let was (textureLoad past_place q 0))
-         (if ((or (== (get was w) 0.0) (> (abs (- (get was x) previous_z)) tolerance)) (continue)))
+         (if ((or (!= (get was w) key) (> (abs (- (get was x) previous_z)) tolerance)) (continue)))
          (if ((< (dot (unfolded (get was yz)) normal) 0.9)
               (continue)))
          (let w (* (select (- 1.0 (get f x)) (get f x) (== (get offset x) 1))
@@ -149,6 +152,25 @@
          (/= color total)
          (/= moment total)
          (= history (min (+ (round (/ ages total)) 1.0) (get filtering limits x)))))
+    ;; Compare the old illumination with fresh observations on this surface.
+    ;; The moving shadow or headlamp on a stationary road has zero velocity.
+    (if ((and (> history 1.0) (> (get filtering limits y) 0.0))
+         (var low l) (var high l)
+         (let neighbors (array (vec2i -1 0) (vec2i 1 0) (vec2i 0 -1) (vec2i 0 1)))
+         (for ((var k 0) (< k 4) (+= k 1))
+              (let q (clamp (+ p (at neighbors k)) (vec2i 0) (- (vec2i size) 1)))
+              (if ((!= (get (textureLoad triangles q 0) x) (get (textureLoad triangles p 0) x))
+                   (continue)))
+              (let obs (textureLoad noisy q 0))
+              (if ((< (get obs w) 0.0) (continue)))
+              (let lum (luminance
+                        (/ (max (- (get obs xyz) (get (textureLoad emission q 0) xyz)) (vec3f 0.0))
+                           (demodulator q))))
+              (= low (min low lum)) (= high (max high lum)))
+         (let old (luminance color)) (let pad (+ 0.025 (* 0.20 high)))
+         (if ((or (< old (- low pad)) (> old (+ high pad)))
+              (= history (min history 2.0))
+              (*= color (/ (clamp old (max 0.0 (- low pad)) (+ high pad)) (max old 1e-6)))))))
     (let alpha (select
                 (max (/ 1.0 (max history 1.0)) (get filtering limits y))
                 1.0
@@ -160,7 +182,7 @@
     (textureStore place
                   p
                   (vec4f (get (* (get camera view_projection) (vec4f world 1.0)) z)
-                         (get (textureLoad normals p 0) xy) 1.0)))
+                         (get (textureLoad normals p 0) xy) key)))
 
 ;; ---- Variance ----
 
