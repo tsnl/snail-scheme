@@ -49,7 +49,7 @@
          GenerateInput
          Diagnostics
          diagnostics->string)
-   (only (snail shell compiler expand) digested-file)
+   (only (snail shell compiler expand) digested-file blob-part-size)
    (snail shell compiler inputs)
    (only (snail shell compiler check) Typed)
    (snail shell process)
@@ -600,26 +600,50 @@
     (define (workspace-store (builder Builder)) (→ String)
       (string-append (● builder workspace) "/build/.snail-store"))
 
-    (define (object-path (store String) (digest String)) (→ String)
-      (string-append store "/sha256/" (substring digest 0 2) "/" digest))
+    (record BlobPart
+      ((path String)
+       (offset I64)
+       (size I64)))
+
+    ;; A blob's identity is always the SHA-256 of its complete contents. Only
+    ;; larger blobs get numbered parts. Empty and exact-limit files stay raw.
+    (define (blob-parts (file LinkedFile)) (→ (List BlobPart))
+      (let* ((digest (● file digest)) (size (● file size))
+             (key (string-append (substring digest 0 2) "/" digest)))
+        (if (<= size blob-part-size)
+            (list (new BlobPart (path (string-append "sha256/" key)) (offset 0) (size size)))
+            (map (lambda (i)
+                   (let ((offset (* i blob-part-size)))
+                     (new BlobPart (path (string-append "chunks/" key "/" (show i)))
+                          (offset offset) (size (min blob-part-size (- size offset))))))
+                 (iota (+ 1 (quotient (- size 1) blob-part-size)))))))
 
     ;; The files `links` names, in the workspace's store and under
     ;; `directory`'s store/: a program's generation, or a producer's scratch.
 
     (define (place-links (fs Fs) (builder Builder) (directory String) (links (List LinkedFile)))
       (→ Unit)
-      (for-each (lambda (link)
-                  (let ((object (object-path (workspace-store builder) (● link digest)))
-                        (to (object-path (string-append directory "/store") (● link digest))))
-                    (unless (kind-is? fs object (RegularFile))
-                      (place-object fs link object (base-name directory)))
-                    (expect-done (make-directories fs (directory-part to))
-                                 (string-append "cannot make " to))
-                    (name-object fs object to)))
+      (for-each (lambda (link) (place-link fs (workspace-store builder) directory link))
                 (delete-duplicates (lambda (a b) (string=? (● a digest) (● b digest))) links))
       (remember-digests fs builder links (base-name directory)))
 
-    ;; ---- Digests ----
+    (define (place-link (fs Fs) (store String) (directory String) (link LinkedFile)) (→ Unit)
+      (let* ((parts (blob-parts link))
+             (missing (filter (lambda (p) (not (stored-part? fs store p))) parts)))
+        (unless (null? missing)
+          (let ((bytes (verified-link-bytes fs link)))
+            (for-each (lambda (p) (store-part fs store p bytes (base-name directory))) missing)))
+        (for-each (lambda (p)
+                    (let ((to (string-append directory "/store/" (● p path))))
+                      (expect-done (make-directories fs (directory-part to)) to)
+                      (name-object fs (string-append store "/" (● p path)) to)))
+                  parts)))
+
+    (define (stored-part? (fs Fs) (store String) (part BlobPart)) (→ Bool)
+      (match (file-status fs (string-append store "/" (● part path)))
+        ((Ok status) (match (● status kind)
+                       ((RegularFile) (= (● status size) (● part size))) (_ #f)))
+        ((Err _) #f)))
 
     ;; ---- Static resource catalogs ----
 
@@ -761,9 +785,8 @@
     ;; so a reader never sees a partial object, and two builds placing one
     ;; object at once each rename the same bytes.
 
-    (define (place-object (fs Fs) (link LinkedFile) (object String) (token String))
-      (→ Unit)
-      (let ((from (● link path)) (writing (string-append object ".writing." token)))
+    (define (verified-link-bytes (fs Fs) (link LinkedFile)) (→ Bytes)
+      (let ((from (● link path)))
         (unless (match (followed-status fs from)
                   ((Ok status) (match (● status kind) ((RegularFile) #t) (_ #f)))
                   ((Err _) #f))
@@ -772,10 +795,18 @@
         (let ((bytes (read-bytes fs from)))
           (unless (string=? (bytes->hex (sha256 bytes)) (● link digest))
             (fail-build (string-append "the linked file " from " changed during the build")))
-          (expect-done (make-directories fs (directory-part object))
-                       (string-append "cannot make " object))
-          (write-bytes fs writing bytes)
-          (expect-done (rename-file fs writing object) (string-append "cannot place " object)))))
+          bytes)))
+
+    (define (store-part (fs Fs) (store String) (part BlobPart) (bytes Bytes) (token String))
+      (→ Unit)
+      (let* ((object (string-append store "/" (● part path)))
+             (writing (string-append object ".writing." token)))
+        (expect-done (make-directories fs (directory-part object))
+                     (string-append "cannot make " object))
+        (write-bytes fs writing
+                     (if (= (● part size) (array-length bytes)) bytes
+                         (subarray bytes (● part offset) (+ (● part offset) (● part size)))))
+        (expect-done (rename-file fs writing object) (string-append "cannot place " object))))
 
     ;; Another name for the store's object, or a copy of it where the two
     ;; lie on different file systems.

@@ -381,15 +381,16 @@ generated library fails there, and is built by `snail-scheme build`.
 ### Linked files
 
 A linked file's bytes are an input of the compile, as their digest: the
-module imports its handle under that name. Each build binds the current linked
+module imports its handle under that name, adding `:SIZE` for a file larger
+than 25,000,000 bytes so its host can fetch the right number of parts. Each build binds the current linked
 files during expansion. A missing file fails with the library and path;
 changed bytes bind a new digest. The store remembers each digest a build
 read, with the file's size and modification time, in
 `build/.snail-store/digests`, and a compile trusts one while its file keeps
 both, as make trusts a time, so a large file is hashed once rather than
 every build. Every build compiles all libraries and
-places every linked file as an object of the workspace's store,
-`build/.snail-store/sha256/AB/DIGEST`, named again at the same path under
+places each object or its numbered parts in the [workspace's store](scripts.md#output-one-linked-module),
+named again at the same paths under
 `store/` beside the program's module, checking that the bytes it places
 have the digest the compile read; a file edited during the build fails it,
 and the next build compiles against the new bytes. The bytes

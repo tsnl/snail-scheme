@@ -1,5 +1,7 @@
 // One save per application in IndexedDB: the bytes of its serialized state.
 
+import {blobPartSize, matchesDigest, readBlobParts} from './load.mjs';
+
 function open(name, store) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(name, 1);
@@ -43,18 +45,44 @@ export function storeSessionSave(key, bytes) {
 // same bytes under the same digest in IndexedDB.
 const downloading = new Map();
 const objects = 'snail-static-resources-v1';
+const sizeHeader = 'x-snail-blob-size';
 const legacy = (mode, use) => transaction('snail-linked-files', 'objects', mode, use);
 
 async function verified(bytes, digest, size) {
   if (!(bytes instanceof Uint8Array) || (size !== undefined && bytes.length !== size)) return false;
-  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
-  return Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('') === digest;
+  return matchesDigest(bytes, digest);
 }
 
 async function put(cache, key, bytes) {
   if (!cache) return false;
-  try { await cache.put(key, new Response(bytes)); return true; }
+  try {
+    if (bytes.length <= blobPartSize) await cache.put(key, new Response(bytes));
+    else {
+      // Part zero commits the complete set. A failed cache write can be retried.
+      for (let i = 1; i * blobPartSize < bytes.length; i++)
+        await cache.put(key + '/' + i, new Response(bytes.subarray(i * blobPartSize, (i + 1) * blobPartSize)));
+      await cache.put(key + '/0', new Response(bytes.subarray(0, blobPartSize), {headers: {[sizeHeader]: String(bytes.length)}}));
+    }
+    return true;
+  }
   catch { return false; } // Quota and private-mode failures leave the bytes usable.
+}
+
+async function cachedParts(cache, key, digest, size) {
+  const first = await cache?.match(key + '/0');
+  if (!first) return;
+  const length = Number(first.headers.get(sizeHeader));
+  try {
+    if (size === undefined || size === length) {
+      const bytes = await readBlobParts(digest, length, async (_path, _length, offset) => {
+        const part = offset === 0 ? first : await cache.match(key + '/' + offset / blobPartSize);
+        if (!part) throw new Error('cached part missing');
+        return new Uint8Array(await part.arrayBuffer());
+      });
+      if (await matchesDigest(bytes, digest)) return bytes;
+    }
+  } catch { /* A missing or truncated part makes the set a cache miss. */ }
+  await cache.delete(key + '/0');
 }
 
 async function cachedBytes(cache, key, digest, size) {
@@ -62,8 +90,15 @@ async function cachedBytes(cache, key, digest, size) {
     const response = await cache?.match(key);
     if (response) {
       const bytes = new Uint8Array(await response.arrayBuffer());
-      if (await verified(bytes, digest, size)) return bytes;
+      if (await verified(bytes, digest, size)) {
+        if (bytes.length > blobPartSize && await put(cache, key, bytes)) await cache.delete(key).catch(() => {});
+        return bytes;
+      }
       await cache.delete(key);
+    }
+    if (size === undefined || size > blobPartSize) {
+      const bytes = await cachedParts(cache, key, digest, size);
+      if (bytes) return bytes;
     }
   } catch { /* Storage may have been evicted or disabled. */ }
   const old = await legacy('readonly', store => store.get(digest)).catch(() => undefined);
