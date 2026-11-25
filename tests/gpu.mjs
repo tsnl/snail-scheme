@@ -7,7 +7,8 @@
 // installs. `make test-gpu` runs this, on the machine's GPU, or in CI,
 // which has none, on the CPU through lavapipe (shell.nix).
 //
-//   node tests/gpu.mjs ROOT
+// CI can supply an already-built package. It runs the same device checks.
+//   node tests/gpu.mjs ROOT [PACKAGE]
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
@@ -15,9 +16,9 @@ import {join} from 'node:path';
 import {promisify} from 'node:util';
 import {assertLines, deviceLines, trainingLines} from './gpu/expected.mjs';
 
-const [root] = process.argv.slice(2);
+const [root, existingPackage] = process.argv.slice(2);
 const execute = promisify(execFile);
-const built = (await execute(join(root, 'snail-scheme'), ['build', '--target', 'node', 'tests/gpu/node.scm'],
+const built = existingPackage ?? (await execute(join(root, 'snail-scheme'), ['build', '--target', 'node', 'tests/gpu/node.scm'],
   {cwd: root})).stdout.trim();
 const manifest = JSON.parse(await readFile(join(built, 'package.json'), 'utf8'));
 assert.ok(manifest.dependencies.webgpu && manifest.dependencies['@napi-rs/canvas'], 'the package depends on webgpu and @napi-rs/canvas');

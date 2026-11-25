@@ -35,7 +35,7 @@ jobs:
       - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012 # v31
       - uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7
         with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('shell.nix', 'npins/sources.json', '.github/workflows/ci.yml') }}
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('shell.nix', 'npins/**') }}
       - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
@@ -56,14 +56,14 @@ jobs:
           key: cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-${{ hashFiles('crates/*/src/**') }}
           restore-keys: |
             cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-
-      # Only an exact source/toolchain match may reuse the bootstrap. Never
-      # restore generated test outputs.
+      # The command line imports libraries under src/snail. Its executable
+      # can be reused only for an exact match of their sources and toolchain.
       - name: Restore the bootstrapped command line
         id: compiler-cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: build/bootstrap/snail-scheme.wasm
-          key: cli-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/bootstrap', 'host/chez/**', 'host/native/**', 'src/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
+          key: cli-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'bootstrap/**', 'scripts/bootstrap', 'host/chez/**', 'host/native/**', 'src/snail/**', 'crates/*/Cargo.*', 'crates/*/src/**') }}
       - name: Mark the exact command line cache current
         if: steps.compiler-cache.outputs.cache-hit == 'true'
         # Checkout gives unchanged sources new mtimes. The exact content key
@@ -89,9 +89,26 @@ jobs:
       - name: Test snail-scheme
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: make test
+      # Cache the executable, then always run it on today's runner and check
+      # its output. The GPU program imports the Snail libraries and its own
+      # tests/gpu/src tree. Its generated shaders live under those roots too.
+      - name: Restore the GPU test package
+        id: gpu-cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: build/ci-gpu
+          key: gpu-node-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'package*.json', 'snail-scheme', 'scripts/bootstrap', 'bootstrap/**', 'host/**', 'crates/*/Cargo.*', 'crates/*/src/**', 'src/snail/**', 'tests/gpu/node.scm', 'tests/gpu/src/**', 'tests/gpu/node.resources/**', 'tests/gpu/public/**') }}
+      - name: Compile the GPU checks
+        if: steps.gpu-cache.outputs.cache-hit != 'true'
+        shell: nix-shell --run "bash -euo pipefail {0}"
+        run: |
+          package=$(./snail-scheme build --target node tests/gpu/node.scm)
+          # The published name is a symlink to a generation. Keep its files.
+          mkdir -p build/ci-gpu
+          cp -R "$package/." build/ci-gpu/
       - name: Test the GPU checks on lavapipe
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: make test-gpu
+        run: node tests/gpu.mjs "$PWD" "$PWD/build/ci-gpu"
       - name: Retain build evidence
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
