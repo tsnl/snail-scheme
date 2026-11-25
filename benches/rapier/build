@@ -1,0 +1,19 @@
+#!/bin/sh
+# Run from any directory inside the repository's nix-shell.
+set -eu
+example=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+root=$(CDPATH= cd -- "$example/../.." && pwd)
+cd "$root"
+out=$root/build/rapier
+mkdir -p "$out"
+scripts/bootstrap > "$out/tools"
+{ read -r cli && read -r runtime && read -r toolchain; } < "$out/tools"
+cargo build --locked --release --target wasm32-wasip1 --target-dir build/rapier-cargo \
+  --manifest-path "$example/Cargo.toml"
+provider=$root/build/rapier-cargo/wasm32-wasip1/release/snail_rapier_example.wasm
+node --no-warnings host/native/run-snail.mjs "$cli" "$root" "$runtime" "$toolchain" \
+  compile node "$example/drive.scm" "$out/drive.wat" "$root/src"
+build/wasm-snail-scheme-support-toolchain/release/snail-link "$out/drive.wat" "$provider" "$out/drive.wasm"
+wasm-opt --enable-gc --enable-reference-types --enable-tail-call --enable-bulk-memory \
+  --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-multivalue \
+  -O2 "$out/drive.wasm" -o "$out/drive.release.wasm"
