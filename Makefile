@@ -86,7 +86,7 @@ viewer:
 splats:
 	./snail-scheme build --release --target browser src/apps/splats/main.scm
 
-# The GitHub Pages site in build/pages: the book, with each published
+# The public site in build/pages contains the book and each published
 # application at play/NAME/. The glTF viewer and Splats ship no scene:
 # the viewer's samples are links to where they are published, and Splats
 # opens on procedural rings until given a trained scene's files. Hearsay
