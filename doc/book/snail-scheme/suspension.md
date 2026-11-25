@@ -260,6 +260,6 @@ compiler's passes do, pays for no frames. Code that never suspends is
 compiled as if suspension did not exist.
 
 Suspension is this translation, ordinary calls and explicit frames, and
-not stack switching, so any WasmGC engine runs it and both hosts agree.
+not stack switching, so the two hosts run the same Wasm and both hosts agree.
 `call/cc`, `dynamic-wind` and multi-shot continuations are not language
 features ([notable omissions](omissions.md)).

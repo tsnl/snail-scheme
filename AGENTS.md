@@ -3,7 +3,7 @@
 `CLAUDE.md` is a symlink to this file; edit `AGENTS.md`.
 
 Make the implementation educational to read. Follow the program from located
-syntax through resolved IR, WasmGC, and the Rust scalar services.
+syntax through resolved IR, linear-memory Wasm, and the Rust runtime.
 Keep each pass's inputs, outputs, and decisions visible in its module.
 
 - `snail-scheme` is a statically-typed Scheme successor. Its macros expand
@@ -44,10 +44,10 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   command line (`tests/run.mjs`), and only the compiler's unit tests run on
   Chez (`tests/unit.scm`).
 
-- Every record is a heap object and every field is mutable. Primitive
+- Ordinary records have shared identity and mutable fields. Primitive
   numbers and booleans remain unboxed. Keep ordinary compiler passes pure
-  by convention. Ordinary values may be shared and the Wasm engine's
-  collector reclaims them. The [scoped ref prototype](doc/book/snail-scheme/values.md#call-scoped-refs)
+  by convention. The runtime traces shared values in each instance's
+  linear memory. The [scoped ref checker](doc/book/snail-scheme/values.md#call-scoped-refs)
   enforces call-scoped access to explicitly owned locals.
 - A top-level `(define name value)` is a cached thunk: its initializer runs
   at most once, on the first read, performs nothing, and every read
@@ -134,7 +134,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   explanation and refactoring of newly written modules. Keep backend cleanup
   within those modules; preserve the structure of the landed frontend.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
-  Wasm engines trace managed references. Rust scalar providers own external resources
+  Generated code publishes live references across calls. Scoped slots belong to their frame. Rust scalar providers own external resources
   behind explicit handles. Resource cleanup must not retain its managed wrapper.
 - Chez is stage 0 of the bootstrap: it must keep running the compiler's
   source, so the compiler avoids behavior the two hosts would disagree on,

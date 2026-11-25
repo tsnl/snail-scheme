@@ -1,8 +1,8 @@
 # Tasks, values and runtimes
 
 This is the language contract for tasks and capabilities. The [runtime overview](index.md)
-distinguishes its implemented subset from future requirements. There is one shipping target: WebAssembly GC, on one
-execution agent. A second backend is future research.
+distinguishes its implemented subset from future requirements. Programs run as
+WebAssembly with linear memory on one execution agent.
 
 ## Computations
 
@@ -26,9 +26,9 @@ after dispatch without letting the runtime exit early.
 
 ## Values in tasks
 
-Every value may be shared ([values](../snail-scheme/values.md)). Capturing a
+Ordinary values may be shared ([values](../snail-scheme/values.md)). Capturing a
 value in a closure, or dispatching that closure as a task, keeps the value
-reachable from there, and the engine's collector reclaims it once nothing
+reachable from there, and the instance's collector reclaims it once nothing
 reaches it. A resource outside the managed heap has an explicit close
 operation; nothing closes it when its last reference goes. A suspended
 computation whose resumption is never called runs nothing more.

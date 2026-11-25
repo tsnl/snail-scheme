@@ -12,7 +12,7 @@ definition is shorthand for defining a lambda. Arrays have a fixed length
 and mutable elements.
 
 This is one language, with no R7RS compatibility layer, `call/cc` or
-`dynamic-wind`. The compiler emits WasmGC and compiles itself; a small Chez
+`dynamic-wind`. The compiler emits linear-memory WebAssembly and compiles itself; a small Chez
 adapter runs its source for the first [bootstrap](bootstrap.md).
 
 These chapters describe the language:

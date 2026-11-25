@@ -28,7 +28,8 @@ Its passes and supporting modules, each `(snail shell compiler NAME)`:
 | `check` | Hindley-Milner checking with typeclass evidence, each expression rebuilt with its type |
 | `specialize` | Each definition reached copied once for each set of types it is used at |
 | `prepare` | Fixed declarations and normalized items, with what each call may suspend to |
-| `wasm` | Prepared code to WasmGC: representations, closures, tail calls and the frames a suspension saves |
+| `wasm` | Select representations for prepared code, closures and suspension frames |
+| `memory`, `wat` | Lay out shared objects and scoped slots, publish roots and emit linear-memory WebAssembly |
 | `driver` | One invocation, shared by stage 0's entry and the command line's `compile` |
 | `sha256` | The digest linked files are named by ([text and data](data.md#snail-shell-compiler-sha256)) |
 

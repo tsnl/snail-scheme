@@ -133,7 +133,8 @@ async function typeIds() {
     await mkdir(join(root, 'build/tests/type-ids'), {recursive: true});
     await writeFile(join(root, source), `(import (snail core base))\n(enum Phase ${cases})\n(define (main) (→ Unit) (match (Any (Day)) (_ (unit))))\n`);
     const wat = await command(snail, ['wat', '--target', 'node', source]);
-    return /\(struct\.new \$any \(i32\.const ([^)]*)\)/.exec(wat.stdout)?.[1] ?? fail('type ids', 'no TypeId in the text', wat.stderr);
+    // The first payload word after an Any's eight-byte header is its TypeId.
+    return /\(global\.get \$lm\.tag\.any\) \(i32\.const 0\)\)\) \(i32\.store offset=8 \(local\.get \$lm\.object\) \(i32\.const (-?\d+)\)/.exec(wat.stdout)?.[1] ?? fail('type ids', 'no TypeId in the Any payload', wat.stderr);
   };
   const dayNight = await id('day-night', '(Day) (Night)'), nightDay = await id('night-day', '(Night) (Day)');
   return dayNight !== false && nightDay !== false && (dayNight !== nightDay || fail('type ids', "unchanged by reordering an enum's cases", dayNight));

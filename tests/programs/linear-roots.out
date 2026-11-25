@@ -1,0 +1,2 @@
+shared cycles, operands and frames survive collection
+scoped calls allocate zero objects

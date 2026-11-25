@@ -1,7 +1,7 @@
 # Continuations and parallel execution
 
 Research recorded on 2026-10-24. This page describes future options, not
-shipping features. We ship one WasmGC backend.
+shipping features. The implementation now ships one linear-memory Wasm backend.
 
 Decisions have been made since. One-shot suspension is implemented by
 ordinary calls and saved frames ([suspension](../snail-scheme/suspension.md)),
@@ -128,7 +128,7 @@ never called is reclaimed by the collector, and nothing in its frames runs. The 
 [libmprompt](https://github.com/koka-lang/libmprompt) project takes a separate
 native stack-switching approach; it is not the mechanism described above.
 
-The compiler transformation could also target today's WasmGC. Therefore
+The compiler transformation could also target WasmGC. Therefore
 waiting for typed stack switching is a choice to avoid another substantial
 lowering strategy, not proof that `ctl` is impossible on today's Wasm.
 

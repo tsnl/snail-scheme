@@ -1,9 +1,9 @@
 # `snail-scheme`
 
 **`snail-scheme` is a statically-typed Scheme successor.** It compiles to
-WasmGC, and has structs, enums, pattern matching, typeclasses with generic
+WebAssembly with linear memory. It has structs, enums, pattern matching, typeclasses with generic
 instances, capabilities passed as values, one-shot suspension, and wire types with stable
-schema identities. The compiler is written in `snail-scheme` and compiles itself; Chibi
+schema identities. The compiler is written in `snail-scheme` and compiles itself; Chez
 Scheme runs its source to start the first bootstrap.
 
 ```scheme

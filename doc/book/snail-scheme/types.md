@@ -279,7 +279,7 @@ that many packed bytes. The host reads the current memory buffer and copies
 any bytes it retains before returning or awaiting; later calls reuse staging.
 Imports are leaves and must not call back into `snail-scheme` while reading staging.
 
-An exposed function passes scalars directly and managed values as opaque engine
+An exposed function passes scalars directly and managed values as opaque, instance-owned
 references. JavaScript can retain those references and pass them to synchronous
 Wasm constructors/projectors, but cannot inspect their fields or substitute a
 JavaScript object, string or typed array. Exposed `String` and `Bytes` are opaque

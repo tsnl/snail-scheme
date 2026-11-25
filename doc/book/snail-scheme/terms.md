@@ -151,8 +151,8 @@ does not invalidate its entry. Results are shared objects, so callers see mutati
 to a cached result.
 
 Scalar and string hashes distribute entries into growing hash buckets; collisions
-always check complete key equality. WasmGC has no portable identity hash, so
-object components contribute a constant hash. Object-only keys can therefore
+always check complete key equality. Object components currently contribute
+a constant hash. Object-only keys can therefore
 require a linear bucket search. Mixed keys still benefit from scalar and string
 components. There is no hidden identity field added to user objects.
 

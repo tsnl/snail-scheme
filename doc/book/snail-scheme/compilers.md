@@ -10,7 +10,7 @@ text ──read───▶ located syntax
      ──expand─▶ resolved program   unique names, declarations, field paths
      ──check──▶ typed program      types, instances
      ──prepare▶ concrete code      suspensions known, yield points explicit
-     ──emit───▶ WasmGC text ──assemble/link──▶ executable module
+     ──emit───▶ linear-memory Wasm text ──assemble/link──▶ executable module
 ```
 
 `Prepared` contains declarations, concrete function definitions, an optional
@@ -160,15 +160,15 @@ For each normalized `let` that can save a resumable frame, preparation
 checks whether the continuation uses any in-scope ref. This includes a
 temporary holding an earlier call argument while a later argument suspends.
 
-### WasmGC emission
+### Linear-memory emission
 
 `wasm.sld` selects one representation per concrete type. Numeric primitives
-and booleans are Wasm scalars. A record is always a GC struct reference;
-its field is one scalar or reference slot. An enum has a tagged base and
-case subtypes. An array is an exact-sized WasmGC array; its length comes from
-the array, and there is no capacity or replaceable storage. No object
-carries a header beyond its fields. There is no inline record flattening or
-reconstruction on field writes.
+and booleans are Wasm scalars. The emitter describes records, enum cases,
+arrays, closures and activation-owned slots. `memory.sld` gives these layouts
+byte offsets, lowers accesses to loads and stores, and emits table calls.
+An object header holds the layout identity and array length. Flat scoped
+records live inline in their owner's frame. Shared nested records keep
+identity through address fields.
 
 Completed source references are non-null. Internal Wasm storage and signatures
 admit null so uninitialized slots and suspended results need no fabricated
@@ -195,7 +195,7 @@ and its value have run. Array copies support overlapping ranges. Strings
 remain character arrays; conversions copy storage, and host byte staging
 copies only an array's live prefix.
 
-The emitter interns concrete Wasm types before traversing their fields,
+The emitter interns concrete layouts before traversing their fields,
 allowing recursive object graphs. Finite budgets diagnose expanding type or
 specialization families instead of exhausting the host. Ordinary recursive
 nominal types reuse their existing type entry.
@@ -230,8 +230,8 @@ lets through only a yield nothing resumes; a cache and a top-level value,
 which keep nothing of a call that yielded; and a host entry, which a yield
 may not leave.
 
-This is ordinary calls and explicit frames, not stack switching: any
-WasmGC engine executes the same linked code, and no JavaScript continuation
+This is ordinary calls and explicit frames, not stack switching: every
+host executes the same linked code, and no JavaScript continuation
 mechanism is required. `call/cc`, `dynamic-wind` and multishot continuation copying are
 not language features.
 
@@ -261,13 +261,12 @@ A build fuses the program's module with the runtime's into one
 `snail-link` also uses), so calls into the runtime are ordinary calls, which
 `wasm-opt` can inline in a release build.
 
-WebAssembly treats two GC types as the same only when their whole
-recursion groups match. The backend puts each type in the smallest
-recursion group it can have: the strongly connected component of the graph
-of references between types, ordered by name, with the groups it refers to
-emitted first. A module a program loads while it runs that declares the
-identical group shares the type, by the engine's canonicalization. A case
-of an enum without fields declares no type of its own.
+Each linked program owns a memory, layout identities and a function table.
+The linker validates the delivered bytes with WasmGC and typed function
+references disabled. A host-held reference carries its allocating instance.
+The Node and browser hosts check its instance, layout and nullability before
+a public call. An independently instantiated program can exchange scalars and
+bytes through its declared interface.
 
 `snail-scheme` types are checked at compile time, each library against its
 imports. A value crossing as `Any` keeps its nominal type identity for
@@ -416,7 +415,7 @@ for good.
 | `crates/snail-scheme-support/src/bin/snail-link.rs` | Stage 0's linker, the assembler and `wasm-fuse` as a native program, which links the command line for the bootstrap. See [the bootstrap](bootstrap.md#running-and-linking). |
 | `host/chez/snail/stage0/build.sld` | The bootstrap of the command line, and nothing else. Each compile has private scratch; rebuilding the command line holds `build/lock`. |
 | `host/chez/snail/stage0/process.sls` | Synchronous tool capture through private output files and a constant shell script with positional arguments. The parent reaps before reading or deleting files; stdin is EOF. The host boundary uses Chez process and file primitives. |
-| `crates/snail-scheme-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; managed references remain engine-traced. Its `assembler` feature builds the toolchain's runtime, which tools written in `snail-scheme` link (`build-toolchain-tool`), with in-process assembly and static linking for `(snail shell assembler)`, shared by the native executable. |
+| `crates/snail-scheme-support/` | Rust scalar services: math, Unicode, float text, console and file IO, directory and path operations, the monotonic clock, panics. External resources use explicit handles; the runtime traces shared values in linear memory. Its `assembler` feature builds the toolchain's runtime, which tools written in `snail-scheme` link (`build-toolchain-tool`), with in-process assembly and static linking for `(snail shell assembler)`, shared by the native executable. |
 | `host/native/run-snail.mjs` | Node/WASI program execution, the compiled compiler's included, on Node's main thread, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. A trap is status 2 and a WASI exit its own, as on wasmtime. |
 | `src/`, `host/chez/` | Typed language libraries and the explicit Chez adapters. `host/chez/load.scm` permits only the compiler's source closure and stage-zero tools. |
 

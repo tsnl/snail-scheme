@@ -3,8 +3,11 @@
 Ordinary values may be shared. Records and enums are heap objects with identity;
 primitive numbers and booleans remain unboxed. Passing a record, binding it
 to another name, storing it in a field or capturing it in a closure refers to
-the same object, and the Wasm engine's collector reclaims it once nothing
-reaches it. This branch also prototypes call-scoped access to private storage.
+the same object. The runtime reclaims unreachable shared objects, including
+cycles, in the instance's linear memory. Call-scoped refs can instead use
+private storage for the lifetime of an activation. Creating or forwarding
+a scoped slot requires no managed allocation. Other allocations in the
+same function can still trigger collection.
 
 ## Mutable records
 
@@ -69,11 +72,11 @@ ref. If a continuation would keep either a ref or its local owner, the
 build reports the suspension. A prompt with answer type `Never` discards
 the frame.
 
-The prototype accepts unboxed scalar types and records whose fields are
-all scalars. A slot for a scalar uses a one-element WasmGC array. A slot
-for a record uses one private WasmGC struct. Passing a ref transmits the
-existing Wasm reference. Nested records, arrays as payloads, and loans
-of individual fields or elements are outside this prototype.
+A slot holds a scalar or a record whose fields are all scalars. Each slot
+occupies aligned storage in the caller's frame. A loan passes its address.
+Returning or tail-calling releases the frame. Reading a field compiles
+to a load, and writing it compiles to a store. Nested records, array payloads
+and loans of individual fields or elements are outside the current language.
 
 ## Sharing
 
@@ -112,10 +115,14 @@ source activation.
 
 ## Representation
 
-Every nominal aggregate is a WasmGC object. A field contains one scalar or one
-managed reference; nested records are never flattened into their owners. An
-enum case stores its tag before its fields. Arrays are WasmGC arrays with
-fixed runtime lengths, of any element type. An `Any` pairs its type's TypeId
-with the value, boxed when it is a scalar. A closure is a struct of its code
-followed by its captures. No object carries a header beyond these fields, and
-the engine traces all of them.
+Shared records and arrays have an eight-byte header in linear memory. Its
+first word identifies the layout. An array's second word holds its length.
+Record fields follow at their natural alignment. A scalar array stores packed
+elements at their Wasm width. An array of ordinary records stores addresses
+so that updating a record through an alias preserves its identity. A payload
+enum stores its case tag before its fields. An `Any` holds its TypeId and
+a reference to its payload, with a box for a scalar. A closure holds its code
+descriptor and its captures. Indirect calls go through the instance's table.
+The compiler identifies the fields and arrays that hold references. The
+collector follows those references from active calls, globals and host-held
+values. Scalar buffers, record padding and scoped scalar storage are skipped.

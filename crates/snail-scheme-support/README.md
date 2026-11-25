@@ -2,9 +2,9 @@
 
 `snail-scheme-support` supplies scalar math, Unicode properties, float text, console
 and file I/O, directory and path operations, a monotonic clock, and panic
-reporting. `snail-scheme`'s managed values stay in WasmGC; Rust
-retains external resources behind scalar handles and never stores guest GC
-roots.
+reporting. The linked runtime allocates shared Snail values in linear memory.
+Generated code publishes roots across calls. The host holds exported values
+through per-instance root cells. External resources have explicit scalar handles.
 
 Real-number conversion is the exception: its results are scratch owned by the
 runtime instance, with no handle and no part in cleanup, because the private
@@ -13,9 +13,8 @@ runtime instance, with no handle and no part in cleanup, because the private
 The command-line driver (`host/chez/snail/stage0/build.sld`) builds this crate for
 `wasm32-wasip1`. It merges the runtime into each statically linked program,
 as stage 0 builds them, and connects terminal diagnostics and
-resource cleanup. A program linked when it runs, as `snail-scheme build`
-makes it, instead loads the runtime as its own instance beside the library
-modules (`host/browser/load.mjs` and the engine). Node's
+resource cleanup. Each program built by `snail-scheme build` contains its
+own runtime, layouts, memory and function table. Node's
 WASI and the browser host in `host/browser/host.mjs` supply the platform
 operations.
 

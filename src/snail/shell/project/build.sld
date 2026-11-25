@@ -559,15 +559,12 @@
         ((Err message) (fail-build (string-append "cannot link program: " message)))))
 
     ;; wasm-opt's -O2 over the linked module, enabling exactly the
-    ;; proposals the program may use: the compiler's GC, typed references,
-    ;; tail calls, bulk memory for its constant data and saturating
-    ;; conversions, and the Rust runtime's wasm32-wasip1 defaults. Enabling
-    ;; every feature would let it introduce one a host lacks: it then emits
-    ;; exact reference types, which Node 26 rejects.
+    ;; proposals the program uses for function tables, tail calls, copying
+    ;; constant data, numeric conversions and the wasm32-wasip1 runtime.
 
     (define (optimize (processes Processes) (linked String) (output String)) (→ Unit)
       (run-command processes (new Command (program "wasm-opt")
-                                  (arguments (list "--enable-gc"
+                                  (arguments (list "--disable-gc"
                                                    "--enable-reference-types"
                                                    "--enable-tail-call"
                                                    "--enable-bulk-memory"
@@ -907,6 +904,7 @@
             "native/web-imports.mjs"
             "browser/gpu.mjs"
             "browser/load.mjs"
+            "browser/memory.mjs"
             "browser/tasks.mjs"
             "browser/trace.mjs"))
 
@@ -1003,6 +1001,7 @@
             "gpu.mjs"
             "storage.mjs"
             "load.mjs"
+            "memory.mjs"
             "style.css"
             "ui.mjs"
             "dom.mjs"

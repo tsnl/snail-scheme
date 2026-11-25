@@ -1,5 +1,5 @@
 ;; The typed source forms erased for the Chez bootstrap. This host executes
-;; compiler code only; source programs are checked and compiled to WasmGC.
+;; compiler code only; source programs are checked and compiled to linear-memory Wasm.
 (library (snail stage0 forms)
   (export define (rename (typed-lambda lambda)) type ann record new enum match ● set!
           test-forms)

@@ -3,16 +3,15 @@
 *Proposed, not implemented. The design is
 [#553](https://github.com/tsnl/snail-scheme/issues/553).*
 
-GC is the only heap, and each instance of a program is strictly
-single-threaded: one Wasm instance, one GC heap, one thread. Parallel work
+Each running program has one Wasm instance, one linear memory and one
+thread. That memory holds the program's shared heap and activation frames. Parallel work
 runs as several instances, which share nothing that the GC manages. They
 talk the way processes do, through explicit queues, which makes the cost
 of crossing between cores visible.
 
-That follows from WebAssembly itself. Only linear memory can be shared
-between threads; GC objects, tables and globals belong to one instance, and
-a WasmGC object cannot be posted to another worker. So values cross as
-bytes.
+A pointer identifies storage in one instance. Handing its numeric address
+to another worker would address a different memory. Messages in this design
+carry bytes. Shared buffers would require explicit ownership and synchronization.
 
 ## Queues
 

@@ -4,13 +4,20 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createWasi, instantiate} from '../../host/browser/load.mjs';
 const wasi = createWasi({print: (fd, line) => { throw new Error(line); }});
-const instance = await instantiate(await WebAssembly.compile(await readFile(process.argv[2])),
-  wasi.getImportObject());
+const module = await WebAssembly.compile(await readFile(process.argv[2]));
+const instance = await instantiate(module, wasi.getImportObject());
 wasi.initialize(instance);
 const api = instance.exports;
 assert.throws(() => api.read(null), TypeError);
 const resource = api.create(42n), alias = api.alias(resource), pair = api.duplicate(resource);
 assert.equal(alias, resource);
+assert.throws(() => api.read(pair), TypeError);
+assert.throws(() => api.read(16), TypeError);
+const secondWasi = createWasi({print: () => {}});
+const second = await instantiate(module, secondWasi.getImportObject());
+secondWasi.initialize(second);
+assert.throws(() => second.exports.read(resource), TypeError);
+assert.equal(second.exports.read(second.exports.create(7n)), 7n);
 for (let i = 0; i < 3; i++) {
   assert.equal(api.read(resource), 42n);
   assert.equal(api.combine(resource, alias), 84n);
