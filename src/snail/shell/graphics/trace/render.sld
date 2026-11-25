@@ -313,7 +313,7 @@
 
     ;; ---- Frames ----
 
-    ;; A checkerboard traces alternate pixels on successive still frames.
+    ;; By default, successive still frames trace alternate halves of a checkerboard.
     ;; The first frame and a camera or scene change cover every pixel.
     (enum TraceSampling
       (EveryPixel)
@@ -331,13 +331,13 @@
                          (exposure F32)
                          (bounces I64))
       (→ Tracer)
-      (draw-sampled-traced gpu tracer canvas camera spread exposure bounces #f (EveryPixel)))
+      (draw-moving-traced gpu tracer canvas camera spread exposure bounces #f))
 
     (define (draw-moving-traced (gpu Gpu) (tracer Tracer) (canvas GpuTextureView)
                                 (camera Camera3D) (spread F32) (exposure F32) (bounces I64)
                                 (moved Bool))
       (→ Tracer)
-      (draw-sampled-traced gpu tracer canvas camera spread exposure bounces moved (EveryPixel)))
+      (draw-sampled-traced gpu tracer canvas camera spread exposure bounces moved (Checkerboard)))
 
     (define (draw-sampled-traced (gpu Gpu) (tracer Tracer) (canvas GpuTextureView)
                                  (camera Camera3D) (spread F32) (exposure F32)
