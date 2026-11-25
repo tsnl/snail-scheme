@@ -1,0 +1,44 @@
+#!/bin/sh
+# Build the current compiler's two manager kernels and both Clang controls.
+set -eu
+if [ "$#" -ne 1 ]; then
+  echo 'usage: sh benches/linear-memory/build-managers OUTPUT_DIRECTORY' >&2
+  exit 2
+fi
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+mkdir -p "$1"
+out=$(CDPATH= cd -- "$1" && pwd)
+bench=$root/benches/linear-memory
+"$root/scripts/bootstrap" > "$out/manager.tools"
+{ read -r cli && read -r runtime && read -r toolchain; } < "$out/manager.tools"
+node --no-warnings "$root/host/native/run-snail.mjs" "$cli" "$root" "$runtime" "$toolchain" \
+  compile node "$bench/managers.scm" "$out/managers.wat" "$root/src"
+"$root/build/wasm-snail-scheme-support-toolchain/release/snail-link" \
+  "$out/managers.wat" "$runtime" "$out/managers.wasm"
+cc=${WASM_CC:-clang}
+# Nix's host wrapper injects x86 hardening flags for a Wasm target too.
+if [ -z "${WASM_CC:-}" ] && command -v realpath >/dev/null; then
+  bindir=$(dirname "$(realpath "$(command -v clang)")")
+  if [ -r "$bindir/../nix-support/orig-cc" ]; then
+    cc=$(cat "$bindir/../nix-support/orig-cc")/bin/clang
+  fi
+fi
+compile_c() {
+  name=$1
+  shift
+  "$cc" --target=wasm32 -O3 -mbulk-memory -nostdlib -Wl,--no-entry \
+    "$@" "$bench/managers.c" -o "$out/$name.wasm"
+}
+compile_c c
+compile_c c-checked -DCHECK_BOUNDS
+optimize() {
+  wasm-opt --disable-gc --enable-reference-types --enable-tail-call --enable-bulk-memory \
+    --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-multivalue \
+    "$@"
+}
+mkdir -p "$out/inlined"
+for name in managers c c-checked; do
+  optimize -O2 "$out/$name.wasm" -o "$out/$name.release.wasm"
+  optimize -O3 --always-inline-max-function-size=64 --inlining-optimizing -O3 \
+    "$out/$name.wasm" -o "$out/inlined/$name.release.wasm"
+done
