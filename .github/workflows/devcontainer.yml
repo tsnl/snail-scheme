@@ -36,6 +36,11 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+      # Podman holds the build root and a copy of its new layer while committing.
+      # The hosted Ubuntu runner's Android SDK is unused by this Linux toolchain.
+      - name: Make room for the container image
+        if: runner.environment == 'github-hosted'
+        run: sudo rm -rf /usr/local/lib/android/sdk
       - name: Build the image
         run: podman build -t snail-scheme -f .devcontainer/Containerfile .
       # Rootless podman maps the container's root to the runner's user, as
