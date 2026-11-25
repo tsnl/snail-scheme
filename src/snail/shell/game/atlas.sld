@@ -8,6 +8,7 @@
           read-atlas
           open-area
           focus-area!
+          focus-sector
           prepare-area!
           area-height
           area-slope
@@ -163,10 +164,14 @@
                           (sectors (ordered-sectors atlas n))
                           (pending (None))))
                   (begin (unpack-next! atlas n) (None)))))))
+    (define (focus-sector (a Area) (p XZ)) (→ I64)
+      (let* ((atlas (● a atlas)) (id (sector-id atlas p)) (current (● a center)))
+        (if (or (< id 0) (= id current) (and (>= current 0) (inside-focus? atlas current p)))
+            current
+            id)))
     (define (focus-area! (a Area) (p XZ)) (→ Unit)
-      (let* ((atlas (● a atlas)) (id (sector-id atlas p)))
-        (when (and (>= id 0) (not (= id (● a center)))
-                   (or (< (● a center) 0) (not (inside-focus? atlas (● a center) p))))
+      (let* ((atlas (● a atlas)) (id (focus-sector a p)))
+        (when (not (= id (● a center)))
           (let ((n (pending! a id)))
             (let finish () (unless (null? (● n remaining)) (unpack-next! atlas n) (finish)))
             (set! (● a sectors) (ordered-sectors atlas n))

@@ -123,7 +123,12 @@
                         s
                         (new Order (driving (● c driving)) (buttons (held c)) (interact (● c use))))
                  (unless (aboard? (● s game driver)) (set! (● c yaw) 0.0))
-                 (focus-area! g (● (carrier (● s game)) position))
+                 ;; Ordinary crossings still have ground in the outer eight
+                 ;; resident sectors. A teleport outside them needs it now.
+                 (let* ((p (● (carrier (● s game)) position)) (id (focus-sector g p)))
+                   (when (and (not (= id (● g center)))
+                              (not (any? (lambda (s) (= (● s id) id)) (● g sectors))))
+                     (focus-area! g p)))
                  (set! (● c use) #f) (loop (- carry tick-ms)))))))
 
 (define (return-to-road! (g Area) (roads Roads) (renderer Renderer) (c Controls) (s Shift)) (→ Unit)

@@ -437,9 +437,15 @@
     ;; successive event-loop turns while the previous street is still visible.
     (define (prepare-street! (gpu Gpu) (r Renderer) (b Body)) (→ Unit)
       (let* ((p (● b position)) (v (● b velocity)) (speed (distance v (xz 0.0 0.0)))
-             (ahead (offset p v (min 4.0 (/ 125.0 (max 1.0 speed)))))
-             (g (● r ground)) (id (sector-id (● g atlas) ahead)))
-        (when (and (> speed 1.0) (>= id 0) (not (= (● g center) id)) (= (● r sector) (● g center)))
+             (g (● r ground)) (wanted (focus-sector g p)) (crossed (not (= wanted (● g center))))
+             ;; At a corner or after a U-turn the current road takes priority.
+             ;; The old window covers it while a missed prediction catches up.
+             (ahead (if crossed p (offset p v (min 4.0 (/ 125.0 (max 1.0 speed))))))
+             (id (sector-id (● g atlas) ahead)))
+        (when (and (or crossed (> speed 1.0))
+                   (>= id 0)
+                   (not (= (● g center) id))
+                   (= (● r sector) (● g center)))
           (match (● r pending)
             ((Some pending)
              (if (= id (● pending sector))
@@ -447,7 +453,7 @@
                    ((None)
                     (set! (● pending tree)
                           (Some (street-tree gpu (● pending stage) (● r palette)))))
-                   (_ (unit)))
+                   ((Some _) (when crossed (focus-area! g p))))
                  (discard-pending! gpu r)))
             (_ (match (prepare-area! g ahead)
                  ((Some next) (set! (● r pending)
