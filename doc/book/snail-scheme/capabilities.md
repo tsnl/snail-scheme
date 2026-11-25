@@ -19,7 +19,7 @@ Every example is part of a program under `tests/programs/`, which
 `make test` runs, and the output shown is that program's. Run one with
 
 ```sh
-./snail-scheme run --target node tests/programs/ports.sld
+./snail-scheme run --target node tests/programs/ports.scm
 ```
 
 ## What a signature does not say
@@ -105,15 +105,15 @@ one is the permission.
 
 A program makes a capability as it makes any record. A port that keeps
 what is written, and one that reads a text
-(`tests/programs/ports.sld`):
+(`tests/programs/ports.scm`):
 
 ```scheme
-{{#include ../../../tests/programs/ports.sld:ports}}
+{{#include ../../../tests/programs/ports.scm:ports}}
 ```
 
 So a test double is a value the test makes and passes: a `Clock` that
 answers a fixed time, a `Tcp` whose connections are buffers
-(`tests/programs/tcp-handler.sld`), the `Gpu` of
+(`tests/programs/tcp-handler.scm`), the `Gpu` of
 `(snail shell gpu record)`, which records each command instead of running
 it, or the `Dom` of `(snail shell dom memory)`, a document in memory. Two
 ports compose into one that writes both; a port over another adds a
@@ -141,7 +141,7 @@ a type by exporting a function of no parameters that answers it:
 The build calls `main` with what the providers of its parameters' types
 answer, whatever the parameters' names or order. A parameter whose type
 the target does not provide is a build error naming it
-(`tests/programs/error-main-arguments.sld`), so a program that asks for
+(`tests/programs/error-main-arguments.scm`), so a program that asks for
 `Tcp` fails to build for `browser` instead of trapping when it connects.
 A program names each thing it needs, and gets nothing it did not name.
 
@@ -153,7 +153,7 @@ A program names each thing it needs, and gets nothing it did not name.
 
 An exposed function of the program asks the same way: each parameter whose
 type the target provides is supplied, and the rest are the host's
-arguments (`tests/host-boundary/main.sld`). Only a signature asks: an
+arguments (`tests/host-boundary/main.scm`). Only a signature asks: an
 exposed function whose types are inferred is called with the host's
 arguments alone. A `generate-library` recipe that needs capabilities is a
 `lambda` over them, and its producer's `main` asks for those

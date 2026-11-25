@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Compile tests/benchmarks/function-cache.sld first. No build runs during timing.
+// Compile tests/benchmarks/function-cache.scm first. No build runs during timing.
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';

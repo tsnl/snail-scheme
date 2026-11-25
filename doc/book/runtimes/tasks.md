@@ -88,7 +88,7 @@ the ready tasks, the timers, sorted by deadline, or the waiters, by
 ticket. A turn takes the ready list whole and runs those tasks, so tasks
 that yield to each other cannot keep the host from its events, files
 each step where it says, then readies the sleepers whose deadline has
-passed. `tests/programs/tasks.sld` shows the order: yields interleave,
+passed. `tests/programs/tasks.scm` shows the order: yields interleave,
 sleepers with one deadline wake in the order they slept.
 
 A task holds what it uses in its closures, so a child keeps the
@@ -142,7 +142,7 @@ running when the task runs later, and panics there
 A program can run tasks itself, for a simulated clock in a test or a
 scheduler of its own: `make-scheduler`, `dispatch-in` and `tasks-turn` are
 ordinary functions, and a `with-prompt` of its own prompt gives it waits of
-its own (`tests/programs/prompt-handoff.sld` hands the rest of a generator
+its own (`tests/programs/prompt-handoff.scm` hands the rest of a generator
 from one task to another).
 
 Local dispatch may capture shared mutable objects, because the work stays
@@ -174,7 +174,7 @@ read and receives its result through a [mailbox](#mailboxes):
 ```
 
 Here `file-read-file` is imported with a `file-` prefix, and the dispatched
-task closes over the `Files` it was handed (`tests/async-files/main.sld`).
+task closes over the `Files` it was handed (`tests/async-files/main.scm`).
 
 Limits range from zero through 16 MiB. The host reads at most limit plus
 one bytes, distinguishing an exact fit from `TooLarge`; metadata is not
@@ -211,7 +211,7 @@ finds none waits again. Each message, such as a work item, goes to exactly
 one receiver, and no message is handed to a task that may never run, as
 one whose scheduler closed. The price is fairness: a task that asks while
 a message waits takes it, even ahead of receivers woken for it that have
-not run yet (`tests/programs/mailbox-order.sld`). The name is `mailbox-receive`,
+not run yet (`tests/programs/mailbox-order.scm`). The name is `mailbox-receive`,
 not `receive`, because `(snail shell socket)` exports UDP's `receive`, and a
 program importing both libraries would have conflicting imports.
 
@@ -228,7 +228,7 @@ list, so any code may call it: another task, or code between turns. A
 call after the task was woken, or once its scheduler has closed, wakes
 nothing. A waiting task does not run again until it is woken, so waiting
 costs nothing while nothing is posted, where a loop of `yield`s would run
-every turn. `tests/programs/mailbox.sld` has two tasks posting and one
+every turn. `tests/programs/mailbox.scm` has two tasks posting and one
 receiving.
 
 ## Waiting on the host

@@ -110,6 +110,9 @@
 
     ;; The script at `path`, taken from the working directory if relative.
     (define (script-at (fs Fs) (environment ProcessEnvironment) (path String)) (→ Script)
+      (let ((end (string-length path)))
+        (unless (and (>= end 4) (string=? ".scm" (substring path (- end 4) end)))
+          (panic (string-append "an executable Scheme file must use .scm: " path))))
       (script-file fs (from-working-directory environment path)))
 
     ;; The script at an absolute path.
@@ -844,7 +847,7 @@
         (place-links fs builder
                      working
                      (link-program processes fs builder
-                                   (string-append working "/" key ".sld")
+                                   (string-append working "/" key ".scm")
                                    directories
                                    working
                                    program))

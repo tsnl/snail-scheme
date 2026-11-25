@@ -31,14 +31,14 @@ Every example is part of a program under `tests/programs/`, which
 ### Exceptions
 
 A handler need not call `resume`. One that never does is an exception
-handler (`tests/programs/prompts.sld`):
+handler (`tests/programs/prompts.scm`):
 
 ```scheme
-{{#include ../../../tests/programs/prompts.sld:exception}}
+{{#include ../../../tests/programs/prompts.scm:exception}}
 ```
 
 ```scheme
-{{#include ../../../tests/programs/prompts.sld:run-exception}}
+{{#include ../../../tests/programs/prompts.scm:run-exception}}
 ```
 
 ```text
@@ -57,7 +57,7 @@ passed to its `resume`, and `(absurd never)`, of type
 `(∀ (A) (Fn Never → A))`, gives the suspension whatever type the code
 around it needs. Since nothing resumes such a suspension, it costs less:
 it saves nothing of the computation it leaves, and only unwinds
-(`tests/programs/prompt-exception.sld`). The compiler reports every source
+(`tests/programs/prompt-exception.scm`). The compiler reports every source
 error this way (`compile-error` in `(snail shell compiler read)`).
 
 ### The handler runs outside
@@ -67,7 +67,7 @@ the next `with-prompt` of that prompt, further out. A handler that fails
 again is caught there:
 
 ```scheme
-{{#include ../../../tests/programs/prompt-exception.sld:again}}
+{{#include ../../../tests/programs/prompt-exception.scm:again}}
 ```
 
 ```text
@@ -83,11 +83,11 @@ suspension's value, to the body's end, and answers the body's value, so
 the handler may build on it:
 
 ```scheme
-{{#include ../../../tests/programs/prompts.sld:collect}}
+{{#include ../../../tests/programs/prompts.scm:collect}}
 ```
 
 ```scheme
-{{#include ../../../tests/programs/prompts.sld:run-collect}}
+{{#include ../../../tests/programs/prompts.scm:run-collect}}
 ```
 
 ```text
@@ -100,7 +100,7 @@ conses it onto whatever the rest of the body produces. The body ends with
 choose, value by value, whether to resume:
 
 ```scheme
-{{#include ../../../tests/programs/prompts.sld:first-above}}
+{{#include ../../../tests/programs/prompts.scm:first-above}}
 ```
 
 ```text
@@ -122,7 +122,7 @@ and whoever holds that value may call it later, after the `with-prompt`
 has returned:
 
 ```scheme
-{{#include ../../../tests/programs/prompts.sld:step}}
+{{#include ../../../tests/programs/prompts.scm:step}}
 ```
 
 ```text
@@ -132,17 +132,17 @@ has returned:
 `start` runs a generator to its first `yield`, and the handler returns the
 value with `resume` instead of calling it. `interleave` calls each `next`
 long after `start` returned. Another task may call it just as well
-(`tests/programs/prompt-handoff.sld`).
+(`tests/programs/prompt-handoff.scm`).
 
 ### Resuming once
 
 The frames `resume` holds run at most once. The checker does not track
 this: to it, `resume` is an `Fn` like any other. Instead the continuation
 records that it has run, and a second call panics
-(`tests/programs/prompt-resume-twice.sld`):
+(`tests/programs/prompt-resume-twice.scm`):
 
 ```scheme
-{{#include ../../../tests/programs/prompt-resume-twice.sld}}
+{{#include ../../../tests/programs/prompt-resume-twice.scm}}
 ```
 
 ```text
@@ -157,10 +157,10 @@ never captures one.
 ### Loops in constant stack
 
 A handler that calls `resume` in tail position runs in constant stack
-(`tests/programs/prompt-tail-loop.sld`):
+(`tests/programs/prompt-tail-loop.scm`):
 
 ```scheme
-{{#include ../../../tests/programs/prompt-tail-loop.sld:count-down}}
+{{#include ../../../tests/programs/prompt-tail-loop.scm:count-down}}
 ```
 
 ```text
@@ -178,14 +178,14 @@ A suspension goes to the nearest `with-prompt` of its own prompt that is
 running around it, past those of other prompts. A `with-prompt` it passes
 is kept with the rest of the body and is around it again when the body
 resumes, so the two nest as calls do
-(`tests/programs/prompt-nested.sld`):
+(`tests/programs/prompt-nested.scm`):
 
 ```scheme
-{{#include ../../../tests/programs/prompt-nested.sld:nested}}
+{{#include ../../../tests/programs/prompt-nested.scm:nested}}
 ```
 
 ```scheme
-{{#include ../../../tests/programs/prompt-nested.sld:run-nested}}
+{{#include ../../../tests/programs/prompt-nested.scm:run-nested}}
 ```
 
 ```text
@@ -203,10 +203,10 @@ A prompt made at the top level is one prompt for the whole program, which
 any code that can name it may suspend to: `failing` and `yielding` above,
 and the prompt every task waits on ([tasks](../runtimes/tasks.md)). A
 prompt made inside a function is that call's own
-(`tests/programs/prompt-local.sld`):
+(`tests/programs/prompt-local.scm`):
 
 ```scheme
-{{#include ../../../tests/programs/prompt-local.sld:local}}
+{{#include ../../../tests/programs/prompt-local.scm:local}}
 ```
 
 ```text
@@ -223,7 +223,7 @@ exit that no caller's handler can intercept.
 
 A suspension needs a `with-prompt` of its prompt running around it. With
 none, nothing could catch it, so `suspend` panics where it is called
-(`tests/programs/prompt-unhandled.sld`):
+(`tests/programs/prompt-unhandled.scm`):
 
 ```text
 {{#include ../../../tests/programs/prompt-unhandled.out}}
@@ -239,11 +239,11 @@ can be left and resumed. Three places are the backend's own:
   `string-generate`, and what is built on them, such as `array-map`) is
   called by a loop that cannot go on from the middle. A suspension nothing
   resumes passes through it; one that may be resumed panics there
-  (`tests/programs/prompt-generate.sld`).
+  (`tests/programs/prompt-generate.scm`).
 - **A cache and a top-level value** keep a result. A call that suspended
   kept none: the next call with that key runs the function again, and the
   next read of the value runs its initializer again
-  (`tests/programs/prompt-kept.sld`).
+  (`tests/programs/prompt-kept.scm`).
 - **The host.** A suspension cannot leave through a function the host
   called to reach a `with-prompt` running beneath it; that panics.
 

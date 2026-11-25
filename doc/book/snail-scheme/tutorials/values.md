@@ -8,7 +8,7 @@ Select an enum case with `match`. Put mutable payload in a record, then use
 `●` and `set!` to read or change its fields:
 
 ```scheme
-{{#include ../../../../tests/programs/enum-mutation.sld}}
+{{#include ../../../../tests/programs/enum-mutation.scm}}
 ```
 
 ```text

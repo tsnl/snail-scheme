@@ -45,7 +45,7 @@ try {
   put('scripts/bootstrap', stage0);
   put('node', node);
   for (const name of ['snail-scheme', 'scripts/bootstrap', 'node']) chmodSync(at(name), 0o755);
-  for (const name of ['src/a.sld', 'bootstrap/cli.sld',
+  for (const name of ['src/a.sld', 'bootstrap/cli.scm',
     'host/browser/host.mjs', 'host/chez/load.scm', 'rust-toolchain.toml',
     'crates/snail-scheme-support/Cargo.toml', 'crates/snail-scheme-support/src/lib.rs']) put(name);
 
@@ -61,7 +61,7 @@ try {
   assert.match(calls('node.calls')[0], new RegExp(`${tools} build project target$`));
   assert.equal(build(), 1, 'the second reuses its answer');
 
-  for (const input of ['src/a.sld', 'bootstrap/cli.sld', 'crates/snail-scheme-support/src/lib.rs', 'rust-toolchain.toml', 'host/chez/load.scm']) {
+  for (const input of ['src/a.sld', 'bootstrap/cli.scm', 'crates/snail-scheme-support/src/lib.rs', 'rust-toolchain.toml', 'host/chez/load.scm']) {
     const before = calls('stage0.calls').length;
     touch(input);
     assert.equal(build(), before + 1, `an edit to ${input} asks again`);

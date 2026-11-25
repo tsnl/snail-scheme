@@ -1,10 +1,10 @@
 # Scripts and targets
 
-A script is a source file that defines `main`, and a target is what runs
+A script is a `.scm` source file that defines `main`, and a target is what runs
 it. `snail-scheme` behaves like an interpreter first and a compiler second:
 
 ```sh
-./snail-scheme run --target node examples/fibonacci.sld
+./snail-scheme run --target node examples/fibonacci.scm
 ./snail-scheme build --target browser --release src/apps/siegework/main.scm
 ```
 
@@ -29,10 +29,10 @@ an application keeps its script beside its libraries:
 
 A script is a source file anywhere in the workspace. It imports libraries
 and defines `main`, its entry, whose parameters are the capabilities it
-asks its target for, as `examples/fibonacci.sld` does:
+asks its target for, as `examples/fibonacci.scm` does:
 
 ```scheme
-{{#include ../../../examples/fibonacci.sld}}
+{{#include ../../../examples/fibonacci.scm}}
 ```
 
 A top level holds definitions alone, a script's as a library's: nothing

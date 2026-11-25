@@ -1,9 +1,9 @@
 # Fibonacci
 
-`examples/fibonacci.sld`:
+`examples/fibonacci.scm`:
 
 ```scheme
-{{#include ../../../../examples/fibonacci.sld}}
+{{#include ../../../../examples/fibonacci.scm}}
 ```
 
 It prints:

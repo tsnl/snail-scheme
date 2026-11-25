@@ -1,5 +1,5 @@
 ;; Stage 0's driver. Its one product is the stage 1 command line,
-;; bootstrap/cli.sld, which `bootstrap` builds from its source and checks
+;; bootstrap/cli.scm, which `bootstrap` builds from its source and checks
 ;; to a fixpoint ("Bootstrap"). Everything else, every program and the
 ;; test suite's, the command line builds. A compile here runs the command
 ;; line's `compile TARGET SOURCE OUTPUT DIRECTORY ...`, or
@@ -216,7 +216,7 @@
             (rebuild-cli! root))))
 
     (define (cli-entry root)
-      (path-join root "bootstrap/cli.sld"))
+      (path-join root "bootstrap/cli.scm"))
 
     ;; Writes OUTPUT from the command line's text, keeping the text beside it.
     (define (link-cli root text output)

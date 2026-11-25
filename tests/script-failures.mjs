@@ -23,7 +23,7 @@ async function throughTheCommandLine() {
   write('main.scm', '(import (snail core base)) (define (main) (→ Unit) (ann "wrong type" I64) (unit))');
   await assert.rejects(build(), /expected I64, found String/);
   for (const name of ['error-instance', 'error-cache-funcref']) {
-    write('main.scm', fs.readFileSync(join(root, `tests/programs/${name}.sld`), 'utf8'));
+    write('main.scm', fs.readFileSync(join(root, `tests/programs/${name}.scm`), 'utf8'));
     const expected = fs.readFileSync(join(root, `tests/programs/${name}.err`), 'utf8').trim();
     await assert.rejects(build(), error => error.stderr.includes(expected));
   }

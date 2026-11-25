@@ -1,9 +1,9 @@
 # Capabilities
 
-`examples/capabilities.sld`:
+`examples/capabilities.scm`:
 
 ```scheme
-{{#include ../../../../examples/capabilities.sld}}
+{{#include ../../../../examples/capabilities.scm}}
 ```
 
 It prints:

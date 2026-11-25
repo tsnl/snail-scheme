@@ -65,7 +65,7 @@
              (output (string-append directory "/" key ".syntax")))
         (if (file-exists? fs output)
             (read-bytes fs output)
-            (begin (print-producer fs (string-append directory "/" key ".sld") loading forms)
+            (begin (print-producer fs (string-append directory "/" key ".scm") loading forms)
                    (request-input (GenerateInput key))))))
 
     ;; Prints the producer `forms` as the program at `path`, beginning with
@@ -133,8 +133,8 @@
                                    (read-text
                                     (string-append (generating-line (list "sample.knot" "odd\"key"))
                                                    "\n(unit)")
-                                    "producer.sld")))
-                         (plain (generating-stack (read-text "(unit)" "program.sld"))))
+                                    "producer.scm")))
+                         (plain (generating-stack (read-text "(unit)" "program.scm"))))
                      (expect (● printed first) (list "sample.knot" "odd\"key"))
                      (expect (length (● printed second)) 1)
                      (expect (● plain first) (list))
@@ -145,8 +145,8 @@
         (lambda ()
           (expect
            (compile-failure
-            (lambda () (read-source-file (host-fs (unsafe-host)) "build/tests/missing/main.sld")))
-           "build/tests/missing/main.sld: no such file or directory")))
+            (lambda () (read-source-file (host-fs (unsafe-host)) "build/tests/missing/main.scm")))
+           "build/tests/missing/main.scm: no such file or directory")))
 
       ;; A printed producer reads back as the text its key hashes, and the
       ;; same program under other directories is another producer.
@@ -154,14 +154,14 @@
         (lambda () (let* ((forms
                            (read-text
                             "(import (snail core base) (srfi 1)) (write \"a\\\"b\\nc\" #u8(1 2) 1.50 #\\x)"
-                            "producer.sld"))
+                            "producer.scm"))
                           (printed
                            (string-append (generating-line (list "sample.knot"))
                                           "\n"
                                           (program-text forms)))
                           (text (producer-text (list "/project/src" "/root/src") forms)))
                      (expect (producer-text (list "/project/src" "/root/src")
-                                            (● (generating-stack (read-text printed "printed.sld"))
+                                            (● (generating-stack (read-text printed "printed.scm"))
                                                second))
                              text)
                      (expect (string=? (producer-key text)

@@ -7,10 +7,10 @@ lines. Read it top to bottom; the chapters on [types](../types.md),
 [values](../values.md) say what each form
 means, and the tutorials after this one are small programs that use them.
 
-`examples/tour.sld`:
+`examples/tour.scm`:
 
 ```scheme
-{{#include ../../../../examples/tour.sld}}
+{{#include ../../../../examples/tour.scm}}
 ```
 
 It prints:

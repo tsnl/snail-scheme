@@ -1,9 +1,9 @@
 # Colors
 
-`examples/colors.sld`:
+`examples/colors.scm`:
 
 ```scheme
-{{#include ../../../../examples/colors.sld}}
+{{#include ../../../../examples/colors.scm}}
 ```
 
 It prints:

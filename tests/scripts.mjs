@@ -25,6 +25,8 @@ const script = `(import (snail core base) (snail core io) (tools greeting))
 
 try {
   await write('src/tools/greeting.sld', '(define-library (tools greeting) (export greeting) (import (snail core base)) (begin (define (greeting) (→ String) "hello from src")))');
+  await assert.rejects(command('build', '--target', 'node', 'src/tools/greeting.sld'),
+    /an executable Scheme file must use \.scm/);
   await write('apps/hello/main.scm', script);
 
   const output = join(workspace, 'build/apps/hello/main');

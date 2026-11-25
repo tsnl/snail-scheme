@@ -1,2 +1,2 @@
-error-several-bodies.sld:8:8: unbound identifier missing
-error-several-bodies.sld:14:32: unbound identifier also-missing
+error-several-bodies.scm:8:8: unbound identifier missing
+error-several-bodies.scm:14:32: unbound identifier also-missing

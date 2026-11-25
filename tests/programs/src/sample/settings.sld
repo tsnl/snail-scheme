@@ -1,4 +1,4 @@
-;; Top-level values for `global-values.sld`: one read through a function
+;; Top-level values for `global-values.scm`: one read through a function
 ;; here, one exported and read where it is imported.
 (define-library (sample settings)
   (export

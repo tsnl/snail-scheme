@@ -34,7 +34,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   to the loader. Test support has its own allowance in test mode. The
   compiler reads record fields with `(● record label ...)`; stage 0 maps
   that form to the same mutable record slots. Stage 0's one product is the
-  stage 1 command line, `bootstrap/cli.sld`, built by `scripts/bootstrap`,
+  stage 1 command line, `bootstrap/cli.scm`, built by `scripts/bootstrap`,
   and the command line builds everything else as scripts, run as
   `./snail-scheme run --target node FILE`. Every build writes one linked
   module, `NAME.wasm`, which `--release` also optimizes; a Node build

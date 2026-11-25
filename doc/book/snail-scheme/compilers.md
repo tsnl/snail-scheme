@@ -38,8 +38,8 @@ the compiler process, and so does each module they were asked about.
 
 Every build compiles the whole program to one module and links it with
 the Rust scalar services, as stage 0 does the command line.
-Start with `examples/fibonacci.sld`, inspect its output with
-`./snail-scheme wat --target node examples/fibonacci.sld`, then follow the passes
+Start with `examples/fibonacci.scm`, inspect its output with
+`./snail-scheme wat --target node examples/fibonacci.scm`, then follow the passes
 below.
 
 ## The passes
@@ -292,8 +292,8 @@ program's runtime for staging bytes and reporting errors without changing the
 loader's identity. No host registry or plugin namespace participates in
 linking.
 
-`tests/programs/wasm-linking.sld` checks provider selection and failures.
-`wasm-instance-identity.sld` verifies that existing imports keep their original
+`tests/programs/wasm-linking.scm` checks provider selection and failures.
+`wasm-instance-identity.scm` verifies that existing imports keep their original
 provider when a new link uses another instance, and that linking consumers
 does not initialize their providers again. Both run on Node; the identity
 test also runs in Chromium.
@@ -361,7 +361,7 @@ with those libraries loading:
 
 A producer that imports, along any chain, the library it generates is then an
 import cycle, `library import cycle through sample.knot`, rather than producers
-nesting without end; `tests/programs/error-generated-cycle.sld` is that case.
+nesting without end; `tests/programs/error-generated-cycle.scm` is that case.
 The producer's key leaves the `generating` line out, since what it writes does
 not depend on the chain that reached it. The Chez driver also
 refuses a producer requested while it is being built, a backstop should the

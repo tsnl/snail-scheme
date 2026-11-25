@@ -1,3 +1,3 @@
-error-several-types.sld:10:3: type mismatch: expected String, found I64
-error-several-types.sld:13:42: type mismatch: expected String, found Bool
-error-several-types.sld:19:23: type mismatch: expected String, found Char
+error-several-types.scm:10:3: type mismatch: expected String, found I64
+error-several-types.scm:13:42: type mismatch: expected String, found Bool
+error-several-types.scm:19:23: type mismatch: expected String, found Char

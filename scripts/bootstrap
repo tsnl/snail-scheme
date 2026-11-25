@@ -1,5 +1,5 @@
 #!/bin/sh
-# Stage 0: Chez builds the stage 1 command line, bootstrap/cli.sld, from
+# Stage 0: Chez builds the stage 1 command line, bootstrap/cli.scm, from
 # the compiler's source, once its source has changed, and checks it to a
 # fixpoint (host/chez/snail/stage0/build.sld, "Bootstrap"). It prints the
 # command line and the two runtimes it is run with, a line each, which the
