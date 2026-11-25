@@ -55,17 +55,20 @@ const key = (key, down) => browser.send('Input.dispatchKeyEvent', {type: down ? 
 const tap = async k => { await key(k, true); await key(k, false); };
 const click = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ').click()');
 const selection = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ').value');
-async function choose(selector, value) {
+const choose = (selector, value) => chooseTogether([[selector, value]]);
+async function chooseTogether(changes) {
   await browser.evaluate(`(() => {
-    const field = document.querySelector(${JSON.stringify(selector)});
-    field.value = ${JSON.stringify(value)};
-    field.dispatchEvent(new Event('change', {bubbles: true}));
+    for (const [selector, value] of ${JSON.stringify(changes)}) {
+      const field = document.querySelector(selector);
+      field.value = value;
+      field.dispatchEvent(new Event('change', {bubbles: true}));
+    }
   })()`);
 }
 // Check the actual GPU reconstruction target alongside the tracer dimensions
 // reported by the HUD. The canvas remains full size for the final FXAA pass.
 async function checkPortraitPreset(preset, lines, capped) {
-  await choose('#render-resolution', preset);
+  await choose('#graphics-preset', preset);
   const size = await until(async () => {
     const match = (await read('.quality'))?.match(/^(\d+)p · (\d+)×(\d+)$/);
     // The HUD can see the selected preset before the first resized frame.
@@ -79,6 +82,21 @@ async function checkPortraitPreset(preset, lines, capped) {
   })`);
   assert.deepEqual(canvas, [780, 1400]);
   assert.deepEqual(toned, capped ? size.map((dimension, i) => Math.min(2 * dimension, canvas[i])) : canvas);
+}
+
+async function expectGraphics(preset, resolution, bounces, samples) {
+  await until(async () => {
+    const current = await browser.evaluate(`({
+      preset: document.querySelector('#graphics-preset').value,
+      resolution: document.querySelector('#render-resolution').value,
+      bounces: document.querySelector('#ray-bounces').value,
+      samples: document.querySelector('.sampling-note').textContent,
+      traced: window.pathBounces
+    })`);
+    return current?.preset === preset && current.resolution === resolution &&
+      current.bounces === String(bounces) && current.samples.startsWith(samples + ' light path') &&
+      current.traced === bounces;
+  }, [preset, resolution, bounces + ' traced bounces', samples + ' samples'].join(', '), 130);
 }
 
 async function pause() {
@@ -142,6 +160,15 @@ async function visibleStreet() {
 
 try {
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: `
+    // Each path dispatches one ray intersection per bounce before gathering
+    // its light. Observe the actual GPU command encoding, including paused redraws.
+    const setPipeline = GPUComputePassEncoder.prototype.setPipeline, depths = new WeakMap();
+    GPUComputePassEncoder.prototype.setPipeline = function(pipeline) {
+      if (pipeline.label === 'trace/primary') depths.set(this, 0);
+      if (pipeline.label === 'rays/intersect') depths.set(this, depths.get(this) + 1);
+      if (pipeline.label === 'trace/gather') window.pathBounces = depths.get(this);
+      return setPipeline.call(this, pipeline);
+    };
     const createTexture = GPUDevice.prototype.createTexture;
     GPUDevice.prototype.createTexture = function(descriptor) {
       const texture = createTexture.call(this, descriptor);
@@ -192,23 +219,42 @@ try {
   assert.ok(local.ratio > 1 && local.ratio < 3);
   assert.equal(local.overview, 'none');
   await pause();
-  assert.equal(await selection('#render-resolution'), '720p');
+  await expectGraphics('Balanced', '720p', 2, 1);
   assert.deepEqual(await browser.evaluate('[...document.querySelector("#render-resolution").options].map(o => o.value)'),
-    ['240p · Minimum', '360p · Low', '480p', '720p', '1080p']);
+    ['240p', '360p', '480p', '720p', '1080p']);
+  assert.deepEqual(await browser.evaluate('[...document.querySelector("#ray-bounces").options].map(o => o.value)'),
+    ['1', '2', '3', '4', '5', '6', '7', '8']);
+  assert.ok(await browser.evaluate('[...document.querySelector("#graphics-preset").options].some(o => o.value === "Custom" && o.disabled)'));
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 390, height: 700, deviceScaleFactor: 2, mobile: false});
   const narrow = await streetChart();
   assert.equal(narrow.box, local.box);
   assert.ok(narrow.labelPixels >= 10, 'street names remain legible at phone width');
   assert.ok(narrow.ratio > 1 && narrow.ratio < 3);
-  await checkPortraitPreset('360p · Low', 360, true);
-  await checkPortraitPreset('240p · Minimum', 240, true);
-  await checkPortraitPreset('480p', 480, false);
-  await checkPortraitPreset('1080p', 1080, false);
+  await checkPortraitPreset('Low', 360, true);
+  await checkPortraitPreset('Minimum', 240, true);
+  await checkPortraitPreset('480p · 2 paths', 480, false);
+  await checkPortraitPreset('High', 1080, false);
   // The high-density check above exercises the display resolution. Render the
   // keyboard drive at 300 × 190 so the software GPU can present each manoeuvre.
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 0.5, mobile: false});
-  await choose('#render-resolution', '360p · Low');
-  await expect('.quality', '360p · 300×190');
+  await choose('#graphics-preset', 'Ultra');
+  await expectGraphics('Ultra', '1080p', 4, 1);
+  await choose('#graphics-preset', '480p · 2 paths');
+  await expectGraphics('480p · 2 paths', '480p', 2, 2);
+  await choose('#ray-bounces', '8');
+  await expectGraphics('Custom', '480p', 8, 2);
+  await choose('#ray-bounces', '2');
+  await expectGraphics('480p · 2 paths', '480p', 2, 2);
+  await choose('#render-resolution', '360p');
+  await expectGraphics('Custom', '360p', 2, 2);
+  await choose('#graphics-preset', 'Low');
+  await expectGraphics('Low', '360p', 1, 1);
+  await chooseTogether([['#graphics-preset', '480p · 2 paths'], ['#graphics-preset', 'Low'],
+    ['#ray-bounces', '3'], ['#render-resolution', '480p']]);
+  await expectGraphics('Custom', '480p', 3, 1);
+  await choose('#ray-bounces', '1');
+  await expectGraphics('Custom', '480p', 1, 1);
+  await expect('.quality', '480p · 300×190');
   assert.deepEqual(await browser.evaluate('window.tonedSize'), [300, 190]);
   await choose('#mouse-sensitivity', 'High');
   await click('.resume-game');
@@ -288,7 +334,7 @@ try {
   })()`);
   assert.deepEqual(cache, [true, 1, 14, 1, 13, 15, false]);
   await pause();
-  assert.equal(await selection('#render-resolution'), '360p · Low');
+  await expectGraphics('Custom', '480p', 1, 1);
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.recover-cab');
   await expect('.stage', 'METER RUNNING');
@@ -308,7 +354,7 @@ try {
   await ready();
   await expect('.stage', 'PICKUP');
   await pause();
-  assert.equal(await selection('#render-resolution'), '360p · Low');
+  await expectGraphics('Custom', '480p', 1, 1);
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.resume-game');
   await expect('.stage', 'PICKUP');

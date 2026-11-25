@@ -100,6 +100,12 @@ document (`host/browser/dom.mjs`), which keeps the interface's nodes and
 listeners by handle under the container the page gives it. A page's
 document never closes.
 
+A game that polls frames and UI input together can read `(fired-event events)`
+immediately after receiving a `HudEvent` from `(snail shell app)`. Its fields
+hold the values captured when the browser listener fired. Read them before
+polling the next event. Last Mile captures `(Value)` on its selectors so several
+changes made during a slow frame are applied in order.
+
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/dom/page.sld)
 
 ## `(snail shell dom memory)`
