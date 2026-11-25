@@ -8,7 +8,8 @@
 ;; next delivery; `wake` reaches the host from any task.
 (define-library (snail shell dom page)
   (export
-   page-dom)
+   page-dom
+   fired-event)
   (import
    (snail core base)
    (only (snail core io) Host)
@@ -116,6 +117,8 @@
               ((= kind save-kind) (SaveRequested))
               (else (page-delivery events)))))
 
+    ;; A frame-driven page can read the current listener payload after a
+    ;; HudEvent. Read it before polling the page queue again.
     (define (fired-event (events Events)) (→ Event)
       (new Event (value (host-reply (host-event-text 0)))
            (key (host-reply (host-event-text 1)))

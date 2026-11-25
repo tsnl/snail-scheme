@@ -12,6 +12,7 @@
  (only (snail shell game vehicle) DriverControls neutral-driver)
  (only (snail shell game boarding) aboard?)
  (only (snail shell dom) Dom)
+ (only (snail shell dom page) fired-event)
  (only (snail shell gpu) Gpu)
  (only (snail shell graphics gltf) attempt-reading)
  (apps last-mile game)
@@ -146,8 +147,9 @@
                  (_ (if (not (● c paused)) s
                         (match action
                           ((Resume) (pause! c #f) s)
-                          ((SetResolution lines)
-                           (set! (● s resolution) lines)
+                          ((SetGraphics settings)
+                           (set! (● s graphics) settings)
+                           (reset-lighting! renderer)
                            (set! (● c redraw) #t)
                            (save s)
                            s)
@@ -194,7 +196,7 @@
                        (unless (● c paused) (prepare-street! gpu renderer (carrier w)))
                        (let ((due (>= (+ since ms) 100)))
                          (when due (show! dom hud g roads w (● c paused) (● c wide) (● c choice)
-                                          (render-resolution renderer (● s resolution))))
+                                          (render-resolution renderer (● s graphics resolution))))
                          ;; The pause menu keeps the last presented street on screen. Resize
                          ;; and quality changes request a fresh trace at the chosen dimensions.
                          (when (or (not (● c paused)) (● c redraw))
@@ -215,7 +217,10 @@
                            (show-menu! dom hud s (● c paused))))
                        (loop s 100))
                       ((HudEvent listener)
-                       (match (menu-action dom hud listener)
+                       (match (menu-action hud
+                                           listener
+                                           (● (fired-event events) value)
+                                           (● s graphics))
                          ((Some action) (let ((next (menu! action dom g roads renderer c s save)))
                                           (show-menu! dom hud next (● c paused)) (loop next 100)))
                          (_ (unless (● c paused)

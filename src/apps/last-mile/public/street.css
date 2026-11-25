@@ -58,6 +58,7 @@ body:has(.city-loading):not([data-error]) #status,body[data-ready] .city-loading
 .pause-card {box-sizing:border-box;width:min(360px,100%);max-height:100%;overflow:auto;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:#1a2528;color:#faf7eb;padding:24px;border-top:3px solid #ffcf56;box-shadow:0 12px 40px #07121680}
 .pause-title,.pause-card button {grid-column:1 / -1}
 .pause-title {margin:0 0 6px}
+.sampling-note {grid-column:1 / -1;margin:-6px 0 0;color:#c7d5d6;font-size:12px}
 .setting-label {font-size:14px}.setting {color-scheme:dark;background:#293638;border:1px solid #768783;border-radius:3px;padding:5px}
 .pause-card button {min-height:36px;background:#2a393a;border:1px solid #70817c;border-radius:3px}
 .pause-card .resume-game {background:#ffcf56;border-color:#ffcf56;color:#202729;font-weight:700;margin-top:6px}

@@ -6,7 +6,13 @@
           Hired
           Paid
           Game
-          (rename CabShift Shift)
+          (rename TaxiShift Shift)
+          Graphics
+          Graphics-resolution-set
+          Graphics-bounces-set
+          render-resolutions
+          bounce-counts
+          preset-graphics
           Knockdown
           fall-at
           ensure-cars!
@@ -38,6 +44,7 @@
    (snail core base)
    (only (snail core forms) case-id)
    (snail shell wire)
+   (only (snail shell graphics trace render) most-bounces)
    (snail shell math)
    (snail shell game physics)
    (snail shell game atlas)
@@ -83,7 +90,7 @@
       ((motion RigidBody)
        (rest F64))
       (deriving Serialize Deserialize))
-    ;; Driver, fare and then residents have stable slots for the lifetime of a cast.
+    ;; The published shift with pedestrian impacts predates independent graphics settings.
     (record CabShift
       ((game Game)
        (cars (List RigidBody))
@@ -91,17 +98,35 @@
        (sensitivity I64)
        (falls (List (Option Knockdown)))
        (braking (List Bool)))
+      (deriving Deserialize))
+
+    ;; Resolution sizes the street image. Each sample traces a light path
+    ;; up to the selected bounce limit.
+    (record Graphics
+      ((resolution I32)
+       (bounces I64)
+       (samples I32))
       (deriving Serialize Deserialize))
-    (define (fall-at (s CabShift) (i I64)) (→ (Option Knockdown))
+    (define (render-resolutions) (→ (List I32)) (list 240 360 480 720 1080))
+    (define (bounce-counts) (→ (List I64)) (map (lambda (n) (+ n 1)) (iota most-bounces)))
+    (define (preset-graphics (lines I32)) (→ Graphics)
+      (new Graphics (resolution lines) (bounces (if (<= lines 360) 1 2))
+           (samples (if (= lines 480) 2 1))))
+
+    ;; Driver, fare and then residents have stable slots for the lifetime of a cast.
+    (record TaxiShift
+      ((game Game)
+       (cars (List RigidBody))
+       (graphics Graphics)
+       (sensitivity I64)
+       (falls (List (Option Knockdown)))
+       (braking (List Bool)))
+      (deriving Serialize Deserialize))
+    (define (fall-at (s TaxiShift) (i I64)) (→ (Option Knockdown))
       (match (list-drop (● s falls) i) ((Cons k _) k) (_ (None))))
-    (define (shift-from (w Game)) (→ CabShift)
-      (new CabShift
-        (game w)
-        (cars (Nil))
-        (resolution 720)
-        (sensitivity 1)
-        (falls (Nil))
-        (braking (Nil))))
+    (define (fresh-shift (w Game) (graphics Graphics) (sensitivity I64)) (→ TaxiShift)
+      (new TaxiShift (game w) (cars (Nil)) (graphics graphics) (sensitivity sensitivity)
+           (falls (Nil)) (braking (Nil))))
     (define (sensitivity-name (choice I64)) (→ String)
       (case choice ((0) "Low") ((2) "High") (else "Medium")))
     (record Order
@@ -128,25 +153,33 @@
              (passenger (waiting-rider s))
              (passenger-gait resting)
              (talk (None)) (cab (at-rank s)) (residents (Nil)) (traffic (Nil)))))
-    (define (new-world) (→ CabShift) (shift-from (initial-game)))
-    (define (restart-shift (old CabShift)) (→ CabShift)
-      (new CabShift
-        (game (initial-game))
-        (cars (Nil))
-        (resolution (● old resolution))
-        (sensitivity (● old sensitivity)) (falls (Nil)) (braking (Nil))))
-    (define (save-game (s CabShift)) (→ Bytes) (serialize s))
-    (define (restore-game (data Bytes)) (→ CabShift)
+    (define (new-world) (→ TaxiShift) (fresh-shift (initial-game) (preset-graphics 720) 1))
+    (define (restart-shift (old TaxiShift)) (→ TaxiShift)
+      (fresh-shift (initial-game) (● old graphics) (● old sensitivity)))
+    (define (save-game (s TaxiShift)) (→ Bytes) (serialize s))
+    (define (restore-game (data Bytes)) (→ TaxiShift)
       (let ((kind (decode (new Decoder (bytes data) (position 0)))))
-        (cond ((= kind (case-id Game)) (shift-from (deserialize data)))
+        (cond ((= kind (case-id Game)) (fresh-shift (deserialize data) (preset-graphics 720) 1))
               ((= kind (case-id Shift))
                (let ((old (ann (deserialize data) Shift)))
-                 (new CabShift
-                   (game (● old game))
-                   (cars (● old cars))
-                   (resolution (● old resolution))
-                   (sensitivity (● old sensitivity)) (falls (Nil)) (braking (Nil)))))
-              (else (deserialize data)))))
+                 (TaxiShift-cars-set
+                  (fresh-shift (● old game)
+                               (preset-graphics (● old resolution))
+                               (● old sensitivity))
+                  (● old cars))))
+              ((= kind (case-id CabShift))
+               (let ((old (ann (deserialize data) CabShift)))
+                 (new TaxiShift (game (● old game)) (cars (● old cars))
+                      (graphics (preset-graphics (● old resolution)))
+                      (sensitivity (● old sensitivity))
+                      (falls (● old falls)) (braking (● old braking)))))
+              (else
+               (let* ((s (ann (deserialize data) TaxiShift)) (g (● s graphics)))
+                 (unless (and (member? (● g resolution) (render-resolutions))
+                              (member? (● g bounces) (bounce-counts))
+                              (or (= (● g samples) 1) (= (● g samples) 2)))
+                   (set! (● s graphics) (preset-graphics 720)))
+                 s)))))
     (define (clock-minute (w Game))
       (→ I64)
       (modulo (+ (● w clock-offset) (quotient (● w tick) 20)) 1440))
@@ -160,9 +193,9 @@
                                                   (next (● p next))
                                                   (after (● p after))))
                                  (● w residents))))
-    (define (snapshot (s CabShift)) (→ CabShift)
-      (CabShift-cars-set (CabShift-game-set s (snapshot-game (● s game)))
-                         (map copy-rigid (● s cars))))
+    (define (snapshot (s TaxiShift)) (→ TaxiShift)
+      (TaxiShift-cars-set (TaxiShift-game-set s (snapshot-game (● s game)))
+                          (map copy-rigid (● s cars))))
     (define (driver-body (w Game)) (→ Body) (rider-body (● w driver) (● w cab) sedan (DriverDoor)))
     (define (passenger-body (w Game))
       (→ Body)
@@ -188,7 +221,7 @@
                   ((Some m)
                    (loop (+ i 1) (Cons m cars) (Cons (● (motor-body r m) position) positions)))
                   (_ (loop (+ i 1) cars positions)))))))
-    (define (populate! (g Area) (r Roads) (s CabShift)) (→ Unit)
+    (define (populate! (g Area) (r Roads) (s TaxiShift)) (→ Unit)
       (let* ((w (● s game)) (p (● (carrier w) position)))
         (set! (● s falls) (Nil)) (set! (● s braking) (Nil))
         (when (null? (● w residents))
@@ -310,7 +343,7 @@
              (moving
               (Body-velocity-set b (offset (xz 0.0 0.0) (forward (● b heading)) (● motor speed)))))
         (road-chassis g sedan moving 1420.0)))
-    (define (ensure-cars! (g Area) (roads Roads) (s CabShift)) (→ Unit)
+    (define (ensure-cars! (g Area) (roads Roads) (s TaxiShift)) (→ Unit)
       (let ((w (● s game)) (cars (● s cars)))
         (unless (= (length cars) (+ 1 (length (● w traffic))))
           (set! (● s cars)
@@ -400,7 +433,7 @@
                                    (_ r))
                                  r))
              (_ r)))
-    (define (move-cars! (g Area) (roads Roads) (s CabShift) (order Order)) (→ Unit)
+    (define (move-cars! (g Area) (roads Roads) (s TaxiShift) (order Order)) (→ Unit)
       (ensure-cars! g roads s)
       (let* ((w (● s game)) (cab (list-ref (● s cars) 0)) (others (list-drop (● s cars) 1))
              (positions (map (lambda (c) (● (chassis-body c) position)) others))
@@ -453,7 +486,7 @@
         (set! (● w traffic) (map (lambda (p) (● p first)) traffic))
         (set! (● s cars) (Cons cab (map (lambda (p) (● p second)) traffic)))
         (set! (● w cab) (chassis-body cab))))
-    (define (street-life! (g Area) (roads Roads) (s CabShift)) (→ Unit)
+    (define (street-life! (g Area) (roads Roads) (s TaxiShift)) (→ Unit)
       (let* ((w (● s game)) (b (● w cab)) (at (● b position)))
         (set! (● w residents) (map-indexed (lambda (i r)
                                              (let ((p (● r body position)))
@@ -518,7 +551,7 @@
                                         (edge rest (Some pose) (distance at (● pose position)))
                                         (edge rest best limit)))
                        (_ (edge rest best limit)))))))))))
-    (define (recover-cab! (g Area) (r Roads) (s CabShift)) (→ Bool)
+    (define (recover-cab! (g Area) (r Roads) (s TaxiShift)) (→ Bool)
       (ensure-cars! g r s)
       (let* ((w (● s game)) (others (list-drop (● s cars) 1))
              (obstacles (append (map (lambda (c) (● (chassis-body c) position)) others)
@@ -533,7 +566,7 @@
            (set! (● w driver) (Aboard)) (set! (● w gait) (Gait-seat-set resting 1.0))
            (match (● w fare) ((Waiting) (set! (● w passenger) (waiting-rider (current-pickup w))))
                   ((Hired) (set! (● w passenger) (Aboard))) (_ (unit))) #t))))
-    (define (step! (g Area) (roads Roads) (s CabShift) (order Order)) (→ Unit)
+    (define (step! (g Area) (roads Roads) (s TaxiShift) (order Order)) (→ Unit)
       (let* ((w (● s game)) (cab (● w cab position))
              (p (● (driver-body w) position))
              (q (● (passenger-body w) position)))

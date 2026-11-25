@@ -11,6 +11,7 @@
           draw!
           render-resolution
           sky-at
+          reset-lighting!
           reset-view!)
   (import
    (snail core base)
@@ -391,7 +392,7 @@
                                                                                (● w tick))
                                                                        1024))
                                          (size (size-at width height
-                                                        (● s resolution)
+                                                        (● s graphics resolution)
                                                         limit))
                                          (marked (zone-stand w)) (marks (zone-poses g marked))
                                          (palette (world-palette g actor marks s s 1.0 0.0)))
@@ -488,7 +489,7 @@
                                    (set! (● r marked-stand) id)))
       (unless (= (clock-minute w) (● r minute))
         (when (> (modulo (- (clock-minute w) (● r minute)) 1440) 2)
-          (set! (● r tracer) (discard-trace-history (● r tracer))))
+          (reset-lighting! r))
         (update-atmosphere! gpu (● r sky) (sky-at (clock-minute w) (● w tick)))
         (set! (● r minute) (clock-minute w))))
     ;; The camera owns a world-space focus, its velocity and an orbit heading.
@@ -556,6 +557,8 @@
                           (y (f64->f32 (+ y 1.38)))
                           (z (f64->f32 (● at z))))
                         (PinholeRange 1.0 0.35 32000.0) aspect 1.0)))
+    (define (reset-lighting! (r Renderer)) (→ Unit)
+      (set! (● r tracer) (discard-trace-history (● r tracer))))
     (define (reset-view! (r Renderer)) (→ Unit) (set! (● r rig) (None)) (set! (● r sector) -1))
     (define (render-resolution (r Renderer) (lines I32)) (→ String)
       (let ((target (● r tracer targets)))
@@ -582,15 +585,15 @@
              (canvas ((● gpu current-texture)))
              (width (● canvas width))
              (height (● canvas height))
-             (lines (● now resolution))
+             (settings (● now graphics))
+             (lines (● settings resolution))
              (size (size-at width height lines (● r pixel-limit)))
              (low? (<= lines 360))
              ;; Bound the temporal history and tone map on a dense laptop display.
              ;; The final FXAA pass scales the resolved street to the canvas.
-             (sampling (if low?
-                           (Reconstruct (min width (* 2 (● size first)))
-                                        (min height (* 2 (● size second))) 1)
-                           (Reconstruct width height (if (= lines 480) 2 1))))
+             (sampling (Reconstruct (if low? (min width (* 2 (● size first))) width)
+                                    (if low? (min height (* 2 (● size second))) height)
+                                    (● settings samples)))
              (time (+ (i64->f64 (● w tick)) t))
              (changed (not (= (● r time) time)))
              (focus (display-body (carrier (● before game)) (carrier w) t))
@@ -621,7 +624,7 @@
                                      (Camera3D-scene-time-set camera (f64->f32 (* time 0.05)))
                                      (/ 1.0 (i32->f32 (● size second)))
                                      (street-exposure (clock-minute w))
-                                     (if low? 1 2)
+                                     (● settings bounces)
                                      changed
                                      sampling))
           ((● gpu destroy) (ViewObject view))

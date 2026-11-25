@@ -64,7 +64,7 @@
          (roads (read-roads (read-resource files streets-model))))
     (start-stand! world stand)
     (set! (● world clock-offset) minute)
-    (set! (● shift resolution) (max w h))
+    (set! (● shift graphics) (Graphics-resolution-set (● shift graphics) (max w h)))
     (let ((ground (open-area atlas (● world cab position))))
       (populate! ground roads shift)
       (let ((r (make-street-renderer gpu (lambda (paths) (art-reader files paths))
