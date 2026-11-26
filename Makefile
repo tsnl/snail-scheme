@@ -107,6 +107,7 @@ PAGES_APPS = siegework viewer splats hearsay iygtw
 pages: $(PAGES_APPS)
 	$(RM) -r build/pages-input
 	"$(MDBOOK)" build --dest-dir build/pages-input
+	cp host/cloudflare/_redirects build/pages-input/_redirects
 	for app in $(PAGES_APPS); do \
 	  mkdir -p build/pages-input/play/$$app && \
 	  cp -R build/src/apps/$$app/main/. build/pages-input/play/$$app/ && \
