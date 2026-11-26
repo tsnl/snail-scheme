@@ -85,11 +85,7 @@
     (let index (+ i (u32 (get tracing layer_offset))))
     (let travel (* (get (textureLoad motion p 0) xy) (vec2f size)))
     (let previous (previous_site s p travel))
-    (var visibility (get previous visibility))
-    ;; Both paths shade the same rasterized point. The
-    ;; second can already use the first shadow test at this exact pixel.
-    (if ((> (get tracing sample_index) 0)
-         (= visibility (get (at reservoir_input i) visibility))))
+    (let visibility (get previous visibility))
     (let h (sampling_history visibility index))
     (var seed (seeded index 2u))
     (var r (fresh_samples s v h (address-of seed)))

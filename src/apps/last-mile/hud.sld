@@ -127,7 +127,7 @@
                      (new Pair (first name) (second settings)))))
         (list (named "Minimum" (preset-graphics 240))
               (named "Low" (preset-graphics 360))
-              (named "480p · 2 paths" (preset-graphics 480))
+              (named "480p" (preset-graphics 480))
               (named "Balanced" (preset-graphics 720))
               (named "High" (preset-graphics 1080))
               (named "Ultra" (Graphics-bounces-set (preset-graphics 1080) 4)))))

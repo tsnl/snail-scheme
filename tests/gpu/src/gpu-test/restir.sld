@@ -89,8 +89,8 @@
                                 " got " (repr (map (lambda (i) (u32 bytes (+ offset (* 4 i))))
                                                    (iota 4))))))))
 
-    (define (output-settings (width I32) (height I32) (samples I32)) (→ TraceSettings)
-      (new TraceSettings (display-width width) (display-height height) (samples samples)))
+    (define (output-settings (width I32) (height I32)) (→ TraceSettings)
+      (new TraceSettings (display-width width) (display-height height)))
 
     ;; A stationary surface moves by previous minus current jitter in the G-buffer.
     ;; SVGF keeps accumulating that surface even though its sample position moves.
@@ -101,14 +101,14 @@
                      (< (abs (- (* 9.0 (float-at data 44)) (- (● prev y) (● now y)))) 0.002))
           (panic "subpixel motion or SVGF reprojection failed on the 9×9 render grid"))))
 
-    ;; The 9×9 render grid survives a display resize and a change in sample count.
+    ;; The 9×9 render grid survives a display resize and back.
     ;; Camera jitter at the larger display size still belongs to a stationary view.
     (define (check-frame-grid (gpu Gpu) (t Tracer) (canvas Plane)
                               (kernel GpuComputePipeline) (result GpuBuffer) (back GpuBuffer))
       (→ Tracer)
       (let* ((front (looking 4.0 0.0))
              (large (make-plane gpu "test/display" 17 15 (Rgba8Unorm) (list (RenderAttachment))))
-             (draw (lambda ((t Tracer) (plane Plane) (w I32) (h I32) (n I32)) (→ Tracer)
+             (draw (lambda ((t Tracer) (plane Plane) (w I32) (h I32)) (→ Tracer)
                      (draw-traced gpu
                                   t
                                   (● plane view)
@@ -117,12 +117,12 @@
                                   1.0
                                   1
                                   #f
-                                  (output-settings w h n))))
-             (first (draw t canvas 9 9 1)) (two (draw first canvas 9 9 2))
+                                  (output-settings w h))))
+             (first (draw t canvas 9 9)) (two (draw first canvas 9 9))
              (native (inspect gpu kernel two result back))
-             (scaled (draw two large 17 15 1)) (still (draw scaled large 17 15 2))
+             (scaled (draw two large 17 15)) (still (draw scaled large 17 15))
              (scaled-rays (inspect gpu kernel still result back))
-             (back-at-native (draw still canvas 9 9 1)))
+             (back-at-native (draw still canvas 9 9)))
         (expect native 16 (new Vec4i (x 81) (y 81) (z 1) (w 24)))
         (expect-jitter-motion native (● two frame))
         (expect-jitter-motion scaled-rays (● still frame))
@@ -131,7 +131,7 @@
                      (match (● still upscale) ((Some u) (= (● u age) 2)) (_ #f))
                      (match (● back-at-native upscale)
                        ((Some u) (and (= (● u width) 9) (= (● u age) 1))) (_ #f)))
-          (panic "display resize or sample count disrupted render-grid history"))
+          (panic "a display resize disrupted render-grid history"))
         (release-plane gpu large)
         back-at-native))
 
@@ -149,7 +149,7 @@
                                   0.12
                                   1.0
                                   1
-                                  #t (output-settings 9 9 1))))
+                                  #t (output-settings 9 9))))
              (initial (retrace gpu t (● stage scene) day)) (first (draw initial))
              (pose (new ObjectPose (place (new Vec4f (x 0.0) (y 0.0) (z 1.0) (w 1.0)))
                         (size (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 0.0))))))
@@ -205,7 +205,7 @@
     ;; A passing lamp changes illumination while the receiver's motion stays
     ;; zero. Measure the final display pixel, including both temporal filters.
     (define (headlamp-trail (gpu Gpu) (t Tracer) (night Environment) (plane Plane)
-                            (draw (Fn Tracer I32 → Tracer)) (center I64)) (→ Unit)
+                            (draw (Fn Tracer → Tracer)) (center I64)) (→ Unit)
                             (let* ((s (test-wall gpu #f (Nil) 1))
                                    (read-level (lambda ()
                                                  (u8->i32
@@ -213,15 +213,15 @@
                               (update-moving-lights! gpu
                                                      (● s lights)
                                                      (list (lamp 0.5 1.05 6.0 0.8)))
-                              (let* ((lit (fold-left (lambda (frame _) (draw frame 2))
+                              (let* ((lit (fold-left (lambda (frame _) (draw frame))
                                                      (retrace gpu t s night)
                                                      (iota 8)))
                                      (on (read-level)))
                                 (update-moving-lights! gpu (● s lights) (Nil))
-                                (let* ((one (draw lit 2))
-                                       (two (draw one 2))
+                                (let* ((one (draw lit))
+                                       (two (draw one))
                                        (after-two (read-level)))
-                                  (draw (draw two 2) 2)
+                                  (draw (draw two))
                                   (let ((after-four (read-level)))
                                     (unless (and (> on 40)
                                                  (< (* after-two 3) on)
@@ -232,7 +232,6 @@
                                                       " / "
                                                       (show after-two) " / " (show after-four)))))))
                               (release-scene gpu s)))
-    ;; A flat lit wall has the same energy at two paths/pixel as at one.
     ;; Exercise successive Halton phases, short driving histories, an odd-sized
     ;; display readback and a scene cut from daylight straight to darkness.
     (define (check-reconstruction (gpu Gpu) (t Tracer) (scene Scene) (night Environment)
@@ -244,7 +243,7 @@
                                 15
                                 (Rgba8Unorm)
                                 (list (RenderAttachment) (TextureCopySrc))))
-             (draw (lambda ((frame Tracer) (count I32)) (→ Tracer)
+             (draw (lambda ((frame Tracer)) (→ Tracer)
                      (draw-traced gpu
                                   frame
                                   (● plane view)
@@ -253,26 +252,26 @@
                                   1.0
                                   1
                                   #t
-                                  (output-settings 17 15 count))))
+                                  (output-settings 17 15))))
              (center (* 4 (+ (* 7 17) 8)))
              (fast
               (Tracer-guiding-set t (new LightGuiding (exploration-floor 0.0) (recovery-frames 1))))
-             (rapid (draw (draw (discard-trace-history fast) 1) 1))
+             (rapid (draw (draw (discard-trace-history fast))))
              (fresh (inspect gpu kernel rapid result back))
-             (two (draw (discard-trace-history (Tracer-guiding-set rapid (● t guiding))) 2))
-             (twice (inspect gpu kernel two result back))
-             (rate (light-guiding-rates (● t guiding) 2))
+             (once (draw (discard-trace-history (Tracer-guiding-set rapid (● t guiding)))))
+             (observed (inspect gpu kernel once result back))
+             (rate (light-guiding-rates (● t guiding)))
              (keep (- 1.0 (● rate visibility-gain)))
-             (warm (fold-left (lambda (frame i) (draw frame (if (= i 0) 1 2))) two (iota 12)))
+             (warm (fold-left (lambda (frame _) (draw frame)) once (iota 12)))
              (check (inspect gpu kernel warm result back))
              (bright (read-rgba gpu plane 17 15)))
         (unless (and (= (u32 fresh 0) 8)
-                     (< (abs (- (float-at twice 76) (- 1.0 (* 0.5 (* keep keep))))) 1e-5)
+                     (< (abs (- (float-at observed 76) (- 1.0 (* 0.5 keep)))) 1e-5)
                      (= (u32 check 8) 1) (>= (u32 check 32) 1) (<= (u32 check 32) 4)
                      (> (u32 check 36) 4) (<= (u32 check 36) 24)
                      (> (u8->i32 (array-ref bright center)) 20))
           (panic "driving sample energy, short history, or display reconstruction failed"))
-        (let* ((dim (draw (retrace gpu warm scene night) 2)) (dark (read-rgba gpu plane 17 15)))
+        (let* ((dim (draw (retrace gpu warm scene night))) (dark (read-rgba gpu plane 17 15)))
           (unless (and (= (u8->i32 (array-ref dark center)) 0)
                        (= (u8->i32 (array-ref dark (+ center 3))) 255))
             (panic "reconstructed display carried radiance across a scene cut"))
@@ -302,7 +301,7 @@
              (scene (upload-scene gpu (lambda (_) (Nil)) (with-shapes empty (list sign)) 1))
              (draw (lambda ((f Tracer) (exposure F32)) (→ Tracer)
                      (draw-traced gpu f (● canvas view) (looking 4.0 0.0) 0.12 exposure 1 #f
-                                  (output-settings 9 9 1))))
+                                  (output-settings 9 9))))
              (warm (fold-left (lambda (f _) (draw f 1.0)) (retrace gpu t scene night) (iota 16)))
              (image (read-rgba gpu canvas 9 9))
              (red (lambda (x) (u8->i32 (array-ref image (* 4 (+ 36 x))))))
@@ -326,15 +325,15 @@
     ;; leave one tenth of its initial visibility error after twelve frames.
     (define (check-guiding-rates) (→ Unit)
       (let* ((s (new LightGuiding (exploration-floor 0.125) (recovery-frames 12)))
-             (full (light-guiding-rates s 1))
-             (two (light-guiding-rates s 2))
+             (full (light-guiding-rates s))
+             (slow (light-guiding-rates
+                    (new LightGuiding (exploration-floor 0.125) (recovery-frames 48))))
              (residual (lambda ((r GuidingRates) (n F64)) (→ F64)
                          (expt (- 1.0 (f32->f64 (* (● r exploration) (● r visibility-gain)))) n))))
         (unless (and (< (abs (- (residual full 12.0) 0.1)) 1e-6)
-                     (< (abs (- (residual two 24.0) 0.1)) 1e-6)
-                     (> (● full exploration) (● two exploration)) (= (● two exploration) 0.125)
-                     (= (● full history-limit) (● two history-limit)))
-          (panic "incorrect exploration or recovery across sampling cadences"))))
+                     (< (abs (- (residual slow 48.0) 0.1)) 1e-6)
+                     (> (● full exploration) 0.125) (= (● slow exploration) 0.125))
+          (panic "incorrect exploration or recovery for a recovery target"))))
 
     (define (check-halton) (→ Unit)
       (let ((phase (lambda ((i I32) (x F32) (y F32)) (→ Bool)
@@ -399,7 +398,7 @@
                                   1.0
                                   1
                                   #t
-                                  (output-settings 9 9 1))))
+                                  (output-settings 9 9))))
              (control (new LightGuiding (exploration-floor 1.0) (recovery-frames 48)))
              (cold (light-window (Tracer-guiding-set room control) 12 draw read))
              (guided (discard-trace-history (Tracer-guiding-set (● cold first) (● room guiding))))
@@ -449,7 +448,7 @@
                                                      1.0
                                                      1
                                                      #t
-                                                     (output-settings 9 9 1))))
+                                                     (output-settings 9 9))))
                                 (first (draw (retrace gpu t (● stage scene) dark)))
                                 (pose (new ObjectPose
                                         (place (new Vec4f (x -2.4) (y 0.0) (z 0.0) (w 1.0)))
@@ -488,7 +487,7 @@
                                                 1.0
                                                 1
                                                 #f
-                                                (output-settings 9 9 1)))
+                                                (output-settings 9 9)))
                              (data (inspect gpu kernel next result back)))
                         (unless (and (= (> (u32 data 56) 0) mesh)
                                      (= (u32 data 56) (u32 data 72))
@@ -541,7 +540,7 @@
              (draw
               (lambda ((t Tracer) (camera Camera3D) (count I32) (selected I32) (lit I32)) (→ Tracer)
                 (let ((next (draw-traced gpu t (● canvas view) camera 0.12 1.0 1
-                                         #f (output-settings 9 9 1))))
+                                         #f (output-settings 9 9))))
                   (expect (inspect gpu kernel next result back) 0
                           (new Vec4i (x count) (y selected) (z lit) (w 1)))
                   next)))
@@ -577,4 +576,4 @@
         (release-environment gpu night)
         (release-scene gpu blocked)
         (release-scene gpu scene)
-        "weighted draws, capped reuse, visible and blocked light, disocclusion and full coverage at one and two paths per pixel"))))
+        "weighted draws, capped reuse, visible and blocked light, disocclusion and full coverage"))))
