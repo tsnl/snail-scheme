@@ -1,7 +1,7 @@
 ;; The graphics libraries' shaders, printed to WGSL when this library is
 ;; built, each from the file of its name: `quad-shader` from
 ;; quad.wgsl.scm, and so `atlas-shader`, `lighting-shader`, `raster-shader`,
-;; `sun-shader`, `post-shader`, `scan-shader`, `radix-sort-shader`,
+;; `sun-shader`, `tone-shader`, `post-shader`, `scan-shader`, `radix-sort-shader`,
 ;; `splat-project-shader`, `splat-draw-shader` and `splat-present-shader`,
 ;; and training's
 ;; `splat-tiles-shader`, `splat-count-shader`, `splat-keys-shader`,
@@ -37,6 +37,9 @@
                                           (new Pair
                                             (first "upscale-shader")
                                             (second (link-file "upscale.wgsl.scm")))
+                                          (new Pair
+                                            (first "tone-shader")
+                                            (second (link-file "tone.wgsl.scm")))
                                           (new Pair (first "post-shader")
                                                (second (link-file "post.wgsl.scm")))
                                           (new Pair

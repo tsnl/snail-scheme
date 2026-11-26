@@ -121,7 +121,8 @@
     ;; hits' paths and the blended layer's, whose `tracing` puts its
     ;; radiance past theirs.
     (record Kit
-      ((surface GpuRenderPipeline)
+      ((opaque-surface GpuRenderPipeline)
+       (surface GpuRenderPipeline)
        (blended-surface GpuRenderPipeline)
        (compose GpuRenderPipeline)
        (steps Steps)
@@ -565,18 +566,35 @@
         (layer-offset start)
         (reuse reuse)))
 
-    ;; Every triangle's first hit, in one draw; then, where the scene has
-    ;; the blended layer, every triangle again over a copy of their depth,
-    ;; so that the depth test keeps the nearest blended surface in front of
-    ;; them.
+    ;; A run of the scene's triangles, drawn with a pipeline and its group.
+    (record SurfaceDraw
+      ((pipeline GpuRenderPipeline)
+       (group GpuBindGroup)
+       (run SurfaceRun)))
+
+    ;; The draws of the runs of one alpha mode.
+    (define (runs-drawn (tracer Tracer)
+                        (alpha I64)
+                        (pipeline GpuRenderPipeline)
+                        (group GpuBindGroup))
+      (→ (List SurfaceDraw))
+      (map (lambda (run) (new SurfaceDraw (pipeline pipeline) (group group) (run run)))
+           (filter (lambda (run) (and (= (● run alpha) alpha) (> (● run count) 0)))
+                   (● tracer world scene runs))))
+
+    ;; The first hits: the opaque runs first, with nothing that discards, so
+    ;; the depth test runs before their shader; then the masked runs. Then,
+    ;; where the scene has the blended layer, its blended runs over a copy
+    ;; of the first hits' depth, so that the depth test keeps the nearest
+    ;; blended surface in front of them.
     (define (draw-surfaces (gpu Gpu) (encoder GpuCommandEncoder) (tracer Tracer)) (→ Unit)
       (let ((targets (● tracer targets)) (kit (● tracer kit)) (bound (● tracer bindings)))
-        (surfaces-pass gpu encoder tracer
+        (surfaces-pass gpu encoder
                        (● targets planes)
                        (● targets depth)
                        (ClearDepth 1.0)
-                       (● kit surface)
-                       (● bound surface))
+                       (append (runs-drawn tracer 0 (● kit opaque-surface) (● bound opaque-surface))
+                               (runs-drawn tracer 1 (● kit surface) (● bound surface))))
         (match (pair-of (● targets blended) (● bound blended))
           ((Some (Pair b groups))
            ((● gpu copy-texture-to-texture) encoder
@@ -584,12 +602,11 @@
             (whole-texture (● b depth texture))
             (● targets width)
             (● targets height))
-           (surfaces-pass gpu encoder tracer
+           (surfaces-pass gpu encoder
                           (● b planes)
                           (● b depth)
                           (KeepDepth)
-                          (● kit blended-surface)
-                          (● groups surface)))
+                          (runs-drawn tracer 2 (● kit blended-surface) (● groups surface))))
           ((None) (unit)))))
 
     ;; Both, when both are there.
@@ -601,16 +618,15 @@
            ((None) (None))))
         ((None) (None))))
 
+    ;; One render pass into the planes and depth, of each run's three
+    ;; corners a triangle, from its first triangle's.
     (define (surfaces-pass (gpu Gpu) (encoder GpuCommandEncoder)
-                           (tracer Tracer)
                            (planes (List Plane))
                            (depth Plane)
                            (depth-load DepthLoad)
-                           (pipeline GpuRenderPipeline)
-                           (group GpuBindGroup))
+                           (draws (List SurfaceDraw)))
       (→ Unit)
-      (let* ((scene (● tracer world scene))
-             (clear (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 0.0))))
+      (let* ((clear (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 0.0))))
              (pass ((● gpu begin-render-pass) encoder
                     (new RenderPassDescriptor
                       (colors (map (lambda (plane)
@@ -623,9 +639,15 @@
                                      (view (● depth view))
                                      (load depth-load)
                                      (store #t))))))))
-        ((● gpu set-pipeline) pass pipeline)
-        ((● gpu set-bind-group) pass 0 group)
-        ((● gpu draw) pass (i64->i32 (* 3 (● scene triangle-count))) 1 0 0)
+        (for-each (lambda (d)
+                    ((● gpu set-pipeline) pass (● d pipeline))
+                    ((● gpu set-bind-group) pass 0 (● d group))
+                    ((● gpu draw) pass
+                     (i64->i32 (* 3 (● d run count)))
+                     1
+                     (i64->i32 (* 3 (● d run first)))
+                     0))
+                  draws)
         ((● gpu end-pass) pass)))
 
     ;; The blended layer's light over the first hits', in the light they
@@ -766,7 +788,8 @@
     ;; queries and `shade` read of the scene and the environment, which
     ;; are the same for every bounce of either layer.
     (record Bindings
-      ((surface GpuBindGroup)
+      ((opaque-surface GpuBindGroup)
+       (surface GpuBindGroup)
        (paths PathGroups)
        (temporal-scene GpuBindGroup)
        (primary-scene GpuBindGroup)
@@ -805,6 +828,7 @@
     (define (bind (gpu Gpu) (kit Kit) (world World) (targets Targets)) (→ Bindings)
       (let ((steps (● kit steps)) (rays (● kit rays)) (scene (● world scene)))
         (new Bindings
+          (opaque-surface (surface-group gpu (● kit opaque-surface) kit scene))
           (surface (surface-group gpu (● kit surface) kit scene))
           (paths (path-groups gpu kit (● kit tracing) targets (● targets planes) (● targets depth)
                               (● targets noisy) (● targets history)))
@@ -837,7 +861,8 @@
                                    (TextureEntry 1 (● (list-ref (● b planes) 2) view)))))))))
 
     (define (groups-of (bound Bindings)) (→ (List GpuBindGroup))
-      (concatenate (list (list (● bound surface)
+      (concatenate (list (list (● bound opaque-surface)
+                               (● bound surface)
                                (● bound temporal-scene)
                                (● bound primary-scene)
                                (● bound temporal-environment)
@@ -991,6 +1016,7 @@
 
     (define (make-kit (gpu Gpu) (layer-size I32)) (→ Kit)
       (new Kit
+        (opaque-surface (surface-pipeline gpu "opaque_fragment"))
         (surface (surface-pipeline gpu "surface_fragment"))
         (blended-surface (surface-pipeline gpu "blended_fragment"))
         (compose (compose-pipeline gpu))
