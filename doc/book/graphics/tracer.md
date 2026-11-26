@@ -326,6 +326,16 @@ device knows, and none is indirect. A bottom level may take 40 levels.
 A span that could not otherwise reach leaves of four by then is halved
 instead of binned, so every span ends in a leaf.
 
+Near the root a level has few nodes, and one workgroup a node would
+leave the device idle. A wide node, of more than 4,096 primitives, is
+split by every workgroup in blocks of 1,024. Each workgroup bins its
+blocks into the node's bins in memory, then one workgroup chooses and
+makes the node. The blocks count their left primitives, scan the
+counts, and scatter stably as a workgroup's partition does. The tree is
+the one a workgroup would have built. On an RTX 5090, building Sponza's
+262,267 triangles took 14.3 ms a workgroup a node and takes 5.0 ms this
+way. The linear BVH built them in 2.0 ms.
+
 A slot is a child as a walk reads it: a box, a pointer and a count. A
 count of 0 points at a node, two slots side by side; a count above 0 is a
 leaf of that many triangles, each stored as a corner and two edges in the
@@ -355,7 +365,7 @@ at the Hyde Street stand with 146,667 triangles traced at 1280 by 720:
 | Wavefront, two bounces | 9.07 ms | 2.06 ms |
 | Wavefront, one bounce | 4.11 ms | 1.49 ms |
 | Refit after a pose | 1.02 ms | 0.18 ms |
-| Building the still triangles' tree, once | 1.34 ms | 7.74 ms |
+| Building the still triangles' tree, once | 1.34 ms | 2.43 ms |
 
 The old refit made 50 passes over every node, whatever moved. The new one
 merges only the 44 moving objects' boxes and rebuilds the top level over
