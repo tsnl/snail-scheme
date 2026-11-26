@@ -1,5 +1,5 @@
-;; Road grip acts only while the wheels meet the ground. Gravity and impact
-;; impulses always act on the free chassis, including a parked or overturned car.
+;; The city and its saved bodies live in Snail. One synchronous Rapier step
+;; advances the cab, traffic, and nearby pedestrians against the same bodywork.
 (define-library (snail shell game chassis)
   (export Drive
           drive
@@ -57,159 +57,12 @@
       (let ((f (nose c)))
         (new Body (position (flat (● c center))) (heading (atan2 (● f x) (negate (● f z))))
              (velocity (flat (velocity c))))))
-    ;; ---- Tyres and bodywork ----
-
-    (define (two-sides (x F64) (y F64) (z F64) (r F64)) (→ (List Ball))
-      (list (ball (v3 x y z) r) (ball (v3 (negate x) y z) r)))
-    (define (hull (size CarDimensions)) (→ (List Ball))
-      (let ((x (- (* 0.5 (● size width)) chassis-clearance))
-            (l (- (* 0.5 (● size length)) chassis-clearance)))
-        (concatenate (map (lambda (s) (two-sides x 0.0 (* l s) chassis-clearance))
-                          (list -1.0 -0.3333333333333333 0.3333333333333333 1.0)))))
-    (define (tyres (size CarDimensions)) (→ (List Ball))
-      (let ((x (* 0.41 (● size width))) (z (* 0.5 (● size wheelbase))))
-        (append (two-sides x -0.36 z 0.24) (two-sides x -0.36 (negate z) 0.24))))
-    (define (tangent (v V3) (n V3)) (→ V3) (v- v (scaled n (dot v n))))
-    (define (clamp-change (x F64) (limit F64)) (→ F64) (max (negate limit) (min limit x)))
-    (define (turn! (b RigidBody) (n V3) (rate F64) (dt F64)) (→ Unit)
-      (let* ((change (clamp-change (- rate (dot (spin b) n)) (* 5.5 dt)))
-             (j (/ change (dot n (inverse-inertia b n)))))
-        (apply-torque-impulse! b (scaled n j))))
-    (define (traction! (b RigidBody) (n V3) (size CarDimensions) (control Drive) (dt F64)) (→ Unit)
-      (let* ((f (unit-vector (tangent (nose b) n))) (right (cross f n)) (v (velocity b))
-             (speed (dot v f)) (grade (/ (● f y) (max 0.1 (sqrt (- 1.0 (* (● f y) (● f y)))))))
-             (next (road-speed speed (● control pedal) (● control brake) grade dt))
-             (change (+ (- next speed) (* 9.81 (* (● f y) dt))))
-             (side (clamp-change (- (* 9.81 (* (● right y) dt)) (dot right v)) (* 8.2 dt)))
-             (wheel (road-steering size (● control wheel) speed (/ (- next speed) dt) grade)))
-        (apply-impulse! b
-                        (● b center)
-                        (scaled (v+ (scaled f change) (scaled right side))
-                                (/ 1.0 (● b inverse-mass))))
-        (turn! b n (/ (* (negate speed) (tan wheel)) (● size wheelbase)) dt)))
-    (define (ground-gap (s Ball) (road RoadPatch)) (→ F64)
-      (- (dot (v- (● s center) (● road point)) (● road normal)) (● s radius)))
-
-    ;; The city supplies vertical solid footprints. Use the nearest face when
-    ;; a sphere starts inside one, as can happen beside a streamed street.
-    (define (wall-plane (s Ball) (w Footprint)) (→ (Pair V3 V3))
-      (let* ((p (● s center)) (x (● p x)) (z (● p z))
-             (q (v3 (max (● w west) (min x (● w east)))
-                    (● p y)
-                    (max (● w north) (min z (● w south)))))
-             (d (v- p q))
-             (l (- x (● w west)))
-             (r (- (● w east) x))
-             (t (- z (● w north)))
-             (b (- (● w south) z))
-             (side (min (min l r) (min t b))))
-        (if (> (squared d) 1e-12) (new Pair (first q) (second (unit-vector d)))
-            (let ((n (cond ((= side l) (v3 -1.0 0.0 0.0)) ((= side r) (v3 1.0 0.0 0.0))
-                           ((= side t) (v3 0.0 0.0 -1.0)) (else (v3 0.0 0.0 1.0)))))
-              (new Pair (first (v+ p (scaled n side))) (second n))))))
-    (define (wall-contacts (b RigidBody) (fixed RigidBody) (balls (List Ball))
-                           (walls (List Footprint)) (dt F64)) (→ (List Contact))
-                           (fold-left (lambda (out w) (fold-left (lambda (xs s)
-                                                                   (let ((p (● s center))
-                                                                         (r (● s radius)))
-                                                                     (if (or (< (+ (● p x) r)
-                                                                                (● w west))
-                                                                             (> (- (● p x) r)
-                                                                                (● w east))
-                                                                             (< (+ (● p z) r)
-                                                                                (● w north))
-                                                                             (> (- (● p z) r)
-                                                                                (● w south)))
-                                                                         xs
-                                                                         (let ((face
-                                                                                (wall-plane s w)))
-                                                                           (match (plane-contact b
-                                                                                                 fixed
-                                                                                                 s
-                                                                                                 (●
-                                                                                                  face
-                                                                                                  first)
-                                                                                                 (●
-                                                                                                  face
-                                                                                                  second)
-                                                                                                 0.55
-                                                                                                 dt)
-                                                                             ((Some c) (Cons c xs))
-                                                                             (_ xs))))))
-                                                                 out
-                                                                 balls))
-                                      (Nil)
-                                      walls))
     (record CarStep
       ((body RigidBody)
        (road RoadPatch)
        (drive Drive)))
     (define (car-step (g Area) (b RigidBody) (control Drive) (walls (List Footprint))) (→ CarStep)
       (new CarStep (body b) (road (road-patch g (flat (● b center)) walls)) (drive control)))
-    ;; Static tyre friction holds a stopped car on a grade. Wall and vehicle
-    ;; contacts can still apply an impulse which wakes it the next substep.
-    (define (parked? (s CarStep) (supports (List Ball))) (→ Bool)
-      (let ((b (● s body)) (road (● s road)) (control (● s drive)))
-        (and (> (● road normal y) 0.76) (or (● control brake) (= (● control pedal) 0.0))
-             (< (squared (velocity b)) 0.008) (< (squared (spin b)) 0.025)
-             (every? (lambda (wheel) (let ((gap (ground-gap wheel road)))
-                                       (and (> gap -0.025) (< gap 0.035)))) supports))))
-    (define (street-forces! (s CarStep) (size CarDimensions) (fixed RigidBody)
-                            (shape (List Ball)) (wheels (List Ball)) (dt F64)) (→ (List Contact))
-                            (let* ((b (● s body))
-                                   (road (● s road))
-                                   (n (● road normal))
-                                   (control (● s drive))
-                                   (standing (> (dot (rotated (● b orientation) up) n) 0.50))
-                                   (supports (world-balls b (if standing wheels shape)))
-                                   (grip (if standing 0.0 0.65))
-                                   (walls (wall-contacts b
-                                                         fixed
-                                                         (world-balls b shape)
-                                                         (● road walls)
-                                                         dt)))
-                              (if (and standing (parked? s supports))
-                                  (begin
-                                    (set! (● b momentum) (v3 0.0 0.0 0.0))
-                                    (set! (● b angular) (v3 0.0 0.0 0.0))
-                                    walls)
-                                  (begin
-                                    (when (and standing
-                                               (any? (lambda (t) (< (ground-gap t road) 0.035))
-                                                     supports))
-                                      (traction! b n size control dt))
-                                    (accelerate! b (v3 0.0 -9.81 0.0) dt)
-                                    (fold-left (lambda (out t)
-                                                 (match (plane-contact b
-                                                                       fixed
-                                                                       t
-                                                                       (● road point)
-                                                                       n
-                                                                       grip
-                                                                       dt)
-                                                   ((Some c) (Cons c out)) (_ out)))
-                                               walls
-                                               supports)))))
-    (define (pair-contacts (cars (List CarStep)) (shape (List Ball)) (reach F64) (dt F64))
-      (→ (List Contact))
-      (match cars ((Nil) (Nil))
-             ((Cons first others)
-              (let ((a (● first body)))
-                (fold-left (lambda (contacts other)
-                             (let ((b (● other body)))
-                               (if (>= (squared (v- (● a center) (● b center))) (* reach reach))
-                                   contacts
-                                   (append (sphere-contacts a
-                                                            (world-balls a shape)
-                                                            b
-                                                            (world-balls b shape)
-                                                            0.58
-                                                            0.12
-                                                            dt)
-                                           contacts))))
-                           (pair-contacts others shape reach dt) others)))))
-    ;; ---- Pedestrian contacts ----
-
     ;; A standing person's contact volume extends from shoes to shoulders.
     ;; Until a moving vehicle touches it the walker remains under foot control.
     (define walker-height (→ F64) 0.82)
@@ -229,112 +82,78 @@
                                          (scaled (v3 (● b velocity x) 0.0 (● b velocity z)) 72.0))
                                    c)))))
         (new WalkerStep (body physical) (road road) (active (match motion ((Some _) #t) (_ #f))))))
-    (define person-shape (→ (List Ball))
-      (list (ball (v3 0.0 0.49 0.0) 0.33) (ball (v3 0.0 0.08 0.0) 0.34)
-            (ball (v3 0.0 -0.50 0.0) 0.32)))
-    ;; The car-car hull rounds the bumpers at a single height. Where a
-    ;; standing walker meets a bonnet or boot, the contact plane rises.
-    ;; The solver applies the same impulse in opposite directions to both bodies.
-    (define (bonnet-contact (hit Contact) (dt F64)) (→ Contact)
-      (let* ((car (● hit b)) (q (● car orientation))
-             (at (unrotated q (v- (● hit point) (● car center))))
-             (n (unrotated q (● hit normal))))
-        (if (or (< (abs (● at z)) 1.2) (< (abs (● n z)) 0.5) (< (● (rotated q up) y) 0.65))
-            hit
-            (contact (● hit a) car (● hit point)
-                     (rotated q (v3 (● n x) (max (● n y) 0.56) (● n z))) 0.0 0.04 0.15 dt))))
-    (define (walker-contacts! (w WalkerStep) (cars (List CarStep)) (shape (List Ball))
-                              (fixed RigidBody) (dt F64)) (→ (List Contact))
-                              (let* ((b (● w body))
-                                     (volume (world-balls b person-shape))
-                                     (road (● w road))
-                                     (hits (fold-left (lambda (out car)
-                                                        (let ((c (● car body)))
-                                                          (if (or (> (squared (v- (● b center)
-                                                                                  (● c center)))
-                                                                     18.0)
-                                                                  (and (not (● w active))
-                                                                       (< (squared (velocity c))
-                                                                          0.16)))
-                                                              out
-                                                              (let ((hits (sphere-contacts b
-                                                                                           (if (● w
-                                                                                                  active)
-                                                                                               volume
-                                                                                               (take
-                                                                                                volume
-                                                                                                2))
-                                                                                           c
-                                                                                           (world-balls
-                                                                                            c
-                                                                                            shape)
-                                                                                           0.32
-                                                                                           0.16
-                                                                                           dt)))
-                                                                (append (if (● w active)
-                                                                            hits
-                                                                            (map (lambda (hit)
-                                                                                   (bonnet-contact
-                                                                                    hit
-                                                                                    dt))
-                                                                                 hits))
-                                                                        out)))))
-                                                      (Nil) cars)))
-                                (unless (null? hits) (set! (● w active) #t))
-                                (if (not (● w active)) (Nil)
-                                    (begin (accelerate! b (v3 0.0 -9.81 0.0) dt)
-                                           (fold-left (lambda (out part)
-                                                        (match (plane-contact b
-                                                                              fixed
-                                                                              part
-                                                                              (● road point)
-                                                                              (● road normal)
-                                                                              0.78
-                                                                              dt)
-                                                          ((Some c) (Cons c out)) (_ out)))
-                                                      (append hits
-                                                              (wall-contacts b
-                                                                             fixed
-                                                                             volume
-                                                                             (● road walls)
-                                                                             dt))
-                                                      volume)))))
-    ;; At the speed limit two oncoming bumpers move less than a hull diameter
-    ;; relative to each other in one substep. Contacts are visited in car order.
+
+    ;; ---- Rapier traffic ----
+
+    ;; A tick passes only scalars to Rust. Body indices live from begin through
+    ;; end. The ordered results are copied into the same managed objects that
+    ;; the game holds and serializes.
+    (extern begin-traffic "snail.core.support" "snail:traffic/begin" (Fn F64 F64 F64 F64 → Unit))
+    (extern add-body "snail.core.support" "snail:traffic/body"
+            (Fn F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 F64 → I64))
+    (extern add-wall "snail.core.support" "snail:traffic/wall" (Fn F64 F64 F64 F64 → Unit))
+    (extern add-car "snail.core.support" "snail:traffic/car"
+            (Fn I64 F64 F64 F64 F64 F64 F64 F64 F64 I32 → Unit))
+    (extern add-walker "snail.core.support" "snail:traffic/walker"
+            (Fn I64 F64 F64 F64 F64 F64 F64 I32 → Unit))
+    (extern simulate "snail.core.support" "snail:traffic/step" (Fn F64 → Unit))
+    (extern body-value "snail.core.support" "snail:traffic/value" (Fn I64 I64 → F64))
+    (extern walker-active "snail.core.support" "snail:traffic/walker-active" (Fn I64 → I32))
+    (extern end-traffic "snail.core.support" "snail:traffic/end" (Fn → Unit))
+
+    (define (stage-body (b RigidBody) (road RoadPatch)) (→ I64)
+      (for-each (lambda (w) (add-wall (● w west) (● w north) (● w east) (● w south)))
+                (● road walls))
+      (let ((c (● b center)) (q (● b orientation)) (p (● b momentum)) (l (● b angular))
+            (i (● b inverse-inertia)))
+        (add-body (● c x) (● c y) (● c z) (● q axis x) (● q axis y) (● q axis z) (● q w)
+                  (● p x) (● p y) (● p z) (● l x) (● l y) (● l z) (● b inverse-mass)
+                  (● i x) (● i y) (● i z))))
+
+    (define (body-vector (id I64) (i I64)) (→ V3)
+      (v3 (body-value id i) (body-value id (+ i 1)) (body-value id (+ i 2))))
+    (define (read-body! (id I64) (b RigidBody)) (→ Unit)
+      (set! (● b center) (body-vector id 0))
+      (set! (● b orientation) (new Rotation (axis (body-vector id 3)) (w (body-value id 6))))
+      (set! (● b momentum) (body-vector id 7))
+      (set! (● b angular) (body-vector id 10)))
+
+    (define (stage-car (size CarDimensions) (s CarStep) (dt F64)) (→ (Fn → Unit))
+      (let* ((b (● s body)) (road (● s road)) (p (● road point)) (n (● road normal))
+             (id (stage-body b road)) (control (● s drive)) (nose-axis (nose b))
+             (f (unit-vector (v- nose-axis (scaled n (dot nose-axis n)))))
+             (speed (dot (velocity b) f))
+             (grade (/ (● f y) (max 0.1 (sqrt (- 1.0 (* (● f y) (● f y)))))))
+             (next (road-speed speed (● control pedal) (● control brake) grade dt))
+             (accel (/ (- next speed) dt)))
+        ;; Rapier applies gravity. Only the tyre contribution goes to the wheels.
+        (add-car id (● p x) (● p y) (● p z) (● n x) (● n y) (● n z)
+                 (+ accel (* 9.81 (● f y))) (road-steering size (● control wheel) speed accel grade)
+                 (i64->i32 (if (or (● control brake) (= (● control pedal) 0.0)) 1 0)))
+        (lambda () (read-body! id b))))
+
+    (define (stage-walker (index I64) (s WalkerStep)) (→ (Fn → Unit))
+      (let* ((b (● s body)) (road (● s road)) (p (● road point)) (n (● road normal))
+             (id (stage-body b road)))
+        (add-walker id (● p x) (● p y) (● p z) (● n x) (● n y) (● n z)
+                    (i64->i32 (if (● s active) 1 0)))
+        (lambda ()
+          (when (= (i32->i64 (walker-active index)) 1)
+            (set! (● s active) #t)
+            (read-body! id b)))))
+
     (define (step-cars! (size CarDimensions) (cars (List CarStep)) (seconds F64)) (→ Unit)
       (step-traffic! size cars (Nil) seconds))
     (define (step-traffic! (size CarDimensions) (cars (List CarStep)) (people (List WalkerStep))
                            (seconds F64)) (→ Unit)
-                           (let* ((shape (hull size)) (wheels (tyres size)) (fixed (fixed-body))
-                                  (count (max 1 (f64->i64 (ceiling (/ seconds 0.0125)))))
-                                  (dt (/ seconds (i64->f64 count))))
-                             (when (> dt 0.0)
-                               (for-each (lambda (_)
-                                           (let ((contacts (concatenate (map (lambda (c)
-                                                                               (street-forces! c
-                                                                                               size
-                                                                                               fixed
-                                                                                               shape
-                                                                                               wheels
-                                                                                               dt))
-                                                                             cars))))
-                                             (solve-contacts!
-                                              (append (concatenate (map (lambda (p)
-                                                                          (walker-contacts! p
-                                                                                            cars
-                                                                                            shape
-                                                                                            fixed
-                                                                                            dt))
-                                                                        people))
-                                                      (append (pair-contacts cars
-                                                                             shape
-                                                                             (+ 1.0 (● size length))
-                                                                             dt)
-                                                              contacts))
-                                              6)
-                                             (for-each (lambda (s) (integrate! (● s body) dt)) cars)
-                                             (for-each (lambda (p)
-                                                         (when (● p active)
-                                                           (integrate! (● p body) dt)))
-                                                       people)))
-                                         (iota count)))))))
+                           (when (> seconds 0.0)
+                             (begin-traffic (● size width)
+                                            (● size length)
+                                            (● size wheelbase)
+                                            chassis-clearance)
+                             (let* ((fleet (map (lambda (s) (stage-car size s seconds)) cars))
+                                    (walkers (map-indexed stage-walker people)))
+                               (simulate seconds)
+                               (for-each (lambda (write!) (write!)) fleet)
+                               (for-each (lambda (write!) (write!)) walkers)
+                               (end-traffic))))))

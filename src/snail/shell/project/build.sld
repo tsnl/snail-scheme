@@ -489,10 +489,10 @@
       (let* ((program (compiled (lambda () (checked->wat checked))))
              (output (string-append directory "/" (program-name (● target name)))))
         (match (● builder mode)
-          ((Debug) (write-bytes fs output (linked-program fs builder program)))
+          ((Debug) (write-bytes fs output (linked-program processes fs builder program)))
           ((Release)
            (let ((linked (string-append working "/linked.wasm")))
-             (write-bytes fs linked (linked-program fs builder program))
+             (write-bytes fs linked (linked-program processes fs builder program))
              (optimize processes linked output))))
         (place-links fs builder directory
                      (append (● program links) (publish-resources fs builder target directory)))
@@ -514,15 +514,23 @@
 
     ;; ---- Programs ----
 
-    ;; The runtime a program links with: the toolchain's, whose services
-    ;; include the assembler, for a program that links (snail shell
-    ;; assembler), and the plain one otherwise.
-
-    (define (program-runtime (builder Builder) (libraries (List String))) (→ String)
-      (let ((tools (● builder tools)))
-        (if (member? "snail.shell.assembler" libraries)
-            (● tools toolchain)
-            (● tools runtime))))
+    ;; A chassis uses Rapier in the same Wasm instance as the GC program.
+    ;; Cargo caches that runtime independently of plain and assembler-only builds.
+    (define (program-runtime (processes Processes) (builder Builder) (libraries (List String)))
+      (→ String)
+      (let ((tools (● builder tools)) (assembler? (member? "snail.shell.assembler" libraries)))
+        (cond ((member? "snail.shell.game.chassis" libraries)
+               (let* ((features (if assembler? "rapier,assembler" "rapier"))
+                      (target (string-append (● tools root) "/build/wasm-support-" features)))
+                 (run-command processes
+                              (new Command
+                                (program (string-append (● tools root) "/scripts/build-runtime"))
+                                (arguments (list target "--features" features))
+                                (directory (● tools root)))
+                              "build Rapier runtime")
+                 (string-append target "/wasm32-wasip1/release/snail_scheme_support.wasm")))
+              (assembler? (● tools toolchain))
+              (else (● tools runtime)))))
 
     ;; The program at `entry`, compiled in this process to one module and
     ;; linked with the runtime into `output`; the files it links ship beside
@@ -545,14 +553,15 @@
                                                                    forms))
                                                (Some (list "snail" "target" "node"))
                                                (known-digests fs builder))))))
-        (write-bytes fs output (linked-program fs builder program))
+        (write-bytes fs output (linked-program processes fs builder program))
         (● program links)))
 
     ;; The whole program fused with its runtime into one module.
 
-    (define (linked-program (fs Fs) (builder Builder) (program WholeProgram))
+    (define (linked-program (processes Processes) (fs Fs) (builder Builder) (program WholeProgram))
       (→ Bytes)
-      (match (link (● program text) (read-bytes fs (program-runtime builder (● program libraries))))
+      (match (link (● program text)
+                   (read-bytes fs (program-runtime processes builder (● program libraries))))
         ((Ok bytes) bytes)
         ((Err message) (fail-build (string-append "cannot link program: " message)))))
 

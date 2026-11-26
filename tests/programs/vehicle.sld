@@ -114,9 +114,11 @@
            "chase rig snapped over a bump or depended on frame subdivision")))
 
 (define (chained-impacts (g Area)) (→ Unit)
+  ;; Start in midair with 20 cm between bumpers. A glancing hit must turn
+  ;; the rear car and carry momentum through both cars ahead of it.
   (let* ((car (lambda ((x F64) (z F64)) (→ RigidBody)
                 (box-body 1500.0 (v3 1.875 1.42 4.6) (v3 x 8.0 z) (around-y 0.0))))
-         (rear (car 0.0 0.0)) (middle (car 0.8 -4.45)) (front (car 0.8 -8.91))
+         (rear (car 0.0 0.0)) (middle (car 1.3 -4.8)) (front (car 1.3 -9.6))
          (cars (map (lambda (b) (car-step g b (drive 0.0 0.0 #f) (Nil))) (list rear middle front))))
     (apply-impulse! rear (● rear center) (v3 0.0 0.0 -15000.0))
     (for-each (lambda (_) (step-cars! sedan cars 0.05)) (iota 4))
