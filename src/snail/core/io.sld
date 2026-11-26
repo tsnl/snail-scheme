@@ -24,6 +24,7 @@
    host-fs
    read-file
    read-bytes
+   fold-file-chunks
    write-file
    write-bytes
    file-exists?
@@ -267,6 +268,27 @@
                                 (if (= byte -1) (None) (Some (i32->u8 byte))))))))
           (support-port-close port)
           bytes)))
+
+    ;; Fold a binary file without holding it all in memory. Each callback
+    ;; receives a fresh array, exactly width bytes except at EOF.
+    (define (fold-file-chunks (fs Fs) (path String) (width I64) (initial T)
+                              (step (Fn T Bytes → T))) (→ T) (∀ (T))
+                              (when (or (<= width 0) (> width 2147483647))
+                                (panic "invalid file chunk width"))
+                              (let ((port (support-open-input path)))
+                                (let loop ((state initial))
+                                  (let ((first (support-port-read-byte port)))
+                                    (if (= first -1) (begin (support-port-close port) state)
+                                        (loop (step state (file-chunk port width first))))))))
+
+    (define (file-chunk (port I32) (width I64) (first I32)) (→ Bytes)
+      (let ((bytes (make-array width (i32->u8 0))))
+        (array-set! bytes 0 (i32->u8 first))
+        (let fill ((n 1))
+          (if (= n width) bytes
+              (let ((next (support-port-read-byte port)))
+                (if (= next -1) (subarray bytes 0 n)
+                    (begin (array-set! bytes n (i32->u8 next)) (fill (+ n 1)))))))))
 
     ;; Everything `next` gives until it gives None. Items gather a chunk at a
     ;; time, and the chunks are joined at the end, so a file of millions of

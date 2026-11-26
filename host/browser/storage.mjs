@@ -1,6 +1,6 @@
 // One save per application in IndexedDB: the bytes of its serialized state.
 
-import {blobPartSize, matchesDigest, readBlobParts} from './load.mjs';
+import {blobPartSize, legacyPartSize, matchesDigest, readBlobParts} from './load.mjs';
 
 function open(name, store) {
   return new Promise((resolve, reject) => {
@@ -59,26 +59,27 @@ async function put(cache, key, bytes) {
     if (bytes.length <= blobPartSize) await cache.put(key, new Response(bytes));
     else {
       // Part zero commits the complete set. A failed cache write can be retried.
+      const prefix = key + '/' + blobPartSize;
       for (let i = 1; i * blobPartSize < bytes.length; i++)
-        await cache.put(key + '/' + i, new Response(bytes.subarray(i * blobPartSize, (i + 1) * blobPartSize)));
-      await cache.put(key + '/0', new Response(bytes.subarray(0, blobPartSize), {headers: {[sizeHeader]: String(bytes.length)}}));
+        await cache.put(prefix + '/' + i, new Response(bytes.subarray(i * blobPartSize, (i + 1) * blobPartSize)));
+      await cache.put(prefix + '/0', new Response(bytes.subarray(0, blobPartSize), {headers: {[sizeHeader]: String(bytes.length)}}));
     }
     return true;
   }
   catch { return false; } // Quota and private-mode failures leave the bytes usable.
 }
 
-async function cachedParts(cache, key, digest, size) {
+async function cachedParts(cache, key, digest, size, width) {
   const first = await cache?.match(key + '/0');
   if (!first) return;
   const length = Number(first.headers.get(sizeHeader));
   try {
     if (size === undefined || size === length) {
-      const bytes = await readBlobParts(digest, length, async (_path, _length, offset) => {
-        const part = offset === 0 ? first : await cache.match(key + '/' + offset / blobPartSize);
+      const bytes = await readBlobParts(digest, length, async (_path, _length, _offset, index) => {
+        const part = index === 0 ? first : await cache.match(key + '/' + index);
         if (!part) throw new Error('cached part missing');
         return new Uint8Array(await part.arrayBuffer());
-      });
+      }, width);
       if (await matchesDigest(bytes, digest)) return bytes;
     }
   } catch { /* A missing or truncated part makes the set a cache miss. */ }
@@ -97,8 +98,17 @@ async function cachedBytes(cache, key, digest, size) {
       await cache.delete(key);
     }
     if (size === undefined || size > blobPartSize) {
-      const bytes = await cachedParts(cache, key, digest, size);
+      const bytes = await cachedParts(cache, key + '/' + blobPartSize, digest, size, blobPartSize);
       if (bytes) return bytes;
+    }
+    if (size === undefined || size > legacyPartSize) {
+      const bytes = await cachedParts(cache, key, digest, size, legacyPartSize);
+      if (bytes) {
+        if (await put(cache, key, bytes)) {
+          for (let i = 0; i * legacyPartSize < bytes.length; i++) await cache.delete(key + '/' + i).catch(() => {});
+        }
+        return bytes;
+      }
     }
   } catch { /* Storage may have been evicted or disabled. */ }
   const old = await legacy('readonly', store => store.get(digest)).catch(() => undefined);

@@ -381,8 +381,10 @@ generated library fails there, and is built by `snail-scheme build`.
 ### Linked files
 
 A linked file's bytes are an input of the compile, as their digest: the
-module imports its handle under that name, adding `:SIZE` for a file larger
-than 25,000,000 bytes so its host can fetch the right number of parts. Each build binds the current linked
+module imports its handle under that name, adding `:SIZE:26214400` for files larger
+than 25 MiB. The size and part width tell the host exactly which bytes to read.
+Older two-field imports encode the historical 25,000,000-byte width implicitly.
+The shared layout lives in `(snail shell compiler blob)`. Each build binds the current linked
 files during expansion. A missing file fails with the library and path;
 changed bytes bind a new digest. The store remembers each digest a build
 read, with the file's size and modification time, in

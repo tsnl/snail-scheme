@@ -7,6 +7,7 @@
           standard-output
           read-file
           read-bytes
+          fold-file-chunks
           write-file
           file-exists?
           followed-status
@@ -43,6 +44,16 @@
     (let ((bytes (call-with-port (open-file-input-port path) get-bytevector-all)))
       (array-generate (if (eof-object? bytes) 0 (bytevector-length bytes))
                       (lambda (index) (bytevector-u8-ref bytes index)))))
+  (define (fold-file-chunks fs path width initial step)
+    (unless (<= 1 width 2147483647) (error 'fold-file-chunks "invalid file chunk width" width))
+    (call-with-port (open-file-input-port path)
+      (lambda (port)
+        (let loop ([state initial])
+          (let ([part (get-bytevector-n port width)])
+            (if (eof-object? part) state
+                (loop (step state (array-generate (bytevector-length part)
+                                                  (lambda (i) (bytevector-u8-ref part i)))))))))))
+
   (define (write-file fs path text)
     (call-with-port (open-file-output-port path (file-options no-fail) (buffer-mode block)
                                            (native-transcoder))

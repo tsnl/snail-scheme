@@ -20,7 +20,7 @@ import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {blobPartSize, createWasi, linkModule, objectPath, partPath, runMain} from '../host/browser/load.mjs';
+import {blobPartSize, legacyPartSize, createWasi, linkModule, objectPath, partPath, runMain} from '../host/browser/load.mjs';
 import {createTasks, taskExports} from '../host/browser/tasks.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
@@ -78,7 +78,10 @@ try {
     'maps/tile.bin': {sha256: digest(tile), size: tile.length}};
   await write('public/index.html', '<!doctype html><title>Resources</title>');
 
+  assert.equal(blobPartSize, 25 * 1024 * 1024);
+  const hostFormat = await readFile(join(root, 'host/browser/blob-format.mjs'), 'utf8');
   await build('cli');
+  assert.equal(await readFile(join(output, 'host/browser/blob-format.mjs'), 'utf8'), hostFormat);
   assert.deepEqual(JSON.parse(await readFile(join(output, 'resources.json'))), catalog);
   assert.deepEqual(await resource(output, tile), tile, 'server bundles publish unlinked files');
   assert.deepEqual(await resource(output, hero), hero, 'the node build places the file');
@@ -113,6 +116,7 @@ try {
   assert.equal((await run(join(output, 'main.wasm'))).stdout, '1,2,3,255\n', 'beside its optimized module');
 
   await build('page');
+  assert.equal(await readFile(join(output, 'blob-format.mjs'), 'utf8'), hostFormat);
   assert.deepEqual(JSON.parse(await readFile(join(output, 'resources.json'))), catalog);
   const module = new WebAssembly.Module(await readFile(join(output, 'main.wasm')));
   assert.ok(!WebAssembly.Module.imports(module).some(i => i.module === 'snail.runtime.link' && i.name === digest(tile)));
@@ -152,12 +156,14 @@ try {
     (define (main (out OutputPort) (resources Resources)) (→ Unit)
       (let ((b (read-resource resources (link-file "main.resources/large.bin"))))
         (write-line out (string-join (list (show (array-length b))
-          (show (u8->i32 (array-ref b 24999999))) (show (u8->i32 (array-ref b 25000000)))
-          (show (u8->i32 (array-ref b 25000002)))) ","))))`);
+          (show (u8->i32 (array-ref b ${blobPartSize - 1}))) (show (u8->i32 (array-ref b ${blobPartSize})))
+          (show (u8->i32 (array-ref b ${blobPartSize + 2})))) ","))))`);
   const sha = digest(large), paths = [partPath(sha, 0), partPath(sha, 1)];
-  const expected = '25000003,93,94,96';
+  const expected = `${large.length},93,94,96`;
   await build('cli');
   const manifest = JSON.parse(await readFile(join(output, 'resources.json')));
+  const compiled = new WebAssembly.Module(await readFile(join(output, 'main.wasm')));
+  assert.ok(WebAssembly.Module.imports(compiled).some(i => i.module === 'snail.runtime.link' && i.name === `${sha}:${large.length}:${blobPartSize}`));
   assert.deepEqual(manifest['large.bin'], {sha256: sha, size: large.length});
   for (const file of ['empty.bin', 'exact.bin']) {
     const {sha256, size} = manifest[file];
@@ -176,6 +182,21 @@ try {
   const multipart = await pageOutput(output, 'main.wasm');
   assert.equal(multipart.output, expected);
   assert.deepEqual(multipart.fetched.filter(path => path.startsWith('/store/')), paths.map(path => '/' + path));
+  // Run a module with the original two-field ABI using real widthless parts.
+  const original = await readFile(join(project, 'main.scm'), 'utf8');
+  await write('legacy.scm', original.replace('(define (main',
+    `(extern linked-handle "snail.runtime.link" "${sha}:${large.length}" (Fn → I32))\n(define (main`)
+    .replace('(read-resource resources (link-file "main.resources/large.bin"))',
+      '(list-ref ((● resources resource-bytes) (list (linked-handle))) 0)'));
+  await execute(join(root, 'snail-scheme'), ['build', '--target', 'browser', 'legacy.scm'], {cwd: project});
+  const oldPaths = [partPath(sha, 0, legacyPartSize), partPath(sha, 1, legacyPartSize)];
+  await write('build/legacy/' + oldPaths[0], large.subarray(0, legacyPartSize));
+  await write('build/legacy/' + oldPaths[1], large.subarray(legacyPartSize));
+  const oldOutput = join(project, 'build/legacy');
+  assert.equal((await run(join(oldOutput, 'legacy.wasm'))).stdout.trim(), expected);
+  const legacy = await pageOutput(oldOutput, 'legacy.wasm');
+  assert.equal(legacy.output, expected);
+  assert.deepEqual(legacy.fetched.filter(p => p.startsWith('/store/')), oldPaths.map(p => '/' + p));
   // Correct length and wrong contents must fail the full digest check.
   await writeFile(join(output, paths[1]), Buffer.from([0, 0, 0]));
   await assert.rejects(pageOutput(output, 'main.wasm'), /SHA-256/);

@@ -49,14 +49,15 @@
          GenerateInput
          Diagnostics
          diagnostics->string)
-   (only (snail shell compiler expand) digested-file blob-part-size)
+   (only (snail shell compiler expand) digested-file)
+   (only (snail shell blob-store) store-file! blob-parts)
+   (only (snail shell compiler blob) blob-part-size legacy-part-size blob-parts-prefix)
    (snail shell compiler inputs)
    (only (snail shell compiler check) Typed)
    (snail shell process)
    (snail shell assembler)
    (snail shell json)
    (snail shell json read)
-   (snail shell compiler sha256)
    (snail shell utf8))
   (begin
 
@@ -588,7 +589,7 @@
     ;; ---- Linked files ----
 
     ;; A file a program links is an object: named for the SHA-256 of its
-    ;; bytes, at sha256/AB/DIGEST, sharded by its first two hex digits. The
+    ;; bytes, laid out by (snail shell blob-store). The
     ;; workspace keeps one store of them, build/.snail-store, which every
     ;; build of every script shares: an object is placed once and never
     ;; rewritten. A program reads its files from store/ beside its module,
@@ -600,24 +601,6 @@
     (define (workspace-store (builder Builder)) (→ String)
       (string-append (● builder workspace) "/build/.snail-store"))
 
-    (record BlobPart
-      ((path String)
-       (offset I64)
-       (size I64)))
-
-    ;; A blob's identity is always the SHA-256 of its complete contents. Only
-    ;; larger blobs get numbered parts. Empty and exact-limit files stay raw.
-    (define (blob-parts (file LinkedFile)) (→ (List BlobPart))
-      (let* ((digest (● file digest)) (size (● file size))
-             (key (string-append (substring digest 0 2) "/" digest)))
-        (if (<= size blob-part-size)
-            (list (new BlobPart (path (string-append "sha256/" key)) (offset 0) (size size)))
-            (map (lambda (i)
-                   (let ((offset (* i blob-part-size)))
-                     (new BlobPart (path (string-append "chunks/" key "/" (show i)))
-                          (offset offset) (size (min blob-part-size (- size offset))))))
-                 (iota (+ 1 (quotient (- size 1) blob-part-size)))))))
-
     ;; The files `links` names, in the workspace's store and under
     ;; `directory`'s store/: a program's generation, or a producer's scratch.
 
@@ -628,22 +611,14 @@
       (remember-digests fs builder links (base-name directory)))
 
     (define (place-link (fs Fs) (store String) (directory String) (link LinkedFile)) (→ Unit)
-      (let* ((parts (blob-parts link))
-             (missing (filter (lambda (p) (not (stored-part? fs store p))) parts)))
-        (unless (null? missing)
-          (let ((bytes (verified-link-bytes fs link)))
-            (for-each (lambda (p) (store-part fs store p bytes (base-name directory))) missing)))
-        (for-each (lambda (p)
-                    (let ((to (string-append directory "/store/" (● p path))))
-                      (expect-done (make-directories fs (directory-part to)) to)
-                      (name-object fs (string-append store "/" (● p path)) to)))
-                  parts)))
-
-    (define (stored-part? (fs Fs) (store String) (part BlobPart)) (→ Bool)
-      (match (file-status fs (string-append store "/" (● part path)))
-        ((Ok status) (match (● status kind)
-                       ((RegularFile) (= (● status size) (● part size))) (_ #f)))
-        ((Err _) #f)))
+      (match (store-file! fs store (● link path) (● link size) (Some (● link digest)))
+        ((Err why) (fail-build (string-append "the linked file " (● link path) ": " why)))
+        ((Ok digest)
+         (for-each (lambda (part)
+                     (let ((to (string-append directory "/store/" (● part path))))
+                       (expect-done (make-directories fs (directory-part to)) to)
+                       (name-object fs (string-append store "/" (● part path)) to)))
+                   (blob-parts digest (● link size))))))
 
     ;; ---- Static resource catalogs ----
 
@@ -776,37 +751,6 @@
                                        " "))
                         (table-values table))
                    "\n"))
-
-    ;; A file is named for the digest of the bytes its compile read, so the
-    ;; bytes placed must be those: a file edited since fails the build, and
-    ;; the next one compiles against its new bytes. A link to a file is
-    ;; read through, as the compile read it. The object is written beside
-    ;; its place, under a name this build alone writes, and renamed into it,
-    ;; so a reader never sees a partial object, and two builds placing one
-    ;; object at once each rename the same bytes.
-
-    (define (verified-link-bytes (fs Fs) (link LinkedFile)) (→ Bytes)
-      (let ((from (● link path)))
-        (unless (match (followed-status fs from)
-                  ((Ok status) (match (● status kind) ((RegularFile) #t) (_ #f)))
-                  ((Err _) #f))
-          (fail-build
-           (string-append "cannot place the linked file " from ": there is no file there")))
-        (let ((bytes (read-bytes fs from)))
-          (unless (string=? (bytes->hex (sha256 bytes)) (● link digest))
-            (fail-build (string-append "the linked file " from " changed during the build")))
-          bytes)))
-
-    (define (store-part (fs Fs) (store String) (part BlobPart) (bytes Bytes) (token String))
-      (→ Unit)
-      (let* ((object (string-append store "/" (● part path)))
-             (writing (string-append object ".writing." token)))
-        (expect-done (make-directories fs (directory-part object))
-                     (string-append "cannot make " object))
-        (write-bytes fs writing
-                     (if (= (● part size) (array-length bytes)) bytes
-                         (subarray bytes (● part offset) (+ (● part offset) (● part size)))))
-        (expect-done (rename-file fs writing object) (string-append "cannot place " object))))
 
     ;; Another name for the store's object, or a copy of it where the two
     ;; lie on different file systems.
@@ -949,6 +893,7 @@
                                (string-append directory "/host/" file)
                                (string-append "cannot copy the native host's " file)))
                   node-files)
+        (write-file fs (string-append directory "/host/browser/blob-format.mjs") (blob-host-format))
         (write-file fs (string-append directory "/main.mjs") (node-main name))
         (write-file fs (string-append directory "/package.json")
                     (json->string (node-manifest fs root name libraries)))))
@@ -1044,7 +989,15 @@
     ;; A public tree may use none of them.
 
     (define (generated-names (target String)) (→ (List String))
-      (append (list (program-name target) "store" ".snail-target") browser-files))
+      (append (list (program-name target) "store" ".snail-target" "blob-format.mjs") browser-files))
+
+    ;; The standalone source host carries an identical bootstrap copy. Every
+    ;; packaged host gets these declarations directly from its compiler.
+    (define (blob-host-format) (→ String)
+      (string-append "// Generated by the Snail Scheme builder from (snail shell compiler blob).\n"
+                     "export const blobPartSize = " (show blob-part-size) ";\n"
+                     "export const legacyPartSize = " (show legacy-part-size) ";\n"
+                     "export const blobPartsPrefix = '" blob-parts-prefix "';\n"))
 
     ;; The browser host's files, then the target's public tree, if it has
     ;; one. The page is the public folder's index.html; none is generated.
@@ -1077,6 +1030,7 @@
 
     (define (copy-browser-assets (fs Fs) (builder Builder) (target Target) (directory String))
       (→ Unit)
+      (write-file fs (string-append directory "/blob-format.mjs") (blob-host-format))
       (for-each (lambda (file)
                   (copy-into fs
                              (string-append (● (● builder tools) root) "/host/browser/" file)
