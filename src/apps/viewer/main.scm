@@ -8,8 +8,7 @@
 ;; to Khronos's sample models and Poly Haven's environments, are fetched
 ;; by the browser from where they are published. The page's query chooses
 ;; the same way: `?model=ADDRESS&env=ADDRESS`, and `&eye=x,y,z,yaw,pitch`
-;; places the camera. Each pixel gets one path by default. Add &spp=2
-;; for two paths per pixel. Without an eye, the camera looks at the
+;; places the camera. Each pixel gets one path a frame. Without an eye, the camera looks at the
 ;; scene from outside. Files that cannot be shown leave the view as it
 ;; was, and the page says why. The frames average while the camera holds
 ;; still. Keys 1 to 8 set the bounce count, and - and = set the resolution.
@@ -190,7 +189,6 @@
                    (out OutputPort)
                    (format TextureFormat)
                    (save (Fn Settings → Unit))
-                   (samples I32)
                    (view (Option View))
                    (fly Fly)
                    (settings Settings))
@@ -200,9 +198,13 @@
       ((FrameEvent elapsed)
        (match view
          ((Some shown)
+          ;; The last frame's work finishes before this one's is queued, so
+          ;; at most one frame waits on the device, and the device starts this
+          ;; frame as soon as the last is done rather than at the next display
+          ;; refresh after it.
+          ((● gpu work-done))
           (let* ((fly (flown fly elapsed))
-                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly settings samples))))
-            ((● gpu work-done))
+                 (shown (View-tracer-set shown (drawn gpu (● shown tracer) fly settings))))
             ((● events report-ready))
             (loop (Some shown) fly settings (timed out timing elapsed))))
          ((None)
@@ -226,17 +228,14 @@
 
 ;; A frame drawn into the canvas, from where the fly is, traced at the
 ;; size and with the bounces the settings ask for.
-(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly) (settings Settings) (samples I32))
+(define (drawn (gpu Gpu) (tracer Tracer) (fly Fly) (settings Settings))
   (→ Tracer)
   (let* ((canvas ((● gpu current-texture))) (view (view-of gpu (● canvas texture) 1))
          (w (● canvas width)) (h (● canvas height)) (height (traced settings h))
          (frame (draw-traced gpu (resize-tracer gpu tracer (traced settings w) height)
                              view (fly-camera fly (/ (i32->f64 w) (i32->f64 (max 1 h))))
                              (fly-spread height) (fly-exposure fly) (● settings bounces) #f
-                             (new TraceSettings
-                               (display-width w)
-                               (display-height h)
-                               (samples samples)))))
+                             (new TraceSettings (display-width w) (display-height h)))))
     ((● gpu destroy) (ViewObject view))
     frame))
 
@@ -485,11 +484,10 @@
   (→ Unit)
   (let* ((format (● ((● gpu request-device)) format))
          (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
-         (address ((● fetch page-address)))
-         (samples (match (parameter address "spp") ((Some "2") (ann 2 I32)) (_ 1))))
+         (address ((● fetch page-address))))
     (match (match (query-files address)
              ((Nil) (new Pair (first (None)) (second outside)))
              (files
               (opened gpu dom fetch out format settings (None) outside files (query-eye address))))
       ((Pair view fly)
-       (view-loop gpu dom picker events fetch out format save samples view fly settings)))))
+       (view-loop gpu dom picker events fetch out format save view fly settings)))))

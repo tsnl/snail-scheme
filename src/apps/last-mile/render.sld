@@ -577,6 +577,10 @@
                    (pitch F64)
                    (elapsed I32))
       (→ Unit)
+      ;; The last frame's work finishes before this one's is queued, so at
+      ;; most one frame waits on the device, and the simulation of this frame
+      ;; ran while the device drew the last.
+      ((● gpu work-done))
       (refresh! r gpu (● now game))
       (let* ((w (● now game))
              (canvas ((● gpu current-texture)))
@@ -590,8 +594,7 @@
              ;; The final FXAA pass scales the resolved street to the canvas.
              (output (new TraceSettings
                        (display-width (if low? (min width (* 2 (● size first))) width))
-                       (display-height (if low? (min height (* 2 (● size second))) height))
-                       (samples (● settings samples))))
+                       (display-height (if low? (min height (* 2 (● size second))) height))))
              (time (+ (i64->f64 (● w tick)) t))
              (changed (not (= (● r time) time)))
              (focus (display-body (carrier (● before game)) (carrier w) t))
@@ -625,5 +628,4 @@
                              (● settings bounces)
                              changed
                              output))
-          ((● gpu destroy) (ViewObject view))
-          ((● gpu work-done)))))))
+          ((● gpu destroy) (ViewObject view)))))))

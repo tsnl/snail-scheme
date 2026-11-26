@@ -110,8 +110,7 @@
     (define (render-resolutions) (→ (List I32)) (list 240 360 480 720 1080))
     (define (bounce-counts) (→ (List I64)) (map (lambda (n) (+ n 1)) (iota most-bounces)))
     (define (preset-graphics (lines I32)) (→ Graphics)
-      (new Graphics (resolution lines) (bounces (if (<= lines 360) 1 2))
-           (samples (if (= lines 480) 2 1))))
+      (new Graphics (resolution lines) (bounces (if (<= lines 360) 1 2)) (samples 1)))
 
     ;; Driver, fare and then residents have stable slots for the lifetime of a cast.
     (record TaxiShift
