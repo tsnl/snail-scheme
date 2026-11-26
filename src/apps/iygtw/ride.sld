@@ -9,6 +9,8 @@
           Ride-bounces-set
           restore-ride
           reset-ride remount-ride Valley-basins-set
+          Travel Astride Slowing OnFoot GettingOff GettingOn step-player use-bicycle
+          walker-of foot-fraction transition-side nearby-bicycle? player-body
           mix
           pedal-speed)
   (import
@@ -19,6 +21,7 @@
    (only (snail shell utf8) utf8->string)
    (snail shell game physics)
    (snail shell game terrain)
+   (snail shell game locomotion)
    (snail shell game vehicle)
    (apps iygtw soil)
    (apps iygtw rider))
@@ -69,6 +72,12 @@
 
     ;; ---- Bicycle and companion ----
 
+    ;; The bicycle stays in world space throughout a transfer. Both transition
+    ;; endpoints are known before the first frame, including which side is clear.
+    (enum Travel (Astride) (Slowing) (OnFoot ((walker Walker)))
+          (GettingOff ((walker Walker) (ticks I64)))
+          (GettingOn ((walker Walker) (ticks I64)))
+          (deriving Serialize Deserialize))
     (record Ride
       ((bike Body)
        (dog Body)
@@ -84,7 +93,8 @@
        (bounces I64)
        (standing F64)
        (soil Soil)
-       (rider Rider))
+       (rider Rider)
+       (travel Travel))
       (deriving Serialize Deserialize))
     (define roadster (→ CarDimensions)
       (new CarDimensions (wheelbase 1.08) (width 0.52) (length 1.76)))
@@ -99,7 +109,7 @@
              (bounces 2)
              (standing 0.0)
              (soil (fresh-soil))
-             (rider (mounted-rider)))))
+             (rider (mounted-rider)) (travel (Astride)))))
 
     (define (reset-ride (v Valley) (s Ride)) (→ Ride)
       (let ((r (Ride-soil-set (start-ride v) (clear-wheel-contact (● s soil)))))
@@ -124,8 +134,8 @@
     ;; identifies the original field layout, including the two Body records.
     (define (restore-ride (v Valley) (bytes Bytes)) (→ Ride)
       (let* ((d (new Decoder (bytes bytes) (position 0))) (tag (ann (decode d) I32)))
-        (if (or (= tag -613528936) (= tag 1729204534))
-            (restore-survey v d (= tag -613528936))
+        (if (or (= tag -613528936) (or (= tag 1729204534) (= tag -1023836831)))
+            (restore-survey v d tag)
             (ann (deserialize bytes) Ride))))
 
     (define (resurvey (v Valley) (b Body) (fallback Body)) (→ Body)
@@ -133,8 +143,12 @@
              (p (xz (/ (* 2.0 (● where x)) 3.0) (/ (* 2.0 (● where z)) 3.0))))
         (if (clear? p 0.44 (nearby-solids (● v ground) p 2.0)) (body p (● b heading)) fallback)))
 
-    (define (restore-survey (v Valley) (d Decoder) (first Bool)) (→ Ride)
-      (let* ((r (start-ride v)) (raw (ann (decode d) Body)) (pet (ann (decode d) Body))
+    (define (restore-survey (v Valley) (d Decoder) (tag I32)) (→ Ride)
+      (let* ((first (= tag -613528936))
+             (mud (= tag -1023836831))
+             (r (start-ride v))
+             (raw (ann (decode d) Body))
+             (pet (ann (decode d) Body))
              (b (if first (resurvey v raw (● r bike)) raw))
              (dog (if first (resurvey v pet (body (● b position) (● b heading))) pet))
              (steer (ann (decode d) F64)) (lean (ann (decode d) F64))
@@ -142,11 +156,13 @@
              (metres (ann (decode d) F64)) (q (ann (decode d) I64)) (light (ann (decode d) I64))
              (samples (if first (if (>= q 3) 2 1) (ann (decode d) I32)))
              (bounces (if first (if (< q 2) 1 2) (ann (decode d) I64)))
-             (standing (if first 0.0 (ann (decode d) F64))))
+             (standing (if first 0.0 (ann (decode d) F64)))
+             (soil (if mud (ann (decode d) Soil) (fresh-soil)))
+             (rider (if mud (ann (decode d) Rider) (mounted-rider))))
         (unless (= (● d position) (array-length (● d bytes)))
           (panic "trailing Willowbank save data"))
         (new Ride
-          (standing standing) (soil (fresh-soil)) (rider (mounted-rider))
+          (standing standing) (soil soil) (rider rider) (travel (Astride))
           (bike b)
           (dog dog)
           (steer steer)
@@ -203,7 +219,7 @@
 
     ;; The Snail fixed tick is 20 ms; steering remains useful at walking pace.
     ;; The two animation clocks follow the crank and the road independently.
-    (define (step-ride (v Valley) (r Ride) (turn F64) (pedal Bool) (back Bool) (brake Bool))
+    (define (ride-wheels (v Valley) (r Ride) (turn F64) (pedal Bool) (back Bool) (brake Bool))
       (→ Ride)
       (let* ((dt 0.02) (g (● v ground)) (b (● r bike)) (p (● b position)) (s (signed-speed b))
              (grade (ground-slope g p (forward (● b heading)) 1.08))
@@ -231,7 +247,7 @@
              (lean (atan2 (* (* s s) (tan steer)) (* 9.81 1.08)))
              (driving (and mounted pedal (not brake) (>= (signed-speed bike) 0.0)))
              (rollout (max 2.35 (min 7.0 (+ 1.7 (* 0.72 (abs s)))))))
-        (new Ride (bike bike) (dog dog) (steer steer)
+        (new Ride (bike bike) (dog dog) (steer steer) (travel (● r travel))
              (lean (settle (● r lean) (if (fallen? rider) -1.31 (max -0.54 (min 0.54 lean))) 0.065))
              (soil soil) (rider rider)
              (crank (+ (● r crank)
@@ -243,4 +259,112 @@
               (+ (● r stride) (/ (min 0.30 (distance (● r dog position) (● dog position))) 0.85)))
              (metres (+ (● r metres) length)) (quality (● r quality)) (light (● r light))
              (samples (● r samples)) (bounces (● r bounces))
-             (standing (settle (● r standing) (standing-effort (abs s) grade driving) 0.065)))))))
+             (standing (settle (● r standing) (standing-effort (abs s) grade driving) 0.065)))))
+
+    ;; ---- Parking and walking ----
+
+    (define transfer-ticks (→ I64) 26)
+    (define (walker-of (mode Travel)) (→ (Option Walker))
+      (match mode
+        ((OnFoot w) (Some w))
+        ((GettingOff w _) (Some w))
+        ((GettingOn w _) (Some w))
+        (_ (None))))
+    (define (foot-fraction (mode Travel)) (→ F64)
+      (let ((t (match mode ((GettingOff _ n) (/ (i64->f64 n) (i64->f64 transfer-ticks)))
+                      ((GettingOn _ n) (- 1.0 (/ (i64->f64 n) (i64->f64 transfer-ticks))))
+                      ((OnFoot _) 1.0) (_ 0.0))))
+        (* (* t t) (- 3.0 (* 2.0 t)))))
+    (define (player-body (s Ride)) (→ Body)
+      (match (● s travel)
+        ((OnFoot w) (● w body))
+        ((GettingOff w _) (between-bodies (● s bike) (● w body) (foot-fraction (● s travel))))
+        ((GettingOn w _) (between-bodies (● s bike) (● w body) (foot-fraction (● s travel))))
+        (_ (● s bike))))
+    (define (transition-side (b Body) (p XZ)) (→ F64)
+      (let* ((at (● b position)) (right (forward (+ (● b heading) (* 0.5 pi))))
+             (x (- (● p x) (● at x))) (z (- (● p z) (● at z))))
+        (if (< (+ (* x (● right x)) (* z (● right z))) 0.0) -1.0 1.0)))
+    (define (reachable? (g Terrain) (p XZ) (q XZ) (walls (List Footprint))) (→ Bool)
+      (and (clear? q 0.25 walls) (clear-path? p q 0.25 walls)
+           (< (abs (- (ground-height g p) (ground-height g q))) 0.52)))
+    (define (dismount (v Valley) (s Ride)) (→ Ride)
+      (let* ((b (● s bike))
+             (p (● b position))
+             (yaw (● b heading))
+             (right (forward (+ yaw (* 0.5 pi))))
+             (g (● v ground)) (walls (nearby-solids g p 2.25))
+             (side (find (lambda (q) (reachable? g p q walls))
+                         (map (lambda (d) (offset p right d)) (list -0.83 0.83)))))
+        (match side
+          ((Some q) (Ride-travel-set (Ride-bike-set s (body p yaw)) (GettingOff (walker q yaw) 0)))
+          (_ (Ride-travel-set s (Astride))))))
+    (define (nearby-bicycle? (v Valley) (s Ride) (w Walker)) (→ Bool)
+      (let* ((p (● w body position)) (q (● s bike position)) (g (● v ground)))
+        (and (< (distance p q) 1.55) (reachable? g p q (nearby-solids g p 2.0)))))
+    (define (use-bicycle (v Valley) (s Ride)) (→ Ride)
+      (match (● s travel)
+        ((OnFoot w) (if (nearby-bicycle? v s w)
+                        (Ride-travel-set s
+                                         (GettingOn (new Walker
+                                                      (body (body (● w body position)
+                                                                  (● w body heading)))
+                                                      (phase (● w phase)))
+                                                    0))
+                        s))
+        ((Slowing) (Ride-travel-set s (Astride)))
+        ((Astride) (cond ((fallen? (● s rider)) (remount-ride v s))
+                         ((> (pace (● s bike)) 0.72) (Ride-travel-set s (Slowing)))
+                         (else (dismount v s))))
+        (_ s)))
+    (define (parked-walls (g Terrain) (b Body) (p XZ)) (→ (List Footprint))
+      (let ((walls (nearby-solids g p 1.2)))
+        (if (> (distance p (● b position)) 2.0) walls
+            (append (map (lambda (axle) (let ((q (wheel-at b axle)))
+                                          (footprint (● q x) (● q z) 0.34 0.34)))
+                         (list -0.52 0.0 0.52))
+                    walls))))
+    (define (on-foot-tick (v Valley) (s Ride) (mode Travel) (metres F64)) (→ Ride)
+      (let* ((next (Ride-travel-set s mode))
+             (dog (companion (● v ground) (● s dog) (player-body next) 0.02))
+             (soil (rest-ground (● s soil))))
+        (set! (● next dog) dog)
+        (set! (● next soil) soil)
+        (set! (● next metres) (+ (● s metres) metres))
+        (set! (● next stride)
+              (+ (● s stride) (/ (min 0.30 (distance (● s dog position) (● dog position))) 0.85)))
+        (set! (● next standing) (settle (● s standing) 0.0 0.12))
+        (set! (● next lean) (settle (● s lean) 0.0 0.12))
+        next))
+    (define (step-player (v Valley)
+                         (s Ride)
+                         (side F64)
+                         (pedal Bool)
+                         (back Bool)
+                         (brake Bool)
+                         (run Bool)
+                         (bearing F64))
+      (→ Ride)
+      (match (● s travel)
+        ((OnFoot w) (let* ((g (● v ground)) (p (● w body position))
+                           (ahead (- (if pedal 1.0 0.0) (if back 1.0 0.0)))
+                           (next (step-walker g
+                                              w
+                                              side
+                                              ahead
+                                              run
+                                              bearing
+                                              (parked-walls g (● s bike) p)
+                                              0.02)))
+                      (on-foot-tick v s (OnFoot next) (distance p (● next body position)))))
+        ((GettingOff w n)
+         (on-foot-tick v s (if (>= (+ n 1) transfer-ticks) (OnFoot w) (GettingOff w (+ n 1))) 0.0))
+        ((GettingOn w n)
+         (on-foot-tick v s (if (>= (+ n 1) transfer-ticks) (Astride) (GettingOn w (+ n 1))) 0.0))
+        ((Slowing) (let ((next (ride-wheels v s side #f #f #t)))
+                     (cond ((fallen? (● next rider)) (Ride-travel-set next (Astride)))
+                           ((<= (pace (● next bike)) 0.72) (dismount v next)) (else next))))
+        (_ (ride-wheels v s side pedal back brake))))
+    (define (step-ride (v Valley) (s Ride) (turn F64) (pedal Bool) (back Bool) (brake Bool))
+      (→ Ride)
+      (step-player v s turn pedal back brake #f (● s bike heading)))))

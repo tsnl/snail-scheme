@@ -1,7 +1,13 @@
 If You’re Going That Way
 Willowbank art credits
 
-The village, bicycle, rider, dog, animation and sound were authored for this game.
+Willowbank, the bicycle, the courier’s wardrobe and hair, Moss, animation
+and sound were authored for this game.
+
+Blender Studio and the Blender community
+  Human Base Meshes v1.4.1, stylized head, eyes and hand (CC0)
+  https://www.blender.org/download/demo-files/#assets
+
 The following CC0 scans supply surface and foliage detail.
 
 Rico Cilliers, Poly Haven

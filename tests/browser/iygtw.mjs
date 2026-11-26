@@ -102,10 +102,32 @@ try {
   await click('.resume');
   await until(async () => await text('.pause') === 'Pause', 'resume after saving settings');
 
+  await click('.bicycle');
+  await until(async () => await text('.bicycle') === 'Ride · F', 'park beside the roadster');
+  await tap('f');
+  await until(async () => await text('.bicycle') === 'Get off · F', 'step back into the saddle');
+  await tap('f');
+  await until(async () => await text('.bicycle') === 'Ride · F', 'dismount with the keyboard');
+  await key('w', true);
+  try {
+    await until(async () => await text('.surface') === 'Walking' && await text('.bicycle') === '', 'walk away from the parked bicycle');
+    assert.ok(parseInt(await text('.speed')) <= 7);
+    await key('Shift', true);
+    try { await until(async () => await text('.surface') === 'Running' && parseInt(await text('.speed')) > 12, 'break into a run'); }
+    finally { await key('Shift', false); }
+    await until(async () => await text('.surface') === 'Walking', 'return to a walk');
+  } finally { await key('w', false); }
+  await until(async () => await text('.surface') === 'On foot', 'come to rest');
+  await tap('f');
+  assert.equal(await text('.surface'), 'On foot');
+  await click('.pause');
+  await until(async () => await text('.pause') === 'Resume', 'save away from the bicycle');
+
   offline = true; const before = fetched, saved = await metres();
   await browser.navigate('http://127.0.0.1:' + server.address().port);
   await ready(); await until(async () => await metres() >= saved, 'saved ride', 25);
   assert.equal(await text('.light'), 'High sun');
+  assert.equal(await text('.surface'), 'On foot');
   assert.equal(fetched, before, 'reload attempted to download village art again');
   await tap('p');
   await until(async () => await text('.pause') === 'Resume', 'open saved settings');
@@ -116,5 +138,5 @@ try {
   await tap('p');
   await until(async () => await text('.pause') === 'Resume', 'settings after reset');
   assert.deepEqual(await Promise.all(['.resolution','.samples','.bounces'].map(choice)), ['360p','4','3']);
-  console.log('Willowbank rendered, rode, paused, changed each path setting, reset and reloaded offline.');
+  console.log('Willowbank rendered, rode, parked, remounted, walked, ran, changed settings, reset and reloaded on foot offline.');
 } finally { browser.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }

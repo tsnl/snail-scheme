@@ -52,6 +52,7 @@
    key-escape
    key-enter
    key-space
+   key-shift
    Vec3
    Projection
    Perspective
@@ -201,6 +202,8 @@
     (define key-escape (→ I32) 27)
 
     (define key-enter (→ I32) 13)
+
+    (define key-shift (→ I32) 16)
 
     (define key-space (→ I32) 32)
 

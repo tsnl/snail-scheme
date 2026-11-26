@@ -1,0 +1,51 @@
+;; Grounded third-person movement. The body stores actual world velocity and
+;; heading. A blocked stride advances by only the distance that was swept.
+(define-library (snail shell game locomotion)
+  (export Walker walker step-walker running-weight pace)
+  (import
+   (snail core base)
+   (snail shell math)
+   (snail shell wire)
+   (snail shell game physics)
+   (snail shell game terrain))
+  (begin
+    (record Walker
+      ((body Body)
+       (phase F64)) (deriving Serialize Deserialize))
+    (define (walker (p XZ) (yaw F64)) (→ Walker)
+      (new Walker (body (body p yaw)) (phase 0.0)))
+    (define (pace (b Body)) (→ F64) (distance (● b velocity) (xz 0.0 0.0)))
+    (define (running-weight (speed F64)) (→ F64) (max 0.0 (min 1.0 (/ (- speed 1.85) 1.75))))
+    (define (approach-velocity (current XZ) (goal XZ) (amount F64)) (→ XZ)
+      (let ((span (distance current goal)))
+        (if (<= span amount) goal
+            (offset current
+                    (xz (- (● goal x) (● current x)) (- (● goal z) (● current z)))
+                    (/ amount span)))))
+    (define (face-travel (b Body) (yaw F64) (dt F64)) (→ Body)
+      (if (< (pace b) 0.06) (Body-heading-set b yaw)
+          (let* ((target (heading-to (xz 0.0 0.0) (● b velocity)))
+                 (d (- target yaw))
+                 (limit (* 9.5 dt)))
+            (Body-heading-set b (+ yaw (max (negate limit) (min limit (atan2 (sin d) (cos d)))))))))
+    (define (step-walker (ground Terrain) (old Walker) (side F64) (ahead F64) (run Bool)
+                         (bearing F64) (walls (List Footprint)) (dt F64)) (→ Walker)
+                         (let* ((b (● old body)) (p (● b position)) (zero (xz 0.0 0.0))
+                                (stick (offset (offset zero (forward bearing) ahead)
+                                               (forward (+ bearing (* 0.5 pi)))
+                                               side))
+                                (input (distance zero stick))
+                                (axis (offset zero stick (/ 1.0 (max 1.0 input))))
+                                (grade (if (< input 0.01) 0.0 (ground-slope ground p axis 0.55)))
+                                (speed (/ (if run 4.35 1.72) (+ 1.0 (* 0.62 (max 0.0 grade)))))
+                                (v (approach-velocity (● b velocity)
+                                                      (offset zero axis speed)
+                                                      (* dt (if (< input 0.01) 15.5 10.5))))
+                                (next (face-travel (travel p v (● b heading) 0.25 walls dt)
+                                                   (● b heading)
+                                                   dt))
+                                (stride (+ 1.32 (* 0.92 (running-weight (pace next))))))
+                           (new Walker
+                             (body next)
+                             (phase
+                              (+ (● old phase) (/ (distance p (● next position)) stride))))))))
