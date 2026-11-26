@@ -14,6 +14,8 @@
 ;;              for each layer
 ;;   compose    the blended layer's light over the first hits', by its
 ;;              alpha (compose.wgsl.scm)
+;;   optics     optional height fog with traced sun visibility and a
+;;              depth-aware lens over the denoised HDR image
 ;;   post       (snail shell graphics passes)'s tone mapping and FXAA
 ;;
 ;; A `Tracer` is made once for a scene and the canvas, and resized with it:
@@ -37,7 +39,7 @@
    refit-tracer!
    resize-tracer
    retrace retrace-built
-   draw-traced
+   draw-traced with-photography
    tracer-frames)
   (import
    (snail core base)
@@ -47,6 +49,7 @@
    (snail shell graphics raster)
    (snail shell graphics passes)
    (snail shell graphics upscale)
+   (snail shell graphics trace photography)
    (snail shell graphics bvh)
    (snail shell graphics restir)
    (snail shell graphics svgf)
@@ -105,6 +108,7 @@
        (blended-svgf (Option Svgf))
        (post Post)
        (upscale (Option Upscaler))
+       (photography (Option Photography))
        (guiding LightGuiding)
        (last (Option TracedView))
        (bounces I64)
@@ -232,7 +236,7 @@
                                               width
                                               height))
                              (blended-svgf (refiltered gpu kit (None) targets))
-                             (post post) (upscale (None))
+                             (post post) (upscale (None)) (photography (None))
                              (guiding (default-light-guiding))
                              (last (None))
                              (bounces 0)
@@ -296,7 +300,8 @@
                      (post Post)
                      (resize Bool))
       (→ Tracer)
-      (when resize (match (● tracer upscale) ((Some u) (release-upscaler gpu u)) (_ (unit))))
+      (when (or resize (match (● tracer photography) ((Some _) #t) (_ #f)))
+        (match (● tracer upscale) ((Some u) (release-upscaler gpu u)) (_ (unit))))
       (for-each (lambda (group) ((● gpu destroy) (BindGroupObject group)))
                 (groups-of (● tracer bindings)))
       (new Tracer
@@ -312,7 +317,15 @@
         (blended-svgf (if resize
                           (refiltered gpu (● tracer kit) (● tracer blended-svgf) targets)
                           (● tracer blended-svgf)))
-        (post post) (upscale (if resize (None) (● tracer upscale)))
+        (post post)
+        (upscale
+         (match (● tracer photography) ((Some _) (None)) (_ (if resize (None) (● tracer upscale)))))
+        (photography (match (● tracer photography)
+                       ((Some p)
+                        (release-photography gpu p)
+                        (Some
+                         (camera-effects gpu (● tracer kit) world targets post (● p settings))))
+                       (_ (None))))
         (guiding (● tracer guiding))
         (last (None))
         (bounces (● tracer bounces))
@@ -350,6 +363,7 @@
       (new SvgfInputs
         (noisy (● noisy view))
         (triangles (● (list-ref planes 5) view))
+        (material (● (list-ref planes 3) view))
         (normals (● (list-ref planes 0) view))
         (emission (● (list-ref planes 1) view))
         (albedo (● (list-ref planes 2) view))
@@ -380,9 +394,36 @@
           (_ (make-display gpu t w h)))))
 
     (define (make-display (gpu Gpu) (t Tracer) (w I32) (h I32)) (→ Upscaler)
-      (make-upscaler gpu (● t post) (● t kit camera) (● t targets depth)
-                     (match (● t targets blended) ((Some b) (● b depth)) (_ (● t targets depth)))
-                     (● t targets planes) w h))
+      (make-upscaler-from gpu (● t post) (● t kit camera) (● t targets depth)
+                          (match (● t targets blended)
+                            ((Some b) (● b depth))
+                            (_ (● t targets depth)))
+                          (● t targets planes) w h
+                          (match (● t photography)
+                            ((Some p) (● p output view))
+                            (_ (● t post targets light-view)))))
+    (define (camera-effects (gpu Gpu)
+                            (kit Kit)
+                            (world World)
+                            (t Targets)
+                            (post Post)
+                            (s LensSettings))
+      (→ Photography)
+      (make-photography gpu (● kit camera) (● world bvh) (● world scene) (● world environment)
+                        (● t depth view)
+                        (match (● t blended) ((Some b) (● b depth view)) (_ (● t depth view)))
+                        (● post targets light-view) (● t width) (● t height) s))
+    (define (with-photography (gpu Gpu) (tracer Tracer) (s LensSettings)) (→ Tracer)
+      (match (● tracer photography)
+        ((Some p) (set! (● p settings) s) tracer)
+        (_ (match (● tracer upscale) ((Some u) (release-upscaler gpu u)) (_ (unit)))
+           (Tracer-photography-set (Tracer-upscale-set tracer (None))
+                                   (Some (camera-effects gpu
+                                                         (● tracer kit)
+                                                         (● tracer world)
+                                                         (● tracer targets)
+                                                         (● tracer post)
+                                                         s))))))
 
     (define (discard-trace-history (t Tracer)) (→ Tracer)
       (Tracer-last-set (Tracer-sky-revision-set t -1) (None)))
@@ -420,6 +461,7 @@
                                (Some (filter-svgf-frame gpu encoder s moving exposure cut)))
                               (_ (None)))))
           (draw-composed gpu encoder tracer)
+          (match (● tracer photography) ((Some p) (photograph! gpu encoder p exposure)) (_ (unit)))
           (let* ((valid (and (not cut) (same-output? (● tracer upscale) settings)
                              (match (● tracer last)
                                ((Some v) (= exposure (● v exposure)))
@@ -437,7 +479,7 @@
               (blended-svgf blended-svgf)
               (post (● tracer post))
               (guiding (● tracer guiding))
-              (upscale (Some display))
+              (upscale (Some display)) (photography (● tracer photography))
               (last (Some (new TracedView
                             (camera camera)
                             (raster view-camera)

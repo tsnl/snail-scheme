@@ -9,8 +9,13 @@
                   (lambda ((resources Resources))
                     (shader-library resources (list "snail" "shell" "graphics" "trace" "shaders")
                                     (list (new Pair
-                                            (first "water-shader")
-                                            (second (link-file "water.wgsl.scm")))
+                                            (first "fog-shader")
+                                            (second (link-file "fog.wgsl.scm")))
+                                          (new Pair
+                                            (first "focus-shader")
+                                            (second (link-file "focus.wgsl.scm")))
+                                          (new Pair (first "water-shader")
+                                               (second (link-file "water.wgsl.scm")))
                                           (new Pair
                                             (first "unpack-shader")
                                             (second (link-file "unpack.wgsl.scm")))

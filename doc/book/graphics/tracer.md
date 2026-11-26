@@ -74,6 +74,14 @@ depth or render grid starts fresh history. Changing only the display
 size or exposure starts a new display history and preserves render-grid
 history.
 
+A glTF material can set a numeric `extras.snailSubsurface` weight between zero and one. After denoising and before remodulating albedo, SVGF gathers irradiance from nearby visible skin pixels. It measures distance in world metres and gives red a broader diffusion profile than green or blue. Albedo and emission retain their detail. Zero is the default. This screen-space approximation samples only surfaces visible to the camera.
+
+### Local fog and depth of field
+
+`with-photography` attaches a `LensSettings` from `(snail shell graphics trace photography)` to a tracer. Each camera ray integrates ten intervals through exponential height fog, up to the first visible surface or the specified range. Density is extinction per metre at the reference height. Falloff controls how quickly the air clears with elevation. Each interval traces towards the atmospheric light through the scene's BVH, including cutout foliage. This gives a tree a shadow in the mist as well as on the ground. The volume uses one sample per six render pixels on each axis. Depth-aware interpolation keeps thick fog behind nearby silhouettes.
+
+The aperture pass gathers denoised HDR light over a disc whose radius depends on the visible depth and focus distance. Focus is measured along the camera's forward axis in metres. Aperture is an effective radius in metres. A zero radius makes a pinhole. The pass runs before temporal reconstruction, tone mapping and FXAA. Applications that use the ordinary tracer allocate their existing render targets. The fog and lens targets are created on first use.
+
 ## The wavefront
 
 A path is not one long kernel but a sequence of small ones, each its own

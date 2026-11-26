@@ -9,7 +9,7 @@
 ;;   0 normals, rg16float: the shading normal, octahedral, facing the eye;
 ;;   1 emission, rgba16float, linear RGB and the previous clip-space z;
 ;;   2 albedo, rgba8unorm-srgb, so 8 bits keep its darks;
-;;   3 material, rgba8unorm: metalness, filtered roughness and a water flag;
+;;   3 material, rgba8unorm: metalness, filtered roughness, the water flag and subsurface weight;
 ;;   4 motion, rg16float, in texture coordinates from the last frame;
 ;;   5 triangle, r32uint: the triangle drawn there.
 ;; Depth is depth32float. The tracer places each pixel by its depth, then
@@ -188,7 +188,7 @@
        (vec4f (* (get m factors x) (get metal_rough z))
               rough
               (select 0.0 1.0 water)
-              1.0))
+              (/ (f32 (get m flags z)) 255.0)))
     (let now (/ (get in clip_now xy) (get in clip_now w)))
     (let before (/ (get in clip_before xy) (get in clip_before w)))
     (= (get out motion) (* (- now before) (vec2f 0.5 -0.5)))

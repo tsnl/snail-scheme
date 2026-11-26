@@ -1,6 +1,12 @@
 ;; Resolve a jittered first hit on the stable display grid, before tone mapping.
 (define-library (snail shell graphics upscale)
-  (export Upscaler make-upscaler release-upscaler resolve-upscaled jitter-camera sample-phase)
+  (export Upscaler
+          make-upscaler
+          make-upscaler-from
+          release-upscaler
+          resolve-upscaled
+          jitter-camera
+          sample-phase)
   (import
    (snail core base)
    (snail shell gpu)
@@ -53,94 +59,106 @@
     (define camera-shape (→ (Shape Camera3D)) (shape))
     (define (make-upscaler (gpu Gpu) (post Post) (camera GpuBuffer) (depth Plane) (front Plane)
                            (planes (List Plane)) (w I32) (h I32)) (→ Upscaler)
-                           (let* ((module ((● gpu create-shader-module)
-                                           (new ShaderModuleDescriptor (label "upscale")
-                                                (code (string-append (declarations camera-shape)
-                                                                     (declarations display-shape)
-                                                                     upscale-shader)))))
-                                  (kernel (compute-kernel gpu module "upscale" "resolve"))
-                                  (uniform (uniform-buffer gpu
-                                                           "upscale/jitter"
-                                                           (make-array (stride display-shape)
-                                                                       (i32->u8 0))))
-                                  (history (lambda (label format)
-                                             (map (lambda (_)
-                                                    (make-plane gpu
-                                                                label
-                                                                w
-                                                                h
-                                                                format
-                                                                (list (TextureBinding)
-                                                                      (StorageBinding))))
-                                                  (iota 2))))
-                                  (colors (history "upscale/color" (Rgba16Float)))
-                                  (ids (history "upscale/triangle" (R32Uint)))
-                                  (toned (make-plane gpu
-                                                     "upscale/toned"
-                                                     w
-                                                     h
-                                                     (Rgba8Unorm)
-                                                     (list (RenderAttachment) (TextureBinding))))
-                                  (inputs
-                                   (list (BufferEntry 0 camera 0 0) (BufferEntry 1 uniform 0 0)
-                                         (TextureEntry 2 (● post targets light-view))
-                                         (TextureEntry 3 (● depth view))
-                                         (TextureEntry 4 (● (list-ref planes 4) view))
-                                         (TextureEntry 5 (● (list-ref planes 1) view))
-                                         (TextureEntry 6 (● (list-ref planes 5) view))
-                                         (TextureEntry 11 (● front view)))))
-                             ((● gpu destroy) (ModuleObject module))
-                             (new Upscaler
-                               (width w)
-                               (height h) (age 0)
-                               (kernel kernel)
-                               (uniform uniform)
-                               (colors colors)
-                               (ids ids)
-                               (toned toned)
-                               (groups (map (lambda (i) (let ((old (- 1 i)))
-                                                          (kernel-group gpu
-                                                                        kernel
-                                                                        0
-                                                                        "upscale"
-                                                                        (append inputs
-                                                                                (list
-                                                                                 (TextureEntry 7
-                                                                                               (●
-                                                                                                (list-ref
-                                                                                                 colors
-                                                                                                 old)
-                                                                                                view))
-                                                                                 (TextureEntry 8
-                                                                                               (●
-                                                                                                (list-ref
-                                                                                                 ids
-                                                                                                 old)
-                                                                                                view))
-                                                                                 (TextureEntry 9
-                                                                                               (●
-                                                                                                (list-ref
-                                                                                                 colors
-                                                                                                 i)
-                                                                                                view))
-                                                                                 (TextureEntry 10
-                                                                                               (●
-                                                                                                (list-ref
-                                                                                                 ids
-                                                                                                 i)
-                                                                                                view)))))))
-                                            (iota 2)))
-                               (tone-groups (map (lambda (p)
-                                                   (screen-group gpu
-                                                                 "upscale/tone"
-                                                                 (● post tone)
-                                                                 (list
-                                                                  (TextureEntry 0 (● p view)))))
-                                                 colors))
-                               (fxaa-group (screen-group gpu "upscale/fxaa" (● post fxaa)
-                                                         (list (TextureEntry 1 (● toned view))
-                                                               (SamplerEntry 2
-                                                                             (● post sampler))))))))
+                           (make-upscaler-from gpu
+                                               post
+                                               camera
+                                               depth
+                                               front
+                                               planes
+                                               w
+                                               h
+                                               (● post targets light-view)))
+    (define (make-upscaler-from (gpu Gpu) (post Post) (camera GpuBuffer) (depth Plane) (front Plane)
+                                (planes (List Plane)) (w I32) (h I32) (source GpuTextureView))
+      (→ Upscaler)
+      (let* ((module ((● gpu create-shader-module)
+                      (new ShaderModuleDescriptor (label "upscale")
+                           (code (string-append (declarations camera-shape)
+                                                (declarations display-shape)
+                                                upscale-shader)))))
+             (kernel (compute-kernel gpu module "upscale" "resolve"))
+             (uniform (uniform-buffer gpu
+                                      "upscale/jitter"
+                                      (make-array (stride display-shape)
+                                                  (i32->u8 0))))
+             (history (lambda (label format)
+                        (map (lambda (_)
+                               (make-plane gpu
+                                           label
+                                           w
+                                           h
+                                           format
+                                           (list (TextureBinding)
+                                                 (StorageBinding))))
+                             (iota 2))))
+             (colors (history "upscale/color" (Rgba16Float)))
+             (ids (history "upscale/triangle" (R32Uint)))
+             (toned (make-plane gpu
+                                "upscale/toned"
+                                w
+                                h
+                                (Rgba8Unorm)
+                                (list (RenderAttachment) (TextureBinding))))
+             (inputs
+              (list (BufferEntry 0 camera 0 0) (BufferEntry 1 uniform 0 0)
+                    (TextureEntry 2 source)
+                    (TextureEntry 3 (● depth view))
+                    (TextureEntry 4 (● (list-ref planes 4) view))
+                    (TextureEntry 5 (● (list-ref planes 1) view))
+                    (TextureEntry 6 (● (list-ref planes 5) view))
+                    (TextureEntry 11 (● front view)))))
+        ((● gpu destroy) (ModuleObject module))
+        (new Upscaler
+          (width w)
+          (height h) (age 0)
+          (kernel kernel)
+          (uniform uniform)
+          (colors colors)
+          (ids ids)
+          (toned toned)
+          (groups (map (lambda (i) (let ((old (- 1 i)))
+                                     (kernel-group gpu
+                                                   kernel
+                                                   0
+                                                   "upscale"
+                                                   (append inputs
+                                                           (list
+                                                            (TextureEntry 7
+                                                                          (●
+                                                                           (list-ref
+                                                                            colors
+                                                                            old)
+                                                                           view))
+                                                            (TextureEntry 8
+                                                                          (●
+                                                                           (list-ref
+                                                                            ids
+                                                                            old)
+                                                                           view))
+                                                            (TextureEntry 9
+                                                                          (●
+                                                                           (list-ref
+                                                                            colors
+                                                                            i)
+                                                                           view))
+                                                            (TextureEntry 10
+                                                                          (●
+                                                                           (list-ref
+                                                                            ids
+                                                                            i)
+                                                                           view)))))))
+                       (iota 2)))
+          (tone-groups (map (lambda (p)
+                              (screen-group gpu
+                                            "upscale/tone"
+                                            (● post tone)
+                                            (list
+                                             (TextureEntry 0 (● p view)))))
+                            colors))
+          (fxaa-group (screen-group gpu "upscale/fxaa" (● post fxaa)
+                                    (list (TextureEntry 1 (● toned view))
+                                          (SamplerEntry 2
+                                                        (● post sampler))))))))
     (define (resolve-upscaled (gpu Gpu) (encoder GpuCommandEncoder) (canvas GpuTextureView)
                               (u Upscaler) (post Post) (frame I32) (valid Bool) (moving Bool))
       (→ Upscaler)

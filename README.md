@@ -72,9 +72,9 @@ diagnostics where they arise and gives a name's type and definition.
 
 The [typed-state API](doc/book/snail-scheme/state.md) remains under review.
 
-## Last Mile Taxi
+## If You’re Going That Way
 
-Pick up Rosa on Russian Hill and drive a yellow cab through San Francisco. The city downloads on the first visit and the browser saves your shift. [Play Last Mile Taxi](https://snail-scheme.pages.dev/play/last-mile/) · [Driver’s guide](doc/book/games/last-mile.md).
+Pedal out of Lantern Row with Moss, cross the millpond, and take the orchard road home. Willowbank is a hand-built Blender village running in the browser’s WebGPU path tracer. [Ride through Willowbank](https://snail-scheme.pages.dev/play/iygtw/) · [Rider’s guide](doc/book/games/iygtw.md).
 
 ## Reading on
 

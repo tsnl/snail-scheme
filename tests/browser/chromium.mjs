@@ -1,4 +1,4 @@
-// Headless Chromium with software WebGPU, driven through the DevTools
+// Headless Chromium with software or native WebGPU, driven through the DevTools
 // protocol: one page, whose console output and exceptions are printed.
 // CHROMIUM names the browser's executable, `chromium` by default, which
 // shell.nix provides on Linux. The tests that drive it wait
@@ -41,11 +41,14 @@ const TRACED = ['blink.user_timing', 'devtools.timeline', 'disabled-by-default-d
 // browser; its page is spoken to through a session attached to it.
 // WebGPU's developer features are on, so the device's timestamps are not
 // rounded to 100 microseconds.
-export async function openBrowser() {
+export async function openBrowser({hardware = false} = {}) {
   const profile = await mkdtemp(join(tmpdir(), 'snail-page-'));
+  const backend = hardware
+    ? ['--disable-vulkan-surface', '--use-angle=vulkan', '--enable-gpu', '--ignore-gpu-blocklist']
+    : ['--use-vulkan=swiftshader', '--use-angle=swiftshader'];
   const browser = spawn(process.env.CHROMIUM ?? 'chromium', ['--headless=new', '--no-sandbox', '--remote-debugging-pipe',
-    `--user-data-dir=${profile}`, '--enable-unsafe-webgpu', '--enable-webgpu-developer-features', '--enable-features=Vulkan', '--use-vulkan=swiftshader',
-    '--use-angle=swiftshader', '--window-size=1280,800', 'about:blank'], {stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']});
+    `--user-data-dir=${profile}`, '--enable-unsafe-webgpu', '--enable-webgpu-developer-features', '--enable-features=Vulkan',
+    ...backend, '--window-size=1280,800', 'about:blank'], {stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']});
   const [, , , commands, replies] = browser.stdio;
   process.on('exit', () => { browser.kill('SIGKILL'); rmSync(profile, {recursive: true, force: true}); });
   let next = 0, session, unfinished = '', traced = null, traceComplete = null;
