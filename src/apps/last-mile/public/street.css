@@ -25,6 +25,7 @@ p { margin:0;color:#d6dfdd;font-size:clamp(12px,1.1vw,15px);line-height:1.35; }
 .geography,.route { inset:0;width:100%;height:100%;background-size:100% 100%;pointer-events:none; }
 .geography {display:none;} .wide .geography {display:block;} .wide .local-chart {display:none;}
 .local-chart {pointer-events:none;}
+.spare-chart {display:none;}
 .map i { width:9px;height:9px;transform:translate(-50%,-50%); }
 .you { border-radius:50%;background:#ddffef;box-shadow:0 0 0 2px #17352f;z-index:2; }
 .you::after { content:"";position:absolute;left:50%;bottom:50%;width:8px;height:10px;background:#ddffef;transform-origin:50% 100%;transform:translateX(-50%) rotate(var(--heading));clip-path:polygon(50% 0,100% 100%,0 100%); }
