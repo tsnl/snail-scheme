@@ -32,7 +32,7 @@ tools() {
 unchanged() {
   [ -z "$(find "$root/src" "$root/bootstrap" \( -name '*.sld' -o -name '*.sls' \) -newer "$1" -print -quit)" ] &&
     [ -z "$(find "$root/crates/snail-scheme-support" -path '*/target' -prune -o -newer "$1" -print -quit)" ] &&
-    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/bootstrap" "$root/host/chez" -newer "$1" -print -quit)" ]
+    [ -z "$(find "$root/rust-toolchain.toml" "$root/scripts/bootstrap" "$root/scripts/build-runtime" "$root/host/chez" -newer "$1" -print -quit)" ]
 }
 
 present() {
