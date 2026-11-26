@@ -8,8 +8,8 @@
 ;;
 ;; A frame is one compute pass of temporal, variance and the first
 ;; à-trous level, whose output is copied into the history, then a pass of
-;; four more levels and the light. The two histories change places each
-;; frame.
+;; four more levels, in half floats, and the light. The two histories
+;; change places each frame.
 (define-library (snail shell graphics svgf)
   (export
    SvgfInputs
@@ -56,6 +56,7 @@
       ((temporal GpuComputePipeline)
        (variance GpuComputePipeline)
        (atrous GpuComputePipeline)
+       (atrous-half GpuComputePipeline)
        (remodulate GpuComputePipeline)
        (filtering GpuBuffer)))
 
@@ -88,6 +89,7 @@
                        (temporal (compute-kernel gpu module "svgf" "temporal"))
                        (variance (compute-kernel gpu module "svgf" "variance"))
                        (atrous (compute-kernel gpu module "svgf" "atrous"))
+                       (atrous-half (compute-kernel gpu module "svgf" "atrous_half"))
                        (remodulate (compute-kernel gpu module "svgf" "remodulate"))
                        (filtering
                         (uniform-buffer gpu "svgf/filtering" (filtering-bytes #t 1.0 #t))))
@@ -161,7 +163,7 @@
                                    (for-each (lambda (level)
                                                (over-screen gpu rest
                                                             svgf
-                                                            (● kernels atrous)
+                                                            (● kernels atrous-half)
                                                             (list-ref (● svgf atrous-groups)
                                                                       level)))
                                              (list 1 2 3 4))
@@ -197,16 +199,24 @@
     ;; ---- Planes ----
 
     ;; The planes in order: integrated, ping, pong, then two histories
-    ;; each of colors, moments and places. Every one is rgba32float: a
-    ;; still camera's history is a running average, which a frame moves by
-    ;; as little as 1/4096 of the difference. Half floats keep 11 bits, so
-    ;; such a step rounds away in each of the three writes on the way to
-    ;; the next history (temporal, variance, the first à-trous level), and
-    ;; a still image drifted darker the longer it held still: a third
-    ;; darker after 30 seconds.
+    ;; each of colors, moments and places; the guide; and the half-float
+    ;; pair the later à-trous levels take turns in. The first levels'
+    ;; planes are rgba32float: a still camera's history is a running
+    ;; average, which a frame moves by as little as 1/4096 of the
+    ;; difference. Half floats keep 11 bits, so such a step rounds away in
+    ;; each of the three writes on the way to the next history (temporal,
+    ;; variance, the first à-trous level), and a still image drifted darker
+    ;; the longer it held still: a third darker after 30 seconds. The later
+    ;; levels' output reaches only this frame's light.
     (define plane-names
       (→ (List String))
-      (list "integrated" "ping" "pong" "color" "color" "moments" "moments" "place" "place"))
+      (list "integrated" "ping" "pong" "color" "color" "moments" "moments" "place" "place"
+            "guide" "ping-half" "pong-half"))
+
+    (define (plane-format (name String)) (→ TextureFormat)
+      (cond ((string=? name "guide") (Rgba32Uint))
+            ((or (string=? name "ping-half") (string=? name "pong-half")) (Rgba16Float))
+            (else (Rgba32Float))))
 
     ;; The completed frame stores its two luminance moments and observation
     ;; count in RGB. The other parity is the next draw's destination.
@@ -236,7 +246,7 @@
                            (make-plane gpu (string-append "svgf/" name)
                                        width
                                        height
-                                       (Rgba32Float)
+                                       (plane-format name)
                                        (list (StorageBinding)
                                              (TextureBinding)
                                              (TextureCopySrc)
@@ -259,7 +269,8 @@
             (lambda (index) (group gpu (● kernels variance) (variance-entries planes inputs index)))
             (iota 2)))
           (atrous-groups (map (lambda (level)
-                                (group gpu (● kernels atrous)
+                                (group gpu
+                                       (if (= level 0) (● kernels atrous) (● kernels atrous-half))
                                        (atrous-entries planes inputs (● kernels filtering) level)))
                               (iota 5)))
           (remodulate-group (group gpu (● kernels remodulate)
@@ -292,35 +303,38 @@
             (TextureEntry 9 (● (plane planes "integrated") view))
             (TextureEntry 10 (● (history planes "moments" index) view))
             (TextureEntry 11 (● (history planes "place" index) view))
+            (TextureEntry 19 (● (plane planes "guide") view))
             (BufferEntry 16 (● inputs camera) 0 0)
             (slot-entry 17 filtering 0)))
 
     (define (variance-entries (planes (List Plane)) (inputs SvgfInputs) (index I64))
       (→ (List BindGroupEntry))
       (list (TextureEntry 0 (● inputs noisy))
-            (TextureEntry 3 (● inputs normals))
-            (TextureEntry 4 (● inputs depth))
             (TextureEntry 12 (● (plane planes "integrated") view))
             (TextureEntry 13 (● (plane planes "ping") view))
             (TextureEntry 14 (● (history planes "moments" index) view))
-            (BufferEntry 16 (● inputs camera) 0 0)))
+            (BufferEntry 16 (● inputs camera) 0 0)
+            (TextureEntry 20 (● (plane planes "guide") view))))
 
-    ;; Levels read ping and write pong, then the other way, so the fifth
-    ;; ends in pong.
+    ;; The first level reads ping and writes pong, which the history keeps;
+    ;; the rest read pong and take turns in the half-float pair, so the
+    ;; fifth ends in pong-half.
     (define (atrous-entries (planes (List Plane))
                             (inputs SvgfInputs)
                             (filtering GpuBuffer)
                             (level I64))
       (→ (List BindGroupEntry))
-      (let ((from (plane planes (if (= (remainder level 2) 0) "ping" "pong")))
-            (to (plane planes (if (= (remainder level 2) 0) "pong" "ping"))))
+      (let ((from (plane planes (list-ref (list "ping" "pong" "ping-half" "pong-half" "ping-half")
+                                          level)))
+            (to
+             (plane planes (list-ref (list "pong" "ping-half" "pong-half" "ping-half" "pong-half")
+                                     level))))
         (list (TextureEntry 0 (● inputs noisy))
-              (TextureEntry 3 (● inputs normals))
-              (TextureEntry 4 (● inputs depth))
               (TextureEntry 12 (● from view))
-              (TextureEntry 13 (● to view))
+              (TextureEntry (if (= level 0) 13 21) (● to view))
               (BufferEntry 16 (● inputs camera) 0 0)
-              (slot-entry 17 filtering (+ level 1)))))
+              (slot-entry 17 filtering (+ level 1))
+              (TextureEntry 20 (● (plane planes "guide") view)))))
 
     (define (remodulate-entries (planes (List Plane))
                                 (inputs SvgfInputs)
@@ -331,7 +345,7 @@
             (TextureEntry 1 (● inputs albedo))
             (TextureEntry 2 (● inputs emission))
             (TextureEntry 4 (● inputs depth))
-            (TextureEntry 12 (● (plane planes "pong") view))
+            (TextureEntry 12 (● (plane planes "pong-half") view))
             (TextureEntry 15 light)
             (slot-entry 17 filtering 0)))
 

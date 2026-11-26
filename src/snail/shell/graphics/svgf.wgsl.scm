@@ -14,7 +14,9 @@
 ;;               neighborhood weighted by depth and normal
 ;;   atrous      one level of the edge-avoiding à-trous wavelet: a 5x5
 ;;               B-spline at `limits.z` pixels, weighted by depth, normal and
-;;               luminance against the variance, which it carries forward
+;;               luminance against the variance, which it carries forward;
+;;               `atrous_half` the same into half floats, for the levels
+;;               after the first, whose output no history keeps
 ;;   remodulate  the filtered illumination times albedo, plus emission,
 ;;               into the light; the sky as traced; all scaled by the
 ;;               exposure, `limits.w` of the first slot
@@ -22,6 +24,12 @@
 ;; The first level's output becomes the next frame's history. While the
 ;; camera holds still, `floor` is 0 and the history keeps growing, so a
 ;; still image converges as an average would.
+;;
+;; `temporal` also writes each pixel's guide: its surface's world position
+;; and normal in four words, which the 49 and 25 neighbors the variance
+;; and each à-trous level weigh read in one load, where each would
+;; otherwise reload the depth twice, project it back through the camera
+;; and unfold the normal.
 (var (@group 0) (@binding 0) (noisy (texture_2d f32)))
 
 (var (@group 0) (@binding 1) (albedo (texture_2d f32)))
@@ -60,6 +68,12 @@
 
 (var (@group 0) (@binding 18) (triangles (texture_2d u32)))
 
+(var (@group 0) (@binding 19) (guide_out (texture_storage_2d rgba32uint write)))
+
+(var (@group 0) (@binding 20) (guide (texture_2d u32)))
+
+(var (@group 0) (@binding 21) (filtered_half (texture_storage_2d rgba16float write)))
+
 ;; ---- Pixels ----
 
 (fn inside ((id vec3u)) (-> bool)
@@ -96,6 +110,30 @@
 (fn demodulator ((p vec2i)) (-> vec3f)
     (return (max (get (textureLoad albedo p 0) xyz) (vec3f 0.03))))
 
+;; ---- Guides ----
+
+;; A guide's last word for the sky, which no normal packs to: each of its
+;; ten-bit fields is at most 1023, so a word above 2^30 is none.
+(const SKY 4294967295u)
+
+;; A unit normal in ten bits an axis, each component from -1 to 1.
+(fn packed_normal ((n vec3f)) (-> u32)
+    (let q (vec3u (round (* (+ (clamp n (vec3f -1.0) (vec3f 1.0)) 1.0) 511.5))))
+    (return (bit-or (get q x) (bit-or (<< (get q y) 10u) (<< (get q z) 20u)))))
+
+(fn unpacked_normal ((w u32)) (-> vec3f)
+    (let q (vec3u (bit-and w 1023u) (bit-and (>> w 10u) 1023u) (bit-and (>> w 20u) 1023u)))
+    (return (- (/ (vec3f q) 511.5) 1.0)))
+
+(fn guide_of ((world vec3f) (normal vec3f)) (-> vec4u)
+    (return (vec4u ((bitcast vec3u) world) (packed_normal normal))))
+
+(fn guide_sky ((g vec4u)) (-> bool)
+    (return (== (get g w) SKY)))
+
+(fn guide_world ((g vec4u)) (-> vec3f)
+    (return ((bitcast vec3f) (get g xyz))))
+
 ;; ---- Temporal ----
 
 (fn (@compute) (@workgroup_size 8 8) temporal (((@builtin global_invocation_id) id vec3u))
@@ -105,6 +143,7 @@
          (textureStore integrated p (vec4f 0.0))
          (textureStore moments p (vec4f 0.0))
          (textureStore place p (vec4f 0.0))
+         (textureStore guide_out p (vec4u 0u 0u 0u SKY))
          (return)))
     (let radiance (textureLoad noisy p 0))
     (let sample (/
@@ -112,6 +151,7 @@
                  (demodulator p)))
     (let world (world_at p))
     (let normal (normal_at p))
+    (textureStore guide_out p (guide_of world normal))
     (let size (vec2f (textureDimensions noisy)))
     (let before (- (- (+ (vec2f p) 0.5) (* (get (textureLoad motion p 0) xy) size)) 0.5))
     (let base (vec2i (floor before)))
@@ -179,26 +219,30 @@
 
 ;; ---- Variance ----
 
-;; How much a neighbor at `q` counts toward `p`'s: by depth and normal.
+;; How much a neighbor at `q` counts toward `p`'s: by depth and normal,
+;; the normals' agreement to the 64th power by six squarings.
 (fn geometric_weight ((world vec3f) (normal vec3f) (q vec2i) (scale f32)) (-> f32)
-    (if ((sky_at q) (return 0.0)))
-    (let d (distance (world_at q) world))
-    (let n (pow (max 0.0 (dot (normal_at q) normal)) 64.0))
+    (let g (textureLoad guide q 0))
+    (if ((guide_sky g) (return 0.0)))
+    (let d (distance (guide_world g) world))
+    (var n (max 0.0 (dot (unpacked_normal (get g w)) normal)))
+    (for ((var k 0) (< k 6) (+= k 1)) (*= n n))
     (return (* n (exp (- (/ d scale))))))
 
 (fn (@compute) (@workgroup_size 8 8) variance (((@builtin global_invocation_id) id vec3u))
     (if ((not (inside id)) (return)))
     (let p (vec2i (get id xy)))
     (let center (textureLoad source p 0))
-    (if ((sky_at p) (textureStore filtered p (vec4f 0.0)) (return)))
+    (let g (textureLoad guide p 0))
+    (if ((guide_sky g) (textureStore filtered p (vec4f 0.0)) (return)))
     (let m (textureLoad current_moments p 0))
     (if ((>= (get m z) 4.0)
          (textureStore filtered
                        p
                        (vec4f (get center xyz) (max 0.0 (- (get m y) (* (get m x) (get m x))))))
          (return)))
-    (let world (world_at p))
-    (let normal (normal_at p))
+    (let world (guide_world g))
+    (let normal (unpacked_normal (get g w)))
     (let scale (* 0.05 (max 1.0 (distance world (get camera eye xyz)))))
     (var color (vec3f 0.0))
     (var moment (vec2f 0.0))
@@ -221,14 +265,15 @@
 
 ;; ---- À-trous ----
 
-(fn (@compute) (@workgroup_size 8 8) atrous (((@builtin global_invocation_id) id vec3u))
-    (if ((not (inside id)) (return)))
-    (let p (vec2i (get id xy)))
+;; One level at `p`: the 5x5 B-spline's neighbors weighted by luminance
+;; against the variance, and by geometry, as color and the variance.
+(fn level_at ((p vec2i)) (-> vec4f)
     (let center (textureLoad source p 0))
-    (if ((sky_at p) (textureStore filtered p center) (return)))
+    (let g (textureLoad guide p 0))
+    (if ((guide_sky g) (return center)))
     (let stride (i32 (get filtering limits z)))
-    (let world (world_at p))
-    (let normal (normal_at p))
+    (let world (guide_world g))
+    (let normal (unpacked_normal (get g w)))
     (let scale (* 0.05 (max 1.0 (distance world (get camera eye xyz))) (f32 stride)))
     (let l (luminance (get center xyz)))
     (let deviation (* 4.0 (sqrt (max (get center w) 1e-8))))
@@ -252,7 +297,17 @@
               (+= spread (* (get neighbor w) w w))
               (+= total w)))
     (let t (max total 1e-6))
-    (textureStore filtered p (vec4f (/ color t) (/ spread (* t t)))))
+    (return (vec4f (/ color t) (/ spread (* t t)))))
+
+(fn (@compute) (@workgroup_size 8 8) atrous (((@builtin global_invocation_id) id vec3u))
+    (if ((not (inside id)) (return)))
+    (let p (vec2i (get id xy)))
+    (textureStore filtered p (level_at p)))
+
+(fn (@compute) (@workgroup_size 8 8) atrous_half (((@builtin global_invocation_id) id vec3u))
+    (if ((not (inside id)) (return)))
+    (let p (vec2i (get id xy)))
+    (textureStore filtered_half p (level_at p)))
 
 ;; ---- Light ----
 

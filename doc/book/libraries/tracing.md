@@ -128,9 +128,13 @@ G-buffer planes it was traced from, keeps a history across frames, and
 writes the filtered light, scaled by an exposure, into a plane the program
 gives it, such as a `Post`'s. A frame is two compute passes: temporal
 accumulation, variance and the first à-trous level, then four more levels;
-`resize-svgf` follows the canvas. Its planes are 32-bit floats: a still
-camera's history is a running average, which a frame moves by as little as
-1/4096, a step half floats round away.
+`resize-svgf` follows the canvas. The planes that reach the history are
+32-bit floats: a still camera's history is a running average, which a frame
+moves by as little as 1/4096, a step half floats round away. The four later
+levels reach only the frame's light and run in half floats. Temporal
+accumulation also writes each pixel's guide, its world position and packed
+normal in one `rgba32uint` texel, which the variance's and each level's
+neighbors are weighed by in one load each.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/svgf.sld)
 

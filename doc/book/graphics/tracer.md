@@ -17,7 +17,7 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 | Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries, for each layer. |
 | Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure, for each layer. |
 | Compose | `trace/compose.wgsl.scm` | Blends the blended layer's light over the first hits', by its alpha. |
-| Display | `upscale`, `passes` | Reconstruct on the stable display grid, then tone map, encode sRGB and apply FXAA. |
+| Display | `upscale`, `passes` | Reconstruct on the stable display grid and tone map there, in one pass, then apply FXAA. |
 
 `resize-tracer` sets the internal render grid. Every draw traces every internal
 pixel. Pass the dimensions of the output view and the number of paths per
@@ -64,7 +64,9 @@ legitimately see different surfaces within that pixel. During motion,
 the resolve removes the change in jitter from the G-buffer motion vector.
 Each of its four display-history taps must match the triangle and previous
 projected depth. Moving sky and blended surfaces use current samples.
-Tone mapping and FXAA run at the output size.
+The resolve keeps its result linear as the next frame's history and also
+writes it tone-mapped, by the `Post`'s curve (`tone.wgsl.scm`), for FXAA, so
+tone mapping takes no pass of its own at the output size.
 
 Camera or reported scene motion limits temporal ReSTIR to two batches of
 old candidates, or one above 1.5 pixels of motion. Moving SVGF keeps up
