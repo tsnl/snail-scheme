@@ -6,19 +6,24 @@
 ;; walk takes into it (Wald, "On fast Construction of SAH-based Bounding
 ;; Volume Hierarchies", 2007).
 ;;
-;; A tree is built a level at a time, a dispatch a level. The nodes a
-;; level splits are its tasks. A task's primitives are a contiguous span
-;; of `refs`; one workgroup takes the task, bins its span, chooses, and
-;; partitions the span stably into its children's two spans for the next
-;; level, so the tree is the same however the device schedules the work.
-;; A workgroup takes every `num_workgroups`-th task: a dispatch's size
-;; does not depend on how many tasks the level has, which only the device
+;; A tree is built a level at a time. The nodes a level splits are its
+;; tasks. A task's primitives are a contiguous span of `refs`, which the
+;; task bins, chooses from, and partitions stably into its children's two
+;; spans for the next level, so the tree is the same however the device
+;; schedules the work. A task takes one workgroup. A wide task, of more
+;; than WIDE primitives, would leave the rest of the device idle near the
+;; root, so every workgroup takes blocks of it: each bins its blocks into
+;; the task's bins in memory, one workgroup chooses, and the blocks count
+;; their left primitives, scan the counts and scatter, as one workgroup's
+;; partition does. Workgroups take every `num_workgroups`-th task or
+;; block, so a dispatch's size does not depend on counts only the device
 ;; knows, and no dispatch is indirect.
 ;;
 ;;   measure  each primitive's box: a triangle's, or for the top level a
 ;;            bottom level's root slot
 ;;   split    one level's tasks, each a leaf or a node of two children
 ;;            that are the next level's tasks
+;;   wide_…   the same for a level's wide tasks, a kernel a step
 ;;   fill     each leaf triangle's corner and edges, from the vertices
 ;;   clear    the boxes of moving trees' slots, emptied
 ;;   climb    each moving triangle's box merged into every slot above it
@@ -76,6 +81,17 @@
 ((var storage read_write) (@group 0) (@binding 10) (merged (array (atomic u32))))
 
 ((var uniform) (@group 0) (@binding 11) (refit BvhRefit))
+
+;; A level's wide tasks, by the level's parity; each wide task's bins,
+;; children's centroid bounds and (for a root) its own, merged by every
+;; workgroup; its choice and node; and each of its blocks' left count.
+((var storage read_write) (@group 0) (@binding 12) (widened (array u32)))
+
+((var storage read_write) (@group 0) (@binding 13) (wide (array (atomic u32))))
+
+((var storage read_write) (@group 0) (@binding 14) (decided (array Decided)))
+
+((var storage read_write) (@group 0) (@binding 15) (lefts (array u32)))
 
 ;; ---- Numbers ----
 
@@ -227,13 +243,15 @@
 (fn take ((k u32) (t u32))
     (if ((== t 0u) (= work (task_at k))))
     (var task (workgroupUniformLoad (address-of work)))
+    (if ((is_wide task) (return)))
     (if ((== (get task count) 1u)
          (if ((== t 0u) (lone_leaf task)))
          (return)))
     (if ((> (get task low x) (get task high x))
          (bound_centroids task t)
          (= task (workgroupUniformLoad (address-of work)))))
-    (fill_bins task t)
+    (let end (+ (get task first) (get task count)))
+    (fill_bins task (get task first) end t)
     (price t task)
     (workgroupBarrier)
     (if ((== t 0u) (= choice (chosen task))))
@@ -241,8 +259,9 @@
     (if ((== (get c kind) LEAF)
          (leaf task c t)
          (return)))
-    (divide task c t)
-    (if ((== t 0u) (branch task c))))
+    (divide task c (get task first) end 0u t)
+    (if ((== t 0u)
+         (branch task c (side_corner 0u) (side_corner 3u) (side_corner 6u) (side_corner 9u)))))
 
 ;; A span of one is a leaf: its triangle's, or the bottom level the top
 ;; level's primitive names, whose root it becomes.
@@ -303,13 +322,18 @@
 (fn bin_word ((axis u32) (bin u32) (field u32)) (-> u32)
     (return (+ (* (+ (* axis BINS) bin) 7u) field)))
 
-(fn fill_bins ((task Work) (t u32))
+;; Word w of empty bins: a count of 0, then a box's emptied corners.
+(fn unbinned ((w u32)) (-> u32)
+    (let field (% w 7u))
+    (if ((== field 0u) (return 0u)))
+    (return (emptied (- field 1u))))
+
+;; The bins of `task`'s primitives from `start` to `stop`.
+(fn fill_bins ((task Work) (start u32) (stop u32) (t u32))
     (for ((var w t) (< w 336u) (+= w GROUP))
-         (atomicStore (address-of (at bins w))
-                      (select (ordered (- FAR)) (ordered FAR) (< (% w 7u) 4u)))
-         (if ((== (% w 7u) 0u) (atomicStore (address-of (at bins w)) 0u))))
+         (atomicStore (address-of (at bins w)) (unbinned w)))
     (workgroupBarrier)
-    (for ((var i (+ (get task first) t)) (< i (+ (get task first) (get task count))) (+= i GROUP))
+    (for ((var i (+ start t)) (< i stop) (+= i GROUP))
          (let b (at boxes (at refs (+ (reading) i))))
          (let c (center b))
          (for ((var axis 0u) (< axis 3u) (+= axis 1u))
@@ -415,15 +439,17 @@
     (if ((== (get c kind) HALVED) (return (< (- i (get task first)) (get c left)))))
     (return (<= (bin_of task (get c axis) p) (get c bin))))
 
-;; The span rewritten, a block of the workgroup at a time, its left
-;; primitives first, each side in the order it had: each primitive's place
-;; is how many of its side come before it, counted by a scan of the block.
-(fn divide ((task Work) (c Choice) (t u32))
+;; The span from `start` to `end` rewritten, a block of the workgroup at a
+;; time, its left primitives first, each side in the order it had: each
+;; primitive's place is how many of its side come before it in the span,
+;; `base` of them before `start`, counted by a scan of the block that
+;; takes as many rounds as the block is wide. The children's centroid
+;; bounds are left in `sides`.
+(fn divide ((task Work) (c Choice) (start u32) (end u32) (base u32) (t u32))
     (if ((< t 12u) (atomicStore (address-of (at sides t)) (emptied t))))
-    (if ((== t 0u) (= lefts_before 0u)))
+    (if ((== t 0u) (= lefts_before base)))
     (workgroupBarrier)
-    (let end (+ (get task first) (get task count)))
-    (for ((var block (get task first)) (< block end) (+= block GROUP))
+    (for ((var block start) (< block end) (+= block GROUP))
          (let i (+ block t))
          (let inside (< i end))
          (var prim 0u)
@@ -435,7 +461,8 @@
               (= left (goes_left task c i p))))
          (= (at scan t) (select 0u 1u (and inside left)))
          (workgroupBarrier)
-         (for ((var reach 1u) (< reach GROUP) (*= reach 2u))
+         (let width (min GROUP (- end block)))
+         (for ((var reach 1u) (< reach width) (*= reach 2u))
               (var add 0u)
               (if ((>= t reach) (= add (at scan (- t reach)))))
               (workgroupBarrier)
@@ -452,30 +479,37 @@
               (= (at refs (+ (writing) place)) prim)
               (merge_side (select 6u 0u left) p)))
          (workgroupBarrier)
-         (if ((== t 0u) (+= lefts_before (at scan (- GROUP 1u)))))
+         (if ((== t 0u) (+= lefts_before (at scan (- width 1u)))))
          (workgroupBarrier)))
 
-;; The task's node: its slot pointing at a new pair of slots, and its two
-;; children the next level's tasks, each with its centroids' bounds.
-(fn branch ((task Work) (c Choice))
+;; The task's node: its slot pointing at a new pair of slots.
+(fn new_node ((task Work) (c Choice)) (-> u32)
     (let node (+ (u32 (get build node_base)) (* 2u (atomicAdd (address-of (at counts 0)) 1u))))
     (= (at slots (get task slot)) (BvhSlot (get c low) node (get c high) 0u))
     (= (at parents (/ node 2u)) (get task slot))
+    (return node))
+
+;; The node's two children, the next level's tasks, each with its
+;; centroids' bounds; a wide child is also on the next level's wide list.
+(fn branch ((task Work) (c Choice) (left_low vec3f) (left_high vec3f) (right_low vec3f)
+            (right_high vec3f))
+    (children task c (new_node task c) left_low left_high right_low right_high))
+
+(fn children ((task Work) (c Choice) (node u32) (left_low vec3f) (left_high vec3f)
+              (right_low vec3f) (right_high vec3f))
     (let n (atomicAdd (address-of (at counts (+ 2u (level)))) 2u))
     (let deeper (+ (get task depth) 1u))
-    (= (at tasks (+ (writing) n))
-       (task_of (Work (get task first) (get c left) node deeper (vec3f 0.0) (vec3f 0.0))
-                (side_corner 0u)
-                (side_corner 3u)))
-    (= (at tasks (+ (writing) n 1u))
-       (task_of (Work (+ (get task first) (get c left))
-                      (- (get task count) (get c left))
-                      (+ node 1u)
-                      deeper
-                      (vec3f 0.0)
-                      (vec3f 0.0))
-                (side_corner 6u)
-                (side_corner 9u))))
+    (let left (Work (get task first) (get c left) node deeper left_low left_high))
+    (let right (Work (+ (get task first) (get c left))
+                     (- (get task count) (get c left))
+                     (+ node 1u)
+                     deeper
+                     right_low
+                     right_high))
+    (= (at tasks (+ (writing) n)) (task_of left left_low left_high))
+    (= (at tasks (+ (writing) n 1u)) (task_of right right_low right_high))
+    (widen left n)
+    (widen right (+ n 1u)))
 
 ;; ---- Leaves ----
 
@@ -546,3 +580,228 @@
        (vec3f (unordered (atomicLoad (address-of (at merged (+ w 3u)))))
               (unordered (atomicLoad (address-of (at merged (+ w 4u)))))
               (unordered (atomicLoad (address-of (at merged (+ w 5u))))))))
+
+;; ---- Wide tasks ----
+
+(const WIDE 4096u)
+
+(const BLOCK 1024u)
+
+;; A wide task's choice and its node, as every block's workgroup reads them.
+(struct Decided
+        (kind u32)
+        (axis u32)
+        (bin u32)
+        (left u32)
+        (low vec3f)
+        (node u32)
+        (high vec3f)
+        (pad u32))
+
+;; A wide task's words of `wide`: its 336 bins, then its children's
+;; centroid bounds, then, for a root, its own.
+(const WIDE_WORDS 354u)
+
+(fn is_wide ((task Work)) (-> bool)
+    (return (and (< (level) (u32 (get build wide_levels))) (> (get task count) WIDE))))
+
+;; The most wide tasks a level can have, and the most blocks one can.
+(fn most_wide () (-> u32)
+    (return (+ (/ (u32 (get build capacity)) WIDE) 1u)))
+
+(fn most_blocks () (-> u32)
+    (return (/ (+ (u32 (get build capacity)) (- BLOCK 1u)) BLOCK)))
+
+;; Where a level's count of wide tasks is, after every level's count of
+;; tasks.
+(fn wide_count_at ((at_level u32)) (-> u32)
+    (return (+ 2u (u32 (get build levels)) at_level)))
+
+;; A child put on the next level's wide list, if it is wide there.
+(fn widen ((child Work) (k u32))
+    (if ((and (< (+ (level) 1u) (u32 (get build wide_levels))) (> (get child count) WIDE))
+         (let j (atomicAdd (address-of (at counts (wide_count_at (+ (level) 1u)))) 1u))
+         (= (at widened (+ (* (% (+ (level) 1u) 2u) (most_wide)) j)) k))))
+
+;; Word w of a wide task's words when nothing has merged into them.
+(fn wide_empty ((w u32)) (-> u32)
+    (if ((< w 336u) (return (unbinned w))))
+    (return (emptied (% (- w 336u) 6u))))
+
+(fn (@compute) (@workgroup_size 256) wide_reset (((@builtin global_invocation_id) id vec3u))
+    (let i (item id))
+    (if ((>= i (* (most_wide) WIDE_WORDS)) (return)))
+    (atomicStore (address-of (at wide i)) (wide_empty (% i WIDE_WORDS))))
+
+((var workgroup) (wide_here u32))
+
+;; How many wide tasks this level has, the same in every invocation.
+(fn wide_tasks ((t u32)) (-> u32)
+    (if ((== t 0u) (= wide_here (atomicLoad (address-of (at counts (wide_count_at (level))))))))
+    (return (workgroupUniformLoad (address-of wide_here))))
+
+(fn wide_index ((j u32)) (-> u32)
+    (return (at widened (+ (* (% (level) 2u) (most_wide)) j))))
+
+;; Wide task j, with a root's centroid bounds from its words.
+(fn wide_task ((j u32) (t u32)) (-> Work)
+    (if ((== t 0u)
+         (= work (task_at (wide_index j)))
+         (if ((> (get work low x) (get work high x))
+              (= (get work low) (wide_corner j 348u))
+              (= (get work high) (wide_corner j 351u))))))
+    (return (workgroupUniformLoad (address-of work))))
+
+(fn wide_corner ((j u32) (at_word u32)) (-> vec3f)
+    (let w (+ (* j WIDE_WORDS) at_word))
+    (return (vec3f (unordered (atomicLoad (address-of (at wide w))))
+                   (unordered (atomicLoad (address-of (at wide (+ w 1u)))))
+                   (unordered (atomicLoad (address-of (at wide (+ w 2u))))))))
+
+;; Word `w` of the workgroup's merged box words, six a box, into wide task
+;; j's from `at_word`.
+(fn merge_wide ((j u32) (at_word u32) (w u32) (value u32))
+    (let into (address-of (at wide (+ (* j WIDE_WORDS) at_word w))))
+    (if ((< (% w 6u) 3u) (atomicMin into value))
+        (else (atomicMax into value))))
+
+(fn blocks_of ((task Work)) (-> u32)
+    (return (/ (+ (get task count) (- BLOCK 1u)) BLOCK)))
+
+(fn block_end ((task Work) (start u32)) (-> u32)
+    (return (min (+ start BLOCK) (+ (get task first) (get task count)))))
+
+;; A root's centroid bounds, merged from its blocks.
+(fn (@compute) (@workgroup_size 256) wide_bound
+    (((@builtin local_invocation_index) t u32)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
+    (let n (wide_tasks t))
+    (for ((var j 0u) (< j n) (+= j 1u))
+         (let task (wide_task j t))
+         (if ((<= (get task low x) (get task high x)) (continue)))
+         (for ((var b (get group x)) (< b (blocks_of task)) (+= b (get groups x)))
+              (let start (+ (get task first) (* b BLOCK)))
+              (if ((< t 6u) (atomicStore (address-of (at sides t)) (emptied t))))
+              (workgroupBarrier)
+              (for ((var i (+ start t)) (< i (block_end task start)) (+= i GROUP))
+                   (merge_side 0u (center (at boxes (at refs (+ (reading) i))))))
+              (workgroupBarrier)
+              (if ((< t 6u) (merge_wide j 348u t (atomicLoad (address-of (at sides t))))))
+              (workgroupBarrier))))
+
+;; Each block's bins, merged into the task's.
+(fn (@compute) (@workgroup_size 256) wide_bin
+    (((@builtin local_invocation_index) t u32)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
+    (let n (wide_tasks t))
+    (for ((var j 0u) (< j n) (+= j 1u))
+         (let task (wide_task j t))
+         (for ((var b (get group x)) (< b (blocks_of task)) (+= b (get groups x)))
+              (let start (+ (get task first) (* b BLOCK)))
+              (fill_bins task start (block_end task start) t)
+              (for ((var w t) (< w 336u) (+= w GROUP))
+                   (let value (atomicLoad (address-of (at bins w))))
+                   (let into (address-of (at wide (+ (* j WIDE_WORDS) w))))
+                   (let field (% w 7u))
+                   (if ((== field 0u) (atomicAdd into value))
+                       ((< field 4u) (atomicMin into value))
+                       (else (atomicMax into value))))
+              (workgroupBarrier))))
+
+;; A workgroup a wide task: the task's bins priced as a narrow task's are,
+;; and its choice and new node kept for its blocks.
+(fn (@compute) (@workgroup_size 256) wide_choose
+    (((@builtin local_invocation_index) t u32)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
+    (let n (wide_tasks t))
+    (for ((var j (get group x)) (< j n) (+= j (get groups x)))
+         (let task (wide_task j t))
+         (for ((var w t) (< w 336u) (+= w GROUP))
+              (atomicStore (address-of (at bins w))
+                           (atomicLoad (address-of (at wide (+ (* j WIDE_WORDS) w))))))
+         (workgroupBarrier)
+         (price t task)
+         (workgroupBarrier)
+         (if ((== t 0u)
+              (let c (chosen task))
+              (= (at decided j)
+                 (Decided (get c kind) (get c axis) (get c bin) (get c left) (get c low)
+                          (new_node task c) (get c high) 0u))))
+         (workgroupBarrier)))
+
+(fn decision ((j u32)) (-> Choice)
+    (let d (at decided j))
+    (return (Choice (get d kind) (get d axis) (get d bin) (get d left) (get d low) (get d high))))
+
+((var workgroup) (block_lefts (atomic u32)))
+
+;; How many of each block's primitives go left.
+(fn (@compute) (@workgroup_size 256) wide_count
+    (((@builtin local_invocation_index) t u32)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
+    (let n (wide_tasks t))
+    (for ((var j 0u) (< j n) (+= j 1u))
+         (let task (wide_task j t))
+         (let c (decision j))
+         (for ((var b (get group x)) (< b (blocks_of task)) (+= b (get groups x)))
+              (let start (+ (get task first) (* b BLOCK)))
+              (if ((== t 0u) (atomicStore (address-of block_lefts) 0u)))
+              (workgroupBarrier)
+              (for ((var i (+ start t)) (< i (block_end task start)) (+= i GROUP))
+                   (if ((goes_left task c i (center (at boxes (at refs (+ (reading) i)))))
+                        (atomicAdd (address-of block_lefts) 1u))))
+              (workgroupBarrier)
+              (if ((== t 0u)
+                   (= (at lefts (+ (* j (most_blocks)) b)) (atomicLoad (address-of block_lefts)))))
+              (workgroupBarrier))))
+
+;; An invocation a wide task: its blocks' left counts become how many go
+;; left before each block.
+(fn (@compute) (@workgroup_size 256) wide_scan (((@builtin global_invocation_id) id vec3u))
+    (let j (item id))
+    (if ((>= j (atomicLoad (address-of (at counts (wide_count_at (level)))))) (return)))
+    (let task (task_at (wide_index j)))
+    (var before 0u)
+    (for ((var b 0u) (< b (blocks_of task)) (+= b 1u))
+         (let at_block (+ (* j (most_blocks)) b))
+         (let n (at lefts at_block))
+         (= (at lefts at_block) before)
+         (+= before n)))
+
+;; Each block divided as a narrow task's span is, from its place in the
+;; span, and its children's centroid bounds merged into the task's.
+(fn (@compute) (@workgroup_size 256) wide_scatter
+    (((@builtin local_invocation_index) t u32)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
+    (let n (wide_tasks t))
+    (for ((var j 0u) (< j n) (+= j 1u))
+         (let task (wide_task j t))
+         (let c (decision j))
+         (for ((var b (get group x)) (< b (blocks_of task)) (+= b (get groups x)))
+              (let start (+ (get task first) (* b BLOCK)))
+              (divide task c start (block_end task start) (at lefts (+ (* j (most_blocks)) b)) t)
+              (if ((< t 12u) (merge_wide j 336u t (atomicLoad (address-of (at sides t))))))
+              (workgroupBarrier))))
+
+;; A workgroup a wide task: its children made, and its words emptied for
+;; the next level's.
+(fn (@compute) (@workgroup_size 256) wide_branch
+    (((@builtin local_invocation_index) t u32)
+     ((@builtin workgroup_id) group vec3u)
+     ((@builtin num_workgroups) groups vec3u))
+    (let n (wide_tasks t))
+    (for ((var j (get group x)) (< j n) (+= j (get groups x)))
+         (let task (wide_task j t))
+         (if ((== t 0u)
+              (children task (decision j) (get (at decided j) node)
+                        (wide_corner j 336u) (wide_corner j 339u)
+                        (wide_corner j 342u) (wide_corner j 345u))))
+         (workgroupBarrier)
+         (for ((var w t) (< w WIDE_WORDS) (+= w GROUP))
+              (atomicStore (address-of (at wide (+ (* j WIDE_WORDS) w))) (wide_empty w)))
+         (workgroupBarrier)))

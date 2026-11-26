@@ -131,8 +131,9 @@
     ;; One build's uniform: the level a dispatch splits; its primitives, a
     ;; triangle span or (`instances`) the bottom levels' roots from slot
     ;; `root-base`; where its nodes and leaves go; the most triangles a
-    ;; leaf holds; how many levels it may take; the positions' layout; and
-    ;; how many tasks a level can hold.
+    ;; leaf holds; how many levels it may take; the positions' layout; how
+    ;; many tasks a level can hold; and how many levels split wide tasks
+    ;; across the device.
     (record BvhBuild
       ((level I32)
        (primitives I32)
@@ -145,7 +146,8 @@
        (levels I32)
        (stride I32)
        (offset I32)
-       (capacity I32))
+       (capacity I32)
+       (wide-levels I32))
       (deriving Pod))
 
     ;; A refit's uniform: the moving trees' leaves, their roots and their
@@ -232,14 +234,18 @@
 
     ;; ---- Building ----
 
-    ;; The builder's kernels, made once and shared by every build.
+    ;; The builder's kernels, made once and shared by every build: the
+    ;; steps of a level's wide tasks in their order, after the others.
     (record BvhBuilder
       ((measure GpuComputePipeline)
        (split GpuComputePipeline)
        (fill GpuComputePipeline)
        (clear GpuComputePipeline)
        (climb GpuComputePipeline)
-       (convert GpuComputePipeline)))
+       (convert GpuComputePipeline)
+       (wide-reset GpuComputePipeline)
+       (wide-bound GpuComputePipeline)
+       (wide-steps (List GpuComputePipeline))))
 
     (define (make-bvh-builder (gpu Gpu)) (→ BvhBuilder)
       (let* ((module ((● gpu create-shader-module)
@@ -257,13 +263,20 @@
                         (fill (kernel "fill"))
                         (clear (kernel "clear"))
                         (climb (kernel "climb"))
-                        (convert (kernel "convert")))))
+                        (convert (kernel "convert"))
+                        (wide-reset (kernel "wide_reset"))
+                        (wide-bound (kernel "wide_bound"))
+                        (wide-steps (map kernel
+                                         (list "wide_bin" "wide_choose" "wide_count" "wide_scan"
+                                               "wide_scatter" "wide_branch"))))))
         ((● gpu destroy) (ModuleObject module))
         builder))
 
     (define (release-bvh-builder (gpu Gpu) (b BvhBuilder)) (→ Unit)
       (for-each (lambda (p) ((● gpu destroy) (ComputePipelineObject p)))
-                (list (● b measure) (● b split) (● b fill) (● b clear) (● b climb) (● b convert))))
+                (append (list (● b measure) (● b split) (● b fill) (● b clear) (● b climb)
+                              (● b convert) (● b wide-reset) (● b wide-bound))
+                        (● b wide-steps))))
 
     ;; Every tree's slots, every leaf triangle, and each node's parent slot.
     (record Trees
@@ -271,20 +284,42 @@
        (leaves GpuBuffer)
        (parents GpuBuffer)))
 
-    ;; What a build needs while it runs: a uniform a level, the
-    ;; primitives' boxes, the spans and tasks of a level and of the next,
-    ;; the counts (the nodes made, then each level's tasks), and the groups
-    ;; of its kernels. `fill` is the leaves', which a top level has none of.
+    ;; A dispatch of a build: a kernel over `items` invocations, `size` a
+    ;; workgroup, with its group.
+    (record Step
+      ((kernel GpuComputePipeline)
+       (group GpuBindGroup)
+       (items I64)
+       (size I64)))
+
+    (define (dispatch-step (gpu Gpu) (pass GpuComputePass) (step Step)) (→ Unit)
+      ((● gpu set-compute-pipeline) pass (● step kernel))
+      ((● gpu set-compute-bind-group) pass 0 (● step group))
+      (dispatch-items gpu pass (● step items) (● step size)))
+
+    ;; What a build needs while it runs, and its steps: the boxes; for each
+    ;; level its wide tasks' steps, the first levels', then its split; and
+    ;; the leaves' triangles, which a top level has none of and a refit runs
+    ;; again. `restart!` writes the counts (the nodes made, each level's
+    ;; tasks, then each level's wide tasks), the roots and the wide roots.
     (record Run
       ((plan Plan)
-       (uniform GpuBuffer)
-       (boxes GpuBuffer)
-       (refs GpuBuffer)
-       (tasks GpuBuffer)
+       (buffers (List GpuBuffer))
        (counts GpuBuffer)
-       (prepare GpuBindGroup)
-       (levels (List GpuBindGroup))
-       (fill (Option GpuBindGroup))))
+       (tasks GpuBuffer)
+       (widened GpuBuffer)
+       (steps (List Step))
+       (fill (Option Step))))
+
+    ;; A wide task has more primitives than this (bvh.wgsl.scm's WIDE). The
+    ;; first levels split wide tasks across the device, enough of them for
+    ;; the halvings from the build's span to WIDE's, and three more for
+    ;; uneven splits; a wide task below them is split as any other.
+    (define wide (→ I64) 4096)
+
+    (define (wide-levels (p Plan)) (→ I64)
+      (if (<= (● p primitives) wide) 0
+          (min (● p levels) (+ 3 (bits (quotient (● p primitives) wide))))))
 
     (define (build-of (p Plan) (t Triangles) (level I64)) (→ BvhBuild)
       (new BvhBuild
@@ -299,84 +334,128 @@
         (levels (i64->i32 (● p levels)))
         (stride (● t stride))
         (offset (● t offset))
-        (capacity (i64->i32 (max 1 (● p primitives))))))
+        (capacity (i64->i32 (max 1 (● p primitives))))
+        (wide-levels (i64->i32 (wide-levels p)))))
 
     (define (run-for (gpu Gpu) (b BvhBuilder) (trees Trees) (t Triangles) (p Plan)) (→ Run)
       (let* ((n (max 1 (● p primitives)))
+             (most-wide (+ 1 (quotient n wide)))
              (uniform (uniform-buffer gpu "bvh/build"
                                       (uniform-slots build-shape
                                                      (map (lambda (level) (build-of p t level))
                                                           (iota (● p levels))))))
-             (boxes (storage-buffer gpu "bvh/boxes" (* 32 n) (Nil)))
-             (refs (storage-buffer gpu "bvh/refs" (* 8 n) (Nil)))
-             (tasks
-              (storage-buffer gpu "bvh/tasks" (* 2 (* (stride task-shape) n)) (list (CopyDst))))
-             (counts (storage-buffer gpu "bvh/counts" (* 4 (+ 2 (● p levels))) (list (CopyDst))))
-             (group
-              (lambda ((kernel GpuComputePipeline) (level I64) (entries (List BindGroupEntry)))
-                (→ GpuBindGroup)
-                (kernel-group gpu kernel 0 "bvh" (Cons (slot-entry 0 uniform level) entries))))
-             (vertices (list (BufferEntry 8 (● t positions) 0 0) (BufferEntry 9 (● t indices) 0 0)))
-             (split-entries (list (BufferEntry 1 boxes 0 0) (BufferEntry 2 refs 0 0)
-                                  (BufferEntry 3 tasks 0 0) (BufferEntry 4 counts 0 0)
-                                  (BufferEntry 5 (● trees slots) 0 0)
-                                  (BufferEntry 6 (● trees leaves) 0 0)
-                                  (BufferEntry 7 (● trees parents) 0 0))))
+             (storage (lambda ((label String) (size I64)) (→ GpuBuffer)
+                        (storage-buffer gpu label size (list (CopyDst)))))
+             (boxes (storage "bvh/boxes" (* 32 n)))
+             (refs (storage "bvh/refs" (* 8 n)))
+             (tasks (storage "bvh/tasks" (* 2 (* (stride task-shape) n))))
+             (counts (storage "bvh/counts" (* 4 (+ 2 (* 2 (● p levels))))))
+             (widened (storage "bvh/widened" (* 8 most-wide)))
+             (merged (storage "bvh/wide" (* 4 (* 354 most-wide))))
+             (decided (storage "bvh/decided" (* 48 most-wide)))
+             (lefts (storage "bvh/lefts" (* 4 (* most-wide (+ 1 (quotient n 1024))))))
+             (entry (lambda ((binding I32) (buffer GpuBuffer)) (→ BindGroupEntry)
+                      (BufferEntry binding buffer 0 0)))
+             (step (lambda ((kernel GpuComputePipeline) (level I64) (bindings (List BindGroupEntry))
+                            (items I64) (size I64))
+                     (→ Step)
+                     (new Step
+                       (kernel kernel)
+                       (group (kernel-group gpu kernel 0 "bvh"
+                                            (Cons (slot-entry 0 uniform level) bindings)))
+                       (items items)
+                       (size size))))
+             (vertices (list (entry 8 (● t positions)) (entry 9 (● t indices))))
+             (span (list (entry 1 boxes) (entry 2 refs) (entry 3 tasks) (entry 4 counts)
+                         (entry 12 widened)))
+             (wide-of (lambda ((index I64)) (→ (List BindGroupEntry))
+                        (list-ref (list (Cons (entry 13 merged) span)
+                                        (list (entry 3 tasks)
+                                              (entry 4 counts)
+                                              (entry 5 (● trees slots))
+                                              (entry 7 (● trees parents)) (entry 12 widened)
+                                              (entry 13 merged) (entry 14 decided))
+                                        (append span (list (entry 13 merged) (entry 14 decided)
+                                                           (entry 15 lefts)))
+                                        (list (entry 3 tasks) (entry 4 counts) (entry 12 widened)
+                                              (entry 15 lefts))
+                                        (append span (list (entry 13 merged) (entry 14 decided)
+                                                           (entry 15 lefts)))
+                                        (list (entry 3 tasks) (entry 4 counts) (entry 12 widened)
+                                              (entry 13 merged) (entry 14 decided)))
+                                  index)))
+             (workgroups (lambda ((groups I64)) (→ I64) (* 256 (max 1 (min 1024 groups)))))
+             (wide-items (list (workgroups (quotient n 1024)) (workgroups most-wide)
+                               (workgroups (quotient n 1024)) most-wide
+                               (workgroups (quotient n 1024)) (workgroups most-wide)))
+             (split-entries (append span
+                                    (list (entry 5 (● trees slots)) (entry 6 (● trees leaves))
+                                          (entry 7 (● trees parents)))))
+             (level-steps
+              (lambda ((level I64)) (→ (List Step))
+                (append (if (< level (wide-levels p))
+                            (append (if (= level 0)
+                                        (list (step (● b wide-bound) 0 (Cons (entry 13 merged) span)
+                                                    (workgroups (quotient n 1024)) 256))
+                                        (Nil))
+                                    (map (lambda (k)
+                                           (step (list-ref (● b wide-steps) k) level (wide-of k)
+                                                 (list-ref wide-items k) 256))
+                                         (iota 6)))
+                            (Nil))
+                        (list
+                         (step (● b split) level split-entries (workgroups (quotient n 2)) 256))))))
         (new Run
           (plan p)
-          (uniform uniform)
-          (boxes boxes)
-          (refs refs)
-          (tasks tasks)
+          (buffers (list uniform boxes refs tasks counts widened merged decided lefts))
           (counts counts)
-          (prepare (group (● b measure) 0
-                          (append (list (BufferEntry 1 boxes 0 0) (BufferEntry 2 refs 0 0)
-                                        (BufferEntry 5 (● trees slots) 0 0))
-                                  vertices)))
-          (levels (map (lambda (level) (group (● b split) level split-entries))
-                       (iota (● p levels))))
+          (tasks tasks)
+          (widened widened)
+          (steps (append (Cons (step (● b measure) 0
+                                     (append (list (entry 1 boxes) (entry 2 refs)
+                                                   (entry 5 (● trees slots)))
+                                             vertices)
+                                     n 256)
+                               (if (> (wide-levels p) 0)
+                                   (list (step (● b wide-reset) 0 (list (entry 13 merged))
+                                               (* 354 most-wide) 256))
+                                   (Nil)))
+                         (concatenate (map level-steps (iota (● p levels))))))
           (fill (if (● p instances) (None)
-                    (Some
-                     (group (● b fill) 0 (Cons (BufferEntry 6 (● trees leaves) 0 0) vertices))))))))
+                    (Some (step (● b fill) 0 (Cons (entry 6 (● trees leaves)) vertices) n 256)))))))
 
-    ;; The run's first level: no nodes made yet, and the plan's roots as
-    ;; its tasks. Written before the run is encoded, and again for each
-    ;; rebuild of the top level.
+    ;; The run's first level: no nodes made yet, the plan's roots as its
+    ;; tasks, and those of them that are wide on its wide list. Written
+    ;; before the run is encoded, and again for each rebuild of the top
+    ;; level.
     (define (restart! (gpu Gpu) (r Run)) (→ Unit)
-      (let ((roots (● r plan roots)) (levels (● r plan levels)))
+      (let* ((roots (● r plan roots)) (levels (● r plan levels))
+             (wide-roots (if (> (wide-levels (● r plan)) 0)
+                             (filter (lambda (k) (> (i32->i64 (● (list-ref roots k) count)) wide))
+                                     (iota (length roots)))
+                             (Nil)))
+             (zeros (lambda ((n I64)) (→ (List I32)) (map (lambda (_) (ann 0 I32)) (iota n)))))
         ((● gpu write-buffer) (● r counts) 0
          (pack (shape)
-               (append (list (ann 0 I32) (i64->i32 (length roots)))
-                       (map (lambda (_) (ann 0 I32)) (iota levels)))))
-        ((● gpu write-buffer) (● r tasks) 0 (pack task-shape roots))))
+               (concatenate (list (list (ann 0 I32) (i64->i32 (length roots)))
+                                  (zeros levels)
+                                  (list (i64->i32 (length wide-roots)))
+                                  (zeros (- levels 1))))))
+        ((● gpu write-buffer) (● r tasks) 0 (pack task-shape roots))
+        (unless (null? wide-roots)
+          ((● gpu write-buffer) (● r widened) 0 (pack (shape) (map i64->i32 wide-roots))))))
 
-    ;; The boxes, a split a level, then the leaves' triangles.
-    (define (encode-run (gpu Gpu) (b BvhBuilder) (pass GpuComputePass) (r Run)) (→ Unit)
-      (let ((n (● r plan primitives)))
-        ((● gpu set-compute-pipeline) pass (● b measure))
-        ((● gpu set-compute-bind-group) pass 0 (● r prepare))
-        (dispatch-items gpu pass n 256)
-        ((● gpu set-compute-pipeline) pass (● b split))
-        (for-each (lambda (group)
-                    ((● gpu set-compute-bind-group) pass 0 group)
-                    ((● gpu dispatch-workgroups)
-                     pass
-                     (i64->i32 (max 1 (min 1024 (quotient n 2))))
-                     1
-                     1))
-                  (● r levels))
-        (match (● r fill)
-          ((Some group) ((● gpu set-compute-pipeline) pass (● b fill))
-           ((● gpu set-compute-bind-group) pass 0 group)
-           (dispatch-items gpu pass n 256))
-          ((None) (unit)))))
+    ;; The run's steps, then its leaves'.
+    (define (encode-run (gpu Gpu) (pass GpuComputePass) (r Run)) (→ Unit)
+      (for-each (lambda (step) (dispatch-step gpu pass step)) (● r steps))
+      (match (● r fill)
+        ((Some step) (dispatch-step gpu pass step))
+        ((None) (unit))))
 
     (define (release-run (gpu Gpu) (r Run)) (→ Unit)
-      (for-each (lambda (buffer) ((● gpu destroy) (BufferObject buffer)))
-                (list (● r uniform) (● r boxes) (● r refs) (● r tasks) (● r counts)))
-      (for-each (lambda (group) ((● gpu destroy) (BindGroupObject group)))
-                (append (Cons (● r prepare) (● r levels))
-                        (match (● r fill) ((Some g) (list g)) ((None) (Nil))))))
+      (for-each (lambda (buffer) ((● gpu destroy) (BufferObject buffer))) (● r buffers))
+      (for-each (lambda (step) ((● gpu destroy) (BindGroupObject (● step group))))
+                (append (● r steps) (match (● r fill) ((Some f) (list f)) ((None) (Nil))))))
 
     ;; A plan built and submitted; its run, which the caller lets go or
     ;; keeps to build again.
@@ -385,7 +464,7 @@
              (encoder ((● gpu create-command-encoder)))
              (pass ((● gpu begin-compute-pass) encoder)))
         (restart! gpu r)
-        (encode-run gpu b pass r)
+        (encode-run gpu pass r)
         ((● gpu end-compute-pass) pass)
         ((● gpu submit) (list ((● gpu finish) encoder)))
         r))
@@ -490,12 +569,12 @@
                    (dispatch-items gpu pass count 256))))
            (restart! gpu (● m top))
            (match (● m leaves fill)
-             ((Some group) (over (● b fill) group (● m records)))
+             ((Some step) (dispatch-step gpu pass step))
              ((None) (unit)))
            (over (● b clear) (● m clear) (● m slots))
            (over (● b climb) (● m climb) (● m records))
            (over (● b convert) (● m convert) (● m slots))
-           (encode-run gpu b pass (● m top))
+           (encode-run gpu pass (● m top))
            ((● gpu end-compute-pass) pass)
            ((● gpu submit) (list ((● gpu finish) encoder)))))
         ((None) (unit))))
