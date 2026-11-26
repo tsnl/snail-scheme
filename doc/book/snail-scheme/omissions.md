@@ -1,8 +1,7 @@
 # Notable omissions
 
 `snail-scheme` is deliberately smaller than its first plan. These parts were dropped
-because they would cost more than they give the programs `snail-scheme` runs today;
-each can return if a program needs it.
+because they would cost more than they give the programs `snail-scheme` runs today.
 
 ## Cut from the plan
 
@@ -10,12 +9,17 @@ each can return if a program needs it.
   checking with typeclasses and monomorphization. Normalization
   by evaluation and implicit arguments would add type-level computation
   no program uses.
-- **Linear types and counted ownership.** Every value may be shared, and
-  the collector reclaims it ([values](values.md)). There is no `FnOnce`,
-  `Rc`, `WeakRc`, `Drop` or `Copy`, and no finalizer: a resource has an
-  explicit close operation. A second call of `resume` panics at run time
-  instead of being rejected by the checker
-  ([#767](https://github.com/tsnl/snail-scheme/issues/767)).
+- **Linear types and counted ownership.** We chose tracing GC so application
+  code can share values freely and the collector can reclaim unreachable
+  cycles. A linear-memory prototype gave selected locals stack storage and
+  checked the lifetimes of `Ref` and `MutRef` parameters. It still traced
+  shared values. Subsystems that need explicit ownership can manage their
+  storage in Rust. [Values](values.md) ·
+  [Linear-memory experiment (#934)](https://github.com/tsnl/snail-scheme/pull/934)
+
+  The language omits `FnOnce`, `Rc`, `WeakRc`, `Drop`, `Copy` and
+  finalizers. A resource has an explicit close operation. A second call of
+  `resume` panics at run time. [One-shot suspension (#767)](https://github.com/tsnl/snail-scheme/issues/767)
 - **Algebraic effects and effect rows.** Effect declarations, handlers
   and rows are gone
   ([#877](https://github.com/tsnl/snail-scheme/issues/877)). What they
