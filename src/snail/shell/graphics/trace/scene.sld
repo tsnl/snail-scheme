@@ -14,6 +14,7 @@
 (define-library (snail shell graphics trace scene)
   (export
    Scene
+   SurfaceRun
    SurfaceMaterial
    EmitterTable
    Scene-emitters-set
@@ -49,7 +50,7 @@
          matrix-from)
    (snail shell graphics kernel)
    (snail shell graphics gltf)
-   (only (snail shell graphics bvh) Triangles)
+   (only (snail shell graphics bvh) Triangles TriangleSpan)
    (snail shell graphics trace lights)
    (only (snail shell graphics raster) Plane make-plane release-plane)
    (snail shell graphics trace shaders))
@@ -61,7 +62,9 @@
     ;; indices a triangle, the materials, the texture array with a view of
     ;; all its levels and the sampler that repeats it, the box around
     ;; every vertex, low corner then high, and whether any material is
-    ;; blended, which the tracer draws as a layer of its own.
+    ;; blended, which the tracer draws as a layer of its own. Then each
+    ;; placed primitive's vertices and triangles, in order, and the spans
+    ;; of triangles that move, an object each, which a moving scene sets.
     ;; Each scene holds one reference to its texture array. Neighbouring scenes
     ;; can share an ordered image table while either remains drawable.
     (record SceneImages
@@ -82,12 +85,42 @@
        (triangle-count I64)
        (low (List F64))
        (high (List F64))
-       (blended Bool)))
+       (blended Bool)
+       (parts (List (Pair I64 I64)))
+       (moving (List TriangleSpan))
+       (runs (List SurfaceRun))))
+
+    ;; A run of triangles whose materials share an alpha mode (0 opaque, 1
+    ;; masked, 2 blended), which the tracer draws with one pipeline.
+    (record SurfaceRun
+      ((first I64)
+       (count I64)
+       (alpha I64)))
+
+    ;; The scene's triangles as runs, in order: each placed primitive's,
+    ;; merged with the one before where both have the same alpha mode.
+    (define (surface-runs (gltf Gltf)) (→ (List SurfaceRun))
+      (let ((materials (list->array (scene-materials gltf))))
+        (reverse
+         (fold-left (lambda (runs p)
+                      (let ((n (quotient (index-count (● p primitive)) 3))
+                            (alpha
+                             (● (array-ref materials (max 0 (● p primitive material))) alpha)))
+                        (match runs
+                          ((Cons r rest)
+                           (if (= (● r alpha) alpha)
+                               (Cons (SurfaceRun-count-set r (+ (● r count) n)) rest)
+                               (Cons (new SurfaceRun (first (+ (● r first) (● r count))) (count n)
+                                          (alpha alpha))
+                                     runs)))
+                          ((Nil) (list (new SurfaceRun (first 0) (count n) (alpha alpha)))))))
+                    (ann (Nil) (List SurfaceRun))
+                    (● gltf placed)))))
 
     (define vertex-stride (→ I64) 64)
 
     ;; The scene's triangles as a BVH reads them: a vertex's position is
-    ;; its first three words.
+    ;; its first three words, and the moving spans are the scene's.
     (define (scene-triangles (scene Scene)) (→ Triangles)
       (new Triangles
         (positions (● scene vertices))
@@ -95,8 +128,7 @@
         (offset 0)
         (indices (● scene indices))
         (count (● scene triangle-count))
-        (low (● scene low))
-        (high (● scene high))))
+        (moving (● scene moving))))
 
     ;; A material as the shaders read it: its base color; its emission,
     ;; with the alpha cutoff in w; its metalness, roughness, normal scale
@@ -205,7 +237,14 @@
           (triangle-count (quotient (● counts second) 3))
           (low (● bounds first))
           (high (● bounds second))
-          (blended (any? (lambda (m) (= (● m alpha) 2)) (scene-materials gltf))))))
+          (blended (any? (lambda (m) (= (● m alpha) 2)) (scene-materials gltf)))
+          (parts (map (lambda (p)
+                        (new Pair
+                          (first (● p primitive positions count))
+                          (second (quotient (index-count (● p primitive)) 3))))
+                      (● gltf placed)))
+          (moving (Nil))
+          (runs (surface-runs gltf)))))
 
     (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit)
       (release-plane gpu (● scene lights plane))
@@ -402,17 +441,65 @@
       (skin-with-layout gpu source (pack-skin bindings)))
 
     ;; Packing the same cast of actors once avoids traversing all their vertex
-    ;; influences whenever only the static prefix of the world changes.
+    ;; influences whenever only the static prefix of the world changes. Each
+    ;; binding's vertex count is kept: a binding is an object, and each
+    ;; object's triangles get a tree of their own (moving-spans).
     (record SkinLayout
       ((bytes Bytes)
        (joints I64)
-       (vertices I64)))
+       (vertices I64)
+       (objects (List I64))))
     (define (pack-skin (bindings (List SkinBinding))) (→ SkinLayout)
       (let* ((b (combined-binding bindings)) (vs (● b vertices)))
         (new SkinLayout
           (bytes (pack influence-shape vs))
           (joints (● b slots))
-          (vertices (length vs)))))
+          (vertices (length vs))
+          (objects (map (lambda (binding) (length (● binding vertices))) bindings)))))
+
+    ;; The moving triangles' spans, an object each. The objects' vertices
+    ;; are the scene's last, in binding order, and begin where a placed
+    ;; primitive does; each object's span is the triangles of the
+    ;; primitives its vertices cover. Objects that share a primitive share
+    ;; a span.
+    (define (moving-spans (scene Scene) (objects (List I64))) (→ (List TriangleSpan))
+      (let ((start (- (● scene vertex-count) (fold-left + 0 objects))))
+        (let walk ((parts (● scene parts)) (v 0) (t 0))
+          (if (= v start) (object-spans parts objects 0 t 0)
+              (match parts
+                ((Cons p rest)
+                 (when (> (+ v (● p first)) start)
+                   (panic "moving vertices must begin where a placed primitive does"))
+                 (walk rest (+ v (● p first)) (+ t (● p second))))
+                ((Nil) (panic "moving vertices must begin where a placed primitive does")))))))
+
+    ;; `left` is how many of the current objects' vertices the primitives
+    ;; taken so far have not covered, below 0 where a primitive runs into
+    ;; the next object; `count` is the triangles taken since the last span.
+    (define (object-spans (parts (List (Pair I64 I64))) (objects (List I64)) (left I64)
+                          (first I64) (count I64))
+      (→ (List TriangleSpan))
+      (match objects
+        ((Cons n more)
+         (if (or (< left 0) (and (= left 0) (= count 0)))
+             (object-spans parts more (+ left n) first count)
+             (covered parts objects left first count)))
+        ((Nil) (covered parts objects left first count))))
+
+    ;; A span where the objects' vertices end, or the next primitive taken.
+    (define (covered (parts (List (Pair I64 I64))) (objects (List I64)) (left I64)
+                     (first I64) (count I64))
+      (→ (List TriangleSpan))
+      (cond ((and (= left 0) (> count 0))
+             (Cons (new TriangleSpan (first first) (count count))
+                   (object-spans parts objects 0 (+ first count) 0)))
+            ((> left 0)
+             (match parts
+               ((Cons p rest)
+                (object-spans rest objects (- left (● p first)) first (+ count (● p second))))
+               ((Nil) (panic "moving vertices run past the placed primitives"))))
+            ((< left 0) (panic "a placed primitive runs past the moving vertices"))
+            (else (Nil))))
     (define (skin-with-layout (gpu Gpu) (source Scene) (layout SkinLayout)) (→ MovingScene)
       (let* ((joints (● layout joints))
              (total (● layout vertices)) (size (* vertex-stride (● source vertex-count))))
@@ -431,7 +518,9 @@
           ((● gpu destroy) (ModuleObject module))
           ((● gpu copy-buffer-to-buffer) encoder (● source vertices) 0 world 0 (i64->i32 size))
           ((● gpu submit) (list ((● gpu finish) encoder)))
-          (new MovingScene (scene (Scene-vertices-set source world)) (rest (● source vertices))
+          (new MovingScene (scene (Scene-moving-set (Scene-vertices-set source world)
+                                                    (moving-spans source (● layout objects))))
+               (rest (● source vertices))
                (influences ids)
                (poses poses)
                (joints joints)

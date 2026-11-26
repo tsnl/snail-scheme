@@ -50,7 +50,11 @@ export async function openBrowser({hardware = false} = {}) {
     `--user-data-dir=${profile}`, '--enable-unsafe-webgpu', '--enable-webgpu-developer-features', '--enable-features=Vulkan',
     ...backend, '--window-size=1280,800', 'about:blank'], {stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']});
   const [, , , commands, replies] = browser.stdio;
-  process.on('exit', () => { browser.kill('SIGKILL'); rmSync(profile, {recursive: true, force: true}); });
+  process.on('exit', () => {
+    browser.kill('SIGKILL');
+    // A Chromium helper can finish writing its profile as the browser exits.
+    rmSync(profile, {recursive: true, force: true, maxRetries: 5, retryDelay: 75});
+  });
   let next = 0, session, unfinished = '', traced = null, traceComplete = null;
   const pending = new Map();
   replies.setEncoding('utf8');

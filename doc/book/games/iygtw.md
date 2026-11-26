@@ -14,22 +14,22 @@ From the shop awnings on Lantern Row you can follow the paved lane north, cross 
 | Orbit the rider and zoom | Click the view, move the mouse, scroll |
 | Centre the camera | C |
 | Set the time of day | L or the light button |
-| Choose a fixed rendering quality | Q or the resolution button |
-| Pause and resume | P or the pause button |
-| Return to Lantern Row | R |
+| Change resolution | Q or the resolution button |
+| Open or close the pause menu | P, Esc, or the pause button |
+| Return to Lantern Row with Moss | R or **Reset to Lantern Row** in the pause menu |
 
-The bike has a 1.08 m wheelbase. Both wheels follow the terrain. Grass and dirt have more rolling resistance than paving. Cadence moves the pedals and legs, while distance turns the wheels even when coasting. When the bicycle slows to a standstill, the rider lowers his left foot. The camera follows a damped focus independent of the bicycle's lean. The game presents up to 30 frames per second and interpolates between 20 ms physics steps.
+Willowbank’s rideable survey spans 176 × 176 metres. The roadster has a 1.08 m wheelbase. Holding a steering key gradually turns the bars. At higher speeds the same input makes a wider turn, and the rider banks into it. Each metre travelled under power advances the crank and both feet together. At a start or on a climb, the rider rises, shifts weight forward and puts more force into the downstroke. The rider settles back when coasting and puts a foot down at a stop. The camera follows independently of the lean. The game presents up to 30 frames per second and interpolates between 20 ms physics steps.
 
-The game opens at a fixed 900p internal rendering budget. The 240p and 360p presets trace one path per pixel with one bounce. At 540p the path can bounce twice. At 720p, 900p and 1080p the tracer takes two samples per pixel with two bounces. The chosen budget is bounded by the canvas dimensions and the GPU's ray-buffer limit.
+The pause menu gives three independent choices. Resolution ranges from 240p to 1080p, samples per pixel can be 1, 2 or 4, and paths can bounce 1–8 times. A fresh ride starts at 900p, 2 samples and 2 bounces. The selected resolution fits the canvas and the GPU’s ray-buffer limit. The choices stay fixed while riding and survive resetting to Lantern Row and reloading the page. An existing ride from the larger survey keeps its distance and places the cyclist at the corresponding spot on the shorter lanes.
 
 Morning mist gathers near the creek. Sunlight passing through the leaves lights the air between their shadows. The lens focuses at the rider's actual distance from the camera, including when a wall pushes the camera closer. Try the bridge in morning light and the orchard at golden hour.
 
-To measure the ride, serve a build, then run `node benches/iygtw/ride.mjs http://127.0.0.1:4193/ 900p` from the repository root in the development shell. The benchmark pedals three routes in a fresh native Vulkan Chromium profile at a 1920×1080 viewport. It reports the actual render dimensions, completed frames per second and 95th-percentile frame interval.
+To measure the ride, serve a build, then run `node benches/iygtw/ride.mjs http://127.0.0.1:4193/ 900p 2 2` from the repository root in the development shell. The arguments after the URL are resolution, samples per pixel and bounce depth. The benchmark pedals three routes in a fresh native Vulkan Chromium profile at a 1920×1080 viewport. It reports the actual render dimensions, completed frames per second and 95th-percentile frame interval.
 
 ## Editing Willowbank
 
 Open `src/apps/iygtw/art/Willowbank.blend` in Blender to edit the level. The collections group the village, water, roads, farms and distant hills. The road meshes supply the visible surface and wheel contact. Their survey curves record the alignments. Edit the mesh when changing the riding surface. A mesh tagged `iy_surface` supplies the surface type and wheel height. The exporter projects the `iy_solid` and `iy_fence` meshes into obstacle spans. The `iy_waymark` empties name places, and marker zero sets the starting position.
 
-`Roadster.blend` contains the weighted bicycle and character, including their separate pedal, steering, rolling and resting actions. `Moss.blend` contains the dog's rig and trot. Both actors share the path tracer's skinning pass. The rider's skin takes its scattering weight from Blender's Principled BSDF.
+`Roadster.blend` contains the weighted bicycle and character. The seated and standing pedal actions share a crank phase. Two steering actions place the hands on the grips at either posture. With the roadster open in Blender, `src/blender/bake_roadster.py` rebuilds these actions from the rest rig. In the level file, `src/blender/plant_verges.py` replants the dedicated collection of sedges, dock, foxgloves, hazel and the ash canopy along the lanes. `Moss.blend` contains the dog's rig and trot. Both actors share the path tracer's skinning pass. The rider's skin takes its scattering weight from Blender's Principled BSDF.
 
 After an art edit, run `make iygtw-art` with Blender on the path. Check in the source and its exports together. A normal `make iygtw` uses the checked-in exports. The browser downloads the eight files in `main.resources` with progress, caches them locally and reuses them on subsequent visits. Tree sprays, grass blades, gravel, plaster, timber and other material scans are credited in the game. [Willowbank art credits](../play/iygtw/CREDITS.txt).

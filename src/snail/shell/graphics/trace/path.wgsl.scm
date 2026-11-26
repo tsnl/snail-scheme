@@ -327,7 +327,7 @@
 (fn seeded ((pixel u32) (salt u32)) (-> u32)
     (return (pcg (bit-xor pixel
                           (pcg (+ (* (u32 (get tracing frame)) 64u)
-                                  (* (u32 (get tracing sample_index)) 2246822519u)
+                                  (* (u32 (get tracing sample_index)) 2654435769u)
                                   (* (u32 (get wave step x)) 4u)
                                   salt))))))
 
@@ -382,7 +382,7 @@
         (else (= (get (deref draw) total) total))))
 
 (fn writes_reservoir () (-> bool)
-    (return (and (>= (get tracing reuse) 0) (== (get tracing sample_index) 0))))
+    (return (>= (get tracing reuse) 0)))
 
 (fn direct_shadow
     ((s Surface) (v vec3f) (weight vec3f) (proposal Proposal) (h VisibilityHistory)
@@ -554,6 +554,6 @@
     (if ((or (>= (get id x) (get size x)) (>= (get id y) (get size y))) (return)))
     (let pixel (vec2i (get id xy)))
     (let index (+ (pixel_index pixel) (u32 (get tracing layer_offset))))
-    (textureStore noisy
-                  pixel
-                  (vec4f (* (get (at radiance index) xyz) (get tracing sample_weight)) 1.0)))
+    (let mean (vec4f (* (get (at radiance index) xyz) (get tracing sample_weight)) 1.0))
+    (= (at radiance index) mean)
+    (textureStore noisy pixel mean))

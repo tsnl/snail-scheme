@@ -17,7 +17,8 @@ export const pageLines = [
 export const deviceLines = [
   'moving shadows: hit open hit open / open hit hit open',
   'skinned shadows: hit open hit open / open hit hit open',
-  'reservoirs: weighted draws, capped reuse, visible and blocked light, disocclusion and full coverage at one and two paths per pixel',
+  'wide tree: 400 of 400 boxes hit, 400 of 400 gaps open',
+  'reservoirs: weighted draws, capped reuse, visible and blocked light, disocclusion and full coverage',
   'decoded: 255 0 0 255 0 255 0 255',
   'scene: 230 3 3 255 230 3 3 255 153 153 153 255 153 153 153 255',
   // The same light through Hable's curve and sRGB encoding: the grey

@@ -37,3 +37,15 @@ body[data-ready] .controls { display: block; bottom: clamp(16px, 3vh, 36px); fon
 body[data-ready] .download, body[data-error] .download { display: none; }
 body[data-ready] .controls { z-index: 2; }
 @media(max-width: 540px) { .options button { padding: 6px 8px; } .waymark { max-width: 62vw; } }
+.pause-screen { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; background: #12201980; pointer-events: auto; padding: 16px; }
+.pause-screen[hidden] { display: none; }
+.pause-panel { width: min(100%, 25rem); max-height: 95dvh; overflow: auto; background: #253a31fa; border: 1px solid #b7b79a; border-radius: 5px; box-shadow: 0 10px 65px #0a140d66; padding: clamp(18px, 4vw, 32px); }
+.pause-panel h2 { margin: 0 0 1rem; font: italic 400 2.2rem/1.1 "Baskervville", Georgia, serif; }
+.pause-panel fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.pause-panel legend { color: #dccba6; font-size: .9rem; letter-spacing: .04em; padding: 0 0 .5rem; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .48rem 0; border-top: 1px solid #b2b59b44; }
+.setting select { font: inherit; color: inherit; background: #364c40; border: 1px solid #b5b99888; border-radius: 3px; padding: .33rem; min-width: 6.1rem; }
+.pause-actions { display: flex; gap: .5rem; margin-top: 1.15rem; }
+.pause-actions button { padding: .55rem .7rem; border: 1px solid #d2cfb57a; border-radius: 3px; }
+.pause-actions .resume { background: #f1ddb0; color: #24372c; border-color: #f1ddb0; }
+body:has(.pause-screen:not([hidden])) :is(.options, .controls) { visibility: hidden; }

@@ -55,8 +55,6 @@
     // The panel folds away once something is dropped.
     const models = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/f0920f5b32d172a30efe3f9257e965918831e6ea/Models/';
     const lights = 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/';
-    const spp = new URLSearchParams(location.search).get('spp');
-    const sampling = spp === '1' || spp === '2' ? `&spp=${spp}` : '';
     const status = document.getElementById('status');
     addEventListener('drop', () => { document.getElementById('open').open = false; });
     function drop(address) {
@@ -67,7 +65,7 @@
     for (const link of document.querySelectorAll('a[data-model], a[data-light]')) {
       const {model, light, eye} = link.dataset;
       const address = model ? `${models}${model}/glTF/${model}.gltf` : `${lights}${light}_2k.hdr`;
-      link.href = `?${model ? 'model' : 'env'}=${encodeURIComponent(address)}${eye ? `&eye=${eye}` : ''}${sampling}`;
+      link.href = `?${model ? 'model' : 'env'}=${encodeURIComponent(address)}${eye ? `&eye=${eye}` : ''}`;
       if (!eye) link.addEventListener('click', event => {
         if (event.ctrlKey || event.metaKey || event.shiftKey) return;
         event.preventDefault();

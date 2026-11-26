@@ -138,8 +138,17 @@
     (= (get f p_y) (dpdy (get in world)))
     (return f))
 
-;; An opaque or masked material's first hit; a masked one below its
-;; cutoff, and every blended one, leave it to what is behind.
+;; An opaque material's first hit. No texel of it leaves the pixel to what
+;; is behind, so the depth test can run before the shader does: the
+;; tracer draws opaque runs of triangles with this, and the rest with
+;; `surface_fragment`.
+(fn (@fragment) opaque_fragment ((in Varying)) (-> Targets)
+    (let f (footprint in))
+    (let m (at materials (get in material)))
+    (return (drawn in f m (texel (get m textures x) f) 1.0)))
+
+;; A masked material's first hit; one below its cutoff, and every blended
+;; one, leave it to what is behind.
 (fn (@fragment) surface_fragment ((in Varying)) (-> Targets)
     (let f (footprint in))
     (let m (at materials (get in material)))

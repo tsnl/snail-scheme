@@ -76,22 +76,18 @@
     ;; Close 90% of the gap in N opportunities: (1 - rate)^N = 0.1.
     (define (recovery-rate (n F64)) (→ F64) (- 1.0 (expt 0.1 (/ 1.0 n))))
 
-    ;; Only the first path writes a reservoir. Every path can observe visibility.
-    ;; For a light that wins each probe, expected progress per path is probe × gain.
-    (define (light-guiding-rates (settings LightGuiding) (samples I32))
-      (→ GuidingRates)
+    ;; A pixel's one path a frame observes visibility once. For a light
+    ;; that wins each probe, expected progress per path is probe × gain.
+    (define (light-guiding-rates (settings LightGuiding)) (→ GuidingRates)
       (let ((floor (● settings exploration-floor)) (frames (● settings recovery-frames)))
-        (unless (and (>= floor 0.0) (<= floor 1.0) (> frames 0) (or (= samples 1) (= samples 2)))
-          (panic
-           "light guiding needs an exploration floor in [0,1], positive frames and 1 or 2 paths"))
-        (let* ((turnover (recovery-rate (i32->f64 frames)))
-               (rate (recovery-rate (* (i32->f64 frames) (i32->f64 samples))))
-               (probe (max (f32->f64 floor) rate)))
+        (unless (and (>= floor 0.0) (<= floor 1.0) (> frames 0))
+          (panic "light guiding needs an exploration floor in [0,1] and positive frames"))
+        (let* ((rate (recovery-rate (i32->f64 frames))) (probe (max (f32->f64 floor) rate)))
           (new GuidingRates
             (exploration (f64->f32 probe))
             (visibility-gain (f64->f32 (/ rate probe)))
             (visibility-floor (f64->f32 (min 0.5 rate)))
-            (history-limit (f64->f32 (min 20.0 (/ (- 1.0 turnover) turnover))))))))
+            (history-limit (f64->f32 (min 20.0 (/ (- 1.0 rate) rate))))))))
 
     ;; ---- Shader and storage ----
 

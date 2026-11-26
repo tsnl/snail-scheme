@@ -9,12 +9,14 @@ pieces run and what they cost.
 
 ## `(snail shell graphics bvh)`
 
-Ray queries, which WebGPU lacks: a bounding volume hierarchy over any
-`Triangles`, and kernels that trace queues of rays through it. `build-bvh`
-builds it once, in one compute pass: Morton codes of the triangles'
-centroids, a bitonic sort of them, the tree from the sorted codes, and its
-boxes refit from the leaves up, then packed so each node holds both its
-children's boxes. `make-ray-kernels` makes the queries, `intersect` for the
+Ray queries, which WebGPU lacks: a two-level bounding volume hierarchy over
+any `Triangles`, and kernels that trace queues of rays through it. A bottom
+level is a tree over the still triangles or one moving object's span, and
+the top level a tree over their roots. `make-bvh-builder` makes the
+builder's kernels once. `build-bvh` builds every tree on the device, top
+down by the surface area heuristic, a level a dispatch. `refit-bvh!`
+refits the moving objects' trees after their vertices change and rebuilds
+the top level. `make-ray-kernels` makes the queries, `intersect` for the
 nearest hit and `occlude` for any, with the program's `cutout` test, and
 `trace-rays` runs one over a queue.
 
@@ -68,7 +70,7 @@ reorders moving lights gives the new occupant that slot's recent estimate.
 `observe_visibility` takes a history, a nonzero key, a shadow test result
 and an update gain, and returns the updated history.
 
-`(light-guiding-rates settings paths-per-pixel)` exposes the four
+`(light-guiding-rates settings)` exposes the four
 f32 fields uploaded with each wave. They are the exploration probability,
 visibility update gain, minimum visibility used in selection, and maximum
 temporal donor count in multiples of the fresh count. The settings are a
@@ -120,15 +122,19 @@ table with `release-emitter-table`.
 
 ## `(snail shell graphics svgf)`
 
-A denoiser for one path a pixel: spatiotemporal variance-guided filtering
+Spatiotemporal variance-guided filtering
 (Schied et al., 2017). `filter-svgf` reads a frame's noisy radiance and the
 G-buffer planes it was traced from, keeps a history across frames, and
 writes the filtered light, scaled by an exposure, into a plane the program
 gives it, such as a `Post`'s. A frame is two compute passes: temporal
 accumulation, variance and the first à-trous level, then four more levels;
-`resize-svgf` follows the canvas. Its planes are 32-bit floats: a still
-camera's history is a running average, which a frame moves by as little as
-1/4096, a step half floats round away.
+`resize-svgf` follows the canvas. The planes that reach the history are
+32-bit floats: a still camera's history is a running average, which a frame
+moves by as little as 1/4096, a step half floats round away. The four later
+levels reach only the frame's light and run in half floats. Temporal
+accumulation also writes each pixel's guide, its world position and packed
+normal in one `rgba32uint` texel, which the variance's and each level's
+neighbors are weighed by in one load each.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/svgf.sld)
 
@@ -141,13 +147,17 @@ bounces, each bounce's rays traced by `bvh`'s queries and lit by an
 mapping and FXAA. A scene with blended materials also gets a blended
 layer: the nearest blended surface in front of the first hits, traced and
 filtered on its own, then blended over them by its alpha
-([the blended layer](../graphics/tracer.md#the-blended-layer)). `make-tracer` makes a `Tracer` once for a scene and the
-canvas, `resize-tracer` follows the canvas, `retrace` gives it another
+([the blended layer](../graphics/tracer.md#the-blended-layer)). `make-tracer` makes a `Tracer` once for a scene, the
+canvas and a tone curve, `resize-tracer` follows the canvas,
+`refit-tracer!` follows a moving scene's objects, `build-scene-bvh` builds
+a scene's BVH ahead of the frame that changes to it, for `retrace-built`, `retrace` gives it another
 scene and environment with the same pipelines and targets, and
 `draw-traced` draws a frame, its paths bouncing as many times as it asks,
 up to `most-bounces`. Its final argument is a `TraceSettings` record with
-`display-width`, `display-height` and `samples` (one or two). Both sizes use
+`display-width` and `display-height`, a path a pixel. Both sizes use
 Halton-jittered first hits, SVGF and the stable display resolve.
+For additional paths at a fixed resolution, `draw-traced-samples` also takes
+a final path count (1–4). It resolves their mean before denoising.
 `encode-trace-observation` takes a caller-owned command encoder, tracer,
 camera, pixel spread, bounce depth and random seed. It writes the G-buffer,
 per-layer radiance and noisy targets for one fresh full-resolution sample.

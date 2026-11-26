@@ -51,7 +51,6 @@
                                                           (declarations lens-shape)))
                                      (mist (pipeline gpu
                                                      (string-append code
-                                                                    (declarations bvh-layout-shape)
                                                                     (declarations material-shape)
                                                                     scene-shader
                                                                     rays-shader
@@ -86,20 +85,12 @@
                                   (height height)
                                   (volume volume) (output output)
                                   (shadows (kernel-group gpu mist 0 "photography/tree"
-                                                         (list (BufferEntry 0 (● bvh nodes) 0 0)
-                                                               (BufferEntry 1
-                                                                            (● bvh
-                                                                               triangles
-                                                                               positions)
-                                                                            0
-                                                                            0)
-                                                               (BufferEntry 2
-                                                                            (● bvh
-                                                                               triangles
-                                                                               indices)
-                                                                            0
-                                                                            0)
-                                                               (BufferEntry 3 (● bvh layout) 0 0))))
+                                                         (list
+                                                          (BufferEntry 0 (● bvh trees slots) 0 0)
+                                                          (BufferEntry 1
+                                                                       (● bvh trees leaves)
+                                                                       0
+                                                                       0))))
                                   (cutouts (kernel-group gpu mist 1 "photography/leaves"
                                                          (list
                                                           (BufferEntry 0 (● scene vertices) 0 0)

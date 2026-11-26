@@ -3,7 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import {openBrowser, sleep, until} from '../../tests/browser/chromium.mjs';
 
-const [url = 'http://127.0.0.1:4193/', preset = '1080p'] = process.argv.slice(2);
+const [url = 'http://127.0.0.1:4193/', preset = '1080p', samples = '1', bounces = '2'] = process.argv.slice(2);
 const base = new URL(url.endsWith('/') ? url : url + '/');
 execFileSync('./snail-scheme', ['run', '--target', 'node', 'benches/iygtw/checkpoints.scm'], {stdio: 'inherit'});
 const browser = await openBrowser({hardware: true});
@@ -53,29 +53,50 @@ async function openRide(place) {
   await browser.navigate(base.href);
   const state = await until(() => evaluate('document.body?.dataset.error || document.body?.dataset.ready'), 'ride', 150);
   if (state !== 'true') throw Error(state);
-  for (let i = 0; i < 6 && await quality() !== preset; i++) {
-    await key('q', true); await key('q', false); await sleep(300);
+  await evaluate('document.querySelector(".pause").click()');
+  await until(() => evaluate('document.querySelector(".pause-screen")?.hidden === false'), 'pause menu');
+  for (const [selector, value] of [['.resolution', preset], ['.samples', samples], ['.bounces', bounces]]) {
+    const changed = await evaluate(`(() => {const s=document.querySelector(${JSON.stringify(selector)});
+      s.value=${JSON.stringify(value)}; if(s.selectedIndex<0)return false;
+      s.dispatchEvent(new Event("change",{bubbles:true}));return true})()`);
+    if (!changed) throw Error('Unknown ' + selector + ' ' + value);
+    await sleep(180);
   }
-  if (await quality() !== preset) throw Error('Unknown preset ' + preset);
+  await evaluate('document.querySelector(".resume").click()');
+  await until(() => evaluate('document.querySelector(".pause-screen")?.hidden'), 'resume');
+  if (await quality() !== preset) throw Error('Resolution did not change');
 }
 
 function percentile(values, fraction) {
   return +values.sort((a, b) => a - b)[Math.floor((values.length - 1) * fraction)].toFixed(1);
 }
+// A brief turn follows the lane at each bend, including the exit from the bridge.
+async function followLane(place) {
+  const [direction, approach, turn] = {
+    'lantern-row': ['d', 3800, 300],
+    'mill-bridge': ['a', 2400, 640],
+    orchard: ['d', 3800, 200],
+  }[place];
+  await sleep(approach);
+  await key(direction, true);
+  try { await sleep(turn); } finally { await key(direction, false); }
+}
+
 async function measure(place) {
   await openRide(place);
   const adapter = await evaluate('navigator.gpu.requestAdapter().then(a => [a.info.vendor, a.info.architecture, a.info.isFallbackAdapter])');
   if (adapter[2]) throw Error('Chromium selected a software adapter');
   await key('w', true); await sleep(1800);
   await evaluate('rideFrames()'); const from = await metres();
-  await sleep(9000);
+  await Promise.all([sleep(9000), followLane(place)]);
   const {frames, resolution} = await evaluate('rideFrames()');
   await key('w', false);
   if (frames.length < 2 || !resolution) throw Error('No traced frames');
   const elapsed = frames.at(-1)[0] - frames[0][0], distance = await metres() - from;
-  if (distance < 25) throw Error('The benchmark bicycle did not travel the route');
+  const speed = await evaluate('parseInt(document.querySelector(".speed").textContent, 10)');
+  if (distance < 25 || speed < 3) throw Error(place + ' covered ' + distance + ' metres and ended at ' + speed + ' km/h');
   const intervals = frames.slice(1).map(([end], i) => end - frames[i][0]);
-  console.log(JSON.stringify({place, preset, resolution, adapter, metres: distance, frames: frames.length,
+  console.log(JSON.stringify({place, preset, samples, bounces, resolution, adapter, metres: distance, frames: frames.length,
     fps: +((frames.length - 1) * 1000 / elapsed).toFixed(2), p95IntervalMs: percentile(intervals, .95),
     p95SubmissionToFinishMs: percentile(frames.map(([end, start]) => end - start), .95)}));
 }
