@@ -7,6 +7,7 @@
    (snail shell base64)
    (snail shell game vehicle)
    (apps iygtw ride)
+   (apps iygtw rider)
    (apps iygtw render))
   (begin
     (define (element (d Dom) (parent Node) (tag String) (class String) (text String)) (→ Node)
@@ -152,7 +153,13 @@
         ((● d focus-node) (if paused (● h resume) (● h pause)))))
     (define (show! (d Dom) (h Hud) (v Valley) (s Ride) (paused Bool)) (→ Unit)
       (let ((p (● s bike position)) (speed (abs (signed-speed (● s bike)))) (write (● d set-text)))
-        (write (● h place) (place-at v p)) (write (● h surface) (surface-name (surface-at v p)))
+        (write (● h place) (place-at v p)) (write (● h surface)
+                                                  (cond
+                                                   ((can-remount? (● s rider)) "E · Get back on")
+                                                   ((fallen? (● s rider)) "Taking a tumble")
+                                                   ((< (signed-speed (● s bike)) -0.06)
+                                                    "Walking bike back")
+                                                   (else (surface-name (surface-at v p)))))
         (write (● h speed) (string-append (show (f64->i64 (round (* speed 3.6)))) " km/h"))
         (write (● h light) (light-name (● s light)))
         (write (● h quality) (quality-name (● s quality)))

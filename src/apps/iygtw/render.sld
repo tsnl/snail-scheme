@@ -9,7 +9,16 @@
    (snail shell game terrain)
    (only (snail shell game vehicle) signed-speed)
    (snail shell game chase)
-   (only (snail shell game rigid-body) V3 v3 v+ scaled cross unit-vector)
+   (only (snail shell game rigid-body)
+         V3
+         v3
+         v+
+         v-
+         scaled
+         cross
+         unit-vector
+         rotated
+         between-rotations)
    (snail shell graphics gltf)
    (snail shell graphics gltf animation)
    (snail shell graphics animation)
@@ -21,7 +30,10 @@
    (snail shell graphics trace photography)
    (snail shell graphics trace render)
    (only (snail shell graphics passes) Photographic)
-   (apps iygtw ride))
+   (apps iygtw ride)
+   (apps iygtw soil)
+   (apps iygtw rider)
+   (apps iygtw road-film))
   (begin
 
     ;; ---- Posed actors ----
@@ -35,6 +47,12 @@
        (standing-reach Clip)
        (arms (List I64))
        (rest Clip)
+       (brace Clip)
+       (tumble Clip)
+       (walk-back Clip)
+       (human (List I64))
+       (bracing-bones (List I64))
+       (walking-bones (List I64))
        (left-leg (List I64))
        (roll Clip)
        (steer Clip)
@@ -42,20 +60,19 @@
        (wheels (List I64))
        (fork (List I64))))
     (define (actors (rider Rigged) (dog Rigged)) (→ Actors)
-      (let ((r (● rider rig)))
+      (let* ((r (● rider rig))
+             (bones (lambda ((names (List String))) (→ (List I64))
+                      (concatenate (map (lambda (name) (named-branch r name)) names))))
+             (arms (bones (list "LUpperArm" "LForearm" "LHand" "RUpperArm" "RForearm" "RHand")))
+             (trunk (named-branch r "Body")) (left (bones (list "LThigh" "LShin" "LFoot")))
+             (walking (append trunk (append left (bones (list "RThigh" "RShin" "RFoot"))))))
         (new Actors (rider r) (dog (● dog rig))
              (pedal (named-clip rider "Pedal")) (climb (named-clip rider "Climb"))
              (reach (named-clip rider "Reach")) (standing-reach (named-clip rider "Standing reach"))
-             (arms (concatenate (map (lambda (bone) (named-branch r bone))
-                                     (list "LUpperArm"
-                                           "LForearm"
-                                           "LHand"
-                                           "RUpperArm"
-                                           "RForearm"
-                                           "RHand"))))
-             (rest (named-clip rider "Rest"))
-             (left-leg (concatenate (map (lambda (bone) (named-branch r bone))
-                                         (list "LThigh" "LShin" "LFoot"))))
+             (arms arms) (bracing-bones (append trunk arms)) (walking-bones walking)
+             (human (append walking arms)) (left-leg left)
+             (rest (named-clip rider "Rest")) (brace (named-clip rider "Brace"))
+             (tumble (named-clip rider "Tumble")) (walk-back (named-clip rider "Walk back"))
              (roll (named-clip rider "Roll"))
              (steer (named-clip rider "Steer")) (trot (named-clip dog "Trot"))
              (wheels (append (named-branch r "WheelBack") (named-branch r "WheelFront")))
@@ -64,17 +81,51 @@
       (v4 (f64->f32 (● v x)) (f64->f32 (● v y)) (f64->f32 (● v z)) w))
     ;; Local -Z points towards the front wheel. Pitch comes from both contact
     ;; patches, and banking rotates around that pitched frame.
-    (define (mount (g Terrain) (b Body) (lean F64) (span F64)) (→ Mat4x4f)
+    (define (mount (g Terrain) (b Body) (lean F64) (span F64) (front-depth F64) (rear-depth F64))
+      (→ Mat4x4f)
       (let* ((p (● b position)) (f (forward (● b heading)))
-             (ahead (unit-vector (v3 (● f x) (ground-slope g p f span) (● f z))))
+             (ahead (unit-vector (v3 (● f x)
+                                     (+ (ground-slope g p f span)
+                                        (/ (- rear-depth front-depth) span))
+                                     (● f z))))
              (right (v3 (negate (● f z)) 0.0 (● f x))) (up (cross right ahead))
              (c (cos lean)) (s (sin lean)))
         (new Mat4x4f (x (column (v+ (scaled right c) (scaled up (negate s))) 0.0))
              (y (column (v+ (scaled up c) (scaled right s)) 0.0))
              (z (column (scaled ahead -1.0) 0.0))
-             (w (column (v3 (● p x) (ground-height g p) (● p z)) 1.0)))))
+             (w (column
+                 (v3 (● p x)
+                     (+ (- (ground-height g p) (* 0.5 (+ front-depth rear-depth))) (* 0.14 (* s s)))
+                     (● p z))
+                 1.0)))))
     (define (phase-pose (rig Rig) (clip Clip) (phase F64)) (→ (Array Transform))
       (sample-pose rig clip (* (- phase (floor phase)) (● clip duration))))
+    (define (torso-frame (a Fall) (b Fall) (t F64)) (→ Mat4x4f)
+      (let* ((from (● a torso center)) (to (● b torso center))
+             (p (v+ from (scaled (v- to from) t)))
+             (q (between-rotations (● a torso orientation) (● b torso orientation) t)))
+        (new Mat4x4f (x (column (rotated q (v3 1.0 0.0 0.0)) 0.0))
+             (y (column (rotated q (v3 0.0 1.0 0.0)) 0.0))
+             (z (column (rotated q (v3 0.0 0.0 1.0)) 0.0))
+             (w (column (v- p (rotated q rider-center)) 1.0)))))
+    (define (rider-palette (a Actors)
+                           (pose (Array Transform))
+                           (mount Mat4x4f)
+                           (old Rider)
+                           (r Rider)
+                           (t F64))
+      (→ (List Mat4x4f))
+      (let ((rig (● a rider)))
+        (match (● r fall)
+          ((None) (joint-palette rig pose mount))
+          ((Some f)
+           (let* ((prev (match (● old fall) ((Some v) v) (_ f)))
+                  (tuck (mix (● prev tuck) (● f tuck) t))
+                  (limbs (sample-pose rig (● a tumble) (* tuck (● a tumble duration))))
+                  (body-world (posed-nodes rig limbs (torso-frame prev f t)))
+                  (world (posed-nodes rig pose mount)))
+             (for-each (lambda (i) (array-set! world i (array-ref body-world i))) (● a human))
+             (skin-palette rig world))))))
     (define (palette (a Actors) (g Terrain) (before Ride) (now Ride) (t F64)) (→ (List Mat4x4f))
       (let* ((r (● a rider)) (d (● a dog)) (steer (mix (● before steer) (● now steer) t))
              (b (between-bodies (● before bike) (● now bike) t))
@@ -99,18 +150,33 @@
                             (sample-pose r (● a rest) 0.0)
                             (f64->f32 rest)
                             (● a left-leg)))
+             (walking (max 0.0 (min 1.0 (* -3.5 (signed-speed b)))))
+             (backward (blend-branch rider (phase-pose r (● a walk-back)
+                                                       (* -1.6
+                                                          (mix (● before wheel) (● now wheel) t)))
+                                     (f64->f32 walking)
+                                     (● a walking-bones)))
+             (braced
+              (blend-branch backward (sample-pose r (● a brace) (* lock (● a brace duration)))
+                            (f64->f32 (mix (● before rider brace) (● now rider brace) t))
+                            (● a bracing-bones)))
              (bars (sample-pose r
                                 (● a steer)
                                 (* (● a steer duration)
                                    (max 0.0 (min 1.0 (- 0.5 (/ steer 1.18)))))))
              (wheels (phase-pose r (● a roll) (mix (● before wheel) (● now wheel) t)))
-             (pose (blend-branch (blend-branch rider bars 1.0 (● a fork)) wheels 1.0 (● a wheels)))
+             (pose (blend-branch (blend-branch braced bars 1.0 (● a fork)) wheels 1.0 (● a wheels)))
              (trot (phase-pose d (● a trot) (mix (● before stride) (● now stride) t))))
         (append
-         (joint-palette r
+         (rider-palette a
                         pose
-                        (mount g b (- (mix (● before lean) (● now lean) t) (* 0.12 rest)) 1.08))
-         (joint-palette d trot (mount g (between-bodies (● before dog) (● now dog) t) 0.0 0.45)))))
+                        (mount g b (- (mix (● before lean) (● now lean) t) (* 0.12 rest)) 1.08
+                               (rut-depth (● now soil) (wheel-at b 0.54))
+                               (rut-depth (● now soil) (wheel-at b -0.54)))
+                        (● before rider) (● now rider) t)
+         (joint-palette d
+                        trot
+                        (mount g (between-bodies (● before dog) (● now dog) t) 0.0 0.45 0.0 0.0)))))
 
     ;; ---- Sky and camera ----
 
@@ -134,6 +200,8 @@
         (new Pair (first (max 1 (f64->i32 (* w s)))) (second (max 1 (f64->i32 (* h s)))))))
     (record Renderer
       ((ground Terrain)
+       (basins (List Basin))
+       (film RoadFilm)
        (actors Actors)
        (stage MovingScene)
        (sky SkyLight)
@@ -143,7 +211,14 @@
        (chase (Option Chase))))
     (define (reset-camera! (r Renderer)) (→ Unit)
       (set! (● r chase) (None)) (set! (● r tracer) (discard-trace-history (● r tracer))))
-    (define (camera! (r Renderer) (b Body) (yaw F64) (pitch F64) (boom F64) (dt F64) (aspect F64))
+    (define (camera! (r Renderer)
+                     (b Body)
+                     (look-height F64)
+                     (yaw F64)
+                     (pitch F64)
+                     (boom F64)
+                     (dt F64)
+                     (aspect F64))
       (→ Camera3D)
       (let* ((g (● r ground)) (p (● b position)) (v (● b velocity))
              (target
@@ -164,29 +239,31 @@
         (camera-3d (point (● eye x)
                           (max (+ 0.32 (ground-height g eye)) (+ (+ y 1.33) (* boom (sin pitch))))
                           (● eye z))
-                   (point (● at x) (+ y 1.29) (● at z))
+                   (point (● at x) (+ y look-height) (● at z))
                    (PinholeRange 0.91 0.12 1800.0)
                    aspect
                    1.0)))
 
     ;; The boom shortens beside walls. Focus on the rider in view space using
     ;; the camera that actually cleared the obstacle.
-    (define (rider-focus (g Terrain) (b Body) (c Camera3D)) (→ F32)
+    (define (rider-focus (g Terrain) (b Body) (look-height F64) (c Camera3D)) (→ F32)
       (let ((p (● b position)) (eye (● c eye)) (f (● c forward)))
         (max 0.5 (+ (+ (* (- (f64->f32 (● p x)) (● eye x)) (● f x))
-                       (* (- (f64->f32 (+ (ground-height g p) 1.38)) (● eye y)) (● f y)))
+                       (* (- (f64->f32 (+ (ground-height g p) look-height)) (● eye y)) (● f y)))
                     (* (- (f64->f32 (● p z)) (● eye z)) (● f z))))))
 
     ;; ---- Ray-traced presentation ----
 
     (define (make-renderer (gpu Gpu)
-                           (ground Terrain)
+                           (valley Valley)
                            (village Bytes)
                            (bike Bytes)
                            (pet Bytes)
                            (s Ride))
       (→ Renderer)
-      (let* ((info ((● gpu request-device))) (canvas ((● gpu current-texture)))
+      (let* ((ground (● valley ground))
+             (info ((● gpu request-device)))
+             (canvas ((● gpu current-texture)))
              (read (lambda ((paths (List String))) (→ (List Bytes))
                      (unless (null? paths) (panic "village glTF must be self-contained")) (Nil)))
              (rider (read-rigged-gltf bike "./" read)) (dog (read-rigged-gltf pet "./" read))
@@ -196,18 +273,28 @@
              (stage (skin-scene gpu
                                 (upload-scene gpu read all 512)
                                 (list (● rider binding) (● dog binding))))
+             (film (road-film gpu (● stage scene) ground (● valley surfaces)))
              (sky (make-atmosphere-light gpu (atmosphere (● s light)) 256))
              (limit (i64->f64 (quotient (i32->i64 (● info storage-binding-size)) ray-size)))
              (size (size-at (● canvas width) (● canvas height) (● s quality) limit)))
         (deform-scene! gpu stage (palette a ground s s 1.0))
-        (new Renderer (ground ground) (actors a) (stage stage) (sky sky) (light (● s light))
-             (limit limit) (chase (None))
-             (tracer
-              (make-tracer gpu (● stage scene) (● sky environment) (● info format)
-                           (● size first) (● size second) 512 (Photographic))))))
+        (paint-road! gpu film (● valley basins) (● s soil))
+        (new Renderer
+          (ground ground)
+          (basins (● valley basins))
+          (film film)
+          (actors a)
+          (stage stage)
+          (sky sky)
+          (light (● s light))
+          (limit limit) (chase (None))
+          (tracer
+           (make-tracer gpu (● stage scene) (● sky environment) (● info format)
+                        (● size first) (● size second) 512 (Photographic))))))
     (define (draw! (r Renderer) (gpu Gpu) (before Ride) (s Ride) (t F64) (time F64)
                    (yaw F64) (pitch F64) (boom F64) (elapsed I32)) (→ Unit)
                    ((● gpu work-done))
+                   (paint-road! gpu (● r film) (● r basins) (● s soil))
                    (unless (= (● r light) (● s light))
                      (update-atmosphere! gpu (● r sky) (atmosphere (● s light)))
                      (set! (● r light) (● s light)))
@@ -218,15 +305,28 @@
                           (output (new TraceSettings (display-width (min w (* 2 (● size first))))
                                        (display-height (min h (* 2 lines)))))
                           (b (between-bodies (● before bike) (● s bike) t))
+                          (subject (match (● s rider fall)
+                                     ((Some f)
+                                      (let* ((old (match (● before rider fall) ((Some v) v) (_ f)))
+                                             (q (● old torso center)) (p (● f torso center))
+                                             (at
+                                              (xz (mix (● q x) (● p x) t) (mix (● q z) (● p z) t))))
+                                        (new Pair (first (body at (● b heading)))
+                                             (second (max 0.32
+                                                          (- (mix (● q y) (● p y) t)
+                                                             (ground-height (● r ground) at)))))))
+                                     (_ (new Pair (first b) (second 1.29)))))
                           (cut (match (● r chase) ((None) #t) (_ #f)))
                           (cam (camera! r
-                                        b
+                                        (● subject first) (● subject second)
                                         yaw
                                         pitch
                                         boom
                                         (* 0.001 (i32->f64 elapsed))
                                         (/ (i32->f64 w) (i32->f64 (max h 1)))))
-                          (moving (or cut (> (distance (● b velocity) (xz 0.0 0.0)) 0.001)
+                          (moving (or cut (not (= (● before rider brace) (● s rider brace)))
+                                      (match (● s rider fall) ((Some f) (< (● f rest) 32)) (_ #f))
+                                      (> (distance (● b velocity) (xz 0.0 0.0)) 0.001)
                                       (> (distance (● s dog velocity) (xz 0.0 0.0)) 0.001)
                                       (not (= (● before lean) (● s lean)))
                                       (not (= (● before crank) (● s crank)))
@@ -244,7 +344,10 @@
                                                                                  lines)
                                                                   (new LensSettings
                                                                     (focus (rider-focus (● r ground)
-                                                                                        b
+                                                                                        (● subject
+                                                                                           first)
+                                                                                        (● subject
+                                                                                           second)
                                                                                         cam))
                                                                     (aperture 0.021)
                                                                     (density (case (● s light)

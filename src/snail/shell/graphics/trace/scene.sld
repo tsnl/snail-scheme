@@ -23,7 +23,7 @@
    release-emitter-table
    load-scene
    upload-scene upload-lit-scene upload-with-images
-   SceneImages
+   SceneImages configure-ground-layer!
    scene-materials
    ObjectPose
    MovingScene
@@ -74,6 +74,8 @@
        (users I64)))
     (record Scene
       ((lights LightGrid)
+       (ground-layer Plane)
+       (ground-frame GpuBuffer)
        (emitters EmitterTable)
        (vertices GpuBuffer)
        (indices GpuBuffer)
@@ -219,6 +221,8 @@
         (set! (● images users) (+ (● images users) 1))
         (new Scene
           (lights lights)
+          (ground-layer (make-plane gpu "scene/ground" 1 1 (Rgba8Unorm) (list (TextureBinding))))
+          (ground-frame (uniform-buffer gpu "scene/ground-frame" (make-array 16 (i32->u8 0))))
           (emitters (make-emitter-table gpu (scene-emitters gltf)
                                         (● geometry first) (● geometry second) materials))
           (vertices (● geometry first))
@@ -246,8 +250,23 @@
           (moving (Nil))
           (runs (surface-runs gltf)))))
 
+    ;; Configure before binding the tracer. RG encodes signed X/Z normal detail,
+    ;; B standing water, A compacted/damp soil. A zero texel is untouched ground.
+    (define (configure-ground-layer! (gpu Gpu) (scene Scene) (w I32) (h I32) (frame Vec4f))
+      (→ Plane)
+      (let ((plane (make-plane gpu "scene/ground-field" w h (Rgba8Unorm)
+                               (list (TextureBinding) (StorageBinding)))))
+        (release-plane gpu (● scene ground-layer))
+        (set! (● scene ground-layer) plane)
+        ((● gpu write-buffer)
+         (● scene ground-frame)
+         0
+         (pod-bytes (ann (shape) (Shape Vec4f)) frame))
+        plane))
     (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit)
       (release-plane gpu (● scene lights plane))
+      (release-plane gpu (● scene ground-layer))
+      ((● gpu destroy) (BufferObject (● scene ground-frame)))
       (release-emitter-table gpu (● scene emitters))
       (for-each (lambda (buffer) ((● gpu destroy) (BufferObject buffer)))
                 (list (● scene vertices) (● scene indices) (● scene materials)))
@@ -621,7 +640,7 @@
              (x (if (● m double-sided) 1 0))
              (y (if (● m water) 1 0))
              (z (i64->i32 (f64->i64 (round (* 255.0 (● m subsurface))))))
-             (w 0))))))
+             (w (if (● m ground-layer) 1 0)))))))
 
     ;; ---- Geometry ----
 

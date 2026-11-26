@@ -32,15 +32,26 @@ def triangles(obj, depsgraph):
         evaluated.to_mesh_clear()
 
 
+COLLISION_STEPS = 4
+EMPTY = -32768
+
+
 def projected_rows(vertices, faces, rows, west, north):
-    """Rasterize solid silhouettes into one-metre scanlines, including thin rails."""
+    """Quarter-metre silhouettes carry a conservative roof height in centimetres."""
     for face in faces:
-        pts = [(vertices[i].x - west, -vertices[i].y - north) for i in face]
+        pts = [
+            (
+                (vertices[i].x - west) * COLLISION_STEPS,
+                (-vertices[i].y - north) * COLLISION_STEPS,
+            )
+            for i in face
+        ]
+        top = math.ceil(max(vertices[i].z for i in face) * 10) * 10
         for j in range(
             max(0, math.floor(min(p[1] for p in pts))),
             min(len(rows), math.ceil(max(p[1] for p in pts))),
         ):
-            # Clip to the whole metre strip so a narrow diagonal cannot vanish.
+            # Clip to the whole strip so a narrow diagonal cannot vanish.
             polygon = pts
             for edge, sign in ((j, 1), (j + 1, -1)):
                 clipped = []
@@ -55,7 +66,8 @@ def projected_rows(vertices, faces, rows, west, north):
                 lo = max(0, math.floor(min(p[0] for p in polygon)))
                 hi = min(len(rows[j]), math.ceil(max(p[0] for p in polygon)))
                 if hi > lo:
-                    rows[j][lo:hi] = b"\1" * (hi - lo)
+                    for x in range(lo, hi):
+                        rows[j][x] = max(rows[j][x], top)
 
 
 def triangle_tree(objects, depsgraph, label):
@@ -83,9 +95,12 @@ def contacts(directory):
     north = round(-max(v.y for v in corners))
     width = round(max(v.x for v in corners)) - west
     depth = round(-min(v.y for v in corners)) - north
-    if min(width, depth) <= 0 or width > 65535:
-        raise ValueError("GRD1 scanline spans use unsigned 16-bit metre offsets")
-    occupied = [bytearray(width) for _ in range(depth)]
+    if min(width, depth) <= 0 or width * COLLISION_STEPS > 65535:
+        raise ValueError("Collision scanlines use unsigned 16-bit offsets")
+    occupied = [
+        array("h", [EMPTY]) * (width * COLLISION_STEPS)
+        for _ in range(depth * COLLISION_STEPS)
+    ]
     depsgraph = bpy.context.evaluated_depsgraph_get()
     meshes = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
     for obj in meshes:
@@ -124,24 +139,27 @@ def contacts(directory):
             )
             underwater = point is not None and h < round(point.z * 100) + 5
             if underwater or x in (0, width - 1) or z in (0, depth - 1):
-                occupied[z][x] = 1
+                for j in range(z * COLLISION_STEPS, (z + 1) * COLLISION_STEPS):
+                    for i in range(x * COLLISION_STEPS, (x + 1) * COLLISION_STEPS):
+                        occupied[j][i] = 32767
             a, b = heights[z][x : x + 2]
             d, c = heights[z + 1][x : x + 2]
             packed.extend(struct.pack("<HHhHHhHHh", 0, 0, a, 100, 0, b, 0, 100, d))
             packed.extend(struct.pack("<HHhHHhHHh", 100, 0, b, 100, 100, c, 0, 100, d))
     spans, lines = bytearray(), [0]
     for row in occupied:
-        lo = None
-        for x, hit in enumerate(row + b"\0"):
-            if hit and lo is None:
-                lo = x
-            if not hit and lo is not None:
-                spans.extend(struct.pack("<HH", lo, x))
-                lo = None
-        lines.append(len(spans) // 4)
+        lo, previous = 0, EMPTY
+        for x, top in enumerate((*row, EMPTY)):
+            if top != previous:
+                if previous != EMPTY:
+                    spans.extend(struct.pack("<HHh", lo, x, previous))
+                lo, previous = x, top
+        lines.append(len(spans) // 6)
     count = width * depth * 2
     (directory / "ground.bin").write_bytes(
-        struct.pack("<4siiIIII", b"GRD1", west, north, width, depth, 1, count)
+        struct.pack(
+            "<4siiIIIII", b"GRD2", west, north, width, depth, 1, count, COLLISION_STEPS
+        )
         + offsets(range(0, count + 1, 2))
         + packed
         + offsets(lines)
@@ -154,6 +172,22 @@ def export(source, output, scenery):
     bpy.ops.wm.open_mainfile(filepath=str(APP / "art" / source))
     if scenery:
         contacts(output)
+        pools = sorted(
+            (o for o in bpy.context.scene.objects if o.get("iy_basin")),
+            key=lambda o: o.name,
+        )
+        (output / "basins.bin").write_bytes(
+            b"".join(
+                struct.pack(
+                    "<hhhh",
+                    round(o.location.x * 100),
+                    round(-o.location.y * 100),
+                    round(o.scale.x * 100),
+                    round(o.scale.y * 100),
+                )
+                for o in pools
+            )
+        )
         marks = sorted(
             (o for o in bpy.context.scene.objects if "iy_waymark" in o),
             key=lambda o: o["iy_waymark"],

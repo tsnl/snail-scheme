@@ -44,8 +44,10 @@ def torso(phase, standing):
     return shift, Quaternion((1, 0, 0), -0.095 - 0.105 * standing)
 
 
-def arm_pose(rig, standing, steering):
+def arm_pose(rig, standing, steering, brace=0):
     shift, tilt = torso(0, standing)
+    shift += Vector((0, 0.12 * brace, -0.025 * brace))
+    tilt = Quaternion((1, 0, 0), -0.48 * brace) @ tilt
     pelvis, pivot = bone_head(rig, "Body"), bone_head(rig, "Fork")
     lock = Quaternion((0, 0, 1), steering)
     pose = {}
@@ -91,6 +93,60 @@ def pedal_pose(rig, phase, standing):
     return pose
 
 
+def walking_back(rig, phase):
+    pose = {}
+    shift = Vector((0.012 * sin(phase), 0, -0.13))
+    pose["Body"] = shift, Quaternion((1, 0, 0), -0.065), 1
+    for side, sign in SIDES:
+        hip, knee, ankle = [bone_head(rig, side + n) for n in ("Thigh", "Shin", "Foot")]
+        planted = sign * sin(phase)
+        toe = Vector(
+            (
+                0.17 * sign,
+                hip.y + 0.12 + 0.20 * planted,
+                0.13 + 0.10 * max(0, sign * sin(phase - pi / 2)),
+            )
+        )
+        start = hip + shift
+        middle = middle_joint(
+            start,
+            toe,
+            Vector((0.15 * sign, 1, 0.2)),
+            (knee - hip).length,
+            (ankle - knee).length,
+        )
+        pose[side + "Thigh"] = link_pose(hip, knee, start, middle)
+        pose[side + "Shin"] = link_pose(knee, ankle, middle, toe)
+        pose[side + "Foot"] = toe - ankle, Quaternion(), 1
+    return pose
+
+
+def impact_pose(rig, tuck):
+    # Detached limb targets are relative to the pelvis. Each pair of rigid
+    # links keeps its measured length as the hands guard and the knees tuck.
+    pose = {"Body": (Vector(), Quaternion(), 1)}
+    for side, sign in SIDES:
+        for names, delta, pole in [
+            (
+                ("UpperArm", "Forearm", "Hand"),
+                (0.12 * sign, -0.18 + 0.26 * tuck, 0.03 + 0.42 * tuck),
+                (0.65 * sign, -0.6, -0.4),
+            ),
+            (
+                ("Thigh", "Shin", "Foot"),
+                (0.09 * sign, -0.19 + 0.11 * sign + 0.25 * tuck, 0.08 + 0.30 * tuck),
+                (0.16 * sign, 1, 0.2),
+            ),
+        ]:
+            a, b, c = [bone_head(rig, side + n) for n in names]
+            end = c + Vector(delta)
+            mid = middle_joint(a, end, Vector(pole), (b - a).length, (c - b).length)
+            pose[side + names[0]] = link_pose(a, b, a, mid)
+            pose[side + names[1]] = link_pose(b, c, mid, end)
+            pose[side + names[2]] = end - c, Quaternion(), 1
+    return pose
+
+
 def bake(rig, name, frames):
     animation = rig.animation_data
     action = bpy.data.actions.new(name)
@@ -132,7 +188,7 @@ def main():
     rig.animation_data.action = None
     for track in list(tracks):
         track.mute = True
-        if track.name in CYCLING + STEERING:
+        if track.name in CYCLING + STEERING + ("Brace", "Tumble", "Walk back"):
             action = track.strips[0].action
             tracks.remove(track)
             bpy.data.actions.remove(action)
@@ -150,6 +206,19 @@ def main():
             name,
             ((i + 1, arm_pose(rig, standing, (i / 8 - 0.5) * 1.20)) for i in range(9)),
         )
+
+    def brace(steer):
+        arms = arm_pose(rig, 0, steer, 1)
+        arms["Body"] = Vector((0, 0.12, -0.025)), Quaternion((1, 0, 0), -0.575), 1
+        return arms
+
+    bake(
+        rig,
+        "Walk back",
+        ((i + 1, walking_back(rig, 2 * pi * i / 24)) for i in range(25)),
+    )
+    bake(rig, "Brace", ((i + 1, brace((i / 8 - 0.5) * 1.20)) for i in range(9)))
+    bake(rig, "Tumble", ((i + 1, impact_pose(rig, i / 8)) for i in range(9)))
     bpy.context.preferences.filepaths.save_version = 0
     bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath, compress=True)
 

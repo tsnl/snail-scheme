@@ -14,6 +14,9 @@
                                           (new Pair
                                             (first "focus-shader")
                                             (second (link-file "focus.wgsl.scm")))
+                                          (new Pair
+                                            (first "ground-layer-shader")
+                                            (second (link-file "ground-layer.wgsl.scm")))
                                           (new Pair (first "water-shader")
                                                (second (link-file "water.wgsl.scm")))
                                           (new Pair
