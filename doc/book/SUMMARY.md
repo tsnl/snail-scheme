@@ -67,7 +67,7 @@
   - [The path tracer](graphics/tracer.md)
 - [Games](games/index.md)
   - [Siegework](games/siegework.md)
-  - [Last Mile Taxi](games/last-mile.md)
+  - [If You’re Going That Way](games/iygtw.md)
 
 # Proposals
 

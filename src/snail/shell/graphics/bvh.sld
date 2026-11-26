@@ -27,6 +27,7 @@
    refit-bvh!
    release-bvh
    ray-size
+   bvh-layout-shape
    opaque-cutout
    RayKernels
    make-ray-kernels
@@ -59,7 +60,7 @@
       ((shape Vec4i))
       (deriving Pod))
 
-    (define layout-shape (→ (Shape BvhLayout)) (shape))
+    (define bvh-layout-shape (→ (Shape BvhLayout)) (shape))
 
     ;; Its nodes, 64 bytes each, n - 1 of them for n triangles (one for a
     ;; lone triangle), the root at 0; the triangles; and the queries'
@@ -233,7 +234,8 @@
 
     (define (layout-of (gpu Gpu) (triangles Triangles)) (→ GpuBuffer)
       (uniform-buffer gpu "bvh/layout"
-                      (pod-bytes layout-shape (new BvhLayout (shape (positions-of triangles))))))
+                      (pod-bytes bvh-layout-shape
+                                 (new BvhLayout (shape (positions-of triangles))))))
 
     (define (positions-of (triangles Triangles)) (→ Vec4i)
       (new Vec4i (x (● triangles stride)) (y (● triangles offset)) (z 0) (w 0)))
@@ -352,9 +354,10 @@
     (define (make-ray-kernels (gpu Gpu) (cutout String)) (→ RayKernels)
       (let ((module ((● gpu create-shader-module) (new ShaderModuleDescriptor
                                                     (label "rays")
-                                                    (code (string-append (declarations layout-shape)
-                                                                         cutout
-                                                                         rays-shader))))))
+                                                    (code
+                                                     (string-append (declarations bvh-layout-shape)
+                                                                    cutout
+                                                                    rays-shader))))))
         (new RayKernels
           (intersect (compute-kernel gpu module "rays" "intersect"))
           (occlude (compute-kernel gpu module "rays" "occlude")))))

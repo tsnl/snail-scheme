@@ -191,7 +191,7 @@ const checks = () => [
   fixture('termination', 'tests/termination/main.sld', 'tests/termination/check.mjs', 'node'),
   fixture('app runtime', 'tests/app-runtime/main.sld', 'tests/app-runtime/check.mjs', 'browser'),
   ...['scripts', 'script-builds', 'script-run', 'script-failures', 'script-resources', 'pages-blobs', 'web-zip', 'embedding', 'ink', 'launcher', 'lsp',
-      'tree-sitter', 'vscode', 'tcp', 'udp', 'sf-relief', 'format-scheme', 'siegework/headless'].map(name => script(name)),
+      'tree-sitter', 'vscode', 'tcp', 'udp', 'format-scheme', 'siegework/headless'].map(name => script(name)),
   script('udp', '--test-udp-no-try-send'),
 ];
 

@@ -528,7 +528,11 @@
                       (z (i64->i32 (● m normal-texture)))
                       (w (i64->i32 (● m emissive-texture)))))
           (flags
-           (new Vec4i (x (if (● m double-sided) 1 0)) (y (if (● m water) 1 0)) (z 0) (w 0))))))
+           (new Vec4i
+             (x (if (● m double-sided) 1 0))
+             (y (if (● m water) 1 0))
+             (z (i64->i32 (f64->i64 (round (* 255.0 (● m subsurface))))))
+             (w 0))))))
 
     ;; ---- Geometry ----
 

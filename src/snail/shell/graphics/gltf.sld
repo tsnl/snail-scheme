@@ -127,7 +127,8 @@
        (alpha I64)
        (alpha-cutoff F64)
        (double-sided Bool)
-       (water Bool)))
+       (water Bool)
+       (subsurface F64)))
 
     ;; A primitive, and the column-major matrix from its mesh to the world.
     (record Placed
@@ -411,7 +412,9 @@
                          (else 0))))
           (alpha-cutoff (number-or material "alphaCutoff" 0.5))
           (double-sided (bool-or material "doubleSided" #f))
-          (water (bool-or (member-or material "extras") "snailWater" #f)))))
+          (water (bool-or (member-or material "extras") "snailWater" #f))
+          (subsurface
+           (max 0.0 (min 1.0 (number-or (member-or material "extras") "snailSubsurface" 0.0)))))))
 
     (define default-material (→ Material) (new Material
                                             (base-color (list 1.0 1.0 1.0 1.0))
@@ -425,7 +428,7 @@
                                             (emissive-texture -1)
                                             (alpha 0)
                                             (alpha-cutoff 0.5)
-                                            (double-sided #f) (water #f)))
+                                            (double-sided #f) (water #f) (subsurface 0.0)))
     (define (scene-materials (gltf Gltf)) (→ (List Material))
       (if (null? (● gltf materials)) (list default-material) (● gltf materials)))
 

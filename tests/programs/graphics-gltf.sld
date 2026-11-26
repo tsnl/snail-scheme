@@ -20,7 +20,7 @@
    "{\"attributes\":{\"POSITION\":0},\"mode\":1}]}],"
    "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,0.5,0.25,1],\"baseColorTexture\":{\"index\":0},"
    "\"metallicFactor\":0},\"alphaMode\":\"MASK\",\"alphaCutoff\":0.25,\"emissiveFactor\":[1,1,0],"
-   "\"extensions\":{\"KHR_materials_emissive_strength\":{\"emissiveStrength\":4.5}}}],"
+   "\"extras\":{\"snailSubsurface\":0.75},\"extensions\":{\"KHR_materials_emissive_strength\":{\"emissiveStrength\":4.5}}}],"
    "\"textures\":[{\"source\":1}],\"images\":[{\"uri\":\"a.png\"},{\"bufferView\":1,\"mimeType\":\"image/png\"}],"
    "\"buffers\":[{\"uri\":\"one.bin\",\"byteLength\":61},"
    "{\"uri\":\"data:application/octet-stream;base64,AAECAwQF\",\"byteLength\":6}],"
@@ -96,6 +96,8 @@
 (define (main (out OutputPort)) (→ Unit)
   (match (read (string->utf8 scene))
     ((Ok gltf)
+     (unless (= (● (list-ref (● gltf materials) 0) subsurface) 0.75)
+       (panic "default and authored subsurface weights"))
      (write-line out (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))
      (write-line out (string-append "images: " (sources (● gltf images))))
      (for-each (lambda (placed)
@@ -128,7 +130,10 @@
                                   (numbers (● bounds second))))))
     ((Err reason) (write-line out reason)))
   (match (read two-buffers)
-    ((Ok gltf) (write-line out (string-append "glb buffers: " (buffers gltf))))
+    ((Ok gltf)
+     (unless (= (● (list-ref (scene-materials gltf) 0) subsurface) 0.0)
+       (panic "default subsurface weight"))
+     (write-line out (string-append "glb buffers: " (buffers gltf))))
     ((Err reason) (write-line out reason)))
   (for-each (lambda (file)
               (match (read file)

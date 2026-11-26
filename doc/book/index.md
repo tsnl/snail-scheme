@@ -42,8 +42,7 @@ the browser.
 
 - **[Play Siegework](play/siegework/)**: explore a seeded map, wire an
   energy network across it, and destroy three nests.
-- **[Play Last Mile Taxi](play/last-mile/)** and drive a cab across San Francisco, starting with Rosa’s fare on Russian Hill.
-  [Driver’s guide](games/last-mile.md).
+- **[Play If You’re Going That Way](play/iygtw/)** and explore a farming village by bicycle with Moss. [Rider’s guide](games/iygtw.md).
 - **[Open the viewer](play/viewer/)** and drop a `.glb` on it, or pick a
   sample, to see it path traced ([the path tracer](graphics/tracer.md)).
 - **[Open Splats](play/splats/)** and drop a trained scene's `.ply` on it.

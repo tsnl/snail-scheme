@@ -40,6 +40,7 @@
        (albedo GpuTextureView)
        (motion GpuTextureView)
        (triangles GpuTextureView)
+       (material GpuTextureView)
        (depth GpuTextureView)
        (camera GpuBuffer)))
 
@@ -333,6 +334,8 @@
             (TextureEntry 4 (● inputs depth))
             (TextureEntry 12 (● (plane planes "pong") view))
             (TextureEntry 15 light)
+            (BufferEntry 16 (● inputs camera) 0 0)
+            (TextureEntry 19 (● inputs material))
             (slot-entry 17 filtering 0)))
 
     ))

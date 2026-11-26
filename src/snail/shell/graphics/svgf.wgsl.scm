@@ -60,6 +60,8 @@
 
 (var (@group 0) (@binding 18) (triangles (texture_2d u32)))
 
+(var (@group 0) (@binding 19) (material (texture_2d f32)))
+
 ;; ---- Pixels ----
 
 (fn inside ((id vec3u)) (-> bool)
@@ -256,6 +258,30 @@
 
 ;; ---- Light ----
 
+;; Gather diffuse illumination over the visible skin surface. Distances are
+;; measured in world metres, so red light can travel farther than blue without
+;; softening adjacent clothing, the background, or drawn facial pigmentation.
+(fn skin_light ((p vec2i) (center vec3f) (amount f32)) (-> vec3f)
+    (if ((<= amount 0.0) (return center)))
+    (let point (world_at p))
+    (let size (vec2i (textureDimensions material)))
+    (let stride (i32 (clamp (/ (* 0.014 (f32 (get size y)))
+                               (max 0.25 (distance point (get camera eye xyz)))) 1.0 5.0)))
+    (var light_sum center)
+    (var weights (vec3f 1.0))
+    (for ((var y -1) (<= y 1) (+= y 1))
+         (for ((var x -1) (<= x 1) (+= x 1))
+              (if ((and (== x 0) (== y 0)) (continue)))
+              (let q (clamp (+ p (* (vec2i x y) stride)) (vec2i 0) (- size 1)))
+              (let neighbor (get (textureLoad material q 0) w))
+              (if ((or (<= neighbor 0.0) (sky_at q)) (continue)))
+              (let delta (- (world_at q) point))
+              (let w (* neighbor (exp (* (- (dot delta delta)) (vec3f 1800.0 6500.0 28000.0)))))
+              (+= light_sum (* w (get (textureLoad source q 0) xyz)))
+              (+= weights w)))
+    (return (mix center (/ light_sum weights) amount)))
+
+
 (fn (@compute) (@workgroup_size 8 8) remodulate (((@builtin global_invocation_id) id vec3u))
     (if ((not (inside id)) (return)))
     (let p (vec2i (get id xy)))
@@ -263,7 +289,10 @@
     (if ((sky_at p)
          (textureStore light p (vec4f (* (get (textureLoad noisy p 0) xyz) exposure) 1.0))
          (return)))
-    (let illumination (get (textureLoad source p 0) xyz))
+    (let illumination (skin_light
+                       p
+                       (get (textureLoad source p 0) xyz)
+                       (get (textureLoad material p 0) w)))
     (textureStore light
                   p
                   (vec4f
