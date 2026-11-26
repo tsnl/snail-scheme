@@ -20,8 +20,8 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 | Display | `upscale`, `passes` | Reconstruct on the stable display grid and tone map there, in one pass, then apply FXAA. |
 
 `resize-tracer` sets the internal render grid. Every draw traces every internal
-pixel. Pass the dimensions of the output view and the number of paths per
-pixel to the same entry point at every render scale.
+pixel. Pass the dimensions of the output view to the same entry point at
+every render scale.
 
 ```scheme
 (draw-traced gpu tracer canvas camera spread exposure bounces moved
