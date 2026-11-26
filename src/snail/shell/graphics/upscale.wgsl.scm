@@ -1,5 +1,7 @@
 ;; Reconstruction happens in the stable display grid. Raw G-buffer motion
 ;; includes both projections' jitter. Subtract their difference exactly once.
+;; The resolved light is kept, linear, as the next frame's history, and
+;; written tone-mapped by the display's curve (tone.wgsl.scm) for FXAA.
 ((var uniform) (@group 0) (@binding 0) (camera Camera3D))
 ((var uniform) (@group 0) (@binding 1) (display DisplayFrame))
 (var (@group 0) (@binding 2) (light (texture_2d f32)))
@@ -13,6 +15,8 @@
 (var (@group 0) (@binding 10) (surface_id (texture_storage_2d r32uint write)))
 
 (var (@group 0) (@binding 11) (front_depth texture_depth_2d))
+
+(var (@group 0) (@binding 12) (toned (texture_storage_2d rgba8unorm write)))
 
 (fn compressed ((c vec3f)) (-> vec3f)
     (return (/ c (+ 1.0 (max (get c r) (max (get c g) (get c b)))))))
@@ -89,4 +93,5 @@
          (= rgb
             (mix rgb (get (textureLoad previous_color dest 0) rgb) (get display still_weight)))))
     (textureStore resolved dest (vec4f rgb current_z))
+    (textureStore toned dest (vec4f (tone_mapped (u32 (get display curve)) rgb) 1.0))
     (textureStore surface_id dest (vec4u key 0u 0u 0u)))

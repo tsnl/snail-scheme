@@ -116,10 +116,11 @@
       (Filmic)
       (Photographic))
 
-    ;; The tone-mapping and FXAA pipelines, FXAA's sampler, and the targets
-    ;; for the canvas's size.
+    ;; The tone curve and its pipeline, FXAA's pipeline and sampler, and
+    ;; the targets for the canvas's size.
     (record Post
-      ((tone GpuRenderPipeline)
+      ((curve Tone)
+       (tone GpuRenderPipeline)
        (fxaa GpuRenderPipeline)
        (sampler GpuSampler)
        (targets PostTargets)))
@@ -138,7 +139,8 @@
       (→ Post)
       (let* ((module
               ((● gpu create-shader-module)
-               (new ShaderModuleDescriptor (label "post") (code post-shader))))
+               (new ShaderModuleDescriptor (label "post")
+                    (code (string-append tone-shader post-shader)))))
              (tone (screen-pipeline gpu module
                                     (match curve
                                       ((Neutral) "tone_fragment")
@@ -153,6 +155,7 @@
                                                 (mipmap-filter (Nearest))
                                                 (address (ClampToEdge))))))
         (new Post
+          (curve curve)
           (tone tone)
           (fxaa fxaa)
           (sampler sampler)

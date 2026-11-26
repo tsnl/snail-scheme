@@ -17,11 +17,11 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 | Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries, for each layer. |
 | Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure, for each layer. |
 | Compose | `trace/compose.wgsl.scm` | Blends the blended layer's light over the first hits', by its alpha. |
-| Display | `upscale`, `passes` | Reconstruct on the stable display grid, then tone map, encode sRGB and apply FXAA. |
+| Display | `upscale`, `passes` | Reconstruct on the stable display grid and tone map there, in one pass, then apply FXAA. |
 
 `resize-tracer` sets the internal render grid. Every draw traces every internal
-pixel. Pass the dimensions of the output view and the number of paths per
-pixel to the same entry point at every render scale.
+pixel. Pass the dimensions of the output view to the same entry point at
+every render scale.
 
 ```scheme
 (draw-traced gpu tracer canvas camera spread exposure bounces moved
@@ -64,7 +64,9 @@ legitimately see different surfaces within that pixel. During motion,
 the resolve removes the change in jitter from the G-buffer motion vector.
 Each of its four display-history taps must match the triangle and previous
 projected depth. Moving sky and blended surfaces use current samples.
-Tone mapping and FXAA run at the output size.
+The resolve keeps its result linear as the next frame's history and also
+writes it tone-mapped, by the `Post`'s curve (`tone.wgsl.scm`), for FXAA, so
+tone mapping takes no pass of its own at the output size.
 
 Camera or reported scene motion limits temporal ReSTIR to two batches of
 old candidates, or one above 1.5 pixels of motion. Moving SVGF keeps up
@@ -271,14 +273,18 @@ averaged 32 independent samples per pixel and gave 0.2886.
 
 ## The blended layer
 
-A glTF material is opaque, masked or blended. The first hits' G-buffer
-holds only opaque and masked surfaces, and a masked one is discarded below
-its cutoff. A scene with a blended material, whose `Scene` says
-`blended`, gets a second G-buffer of the same targets, the blended layer.
-Every triangle is drawn again over a copy of the first hits' depth, so
-the depth test keeps the nearest blended surface in front of them, with
-its alpha in the albedo's. A texel whose alpha is under 1/255 is no
-surface and hides nothing.
+A glTF material is opaque, masked or blended. A `Scene` keeps its
+triangles as runs, each placed primitive's merged with the one before
+where their materials share a mode, and the surface pass draws each run
+with the pipeline for its mode. The first hits' G-buffer holds only opaque
+and masked surfaces. Opaque runs are drawn first, by a fragment entry that
+never discards, so the depth test can run before their shader; masked
+runs follow, discarded below their cutoff. A scene with a blended material,
+whose `Scene` says `blended`, gets a second G-buffer of the same targets,
+the blended layer. Its blended runs, and only they, are drawn over a copy
+of the first hits' depth, so the depth test keeps the nearest blended
+surface in front of them, with its alpha in the albedo's. A texel whose
+alpha is under 1/255 is no surface and hides nothing.
 
 The layer is lit as the first hits are:
 
