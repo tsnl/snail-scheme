@@ -127,6 +127,7 @@
        (alpha I64)
        (alpha-cutoff F64)
        (double-sided Bool)
+       (ground-layer Bool)
        (water Bool)
        (subsurface F64)))
 
@@ -412,6 +413,7 @@
                          (else 0))))
           (alpha-cutoff (number-or material "alphaCutoff" 0.5))
           (double-sided (bool-or material "doubleSided" #f))
+          (ground-layer (bool-or (member-or material "extras") "snailGroundLayer" #f))
           (water (bool-or (member-or material "extras") "snailWater" #f))
           (subsurface
            (max 0.0 (min 1.0 (number-or (member-or material "extras") "snailSubsurface" 0.0)))))))
@@ -428,7 +430,10 @@
                                             (emissive-texture -1)
                                             (alpha 0)
                                             (alpha-cutoff 0.5)
-                                            (double-sided #f) (water #f) (subsurface 0.0)))
+                                            (double-sided #f)
+                                            (water #f)
+                                            (ground-layer #f)
+                                            (subsurface 0.0)))
     (define (scene-materials (gltf Gltf)) (→ (List Material))
       (if (null? (● gltf materials)) (list default-material) (● gltf materials)))
 

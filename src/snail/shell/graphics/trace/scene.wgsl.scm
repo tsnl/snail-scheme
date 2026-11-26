@@ -24,6 +24,8 @@
 (var (@group 1) (@binding 3) (layers (texture_2d_array f32)))
 
 (var (@group 1) (@binding 4) (repeat sampler))
+(var (@group 1) (@binding 8) (ground_layer (texture_2d f32)))
+((var uniform) (@group 1) (@binding 9) (ground_frame vec4f))
 
 ;; ---- Random numbers ----
 

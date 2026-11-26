@@ -60,7 +60,7 @@
              (alpha 0)
              (alpha-cutoff 0.5)
              (double-sided #t)
-             (water #f)
+             (water #f) (ground-layer #f)
              (subsurface 0.0))))
 
     (define (item-pose (part Item)) (→ ObjectPose)

@@ -15,7 +15,7 @@ const {stdout} = await promisify(execFile)(join(root, 'snail-scheme'),
 const directory = stdout.trim();
 const catalog = JSON.parse(await readFile(join(directory, 'resources.json')));
 assert.deepEqual(Object.keys(catalog).sort(),
-  ['bell.wav', 'freewheel.wav', 'ground.bin', 'moss.glb', 'roadster.glb', 'surfaces.bin', 'waymarks.bin', 'willowbank.glb']);
+  ['basins.bin', 'bell.wav', 'freewheel.wav', 'ground.bin', 'moss.glb', 'roadster.glb', 'surfaces.bin', 'waymarks.bin', 'willowbank.glb']);
 const artPaths = new Set(Object.values(catalog).flatMap(({sha256, size}) =>
   size <= blobPartSize ? [objectPath(sha256)] :
     Array.from({length: Math.ceil(size / blobPartSize)}, (_, i) => partPath(sha256, i))));
@@ -26,7 +26,7 @@ const server = await serve(directory, (path, res) => {
   if (!offline) return false;
   res.writeHead(503).end(); return true;
 });
-const browser = await openBrowser();
+const browser = await openBrowser({hardware: process.env.SNAIL_WEBGPU_HARDWARE === '1'});
 const text = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ')?.textContent');
 const key = (key, down) => browser.send('Input.dispatchKeyEvent', {type: down ? 'keyDown' : 'keyUp', key});
 const tap = async k => { await key(k, true); await key(k, false); };
@@ -72,6 +72,14 @@ try {
   await key(' ', true);
   try { await until(async () => await text('.speed') === '0 km/h', 'braking to a stop', 45); }
   finally { await key(' ', false); }
+  for (const reverse of ['s', 'ArrowDown']) {
+    await key(reverse, true);
+    try { await until(async () => await text('.surface') === 'Walking bike back', 'walking backwards with ' + reverse, 25); }
+    finally { await key(reverse, false); }
+    await key(' ', true);
+    try { await until(async () => await text('.speed') === '0 km/h', 'holding after reverse', 25); }
+    finally { await key(' ', false); }
+  }
   await browser.evaluate('document.querySelector(".light").click()');
   await until(async () => await text('.light') === 'High sun', 'new sky', 30);
   await tap('b');

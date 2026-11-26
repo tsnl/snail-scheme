@@ -548,6 +548,8 @@ before anything else of the scene.
 
 A glTF material can opt into the tracer’s water shading with `"extras": { "snailWater": true }`. Use a nonmetallic material and a dark linear base colour for light returned by the water body. The dielectric interface reflects about 2% of the light at normal incidence and approaches full reflection at grazing angles. A ray can reflect geometry as well as the sky.
 
+A ground material can opt into a world-space surface texture with `"extras": { "snailGroundLayer": true }`. Before constructing the tracer, call `configure-ground-layer!` with the texture dimensions and a four-component frame containing west, north, inverse width and inverse depth in metres. The returned RGBA8 storage texture is sampled by first and secondary hits. Red and green encode the horizontal normal perturbation, blue the standing-water coverage, and alpha the damp or compacted ground. A cleared texel preserves the authored material. Willowbank writes changed road tiles into this texture.
+
 Set `Camera3D.scene-time` in seconds to move wave trains in world metres. Rasterized first hits and traced secondary hits share their normals. Each wave is filtered along its direction across the pixel footprint. Unresolved waves contribute their slope variance to the material roughness. The mapped surface supplies depth, visibility and ray origins. The model represents deep water with a fixed shoreline and a bulk colour.
 
 ## Performance

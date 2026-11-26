@@ -13,6 +13,7 @@
  (only (snail shell game vehicle) signed-speed)
  (apps iygtw ride)
  (apps iygtw render)
+ (apps iygtw soil)
  (apps iygtw hud))
 
 ;; ---- Input and fixed ticks ----
@@ -46,6 +47,7 @@
      (set! (● c before) s)
      (set! (● c carry) 0)
      s)
+    ((101) (let ((next (remount-ride v s))) (set! (● c before) next) next))
     ((99) (recenter! c r) s)
     ((114) (let ((new (reset-ride v s)))
              (set! (● c keys) (Nil))
@@ -120,9 +122,10 @@
                                                                         (string-append
                                                                          "Missing village file "
                                                                          name))))))
-                            (v (read-valley (file "ground.bin")
-                                            (file "surfaces.bin")
-                                            (file "waymarks.bin")))
+                            (v (Valley-basins-set (read-valley (file "ground.bin")
+                                                               (file "surfaces.bin")
+                                                               (file "waymarks.bin"))
+                                                  (read-basins (file "basins.bin"))))
                             (h (make-hud dom (file "freewheel.wav") (file "bell.wav"))))
                        (run-page events
                                  storage
@@ -131,7 +134,7 @@
                                  (lambda (b) (restore-ride v b))
                                  (lambda (s save)
                                    (match (attempt-reading
-                                           (lambda () (make-renderer gpu (● v ground)
+                                           (lambda () (make-renderer gpu v
                                                                      (file "willowbank.glb")
                                                                      (file "roadster.glb")
                                                                      (file "moss.glb")

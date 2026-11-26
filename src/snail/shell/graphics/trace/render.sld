@@ -1095,7 +1095,19 @@
       (kernel-group gpu kernel
                     1
                     "trace/scene"
-                    (append (if lit (append (emitter-entries scene) (light-entry scene #t)) (Nil))
+                    (append (if lit (append (emitter-entries scene) (append (light-entry scene #t)
+                                                                            (list (TextureEntry 8
+                                                                                                (●
+                                                                                                 scene
+                                                                                                 ground-layer
+                                                                                                 view))
+                                                                                  (BufferEntry 9
+                                                                                               (●
+                                                                                                scene
+                                                                                                ground-frame)
+                                                                                               0
+                                                                                               0))))
+                                (Nil))
                             (list (BufferEntry 0 (● scene vertices) 0 0)
                                   (BufferEntry 1 (● scene indices) 0 0)
                                   (BufferEntry 2 (● scene materials) 0 0)
@@ -1113,7 +1125,9 @@
                                                   (BufferEntry 2 (● scene materials) 0 0)
                                                   (TextureEntry 3 (● scene layers-view))
                                                   (SamplerEntry 4 (● scene sampler))
-                                                  (BufferEntry 5 (● scene indices) 0 0))))))
+                                                  (BufferEntry 5 (● scene indices) 0 0)
+                                                  (TextureEntry 6 (● scene ground-layer view))
+                                                  (BufferEntry 7 (● scene ground-frame) 0 0))))))
 
     ;; ---- The kit ----
 
@@ -1156,6 +1170,7 @@
                                             reservoir-shader
                                             emitter-light-shader
                                             restir-shader
+                                            ground-layer-shader
                                             water-shader
                                             path-shader))))))
         (new Steps
@@ -1177,6 +1192,7 @@
                                                   (string-append
                                                    (declarations camera-shape)
                                                    (declarations material-shape)
+                                                   ground-layer-shader
                                                    water-shader
                                                    surface-shader)))))
          (vertex-entry "surface_vertex")
