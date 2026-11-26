@@ -17,18 +17,22 @@ through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 | Paths | `trace/path.wgsl.scm`, `bvh` | A wavefront of compute kernels, each bounce's rays traced by the BVH's queries, for each layer. |
 | Filter | `svgf` | Temporal accumulation, variance, five à-trous levels, then remodulation by albedo and exposure, for each layer. |
 | Compose | `trace/compose.wgsl.scm` | Blends the blended layer's light over the first hits', by its alpha. |
-| Display | `upscale`, `passes` | Reconstruct on the stable display grid, then tone map, encode sRGB and apply FXAA. |
+| Display | `upscale`, `passes` | Reconstruct on the stable display grid and tone map there, in one pass, then apply FXAA. |
 
 `resize-tracer` sets the internal render grid. Every draw traces every internal
-pixel. Pass the dimensions of the output view and the number of paths per
-pixel to the same entry point at every render scale.
+pixel. Pass the dimensions of the output view to the same entry point at
+every render scale.
 
 ```scheme
 (draw-traced gpu tracer canvas camera spread exposure bounces moved
-  (new TraceSettings (display-width width) (display-height height) (samples 1)))
+  (new TraceSettings (display-width width) (display-height height)))
 ```
 
-Choose one or two paths per pixel and one to eight bounces. Report geometry
+`draw-traced` traces one path per pixel per frame, with one to eight bounces.
+`draw-traced-samples` takes the same arguments and a final path count from one
+to four. The first path updates the frame’s light reservoir. Extra paths use
+fresh proposals at the same first hit and share the ray queues. Their mean
+enters SVGF once per frame. Report geometry
 or lighting motion with `moved`. The tracer compares the unjittered cameras
 to detect camera motion. `tracer-frames` counts still frames since the
 last movement or history reset.
@@ -46,14 +50,13 @@ every set of compute kernels repeats, in `(snail shell graphics kernel)`.
 Each frame offsets the camera by the next point of a Halton sequence in
 bases 2 and 3. The sequence starts at index one, with half a pixel
 subtracted from each coordinate. The first two offsets are (0, −1/6) and
-(−1/4, 1/6) in internal pixels. Both paths at two spp share that first
-hit, trace separate light and BSDF draws, and contribute to a mean before
-SVGF. Both update visibility. Only the first carries a reservoir into
-the next frame. [Halton sampling in *Physically Based Rendering*](https://pbr-book.org/4ed/Sampling_and_Reconstruction/Halton_Sampler)
+(−1/4, 1/6) in internal pixels. [Halton sampling in *Physically Based Rendering*](https://pbr-book.org/4ed/Sampling_and_Reconstruction/Halton_Sampler)
 
-The per-layer radiance buffer holds summed RGB with the observation count
-in alpha. `read-traced-radiance` returns these accumulator bytes. `gather`
-divides RGB by the requested path count when writing the noisy texture for SVGF.
+Each layer accumulates its paths in RGB. After the last path, `gather`
+writes the mean with an alpha of one to both the radiance buffer and the
+noisy texture. `read-traced-radiance` returns that linear mean. Raising
+the path count reduces lighting noise within a frame. Raising resolution
+also samples more positions along geometry edges.
 
 SVGF uses the motion between the two jittered G-buffers to find past
 observations of the same surface. The display resolve runs at native
@@ -64,15 +67,20 @@ legitimately see different surfaces within that pixel. During motion,
 the resolve removes the change in jitter from the G-buffer motion vector.
 Each of its four display-history taps must match the triangle and previous
 projected depth. Moving sky and blended surfaces use current samples.
-Tone mapping and FXAA run at the output size.
+The resolve keeps its result linear as the next frame's history and also
+writes it tone-mapped, by the `Post`'s curve (`tone.wgsl.scm`), for FXAA, so
+tone mapping takes no pass of its own at the output size.
 
 Camera or reported scene motion limits temporal ReSTIR to two batches of
 old candidates, or one above 1.5 pixels of motion. Moving SVGF keeps up
 to four observations and gives the current one at least 40% weight.
-Use `discard-trace-history` for a camera cut. A changed sky, scene, bounce
-depth or render grid starts fresh history. Changing only the display
-size or exposure starts a new display history and preserves render-grid
-history.
+Use `discard-trace-history` for a camera cut. A changed scene, bounce
+depth or render grid starts fresh history. A changed sky draws fresh
+light proposals everywhere, since old ones were weighed against another
+sky, but it is no cut: SVGF and the display resolve treat the frame as
+moving, so a sky that changes every second does not discard the image's
+history every second. Changing only the display size or exposure starts a
+new display history and preserves render-grid history.
 
 A glTF material can set a numeric `extras.snailSubsurface` weight between zero and one. After denoising and before remodulating albedo, SVGF gathers irradiance from nearby visible skin pixels. It measures distance in world metres and gives red a broader diffusion profile than green or blue. Albedo and emission retain their detail. Zero is the default. This screen-space approximation samples only surfaces visible to the camera.
 
@@ -236,8 +244,8 @@ in eight and a 12-frame response (0.4 seconds at 30 fps).
 
 Recovery means closing 90% of the expected gap from the old visibility to
 the new one for a retained light that wins every probe. Let `N` be the
-number of shadow opportunities per receiver in the requested frames.
-With `T` displayed frames and `s` paths per pixel, `N = T × s`.
+number of shadow opportunities per receiver in the requested frames,
+one a displayed frame, so `N` is the frame count.
 The per-opportunity response is `r = 1 − 0.1^(1/N)`. The actual probe
 probability is `p = max(exploration-floor, r)`, and each observation
 uses gain `a = r/p`. With probes alone the expected remaining gap after
@@ -254,7 +262,7 @@ Rare proposals, partial occlusion and eviction can extend the wait.
 
 The same response rate sets a positive visibility floor `min(½, r)` for
 candidate weighting. Temporal donor count is capped at `(1 − r)/r` times
-the fresh count, using one **reservoir write per frame** at either sample count. Thus fresh proposals account for at least `r` of
+the fresh count, using one **reservoir write per frame**. Thus fresh proposals account for at least `r` of
 the represented temporal stream. The existing caps of 20, or less while
 driving, can shorten this memory. The default is a ⅛ exploration floor
 and a 48-frame recovery target.
@@ -276,14 +284,18 @@ averaged 32 independent samples per pixel and gave 0.2886.
 
 ## The blended layer
 
-A glTF material is opaque, masked or blended. The first hits' G-buffer
-holds only opaque and masked surfaces, and a masked one is discarded below
-its cutoff. A scene with a blended material, whose `Scene` says
-`blended`, gets a second G-buffer of the same targets, the blended layer.
-Every triangle is drawn again over a copy of the first hits' depth, so
-the depth test keeps the nearest blended surface in front of them, with
-its alpha in the albedo's. A texel whose alpha is under 1/255 is no
-surface and hides nothing.
+A glTF material is opaque, masked or blended. A `Scene` keeps its
+triangles as runs, each placed primitive's merged with the one before
+where their materials share a mode, and the surface pass draws each run
+with the pipeline for its mode. The first hits' G-buffer holds only opaque
+and masked surfaces. Opaque runs are drawn first, by a fragment entry that
+never discards, so the depth test can run before their shader; masked
+runs follow, discarded below their cutoff. A scene with a blended material,
+whose `Scene` says `blended`, gets a second G-buffer of the same targets,
+the blended layer. Its blended runs, and only they, are drawn over a copy
+of the first hits' depth, so the depth test keeps the nearest blended
+surface in front of them, with its alpha in the albedo's. A texel whose
+alpha is under 1/255 is no surface and hides nothing.
 
 The layer is lit as the first hits are:
 
@@ -311,14 +323,73 @@ to 5.4 ms a frame, the same as before the layer within the timing's noise.
 
 ## The BVH and ray queries
 
-`(snail shell graphics bvh)` builds a linear BVH on the device in one
-compute pass: Morton codes of the triangles' centroids, a bitonic sort of
-them, Karras's tree over the sorted codes, and boxes refit from the leaves
-up. It takes any triangles: a positions buffer read
-as 32-bit words at a stride and an offset, and an index buffer. Each node
-holds both its children's boxes, and a child pointer with the high bit set
-names a triangle. Traversal visits the nearer child first, with a 64-entry
-stack and a cap of 8192 steps.
+`(snail shell graphics bvh)` builds a two-level hierarchy on the device,
+as hardware ray tracing has one. A bottom level is a tree over one span of
+a scene's triangles: the still triangles in one, and each moving object's
+in one of its own. The top level is a tree over the bottom levels' roots.
+It takes any triangles: a positions buffer read as 32-bit words at a
+stride and an offset, an index buffer, and the spans that move, which a
+`MovingScene` sets from its skin bindings, one span a binding.
+
+Every tree is built top down by the surface area heuristic, as a CPU
+builder splits a node. The node's primitives' centroids fall into 16 bins
+along each axis. Each of the 45 boundaries between bins is priced by the
+area of the box on either side times the count there. The node splits at
+the cheapest, or stays a leaf of up to four triangles when no split pays
+for the step a walk takes into it. The device builds a level a dispatch.
+A level's nodes are its tasks, each a contiguous span of primitives. One
+workgroup takes a task: it bins the span, chooses, and rewrites the span
+stably into its two children's spans for the next level. The tree is the
+same however the device schedules the work. A workgroup takes every
+`num_workgroups`-th task, so no dispatch is sized by a count only the
+device knows, and none is indirect. A bottom level may take 40 levels.
+A span that could not otherwise reach leaves of four by then is halved
+instead of binned, so every span ends in a leaf.
+
+Near the root a level has few nodes, and one workgroup a node would
+leave the device idle. A wide node, of more than 4,096 primitives, is
+split by every workgroup in blocks of 1,024. Each workgroup bins its
+blocks into the node's bins in memory, then one workgroup chooses and
+makes the node. The blocks count their left primitives, scan the
+counts, and scatter stably as a workgroup's partition does. The tree is
+the one a workgroup would have built. On an RTX 5090, building Sponza's
+262,267 triangles took 14.3 ms a workgroup a node and takes 5.0 ms this
+way. The linear BVH built them in 2.0 ms.
+
+A slot is a child as a walk reads it: a box, a pointer and a count. A
+count of 0 points at a node, two slots side by side; a count above 0 is a
+leaf of that many triangles, each stored as a corner and two edges in the
+leaves' order, so a test reads one 48-byte record. Slot 0 is the top
+level's root. A top level's leaf is a copy of a bottom level's root slot,
+so a walk crosses from the top level into a bottom level as into any node.
+It visits the nearer child first, with a 64-entry stack and a cap of 8192
+steps.
+
+`refit-bvh!` follows moving triangles after their vertices change. Their
+leaves read the vertices again, and each triangle's box merges into its
+leaf's slot and every slot above it with atomic minimum and maximum, on
+floats laid out as words that sort as the floats do. The top level is then
+built again over the roots. The still triangles' tree is never touched
+again. A scene with nothing moving has nothing to refit.
+
+Before this, one linear BVH covered every triangle: Morton codes of the
+triangles' centroids on a 1024-cell grid over the scene's box, a bitonic
+sort, Karras's tree, and a refit of every node. Its grid followed the
+whole scene's box. In Last Mile, an 80 km horizon put the 90,197 nearby
+triangles of the busiest street window into only 3,981 codes. Equal codes
+leave the tree no way to separate triangles. On an RTX 5090 through Dawn,
+at the Hyde Street stand with 146,667 triangles traced at 1280 by 720:
+
+| Median GPU time a frame | Linear BVH | Two levels, SAH |
+| --- | ---: | ---: |
+| Wavefront, two bounces | 9.07 ms | 2.06 ms |
+| Wavefront, one bounce | 4.11 ms | 1.49 ms |
+| Refit after a pose | 1.02 ms | 0.18 ms |
+| Building the still triangles' tree, once | 1.34 ms | 2.43 ms |
+
+The old refit made 50 passes over every node, whatever moved. The new one
+merges only the 44 moving objects' boxes and rebuilds the top level over
+45 roots.
 
 `make-ray-kernels` builds `intersect` (the nearest hit) and `occlude` (any
 hit) for a caller's `cutout(triangle, barycentric, seed)`, the WGSL that
@@ -368,13 +439,10 @@ and their displacement from the previous draw. The surface pass uses that
 displacement for motion vectors and the expected previous depth. SVGF stores the current clip-space depth and octahedral normal for validation on the next frame. During motion each new observation receives at least 40% of the accumulated illumination weight. Both primary visibility and secondary rays
 consume the same world-space triangles. Mesh topology and materials stay fixed.
 
-`make-moving-tracer` keeps the leaf order and binary tree for those triangles.
-After a simulation tick, `refit-tracer!` refreshes the leaf boxes, propagates
-their bounds and packs them into the original query buffer. Bindings survive
-a refit. An application can choose a tone curve at construction with `make-graded-moving-tracer`.
-`Photographic` gives highlights a hue-preserving shoulder followed by sRGB encoding.
-The viewer can discard build scratch for static scenes. The final FXAA pass samples
-normalized screen coordinates so a small traced image fills a larger browser canvas.
+Each skin binding has its own bottom-level BVH. After a pose change,
+`refit-tracer!` refits those trees and rebuilds the top level over their roots.
+Bindings survive a refit. Willowbank uses the photographic tone curve, and
+FXAA resolves the display image after tone mapping. [Ride through Willowbank](../games/iygtw.md)
 
 ## Skinned animation
 
@@ -461,8 +529,7 @@ Clicking one drops it on the page. So the site publishes none of them,
 and a model's license is its publisher's to state. The page's query
 chooses the same way: `?model=ADDRESS&env=ADDRESS`, each an address
 `fetch` reads, such as a path on the page's server, and
-`&eye=x,y,z,yaw,pitch` for the camera. The viewer starts with one path per internal pixel.
-Use `?spp=2`, or append `&spp=2` to an existing query, for two paths.
+`&eye=x,y,z,yaw,pitch` for the camera. The viewer traces one path per internal pixel.
 
 Files that cannot be shown leave the view as it was, and the page says why:
 a `.gltf` chosen without the files it names, an address that answers 404, a

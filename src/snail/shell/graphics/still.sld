@@ -137,8 +137,7 @@
                                                            #f
                                                            (new TraceSettings
                                                              (display-width width)
-                                                             (display-height height)
-                                                             (samples 1)))))
+                                                             (display-height height)))))
                                     ;; Bound the queued frames for large offline sample counts.
                                     (when (= (modulo i 8) 7) ((● gpu work-done)))
                                     (loop next (+ i 1)))))))))

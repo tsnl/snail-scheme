@@ -81,7 +81,7 @@
                              1.0
                              bounces
                              #f
-                             (new TraceSettings (display-width w) (display-height h) (samples 1))))
+                             (new TraceSettings (display-width w) (display-height h))))
          (raster (match (● noisy last) ((Some view) (● view raster))
                         (_ (panic "capture has no rasterized frame"))))
          (first (● noisy frame)))
@@ -153,14 +153,14 @@
       (let* ((scene (read-model gpu fs name layers))
              (air (new Atmosphere (sun sun) (wind (new Vec2f (x 0.0) (y 0.0))) (cover 0.54)))
              (sky (make-atmosphere-light gpu air 1024))
-             (tracer (make-graded-tracer gpu
-                                         scene
-                                         (● sky environment)
-                                         (Rgba8Unorm)
-                                         w
-                                         h
-                                         layers
-                                         (Photographic)))
+             (tracer (make-tracer gpu
+                                  scene
+                                  (● sky environment)
+                                  (Rgba8Unorm)
+                                  w
+                                  h
+                                  layers
+                                  (Photographic)))
              (camera
               (if (string=? eye "") (fly-camera (fly-over (● scene low) (● scene high)) aspect)
                   (camera-3d (point eye)

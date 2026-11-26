@@ -2,7 +2,15 @@
 ;; collision spans; the bicycle is free to cross the verge or take any lane.
 (define-library (apps iygtw ride)
   (export Valley read-valley start-ride Ride step-ride surface-at place-at
-          surface-name Ride-quality-set Ride-light-set mix pedal-speed)
+          surface-name
+          Ride-quality-set
+          Ride-light-set
+          Ride-samples-set
+          Ride-bounces-set
+          restore-ride
+          reset-ride
+          mix
+          pedal-speed)
   (import
    (snail core base)
    (snail shell math)
@@ -68,7 +76,10 @@
        (stride F64)
        (metres F64)
        (quality I64)
-       (light I64))
+       (light I64)
+       (samples I32)
+       (bounces I64)
+       (standing F64))
       (deriving Serialize Deserialize))
     (define roadster (→ CarDimensions)
       (new CarDimensions (wheelbase 1.08) (width 0.52) (length 1.76)))
@@ -76,14 +87,56 @@
       (let ((p (● (list-ref (● v places) 0) at)))
         (new Ride (bike (body p 0.0)) (dog (body (offset p (xz 1.0 0.0) 1.15) 0.0))
              (steer 0.0) (lean 0.0) (crank 0.0) (wheel 0.0) (stride 0.0)
-             (metres 0.0) (quality 4) (light 0))))
+             (metres 0.0) (quality 4) (light 0) (samples 2) (bounces 2) (standing 0.0))))
+
+    (define (reset-ride (v Valley) (s Ride)) (→ Ride)
+      (let ((r (start-ride v)))
+        (Ride-bounces-set (Ride-samples-set (Ride-quality-set (Ride-light-set r (● s light))
+                                                              (● s quality)) (● s samples))
+                          (● s bounces))))
+
+    ;; The first Willowbank save predates the shorter survey. Its wire tag
+    ;; identifies the original field layout, including the two Body records.
+    (define (restore-ride (v Valley) (bytes Bytes)) (→ Ride)
+      (let* ((d (new Decoder (bytes bytes) (position 0))) (tag (ann (decode d) I32)))
+        (if (= tag -613528936) (restore-first-survey v d) (ann (deserialize bytes) Ride))))
+
+    (define (resurvey (v Valley) (b Body) (fallback Body)) (→ Body)
+      (let* ((where (● b position))
+             (p (xz (/ (* 2.0 (● where x)) 3.0) (/ (* 2.0 (● where z)) 3.0))))
+        (if (clear? p 0.44 (nearby-solids (● v ground) p 2.0)) (body p (● b heading)) fallback)))
+
+    (define (restore-first-survey (v Valley) (d Decoder)) (→ Ride)
+      (let* ((r (start-ride v)) (b (resurvey v (ann (decode d) Body) (● r bike)))
+             (dog (resurvey v (ann (decode d) Body) (body (● b position) (● b heading))))
+             (steer (ann (decode d) F64)) (lean (ann (decode d) F64))
+             (crank (ann (decode d) F64)) (wheel (ann (decode d) F64)) (stride (ann (decode d) F64))
+             (metres (ann (decode d) F64)) (q (ann (decode d) I64)) (light (ann (decode d) I64)))
+        (new Ride
+          (standing 0.0)
+          (bike b)
+          (dog dog)
+          (steer steer)
+          (lean lean)
+          (crank crank)
+          (wheel wheel)
+          (stride stride) (metres metres) (quality q) (light light)
+          (samples (if (>= q 3) 2 1)) (bounces (if (< q 2) 1 2)))))
     (define (mix (a F64) (b F64) (t F64)) (→ F64) (+ a (* (- b a) t)))
     (define (toward (a F64) (b F64) (amount F64)) (→ F64)
       (+ a (max (negate amount) (min amount (- b a)))))
+    ;; At low speed or on a steep grade, the rider can put body weight into
+    ;; the downstroke. The same load raises the pelvis in the animated pose.
+    (define (standing-effort (speed F64) (grade F64) (driving Bool)) (→ F64)
+      (if driving
+          (max 0.0 (min 1.0 (max (- 1.0 (/ speed 3.6)) (/ (- grade 0.025) 0.085))))
+          0.0))
+
     (define (pedal-speed (speed F64) (grade F64) (surface I32)
                          (pedal Bool) (back Bool) (brake Bool) (dt F64)) (→ F64)
                          (let* ((rolling (case surface ((0) 0.85) ((2) 0.39) (else 0.145)))
-                                (drive (cond (pedal (/ 3.4 (+ 1.0 (* 0.21 (max 0.0 speed)))))
+                                (push (+ 3.4 (* 0.50 (standing-effort (abs speed) grade pedal))))
+                                (drive (cond (pedal (/ push (+ 1.0 (* 0.21 (max 0.0 speed)))))
                                              (back (if (> speed 0.15) -5.2 -1.25)) (else 0.0)))
                                 (next (+ speed
                                          (* dt
@@ -103,6 +156,13 @@
             (travel p (offset (xz 0.0 0.0) (forward heading) speed)
                     (if (> speed 0.24) heading (● old heading)) 0.18
                     (nearby-solids g p 1.3) dt))))
+    ;; Wheel angle and body bank come from the same turn radius. A digital
+    ;; reversal takes time to pass through straight ahead, even at full lock.
+    (define (settle (old F64) (target F64) (amount F64)) (→ F64)
+      (if (< (abs (- old target)) 0.0001) target (mix old target amount)))
+    (define (steering-angle (old F64) (turn F64) (speed F64)) (→ F64)
+      (settle old (atan2 (* turn 0.68) (+ 1.0 (* 0.105 (* speed speed)))) 0.061))
+
     ;; The Snail fixed tick is 20 ms; steering remains useful at walking pace.
     ;; The two animation clocks follow the crank and the road independently.
     (define (step-ride (v Valley) (r Ride) (turn F64) (pedal Bool) (back Bool) (brake Bool))
@@ -110,18 +170,22 @@
       (let* ((dt 0.02) (g (● v ground)) (b (● r bike)) (p (● b position)) (s (signed-speed b))
              (grade (ground-slope g p (forward (● b heading)) 1.08))
              (next (pedal-speed s grade (surface-at v p) pedal back brake dt))
-             (steer (toward (● r steer) (* turn (/ 0.68 (+ 1.0 (* 0.14 (abs s))))) (* dt 2.8)))
+             (steer (steering-angle (● r steer) turn s))
              (bike (bicycle-step b roadster steer next (nearby-solids g p 2.5) dt))
              (length (distance p (● bike position)))
              (dog (companion g (● r dog) bike dt))
-             (lean (atan2 (* (* s s) (tan steer)) (* 9.81 1.08))))
+             (lean (atan2 (* (* s s) (tan steer)) (* 9.81 1.08)))
+             (driving (and pedal (not brake) (>= (signed-speed bike) 0.0)))
+             (rollout (max 2.35 (min 7.0 (+ 1.7 (* 0.72 (abs s)))))))
         (new Ride (bike bike) (dog dog) (steer steer)
-             (lean (mix (● r lean) (max -0.54 (min 0.54 lean)) 0.13))
+             (lean (settle (● r lean) (max -0.54 (min 0.54 lean)) 0.065))
              (crank (+ (● r crank)
-                       (if (and pedal (not brake))
-                           (* dt (min 1.7 (+ 0.60 (* 0.13 (abs next)))))
-                           0.0)))
-             (wheel (+ (● r wheel) (/ (* (if (< s 0.0) -1.0 1.0) length) (* (* 2.0 pi) 0.355))))
+                       (if driving (/ length rollout) 0.0)))
+             (wheel (+ (● r wheel)
+                       (/ (* (if (< (signed-speed bike) 0.0) -1.0 1.0) length)
+                          (* (* 2.0 pi) 0.355))))
              (stride
               (+ (● r stride) (/ (min 0.30 (distance (● r dog position) (● dog position))) 0.85)))
-             (metres (+ (● r metres) length)) (quality (● r quality)) (light (● r light)))))))
+             (metres (+ (● r metres) length)) (quality (● r quality)) (light (● r light))
+             (samples (● r samples)) (bounces (● r bounces))
+             (standing (settle (● r standing) (standing-effort (abs s) grade driving) 0.065)))))))

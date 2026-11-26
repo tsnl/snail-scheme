@@ -78,6 +78,7 @@
    Bgra8Unorm
    Bgra8UnormSrgb
    R32Uint
+   Rgba32Uint
    Rg16Float
    R32Float
    Rg32Uint
@@ -341,6 +342,7 @@
       (Bgra8Unorm)
       (Bgra8UnormSrgb)
       (R32Uint)
+      (Rgba32Uint)
       (Rg16Float)
       (R32Float)
       (Rg32Uint)
@@ -359,6 +361,7 @@
         ((Bgra8Unorm) "bgra8unorm")
         ((Bgra8UnormSrgb) "bgra8unorm-srgb")
         ((R32Uint) "r32uint")
+        ((Rgba32Uint) "rgba32uint")
         ((Rg16Float) "rg16float")
         ((R32Float) "r32float")
         ((Rg32Uint) "rg32uint")

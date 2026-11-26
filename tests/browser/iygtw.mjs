@@ -1,7 +1,7 @@
 // Exercise the published app as a rider, including a second visit with all art downloads blocked.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {readFile} from 'node:fs/promises';
+import {readFile, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
 import {createCanvas, loadImage} from '@napi-rs/canvas';
@@ -30,6 +30,12 @@ const browser = await openBrowser();
 const text = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ')?.textContent');
 const key = (key, down) => browser.send('Input.dispatchKeyEvent', {type: down ? 'keyDown' : 'keyUp', key});
 const tap = async k => { await key(k, true); await key(k, false); };
+const click = selector => browser.evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+const choice = selector => browser.evaluate(`document.querySelector(${JSON.stringify(selector)}).value`);
+const choose = (selector, value) => browser.evaluate(`(() => {
+  const field=document.querySelector(${JSON.stringify(selector)}); field.value=${JSON.stringify(value)};
+  field.dispatchEvent(new Event("change", {bubbles: true}));
+})()`);
 const metres = () => browser.evaluate('Number(document.querySelector(".speed")?.dataset.metres)');
 const ready = () => until(async () => {
   const result = await browser.evaluate('({ready:document.body?.dataset.ready, error:document.body?.dataset.error})');
@@ -46,14 +52,19 @@ try {
   assert.equal(fetched, artPaths.size);
   assert.equal(await browser.evaluate('const b=document.querySelector("progress"); b.value===b.max && b.max>0'), true);
 
-  // Read the canvas area above the instruments. A blank canvas can still have a working HUD.
-  const png = (await browser.send('Page.captureScreenshot', {format: 'png'})).result.data;
-  const img = await loadImage(Buffer.from(png, 'base64'));
-  const ctx = createCanvas(64, 40).getContext('2d'); ctx.drawImage(img, 0, 0, 64, 40);
-  const pixels = ctx.getImageData(8, 12, 48, 16).data, colors = new Set();
-  for (let i = 0; i < pixels.length; i += 4) colors.add((pixels[i] >> 4) * 256 + (pixels[i+1] >> 4) * 16 + (pixels[i+2] >> 4));
-  assert.ok(colors.size > 10, 'the rendered landscape should contain distinct material colours');
-  if (screenshot) await browser.screenshot(screenshot);
+  // Headless Vulkan may omit the GPU surface from the compositor screenshot.
+  // Snapshot the actual WebGPU canvas and wait for material colours to appear.
+  const landscape = await until(async () => {
+    const url = await browser.evaluate('document.getElementById("view").toDataURL("image/png")');
+    if (!url?.startsWith('data:image/png;base64,')) return false;
+    const bytes = Buffer.from(url.split(',')[1], 'base64');
+    const img = await loadImage(bytes), ctx = createCanvas(64, 40).getContext('2d');
+    ctx.drawImage(img, 0, 0, 64, 40);
+    const pixels = ctx.getImageData(8, 12, 48, 16).data, colors = new Set();
+    for (let i = 0; i < pixels.length; i += 4) colors.add((pixels[i] >> 4) * 256 + (pixels[i+1] >> 4) * 16 + (pixels[i+2] >> 4));
+    return colors.size > 10 && bytes;
+  }, 'colours in the WebGPU landscape', 60);
+  if (screenshot) await writeFile(screenshot, landscape);
 
   await key('w', true);
   try { await until(async () => await metres() >= 3, 'pedalling out of town', 55); }
@@ -68,12 +79,34 @@ try {
   await browser.evaluate('document.querySelector(".pause").click()');
   await until(async () => await text('.pause') === 'Resume', 'pause and save', 30);
 
+  await browser.evaluate('document.querySelector(".reset").focus()');
+  await tap('Tab');
+  await until(() => browser.evaluate('document.activeElement.matches(".resolution")'), 'wrap focus to resolution');
+  await browser.send('Input.dispatchKeyEvent', {type:'keyDown', key:'Tab', modifiers:8});
+  await browser.send('Input.dispatchKeyEvent', {type:'keyUp', key:'Tab', modifiers:8});
+  await until(() => browser.evaluate('document.activeElement.matches(".reset")'), 'wrap focus to reset');
+  await choose('.resolution', '360p');
+  await until(async () => await text('.quality') === '360p', 'fixed resolution', 30);
+  await choose('.samples', '4'); await choose('.bounces', '3');
+  const stopped = await metres();
+  await key('w', true); await new Promise(resolve => setTimeout(resolve, 350)); await key('w', false);
+  assert.equal(await metres(), stopped, 'ride advanced while the menu was open');
+  await click('.resume');
+  await until(async () => await text('.pause') === 'Pause', 'resume after saving settings');
+
   offline = true; const before = fetched, saved = await metres();
   await browser.navigate('http://127.0.0.1:' + server.address().port);
   await ready(); await until(async () => await metres() >= saved, 'saved ride', 25);
   assert.equal(await text('.light'), 'High sun');
   assert.equal(fetched, before, 'reload attempted to download village art again');
-  await tap('r');
+  await tap('p');
+  await until(async () => await text('.pause') === 'Resume', 'open saved settings');
+  assert.deepEqual(await Promise.all(['.resolution','.samples','.bounces'].map(choice)), ['360p','4','3']);
+  await click('.reset');
   await until(async () => await metres() === 0, 'return to Lantern Row', 25);
-  console.log('Willowbank rendered, rode, braked and reloaded with all village downloads blocked.');
+  assert.equal(await text('.place'), 'Lantern Row');
+  await tap('p');
+  await until(async () => await text('.pause') === 'Resume', 'settings after reset');
+  assert.deepEqual(await Promise.all(['.resolution','.samples','.bounces'].map(choice)), ['360p','4','3']);
+  console.log('Willowbank rendered, rode, paused, changed each path setting, reset and reloaded offline.');
 } finally { browser.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
