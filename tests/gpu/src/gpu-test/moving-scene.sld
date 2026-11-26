@@ -112,7 +112,8 @@
 
     (define (across (gpu Gpu) (stage MovingScene) (place! (Fn F32 → Unit))) (→ String)
       (place! -1.5)
-      (let* ((tree (build-moving-bvh gpu (scene-triangles (● stage scene))))
+      (let* ((builder (make-bvh-builder gpu))
+             (tree (build-bvh gpu builder (scene-triangles (● stage scene))))
              (kernels (make-ray-kernels gpu opaque-cutout))
              (rays (storage-buffer gpu "test/rays" 320 (list (CopySrc) (CopyDst))))
              (counts (storage-buffer gpu "test/count" 4 (list (CopyDst))))
@@ -136,5 +137,7 @@
                       (list (BindGroupObject group) (ComputePipelineObject (● kernels occlude))
                             (ComputePipelineObject (● kernels intersect)) (BufferObject back)
                             (BufferObject rays) (BufferObject counts)))
-            (release-bvh gpu tree) (release-moving-scene gpu stage)
+            (release-bvh gpu tree)
+            (release-bvh-builder gpu builder)
+            (release-moving-scene gpu stage)
             (string-append old " / " now)))))))

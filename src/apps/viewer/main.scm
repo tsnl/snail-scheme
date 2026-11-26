@@ -40,6 +40,7 @@
  (snail shell graphics trace scene)
  (snail shell graphics environment)
  (snail shell graphics trace render)
+ (only (snail shell graphics passes) Filmic)
  (snail shell graphics fly))
 
 (define layer-size (→ I32) 1024)
@@ -400,7 +401,8 @@
                        format
                        (traced settings (● canvas width))
                        (traced settings (● canvas height))
-                       layer-size)))))))
+                       layer-size
+                       (Filmic))))))))
 
 
 

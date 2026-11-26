@@ -167,14 +167,14 @@
                                        (fly-camera (fly-over (● scene low) (● scene high))
                                                    aspect))))
                       (new Shot
-                        (tracer (make-graded-tracer gpu
-                                                    scene
-                                                    (● sky environment)
-                                                    (Rgba8Unorm)
-                                                    w
-                                                    h
-                                                    layers
-                                                    (Photographic)))
+                        (tracer (make-tracer gpu
+                                             scene
+                                             (● sky environment)
+                                             (Rgba8Unorm)
+                                             w
+                                             h
+                                             layers
+                                             (Photographic)))
                         (camera camera))))
 (define (main (args Arguments) (fs Fs) (files Resources) (out OutputPort) (host Host)) (→ Unit)
   (let* ((name (setting args "scene" "sf")) (path (setting args "output" "render.png"))
