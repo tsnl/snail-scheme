@@ -14,6 +14,7 @@
 (define-library (snail shell graphics trace scene)
   (export
    Scene
+   SurfaceRun
    SurfaceMaterial
    EmitterTable
    Scene-emitters-set
@@ -86,7 +87,35 @@
        (high (List F64))
        (blended Bool)
        (parts (List (Pair I64 I64)))
-       (moving (List TriangleSpan))))
+       (moving (List TriangleSpan))
+       (runs (List SurfaceRun))))
+
+    ;; A run of triangles whose materials share an alpha mode (0 opaque, 1
+    ;; masked, 2 blended), which the tracer draws with one pipeline.
+    (record SurfaceRun
+      ((first I64)
+       (count I64)
+       (alpha I64)))
+
+    ;; The scene's triangles as runs, in order: each placed primitive's,
+    ;; merged with the one before where both have the same alpha mode.
+    (define (surface-runs (gltf Gltf)) (→ (List SurfaceRun))
+      (let ((materials (list->array (scene-materials gltf))))
+        (reverse
+         (fold-left (lambda (runs p)
+                      (let ((n (quotient (index-count (● p primitive)) 3))
+                            (alpha
+                             (● (array-ref materials (max 0 (● p primitive material))) alpha)))
+                        (match runs
+                          ((Cons r rest)
+                           (if (= (● r alpha) alpha)
+                               (Cons (SurfaceRun-count-set r (+ (● r count) n)) rest)
+                               (Cons (new SurfaceRun (first (+ (● r first) (● r count))) (count n)
+                                          (alpha alpha))
+                                     runs)))
+                          ((Nil) (list (new SurfaceRun (first 0) (count n) (alpha alpha)))))))
+                    (ann (Nil) (List SurfaceRun))
+                    (● gltf placed)))))
 
     (define vertex-stride (→ I64) 64)
 
@@ -214,7 +243,8 @@
                           (first (● p primitive positions count))
                           (second (quotient (index-count (● p primitive)) 3))))
                       (● gltf placed)))
-          (moving (Nil)))))
+          (moving (Nil))
+          (runs (surface-runs gltf)))))
 
     (define (release-scene (gpu Gpu) (scene Scene)) (→ Unit)
       (release-plane gpu (● scene lights plane))
