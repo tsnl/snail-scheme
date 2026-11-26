@@ -58,6 +58,7 @@
     (define (device-checks (gpu Gpu) (out OutputPort)) (→ Unit)
       (write-line out (string-append "moving shadows: " (moving-shadows gpu)))
       (write-line out (string-append "skinned shadows: " (bent-shadows gpu)))
+      (write-line out (string-append "wide tree: " (wide-shadows gpu)))
       (write-line out (string-append "reservoirs: " (check-restir gpu)))
       (write-line out (string-append "decoded: " (texels (decoded-texels gpu))))
       (write-line out (string-append "scene: " (texels (scene-frame gpu (Neutral)))))

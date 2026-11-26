@@ -1,7 +1,7 @@
 ;; Cast the same shadow rays before and after moving a box across the street.
 ;; Keep the query's original bindings to catch stale vertices and stale boxes.
 (define-library (gpu-test moving-scene)
-  (export moving-shadows bent-shadows)
+  (export moving-shadows bent-shadows wide-shadows)
   (import
    (snail core base)
    (snail shell gpu)
@@ -140,4 +140,73 @@
             (release-bvh gpu tree)
             (release-bvh-builder gpu builder)
             (release-moving-scene gpu stage)
-            (string-append old " / " now)))))))
+            (string-append old " / " now)))))
+
+    ;; A grid of 400 boxes, 4,800 triangles, more than a wide task's 4,096,
+    ;; so the first levels of its tree are split across every workgroup. A
+    ;; ray straight down onto each box meets it, and one down each gap
+    ;; between four boxes meets nothing.
+    (define (wide-shadows (gpu Gpu)) (→ String)
+      (let* ((at (lambda ((i I64)) (→ F32) (* 2.0 (i64->f32 i))))
+             (cells (concatenate (map (lambda (i) (map (lambda (j) (new Pair (first i) (second j)))
+                                                       (iota 20)))
+                                      (iota 20))))
+             (empty
+              (new Gltf (buffers (Nil)) (size 0) (images (Nil)) (materials (Nil)) (placed (Nil))))
+             (grid (with-shapes empty
+                                (map (lambda (c)
+                                       (item (Box)
+                                             (new Vec3
+                                               (x (at (● c first)))
+                                               (y 0.0)
+                                               (z (at (● c second))))
+                                             (new Vec3 (x 1.0) (y 1.0) (z 1.0))
+                                             0.0
+                                             0))
+                                     cells)))
+             (scene (upload-scene gpu (lambda (_) (Nil)) grid 1))
+             (down (lambda ((x F32) (z F32)) (→ (List Vec4f))
+                     (let ((zero (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 0.0))))
+                       (list (new Vec4f (x x) (y 3.0) (z z) (w 5.0))
+                             (new Vec4f (x 0.0) (y -1.0) (z 0.0) (w 0.0)) zero zero zero))))
+             (rays (concatenate
+                    (append (map (lambda (c) (down (at (● c first)) (at (● c second)))) cells)
+                            (map
+                             (lambda (c) (down (+ 1.0 (at (● c first))) (+ 1.0 (at (● c second)))))
+                             cells))))
+             (count (* 2 (length cells)))
+             (size (* 80 count))
+             (builder (make-bvh-builder gpu))
+             (tree (build-bvh gpu builder (scene-triangles scene)))
+             (kernels (make-ray-kernels gpu opaque-cutout))
+             (queue (storage-buffer gpu "test/wide-rays" size (list (CopySrc) (CopyDst))))
+             (counts (storage-buffer gpu "test/wide-count" 4 (list (CopyDst))))
+             (group (ray-group gpu (● kernels intersect) tree queue counts 0))
+             (back ((● gpu create-buffer)
+                    (new BufferDescriptor (label "test/wide-hits") (size (i64->i32 size))
+                         (usage (list (CopyDst) (MapRead))))))
+             (encoder ((● gpu create-command-encoder))))
+        ((● gpu write-buffer) queue 0 (pack (shape) rays))
+        ((● gpu write-buffer) counts 0 (pod-bytes (shape) (i64->i32 count)))
+        (let ((pass ((● gpu begin-compute-pass) encoder)))
+          (trace-rays gpu pass (● kernels intersect) group (None) count)
+          ((● gpu end-compute-pass) pass))
+        ((● gpu copy-buffer-to-buffer) encoder queue 0 back 0 (i64->i32 size))
+        ((● gpu submit) (list ((● gpu finish) encoder)))
+        (let* ((bytes ((● gpu read-buffer) back 0 (i64->i32 size)))
+               (open? (lambda ((i I64)) (→ Bool)
+                        (every?
+                         (lambda (b) (= (u8->i32 (array-ref bytes (+ (* 80 i) (+ 36 b)))) 255))
+                         (iota 4))))
+               (hit (length (filter (lambda (i) (not (open? i))) (iota (length cells)))))
+               (open (length (filter open?
+                                     (map (lambda (i) (+ i (length cells)))
+                                          (iota (length cells)))))))
+          (for-each (lambda (r) ((● gpu destroy) r))
+                    (list (BindGroupObject group) (ComputePipelineObject (● kernels occlude))
+                          (ComputePipelineObject (● kernels intersect)) (BufferObject back)
+                          (BufferObject queue) (BufferObject counts)))
+          (release-bvh gpu tree)
+          (release-bvh-builder gpu builder)
+          (release-scene gpu scene)
+          (string-append (show hit) " of 400 boxes hit, " (show open) " of 400 gaps open"))))))
