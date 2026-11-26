@@ -1,7 +1,7 @@
 // Source packages through the public command line, in independent checkouts.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {mkdir, mkdtemp, readFile, readdir, rename, rm, symlink, writeFile} from 'node:fs/promises';
+import {copyFile, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, symlink, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -11,8 +11,9 @@ const exec = promisify(execFile), root = process.argv[2];
 const area = await mkdtemp(join(tmpdir(), 'snail-packages-'));
 const app = join(area, 'private app'), library = join(area, 'shared'), remote = join(area, 'upstream');
 const snail = (...args) => exec(join(root, 'snail-scheme'), args, {cwd: app, maxBuffer: 16 * 1024 * 1024});
-const git = (...args) => exec('git', ['-c', 'user.name=Snail', '-c', 'user.email=test@localhost',
-  '-c', 'commit.gpgSign=false', ...args], {cwd: remote});
+const gitAt = (cwd, ...args) => exec('git', ['-c', 'user.name=Snail', '-c', 'user.email=test@localhost',
+  '-c', 'commit.gpgSign=false', '-c', 'tag.gpgSign=false', ...args], {cwd});
+const git = (...args) => gitAt(remote, ...args);
 const put = async (directory, name, text) => {
   const file = join(directory, name);
   await mkdir(dirname(file), {recursive: true});
@@ -107,25 +108,108 @@ try {
   const rev = (await git('rev-parse', 'HEAD')).stdout.trim();
   await put(remote, 'data/src/acme/messages/greeting.sld', textLibrary('acme messages greeting', 'new HEAD'));
   await git('commit', '--quiet', '-am', 'Change the greeting on the branch');
-  const pinned = commit => `(words (git ${JSON.stringify(pathToFileURL(remote).href)} "${commit}"))`;
-  await pkg(app, depends(standard, pinned('main')));
-  await assert.rejects(snail('deps'), /full 40-digit lowercase Git commit ID/);
+  const url = pathToFileURL(remote).href;
+  const pinned = ref => `(words (git ${JSON.stringify(url)} ${JSON.stringify(ref)}))`;
+  const lock = join(app, 'package.lock'), cache = join(app, 'build/.snail-packages');
+  await git('branch', 'branch-only');
+  await git('branch', 'stable'); // The tag of the same name identifies a different commit.
+  await git('tag', 'stable', rev);
+  await git('tag', '-am', 'first release', 'releases/v1', rev);
+  await git('tag', 'not-a-commit', `${rev}^{tree}`);
+  await git('tag', 'nested/refs/tags/absent', rev); // ls-remote matches ref tails.
+
+  for (const ref of ['branch-only', 'absent', rev.slice(0, 8)]) {
+    await pkg(app, depends(standard, pinned(ref)));
+    await assert.rejects(snail('deps'), /Git tag not found/);
+  }
+  await pkg(app, depends(standard, pinned('refs/heads/stable')));
+  await assert.rejects(snail('deps'), /expected a Git tag or full commit hash/);
+  await pkg(app, depends(standard, pinned('stable^{tree}')));
+  await assert.rejects(snail('deps'), /invalid Git tag/);
   await pkg(app, depends(standard, pinned('0'.repeat(40))));
   await assert.rejects(snail('deps'), /git failed/);
-  const cache = join(app, 'build/.snail-packages');
+  await pkg(app, depends(standard, pinned('not-a-commit')));
+  await assert.rejects(snail('deps'), /git failed/);
   assert.deepEqual(await readdir(cache), []);
-  await pkg(app, depends(standard, pinned(rev)));
+  await assert.rejects(readFile(lock), {code: 'ENOENT'});
+
+  await pkg(app, depends(standard, pinned(rev.toUpperCase())));
   await assert.rejects(run(), /run snail-scheme deps/);
+  await snail('deps');
+  await assert.rejects(readFile(lock), {code: 'ENOENT'}); // The hash pins itself.
+  const [checkout] = await readdir(cache);
+  const cached = join(cache, checkout);
+  const declared = depends(standard, pinned('refs/tags/releases/v1'), pinned(rev),
+    '(bundle (path "../bundle"))');
+  await pkg(join(area, 'bundle'), `(package bundle (depends ${pinned('stable')}))`);
+  await pkg(app, declared);
+  await assert.rejects(run(), /unlocked Git tag.*run snail-scheme deps/);
   const installs = await Promise.all([snail('deps'), snail('deps', '.')]);
   assert.equal(installs[0].stdout, installs[1].stdout);
-  const checkouts = await readdir(cache);
-  assert.equal(checkouts.length, 1);
+  assert.deepEqual(await readdir(cache), [checkout], 'two tags and a hash share the checkout');
+  const pins = await readFile(lock, 'utf8');
+  assert.equal(pins, `(package-lock\n  ("${url}" "releases/v1" "${rev}")\n  ("${url}" "stable" "${rev}"))\n`);
+  const originalWrite = (await stat(lock, {bigint: true})).mtimeNs;
+  await snail('deps');
+  assert.equal((await stat(lock, {bigint: true})).mtimeNs, originalWrite);
+  await git('tag', '-f', 'releases/v1', 'HEAD');
+  await git('tag', '-d', 'stable');
+
+  // A collaborator with only the manifest and lock can reinstall the original
+  // commits, including the transitive tag that disappeared from the remote.
+  const fresh = join(area, 'fresh');
+  await pkg(fresh, declared);
+  await copyFile(lock, join(fresh, 'package.lock'));
+  await put(fresh, 'main.scm', program);
+  await snail('deps', fresh);
+  assert.equal((await snail('run', '--target', 'node', join(fresh, 'main.scm'))).stdout, 'pinned\n');
+
+  // A bad lock reports its error in place. Removing a pin lets the next
+  // install resolve that tag again.
+  await pkg(fresh, depends(standard, pinned('releases/v1')));
+  const freshLock = join(fresh, 'package.lock');
+  const badPin = `(package-lock ("${url}" "releases/v1" "broken"))\n`;
+  await writeFile(freshLock, badPin);
+  await assert.rejects(snail('deps', fresh), /expected a full commit hash in package.lock/);
+  assert.equal(await readFile(freshLock, 'utf8'), badPin);
+  await writeFile(freshLock, '(package-lock)\n');
+  await snail('deps', fresh);
+  assert.equal((await snail('run', '--target', 'node', join(fresh, 'main.scm'))).stdout, 'new HEAD\n');
+
+  // A failed graph never publishes a new tag selection. Changing the
+  // manifest to a new tag advances the commit and prunes old pins.
+  await git('tag', 'v2');
+  await pkg(app, depends(standard, pinned('releases/v1'), pinned('v2')));
+  await assert.rejects(snail('deps'), /package words has two sources/);
+  assert.equal(await readFile(lock, 'utf8'), pins);
+  await pkg(app, depends(standard, pinned('v2')));
+  await snail('deps');
+  assert.equal((await run()).stdout, 'new HEAD\n');
+  const next = (await git('rev-parse', 'HEAD')).stdout.trim();
+  assert.equal(await readFile(lock, 'utf8'), `(package-lock\n  ("${url}" "v2" "${next}"))\n`);
+
+  await pkg(app, declared);
+  await writeFile(lock, pins);
   await rename(remote, join(area, 'offline'));
+  await snail('deps');
   assert.equal((await run()).stdout, 'pinned\n');
-  const cached = join(cache, checkouts[0]);
   assert.equal(await readFile(join(cached, 'package.scm'), 'utf8'), '(package words (depends (data (path "data"))))');
   await put(cached, 'data/src/acme/messages/greeting.sld', textLibrary('acme messages greeting', 'edited pin'));
   await assert.rejects(run(), /modified Git package checkout/);
+
+  // Full Git object IDs also cover SHA-256 repositories.
+  const sha256 = join(area, 'sha256');
+  await pkg(sha256, '(package newer)');
+  await gitAt(sha256, 'init', '--quiet', '--object-format=sha256');
+  await gitAt(sha256, 'add', '.');
+  await gitAt(sha256, 'commit', '--quiet', '-m', 'First package');
+  await gitAt(sha256, 'tag', '-am', 'release', 'v1');
+  const longHash = (await gitAt(sha256, 'rev-parse', 'HEAD')).stdout.trim();
+  const longUrl = pathToFileURL(sha256).href;
+  assert.equal(longHash.length, 64);
+  await pkg(app, depends(`(newer (git "${longUrl}" "v1"))`, `(newer (git "${longUrl}" "${longHash}"))`));
+  assert.equal((await snail('deps')).stdout.split('\n').filter(line => line.startsWith('newer ')).length, 1);
+  assert.equal(await readFile(lock, 'utf8'), `(package-lock\n  ("${longUrl}" "v1" "${longHash}"))\n`);
   console.log('source packages passed');
 } finally {
   await rm(area, {recursive: true, force: true});

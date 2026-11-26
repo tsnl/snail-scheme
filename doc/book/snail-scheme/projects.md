@@ -8,36 +8,47 @@ checking a script or following a definition.
 
 ## Source packages
 
-A checkout declares a package in `package.scm` at its root. For example, a
-private application can use a sibling checkout of Snail and a shared library
-from another repository.
+Declare a source package in `package.scm` at the checkout root. A shared
+dependency names a Git repository URL and a tag or full commit hash. For
+example, an application can select a compiler release and pin a private
+catalog at a particular revision.
 
 ```scheme
 (package observatory
   (depends
-    (snail-scheme (path "../snail-scheme"))
+    (snail-scheme (git "https://github.com/tsnl/snail-scheme.git" "v1.2.0"))
     (catalog (git "git@example.org:team/catalog.git"
                   "0123456789abcdef0123456789abcdef01234567"))))
 ```
 
-Use the repository's actual commit ID in place of the example. From the
-application checkout, fetch the dependencies once and run the script.
+Substitute a published tag and commit from the repositories you use.
+From the application's checkout, install its dependencies and run its script.
 
 ```sh
-../snail-scheme/snail-scheme deps
-../snail-scheme/snail-scheme run --target node src/observatory/main.scm
+snail-scheme deps
+snail-scheme run --target node src/observatory/main.scm
 ```
 
-Each dependency declares its own package name and dependencies in the same
-format. A path is relative to the manifest that names it, and edits to that
-checkout are visible on the next build. A Git dependency names a full
-40-digit lowercase commit ID. `deps [DIRECTORY]` follows transitive
-dependencies, fetches missing commits with Git's configured credentials,
-checks the assembled tree and prints each package and its checkout.
-Git checkouts live under the consuming workspace's
-`build/.snail-packages/`. Subsequent builds, WAT output and editor checks
-resolve installed packages offline. Changing a pin requires running
-`deps` again. Use a path dependency to edit a library.
+`snail-scheme deps [DIRECTORY]` follows transitive dependencies using
+Git's configured credentials, checks the merged source tree and prints
+each package and its checkout. A tag such as `v1.2.0` selects the exact
+`refs/tags/v1.2.0` reference. Lightweight and annotated tags must lead to
+a commit. You can also give the full tag ref. Full commit hashes can be
+40 hexadecimal digits for SHA-1 or 64 for SHA-256.
+
+On the first successful install of a tag, `deps` writes its URL, tag and
+resolved commit to **`package.lock`** in the root workspace. Commit this
+file alongside `package.scm` so collaborators and CI select the same
+commits, even if someone moves a tag. A graph using only commit hashes and
+local paths needs no lockfile. Checkouts live in `build/.snail-packages/`.
+Builds, WAT output and editor checks use the installed packages offline.
+To upgrade, change the ref in the manifest and run `deps` again. To adopt
+a moved tag with the same name, remove its entry from the lockfile and
+rerun `deps`.
+
+For live local development, use `(catalog (path "../catalog"))` in
+`depends`. The path is relative to the manifest declaring it. The next
+build reads edits directly from that checkout.
 
 All reachable packages contribute to one virtual `src/`. For example,
 `(import (acme sky catalog))` opens the file at `src/acme/sky/catalog.sld`
@@ -47,8 +58,9 @@ that import. Several packages may contribute different files under
 and a directory at the same path, fail assembly. This includes unused
 files, scripts and assets. Diagnostics name both providers. A shared
 transitive dependency appears once. Local checkouts are identified by their
-physical directory, and Git sources by their URL and commit. A dependency cycle or two different
-checkouts claiming one package name fail resolution.
+physical directory, and Git sources by URL and resolved commit. A tag and
+a hash identifying that commit share a checkout. A dependency cycle or
+two different checkouts claiming one package name fail resolution.
 
 By default a package contributes every entry under `src/`. An optional
 `export` clause before `depends` lists the immediate entries to contribute
