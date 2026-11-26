@@ -303,14 +303,63 @@ to 5.4 ms a frame, the same as before the layer within the timing's noise.
 
 ## The BVH and ray queries
 
-`(snail shell graphics bvh)` builds a linear BVH on the device in one
-compute pass: Morton codes of the triangles' centroids, a bitonic sort of
-them, Karras's tree over the sorted codes, and boxes refit from the leaves
-up. It takes any triangles: a positions buffer read
-as 32-bit words at a stride and an offset, and an index buffer. Each node
-holds both its children's boxes, and a child pointer with the high bit set
-names a triangle. Traversal visits the nearer child first, with a 64-entry
-stack and a cap of 8192 steps.
+`(snail shell graphics bvh)` builds a two-level hierarchy on the device,
+as hardware ray tracing has one. A bottom level is a tree over one span of
+a scene's triangles: the still triangles in one, and each moving object's
+in one of its own. The top level is a tree over the bottom levels' roots.
+It takes any triangles: a positions buffer read as 32-bit words at a
+stride and an offset, an index buffer, and the spans that move, which a
+`MovingScene` sets from its skin bindings, one span a binding.
+
+Every tree is built top down by the surface area heuristic, as a CPU
+builder splits a node. The node's primitives' centroids fall into 16 bins
+along each axis. Each of the 45 boundaries between bins is priced by the
+area of the box on either side times the count there. The node splits at
+the cheapest, or stays a leaf of up to four triangles when no split pays
+for the step a walk takes into it. The device builds a level a dispatch.
+A level's nodes are its tasks, each a contiguous span of primitives. One
+workgroup takes a task: it bins the span, chooses, and rewrites the span
+stably into its two children's spans for the next level. The tree is the
+same however the device schedules the work. A workgroup takes every
+`num_workgroups`-th task, so no dispatch is sized by a count only the
+device knows, and none is indirect. A bottom level may take 40 levels.
+A span that could not otherwise reach leaves of four by then is halved
+instead of binned, so every span ends in a leaf.
+
+A slot is a child as a walk reads it: a box, a pointer and a count. A
+count of 0 points at a node, two slots side by side; a count above 0 is a
+leaf of that many triangles, each stored as a corner and two edges in the
+leaves' order, so a test reads one 48-byte record. Slot 0 is the top
+level's root. A top level's leaf is a copy of a bottom level's root slot,
+so a walk crosses from the top level into a bottom level as into any node.
+It visits the nearer child first, with a 64-entry stack and a cap of 8192
+steps.
+
+`refit-bvh!` follows moving triangles after their vertices change. Their
+leaves read the vertices again, and each triangle's box merges into its
+leaf's slot and every slot above it with atomic minimum and maximum, on
+floats laid out as words that sort as the floats do. The top level is then
+built again over the roots. The still triangles' tree is never touched
+again. A scene with nothing moving has nothing to refit.
+
+Before this, one linear BVH covered every triangle: Morton codes of the
+triangles' centroids on a 1024-cell grid over the scene's box, a bitonic
+sort, Karras's tree, and a refit of every node. Its grid followed the
+whole scene's box. In Last Mile, an 80 km horizon put the 90,197 nearby
+triangles of the busiest street window into only 3,981 codes. Equal codes
+leave the tree no way to separate triangles. On an RTX 5090 through Dawn,
+at the Hyde Street stand with 146,667 triangles traced at 1280 by 720:
+
+| Median GPU time a frame | Linear BVH | Two levels, SAH |
+| --- | ---: | ---: |
+| Wavefront, two bounces | 9.07 ms | 2.06 ms |
+| Wavefront, one bounce | 4.11 ms | 1.49 ms |
+| Refit after a pose | 1.02 ms | 0.18 ms |
+| Building the still triangles' tree, once | 1.34 ms | 7.74 ms |
+
+The old refit made 50 passes over every node, whatever moved. The new one
+merges only the 44 moving objects' boxes and rebuilds the top level over
+45 roots.
 
 `make-ray-kernels` builds `intersect` (the nearest hit) and `occlude` (any
 hit) for a caller's `cutout(triangle, barycentric, seed)`, the WGSL that
@@ -360,12 +409,11 @@ and their displacement from the previous draw. The surface pass uses that
 displacement for motion vectors and the expected previous depth. SVGF stores the current clip-space depth and octahedral normal for validation on the next frame. During motion each new observation receives at least 40% of the accumulated illumination weight. Both primary visibility and secondary rays
 consume the same world-space triangles. Mesh topology and materials stay fixed.
 
-`make-moving-tracer` keeps the leaf order and binary tree for those triangles.
-After a simulation tick, `refit-tracer!` refreshes the leaf boxes, propagates
-their bounds and packs them into the original query buffer. Bindings survive
-a refit. An application can choose a tone curve at construction with `make-graded-moving-tracer`.
-Last Mile uses `Photographic` for a hue-preserving shoulder followed by sRGB encoding.
-The viewer can discard this build scratch for static scenes. Last
+Each skin binding of a `MovingScene` is one object, with a bottom level of
+its own. After a simulation tick, `refit-tracer!` refits those trees and
+rebuilds the top level over them ([the BVH](#the-bvh-and-ray-queries)).
+Bindings survive a refit. `make-tracer` takes the tone curve. Last Mile uses
+`Photographic` for a hue-preserving shoulder followed by sRGB encoding. Last
 Mile asks each frame for two bounces, and the final FXAA pass samples
 normalized screen coordinates so a small traced image fills a larger browser
 canvas. [Last Mile](../games/last-mile.md)
