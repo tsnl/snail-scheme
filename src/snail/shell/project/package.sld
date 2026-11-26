@@ -13,6 +13,7 @@
    (snail core table)
    (snail shell process)
    (snail shell utf8)
+   (only (snail shell text) string-downcase)
    (only (snail shell compiler sha256) bytes->hex sha256)
    (only (snail shell compiler library) LibraryLookup directory-lookup)
    (snail shell compiler read))
@@ -20,9 +21,13 @@
 
     ;; ---- Declarations ----
 
+    (enum GitRef
+      (Commit ((id String)))
+      (Tag ((name String))))
+
     (enum Origin
       (Checkout ((path String)))
-      (Git ((url String) (commit String))))
+      (Git ((url String) (revision GitRef))))
 
     (record Dependency
       ((name String)
@@ -92,16 +97,32 @@
       (match source
         ((Form (Cons (Ident "path" _ _) (Cons path (Nil))) _) (Checkout (source-string path)))
         ((Form (Cons (Ident "git" _ _) (Cons url (Cons rev (Nil)))) _)
-         (Git (source-string url) (commit-id rev)))
-        (_ (compile-error (syntax-loc source) "expected (path DIRECTORY) or (git URL COMMIT)"))))
+         (Git (source-string url) (git-ref rev)))
+        (_ (compile-error (syntax-loc source) "expected (path DIRECTORY) or (git URL REF)"))))
 
-    (define (commit-id (item Syntax)) (→ String)
-      (let* ((commit (source-string item))
-             (hex? (lambda (c) (or (and (<= #\0 c) (<= c #\9))
-                                   (and (<= #\a c) (<= c #\f))))))
-        (unless (and (= (string-length commit) 40) (every? hex? (string->list commit)))
-          (compile-error (syntax-loc item) "expected a full 40-digit lowercase Git commit ID"))
-        commit))
+    ;; Full object IDs are case insensitive. Both forms of a tag name,
+    ;; v1 and refs/tags/v1, select the same pin.
+    (define (git-ref (item Syntax)) (→ GitRef)
+      (let ((text (source-string item)))
+        (match (full-object-id text)
+          ((Some id) (Commit id))
+          ((None)
+           (cond ((starts-with? text "refs/tags/") (Tag (substring text 10 (string-length text))))
+                 ((starts-with? text "refs/")
+                  (compile-error (syntax-loc item) "expected a Git tag or full commit hash"))
+                 (else (Tag text)))))))
+
+    (define (starts-with? (text String) (prefix String)) (→ Bool)
+      (and (>= (string-length text) (string-length prefix))
+           (string=? (substring text 0 (string-length prefix)) prefix)))
+
+    (define (full-object-id (text String)) (→ (Option String))
+      (let ((hex? (lambda (c) (or (and (<= #\0 c) (<= c #\9))
+                                  (and (<= #\a c) (<= c #\f))
+                                  (and (<= #\A c) (<= c #\F))))))
+        (if (and (member? (string-length text) (list 40 64)) (every? hex? (string->list text)))
+            (Some (string-downcase text))
+            (None))))
 
     (define (source-string (item Syntax)) (→ String)
       (match item
@@ -119,7 +140,9 @@
       ((fs Fs)
        (processes Processes)
        (fetch (Option Clock))
-       (cache String)))
+       (cache String)
+       (locked (Table String))
+       (selected (Table String))))
 
     (record PackageSet
       ((members (List Package))
@@ -135,12 +158,24 @@
                                 (workspace String) (standard String))
       (→ PackageSet)
       (if (manifest-present? fs workspace)
-          (let* ((root (physical-directory processes workspace (file-loc (manifest workspace))))
-                 (resolver (new Resolver (fs fs) (processes processes) (fetch fetch)
-                                (cache (string-append root "/build/.snail-packages"))))
-                 (package (Package-exports-set (read-package fs root) (None))))
-            (assembled fs (visit resolver package (Nil) (Nil))))
+          (resolve-workspace processes fs fetch
+                             (physical-directory processes
+                                                 workspace
+                                                 (file-loc (manifest workspace))))
           (assembled fs (implicit-packages workspace standard))))
+
+    (define (resolve-workspace (processes Processes) (fs Fs) (fetch (Option Clock)) (root String))
+      (→ PackageSet)
+      (let* ((lock (string-append root "/package.lock"))
+             (resolver (new Resolver (fs fs) (processes processes) (fetch fetch)
+                            (cache (string-append root "/build/.snail-packages"))
+                            (locked (read-pins fs lock)) (selected (empty-table))))
+             (package (Package-exports-set (read-package fs root) (None)))
+             (packages (assembled fs (visit resolver package (Nil) (Nil)))))
+        (match fetch
+          ((Some clock) (save-pins resolver clock lock))
+          ((None) (unit)))
+        packages))
 
     (define (manifest-present? (fs Fs) (root String)) (→ Bool)
       (match (file-status fs (manifest root))
@@ -200,12 +235,15 @@
       (match (● edge origin)
         ((Checkout path)
          (physical-directory (● resolver processes) (relative-to parent path) (● edge loc)))
-        ((Git url commit)
-         (git-checkout resolver
-                       (match (string-index url #\:)
-                         ((Some _) url)
-                         ((None) (relative-to parent url)))
-                       commit (● edge loc)))))
+        ((Git url revision)
+         (let ((remote (match (string-index url #\:)
+                         ((Some _) url) ((None) (relative-to parent url))))
+               (loc (● edge loc)))
+           (match revision
+             ((Commit id) (git-checkout resolver remote id (None) loc))
+             ((Tag name)
+              (git-checkout resolver remote (tag-commit! resolver remote name loc)
+                            (Some (string-append "refs/tags/" name)) loc)))))))
 
     (define (relative-to (directory String) (path String)) (→ String)
       (if (char=? (string-ref path 0) #\/) path (string-append directory "/" path)))
@@ -215,19 +253,150 @@
       (let ((line (command-text processes loc path "pwd" (list "-P"))))
         (substring line 0 (- (string-length line) 1))))
 
+    ;; ---- Tag pins ----
+
+    ;; The workspace lock records (URL TAG COMMIT) for every reachable tag.
+    ;; A pair of quoted strings is both its table key and its printed form.
+    ;; Only the root workspace's lock participates in a build.
+    (define (pin-key (url String) (tag String)) (→ String)
+      (string-append (datum->string (DString url)) " " (datum->string (DString tag))))
+
+    (define (read-pins (fs Fs) (path String)) (→ (Table String))
+      (match (read-text-file fs path 16777216)
+        ((Err (ReadFailed (NotFound))) (empty-table))
+        ((Err error) (compile-error (file-loc path) (show error)))
+        ((Ok text)
+         (match (read-text text path)
+           ((Cons (Form (Cons (Ident "package-lock" _ _) entries) _) (Nil))
+            (fold-left read-pin (empty-table) entries))
+           (_ (compile-error (file-loc path) "expected (package-lock (URL TAG COMMIT) ...)"))))))
+
+    (define (read-pin (pins (Table String)) (entry Syntax)) (→ (Table String))
+      (match entry
+        ((Form (Cons url (Cons tag (Cons id (Nil)))) loc)
+         (let ((key (pin-key (source-string url) (source-string tag))))
+           (when (table-contains? pins key) (compile-error loc "duplicate tag in package.lock"))
+           (match (full-object-id (source-string id))
+             ((Some commit) (table-set pins key commit))
+             ((None)
+              (compile-error (syntax-loc id) "expected a full commit hash in package.lock")))))
+        (_ (compile-error (syntax-loc entry) "expected a tag pin (URL TAG COMMIT)"))))
+
+    (define (pins-text (pins (Table String))) (→ String)
+      (let ((line (lambda (key)
+                    (match (table-ref pins key)
+                      ((Some commit)
+                       (string-append "\n  (" key " " (datum->string (DString commit)) ")"))
+                      ((None) (panic "missing tag pin"))))))
+        (string-append "(package-lock"
+                       (string-concatenate (map line (list-sort string<? (table-keys pins))))
+                       ")\n")))
+
+    ;; The resolver owns this install's selections. Every edge using a tag
+    ;; sees the same commit, even if the remote tag moves during resolution.
+    (define (tag-commit! (resolver Resolver) (url String) (name String) (loc Loc)) (→ String)
+      (let ((key (pin-key url name)) (ref (string-append "refs/tags/" name)))
+        (match (table-ref (● resolver selected) key)
+          ((Some commit) commit)
+          ((None)
+           (check-tag-name (● resolver processes) ref loc)
+           (let ((commit (match (table-ref (● resolver locked) key)
+                           ((Some commit) commit)
+                           ((None) (resolve-tag resolver url ref loc)))))
+             (set! (● resolver selected) (table-set (● resolver selected) key commit))
+             commit)))))
+
+    (define (check-tag-name (processes Processes) (ref String) (loc Loc)) (→ Unit)
+      (let ((check (new Command (program "git") (arguments (list "check-ref-format" ref))
+                        (directory "."))))
+        (match ((● processes run) check #u8())
+          ((Err error) (compile-error loc (string-append "cannot run git: " (● error code))))
+          ((Ok result) (match (● result exit)
+                         ((Exited 0) (unit))
+                         (_ (compile-error loc (string-append "invalid Git tag: " ref))))))))
+
+    (define (resolve-tag (resolver Resolver) (url String) (ref String) (loc Loc)) (→ String)
+      (match (● resolver fetch)
+        ((None)
+         (compile-error loc (string-append "unlocked Git tag " ref " (run snail-scheme deps)")))
+        ((Some _)
+         (let* ((peeled (string-append ref "^{}"))
+                (listing (remote-git (● resolver processes) loc "."
+                                     (list "ls-remote" "--tags" "--" url ref peeled))))
+           (match (advertised-id listing peeled)
+             ((Some id) id)
+             ((None) (match (advertised-id listing ref)
+                       ((Some id) id)
+                       ((None)
+                        (compile-error loc
+                                       (string-append "Git tag not found: " ref " in " url))))))))))
+
+    ;; ls-remote prints OID, tab, ref, newline. Match the complete refname:
+    ;; its command-line patterns can also match the tail of another name.
+    (define (advertised-id (listing String) (ref String)) (→ (Option String))
+      (let ((suffix (string-append "\t" ref)))
+        (let lines ((text listing))
+          (match (string-index text #\newline)
+            ((None) (None))
+            ((Some end)
+             (let ((at (- end (string-length suffix))))
+               (if (and (> at 0) (string=? (substring text at end) suffix))
+                   (full-object-id (substring text 0 at))
+                   (lines (substring text (+ end 1) (string-length text))))))))))
+
+    ;; Publish only after the whole graph and source tree have checked.
+    ;; Serialize this short replacement so a racing install cannot silently
+    ;; overwrite new pins chosen by another. Readers see either whole file.
+    (define (save-pins (resolver Resolver) (clock Clock) (path String)) (→ Unit)
+      (let ((before (pins-text (● resolver locked))) (after (pins-text (● resolver selected))))
+        (unless (string=? before after)
+          (let ((deadline (+ ((● clock monotonic-nanoseconds)) 5000000000)))
+            (publish-pins resolver clock path before after deadline)))))
+
+    (define (publish-pins (resolver Resolver) (clock Clock) (path String) (before String)
+                          (after String) (deadline I64))
+      (→ Unit)
+      (let ((fs (● resolver fs)) (guard (string-append path ".lock")) (loc (file-loc path)))
+        (match (make-directory fs guard)
+          ((Ok _)
+           (let ((result (recovering (lambda () (replace-pins fs path guard before after)))))
+             (remove-tree fs guard)
+             (match result ((Ok _) (unit)) ((Err errors) (stop (Failed errors))))))
+          ((Err (AlreadyExists))
+           (when (>= ((● clock monotonic-nanoseconds)) deadline)
+             (compile-error loc (string-append "package.lock is busy: " guard)))
+           (command-text (● resolver processes) loc "." "sleep" (list "0.05"))
+           (publish-pins resolver clock path before after deadline))
+          ((Err error) (compile-error loc (show error))))))
+
+    (define (replace-pins (fs Fs) (path String) (guard String) (before String) (after String))
+      (→ Unit)
+      (let ((current (pins-text (read-pins fs path))) (temp (string-append guard "/pins")))
+        (unless (string=? current after)
+          (unless (string=? current before)
+            (compile-error (file-loc path)
+                           "package.lock changed during resolution (run snail-scheme deps again)"))
+          (match (write-text-file fs temp after (CreateNew))
+            ((Err error) (compile-error (file-loc path) (show error)))
+            ((Ok _) (match (rename-file fs temp path)
+                      ((Ok _) (unit))
+                      ((Err error) (compile-error (file-loc path) (show error)))))))))
+
     ;; ---- Git checkouts ----
 
     ;; Each URL and exact commit has its own checkout. Only completed
     ;; checkouts are published, by renaming a private directory beside them.
-    (define (git-checkout (resolver Resolver) (url String) (commit String) (loc Loc)) (→ String)
+    (define (git-checkout (resolver Resolver) (url String) (commit String) (tag (Option String))
+                          (loc Loc))
+      (→ String)
       (let* ((fs (● resolver fs)) (cache (● resolver cache))
              (path (string-append cache "/" (bytes->hex (sha256 (string->utf8 url))) "-" commit)))
         (if (file-exists? fs path)
             (verify-checkout (● resolver processes) path commit loc)
             (match (● resolver fetch)
-              ((Some clock) (fetch-checkout resolver clock url commit path loc))
+              ((Some clock) (fetch-checkout resolver clock url commit tag path loc))
               ((None) (compile-error loc (string-append "missing Git commit " commit
-                                                        "; run snail-scheme deps")))))
+                                                        " (run snail-scheme deps)")))))
         path))
 
     (define (verify-checkout (processes Processes) (path String) (commit String) (loc Loc)) (→ Unit)
@@ -243,7 +412,7 @@
         (compile-error loc (string-append "modified Git package checkout: " path))))
 
     (define (fetch-checkout (resolver Resolver) (clock Clock) (url String) (commit String)
-                            (path String) (loc Loc))
+                            (tag (Option String)) (path String) (loc Loc))
       (→ Unit)
       (let ((fs (● resolver fs)) (cache (● resolver cache)))
         (match (make-directories fs cache)
@@ -251,7 +420,7 @@
           ((Ok _) (unit)))
         (let ((temp (checkout-scratch fs cache ((● clock monotonic-nanoseconds)) loc)))
           (match (recovering (lambda ()
-                               (fetch-commit (● resolver processes) temp url commit loc)
+                               (fetch-commit (● resolver processes) temp url commit tag loc)
                                (publish-checkout resolver temp path commit loc)))
             ((Ok _) (unit))
             ((Err errors) (remove-tree fs temp) (stop (Failed errors)))))))
@@ -285,16 +454,42 @@
                           (temp String)
                           (url String)
                           (commit String)
+                          (tag (Option String))
                           (loc Loc))
       (→ Unit)
-      (command-text processes loc temp "git" (list "init" "--quiet"))
       (command-text processes loc temp "git"
-                    (list "-c" "protocol.allow=never" "-c" "protocol.https.allow=always"
-                          "-c" "protocol.ssh.allow=always" "-c" "protocol.file.allow=always"
-                          "fetch" "--quiet" "--no-tags" "--depth=1" "--" url commit))
+                    (list "init" "--quiet" (if (= (string-length commit) 64)
+                                               "--object-format=sha256" "--object-format=sha1")))
+      (let ((fetch (lambda (ref) (remote-git processes loc temp
+                                             (list "fetch"
+                                                   "--quiet"
+                                                   "--no-tags"
+                                                   "--depth=1"
+                                                   "--"
+                                                   url
+                                                   ref)))))
+        (match tag
+          ((None) (fetch commit))
+          ;; Some servers only serve advertised refs. Fetching the named tag
+          ;; there still has to supply the locked commit for checkout below.
+          ((Some ref) (match (recovering (lambda () (fetch commit)))
+                        ((Ok output) output)
+                        ((Err _) (fetch ref))))))
       (command-text processes loc temp "git"
                     (list "-c" "core.hooksPath=/dev/null" "checkout" "--quiet" "--detach" commit))
       (verify-checkout processes temp commit loc))
+
+    (define (remote-git (processes Processes) (loc Loc) (directory String)
+                        (arguments (List String)))
+      (→ String)
+      (command-text processes loc directory "git"
+                    (append (list "-c" "protocol.allow=never" "-c" "protocol.https.allow=always"
+                                  "-c" "protocol.ssh.allow=always" "-c" "protocol.file.allow=always"
+                                  "-c"
+                                  "protocol.http.allow=always"
+                                  "-c"
+                                  "protocol.git.allow=always")
+                            arguments)))
 
     (define (command-text (processes Processes) (loc Loc) (directory String)
                           (program String) (arguments (List String)))

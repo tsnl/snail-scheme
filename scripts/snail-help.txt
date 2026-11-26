@@ -23,10 +23,11 @@ and signals. A page is not run: serve its output.
 
 wat prints the WebAssembly text of FILE's whole program.
 
-deps reads package.scm, fetches exact Git commits, checks for conflicting
-src/ paths and lists the packages in the workspace. A dependency can name
-a local checkout or a Git URL and commit. Builds use installed packages
-offline. Workspaces without a declaration use the toolchain's src/ too.
+deps installs dependencies from package.scm, checks for conflicting src/
+paths and lists the packages. Use (git "URL" "TAG-OR-FULL-COMMIT") or
+(path "../library") for live local development. deps records tag commits
+in package.lock. Commit it to share the pins. Builds use installed
+packages offline.
 
 lsp serves the Language Server Protocol on standard input and output for
 the workspace an editor opens: diagnostics from checking each open script

@@ -12,8 +12,8 @@
 ;;   wat --target TARGET FILE
 ;;     prints the WebAssembly text of the script's whole program;
 ;;   deps [DIRECTORY]
-;;     installs the declared Git dependencies, checks the virtual source
-;;     tree and lists its packages;
+;;     installs the declared Git dependencies, locks tag commits in
+;;     package.lock, checks the virtual source tree and lists its packages;
 ;;   lsp
 ;;     serves the Language Server Protocol on standard input and output,
 ;;     (snail shell lsp), for the workspace the editor opens, as
