@@ -88,7 +88,7 @@
                              1.0
                              bounces
                              #f
-                             (new TraceSettings (display-width w) (display-height h) (samples 1))))
+                             (new TraceSettings (display-width w) (display-height h))))
          (raster (match (● noisy last) ((Some view) (● view raster))
                         (_ (panic "capture has no rasterized frame"))))
          (first (● noisy frame)))

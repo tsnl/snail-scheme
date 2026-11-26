@@ -327,7 +327,6 @@
 (fn seeded ((pixel u32) (salt u32)) (-> u32)
     (return (pcg (bit-xor pixel
                           (pcg (+ (* (u32 (get tracing frame)) 64u)
-                                  (* (u32 (get tracing sample_index)) 2246822519u)
                                   (* (u32 (get wave step x)) 4u)
                                   salt))))))
 
@@ -382,7 +381,7 @@
         (else (= (get (deref draw) total) total))))
 
 (fn writes_reservoir () (-> bool)
-    (return (and (>= (get tracing reuse) 0) (== (get tracing sample_index) 0))))
+    (return (>= (get tracing reuse) 0)))
 
 (fn direct_shadow
     ((s Surface) (v vec3f) (weight vec3f) (proposal Proposal) (h VisibilityHistory)
@@ -468,8 +467,7 @@
 ;; them for the layer's, whose pixels with no blended surface, their
 ;; alpha 0, make no path.
 (fn begin_radiance ((index u32) (value vec4f))
-    (if ((== (get tracing sample_index) 0) (= (at radiance index) value))
-        (else (+= (at radiance index) value))))
+    (= (at radiance index) value))
 
 (fn (@compute) (@workgroup_size 8 8) primary (((@builtin global_invocation_id) id vec3u))
     (let size (textureDimensions depth))
@@ -556,4 +554,4 @@
     (let index (+ (pixel_index pixel) (u32 (get tracing layer_offset))))
     (textureStore noisy
                   pixel
-                  (vec4f (* (get (at radiance index) xyz) (get tracing sample_weight)) 1.0)))
+                  (vec4f (get (at radiance index) xyz) 1.0)))

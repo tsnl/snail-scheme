@@ -25,10 +25,10 @@ pixel to the same entry point at every render scale.
 
 ```scheme
 (draw-traced gpu tracer canvas camera spread exposure bounces moved
-  (new TraceSettings (display-width width) (display-height height) (samples 1)))
+  (new TraceSettings (display-width width) (display-height height)))
 ```
 
-Choose one or two paths per pixel and one to eight bounces. Report geometry
+Each pixel traces one path a frame, of one to eight bounces. Report geometry
 or lighting motion with `moved`. The tracer compares the unjittered cameras
 to detect camera motion. `tracer-frames` counts still frames since the
 last movement or history reset.
@@ -46,14 +46,14 @@ every set of compute kernels repeats, in `(snail shell graphics kernel)`.
 Each frame offsets the camera by the next point of a Halton sequence in
 bases 2 and 3. The sequence starts at index one, with half a pixel
 subtracted from each coordinate. The first two offsets are (0, −1/6) and
-(−1/4, 1/6) in internal pixels. Both paths at two spp share that first
-hit, trace separate light and BSDF draws, and contribute to a mean before
-SVGF. Both update visibility. Only the first carries a reservoir into
-the next frame. [Halton sampling in *Physically Based Rendering*](https://pbr-book.org/4ed/Sampling_and_Reconstruction/Halton_Sampler)
+(−1/4, 1/6) in internal pixels. [Halton sampling in *Physically Based Rendering*](https://pbr-book.org/4ed/Sampling_and_Reconstruction/Halton_Sampler)
 
-The per-layer radiance buffer holds summed RGB with the observation count
-in alpha. `read-traced-radiance` returns these accumulator bytes. `gather`
-divides RGB by the requested path count when writing the noisy texture for SVGF.
+The per-layer radiance buffer holds each pixel's RGB with a 1 in alpha.
+`read-traced-radiance` returns these bytes, and `gather` writes them to the
+noisy texture for SVGF. The tracer once offered two paths per pixel, which
+doubled the paths' work, as many paths as twice the pixels would trace. A
+caller wanting more paths raises the resolution instead, which also
+sharpens the first hits.
 
 SVGF uses the motion between the two jittered G-buffers to find past
 observations of the same surface. The display resolve runs at native
@@ -69,10 +69,13 @@ Tone mapping and FXAA run at the output size.
 Camera or reported scene motion limits temporal ReSTIR to two batches of
 old candidates, or one above 1.5 pixels of motion. Moving SVGF keeps up
 to four observations and gives the current one at least 40% weight.
-Use `discard-trace-history` for a camera cut. A changed sky, scene, bounce
-depth or render grid starts fresh history. Changing only the display
-size or exposure starts a new display history and preserves render-grid
-history.
+Use `discard-trace-history` for a camera cut. A changed scene, bounce
+depth or render grid starts fresh history. A changed sky draws fresh
+light proposals everywhere, since old ones were weighed against another
+sky, but it is no cut: SVGF and the display resolve treat the frame as
+moving, so a sky that changes every second does not discard the image's
+history every second. Changing only the display size or exposure starts a
+new display history and preserves render-grid history.
 
 ## The wavefront
 
@@ -228,8 +231,8 @@ in eight and a 12-frame response (0.4 seconds at 30 fps).
 
 Recovery means closing 90% of the expected gap from the old visibility to
 the new one for a retained light that wins every probe. Let `N` be the
-number of shadow opportunities per receiver in the requested frames.
-With `T` displayed frames and `s` paths per pixel, `N = T × s`.
+number of shadow opportunities per receiver in the requested frames,
+one a displayed frame, so `N` is the frame count.
 The per-opportunity response is `r = 1 − 0.1^(1/N)`. The actual probe
 probability is `p = max(exploration-floor, r)`, and each observation
 uses gain `a = r/p`. With probes alone the expected remaining gap after
@@ -246,7 +249,7 @@ Rare proposals, partial occlusion and eviction can extend the wait.
 
 The same response rate sets a positive visibility floor `min(½, r)` for
 candidate weighting. Temporal donor count is capped at `(1 − r)/r` times
-the fresh count, using one **reservoir write per frame** at either sample count. Thus fresh proposals account for at least `r` of
+the fresh count, using one **reservoir write per frame**. Thus fresh proposals account for at least `r` of
 the represented temporal stream. The existing caps of 20, or less while
 driving, can shorten this memory. The default is a ⅛ exploration floor
 and a 48-frame recovery target.
@@ -517,8 +520,7 @@ Clicking one drops it on the page. So the site publishes none of them,
 and a model's license is its publisher's to state. The page's query
 chooses the same way: `?model=ADDRESS&env=ADDRESS`, each an address
 `fetch` reads, such as a path on the page's server, and
-`&eye=x,y,z,yaw,pitch` for the camera. The viewer starts with one path per internal pixel.
-Use `?spp=2`, or append `&spp=2` to an existing query, for two paths.
+`&eye=x,y,z,yaw,pitch` for the camera. The viewer traces one path per internal pixel.
 
 Files that cannot be shown leave the view as it was, and the page says why:
 a `.gltf` chosen without the files it names, an address that answers 404, a

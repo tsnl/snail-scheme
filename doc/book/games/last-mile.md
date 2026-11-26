@@ -31,7 +31,7 @@ In the pause menu, **Quality preset** sets the render resolution, ray bounces an
 | --- | ---: | ---: | ---: |
 | Minimum | 240p | 1 | 1 |
 | Low | 360p | 1 | 1 |
-| 480p · 2 paths | 480p | 2 | 2 |
+| 480p | 480p | 2 | 1 |
 | Balanced (default) | 720p | 2 | 1 |
 | High | 1080p | 2 | 1 |
 | Ultra | 1080p | 4 | 1 |

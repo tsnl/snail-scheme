@@ -150,7 +150,7 @@ a scene's BVH ahead of the frame that changes to it, for `retrace-built`, `retra
 scene and environment with the same pipelines and targets, and
 `draw-traced` draws a frame, its paths bouncing as many times as it asks,
 up to `most-bounces`. Its final argument is a `TraceSettings` record with
-`display-width`, `display-height` and `samples` (one or two). Both sizes use
+`display-width` and `display-height`, a path a pixel. Both sizes use
 Halton-jittered first hits, SVGF and the stable display resolve.
 `encode-trace-observation` takes a caller-owned command encoder, tracer,
 camera, pixel spread, bounce depth and random seed. It writes the G-buffer,

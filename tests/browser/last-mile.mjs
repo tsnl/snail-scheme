@@ -232,24 +232,24 @@ try {
   assert.ok(narrow.ratio > 1 && narrow.ratio < 3);
   await checkPortraitPreset('Low', 360, true);
   await checkPortraitPreset('Minimum', 240, true);
-  await checkPortraitPreset('480p · 2 paths', 480, false);
+  await checkPortraitPreset('480p', 480, false);
   await checkPortraitPreset('High', 1080, false);
   // The high-density check above exercises the display resolution. Render the
   // keyboard drive at 300 × 190 so the software GPU can present each manoeuvre.
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 0.5, mobile: false});
   await choose('#graphics-preset', 'Ultra');
   await expectGraphics('Ultra', '1080p', 4, 1);
-  await choose('#graphics-preset', '480p · 2 paths');
-  await expectGraphics('480p · 2 paths', '480p', 2, 2);
+  await choose('#graphics-preset', '480p');
+  await expectGraphics('480p', '480p', 2, 1);
   await choose('#ray-bounces', '8');
-  await expectGraphics('Custom', '480p', 8, 2);
+  await expectGraphics('Custom', '480p', 8, 1);
   await choose('#ray-bounces', '2');
-  await expectGraphics('480p · 2 paths', '480p', 2, 2);
+  await expectGraphics('480p', '480p', 2, 1);
   await choose('#render-resolution', '360p');
-  await expectGraphics('Custom', '360p', 2, 2);
+  await expectGraphics('Custom', '360p', 2, 1);
   await choose('#graphics-preset', 'Low');
   await expectGraphics('Low', '360p', 1, 1);
-  await chooseTogether([['#graphics-preset', '480p · 2 paths'], ['#graphics-preset', 'Low'],
+  await chooseTogether([['#graphics-preset', '480p'], ['#graphics-preset', 'Low'],
     ['#ray-bounces', '3'], ['#render-resolution', '480p']]);
   await expectGraphics('Custom', '480p', 3, 1);
   await choose('#ray-bounces', '1');
