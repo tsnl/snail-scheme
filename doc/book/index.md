@@ -1,9 +1,17 @@
 # `snail-scheme`
 
-**`snail-scheme` is a statically-typed Scheme successor**, for building
-applications, compiling to WebAssembly with garbage collection. Its compiler
-is written in the language and compiles itself; programs run on Node and in
-the browser.
+**`snail-scheme` is a statically typed Scheme successor for application and
+business logic.** It compiles to WebAssembly GC. The engine reclaims shared
+values when they become unreachable. The compiler is written in the language
+and compiles itself. Programs run on Node and in the browser.
+
+CPython applications can call C extensions for performance-sensitive work.
+Rust plays that role in `snail-scheme`. Use Rust for a whole subsystem when
+it needs control over data layout or allocation, or when an existing Rust
+library fits the job. In Last Mile, `snail-scheme` decides when a passenger
+owes a fare, and Rust runs the vehicle physics.
+[CPython's extension model](https://docs.python.org/3/extending/) ·
+[Rust subsystems](runtimes/index.md#rust-subsystems)
 
 ## What is here
 
@@ -12,7 +20,7 @@ the browser.
   capabilities passed as values, so a function can do only what it was
   handed; and one-shot suspension, from which exceptions, generators and
   tasks are built ([the language](snail-scheme/index.md)).
-- **Libraries**, all written in `snail-scheme`: a prelude, files, processes
+- The **libraries** include a prelude, files, processes
   and sockets, pages, document interfaces and canvas applications, WebGPU as
   a capability with rasterizing, Gaussian splatting and path tracing on top
   of it, and GPU tensor graphs with gradients ([library reference](libraries/index.md)).

@@ -45,6 +45,27 @@ them.
 `snail-scheme`'s scheduler owns tasks on both hosts. It does not need its own `epoll` wrapper. See the
 [Linux interface](https://man7.org/linux/man-pages/man7/epoll.7.html).
 
+## Rust subsystems
+
+Give a Rust subsystem a typed `snail-scheme` interface. The application
+works with ordinary records and arrays. Inside the library, `extern`
+declarations call functions supplied by the Rust crate
+`crates/snail-scheme-support`. The build links this provider,
+`snail.core.support`, into the program's Wasm module. The engine traces
+the application's managed values. Rust owns its working data in linear
+memory and controls when to release it.
+[Foreign functions](../snail-scheme/types.md#foreign-functions) ·
+[Linking](../snail-scheme/toolchain.md#assembly-linking-and-optional-optimization)
+
+For example, Last Mile calls `step-traffic!` once per simulation tick.
+The chassis library passes road geometry, driver inputs, poses and momenta
+as scalars. Rapier advances the cars and nearby pedestrians together. The
+library copies the results back into the same game records and releases
+the Rust world. A saved shift therefore holds the bodies' poses and momenta
+as ordinary `snail-scheme` values. The build includes Rapier when a
+program imports `(snail shell game chassis)`.
+[Game simulation](../libraries/games.md) · [Last Mile Taxi](../games/last-mile.md)
+
 ## Scaling the deployed program
 
 For CPU parallelism today, run independent instances in separate execution
@@ -82,12 +103,10 @@ handles the portable subset of capabilities
 are not OS processes, and its WasmGC and import support must be checked
 before promising compatibility.
 
-The Rust support module, `snail.core.support` from
-`crates/snail-scheme-support`, is what lies beneath `(snail core …)`, not a
-runtime interface. The Unicode tables, the transcendental math and float
-printing are `snail-scheme` code, so what remains is I/O. *Proposed:* it
-moves through WASI once memory primitives exist (the crate's README has the
-plan).
+The Unicode tables, transcendental math and float printing already live in
+`snail-scheme`. One proposal would also let the core I/O library call WASI
+directly once it has the necessary linear-memory primitives.
+[Core I/O proposal](https://github.com/tsnl/snail-scheme/blob/main/crates/snail-scheme-support/README.md#later)
 
 ## Future work
 
