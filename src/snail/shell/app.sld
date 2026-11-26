@@ -143,6 +143,9 @@
    SaveRequested
    Events
    next-event
+   FramePacer
+   frame-pacer
+   pace-frame!
    PageStorage
    load-save
    SceneHandler
@@ -1045,6 +1048,28 @@
                                         ((● events event-field) 1)
                                         ((● events event-field) 2)
                                         ((● events event-field) 3))))))
+
+    ;; Frame events carry display time. Count thousandths of a presentation
+    ;; slot so rates such as 30 Hz do not accumulate integer-millisecond drift.
+    (record FramePacer
+      ((rate I64)
+       (phase I64)
+       (elapsed I64)))
+    (define (frame-pacer (fps I64)) (→ FramePacer)
+      (unless (and (> fps 0) (<= fps 1000)) (panic "frame rate must be 1 to 1000"))
+      (new FramePacer (rate fps) (phase (min fps 500)) (elapsed -1)))
+    (define (pace-frame! (p FramePacer) (ms I32)) (→ (Option I32))
+      (let* ((dt (max 0 (i32->i64 ms))) (rate (● p rate))
+             (phase (+ (● p phase) (* dt rate))) (elapsed (+ (● p elapsed) dt)))
+        (cond ((< (● p elapsed) 0) (set! (● p elapsed) 0) (Some 0))
+              ((< phase 1000) (set! (● p phase) phase) (set! (● p elapsed) elapsed) (None))
+              (else
+               ;; One millisecond covers the host's timestamp rounding. After a
+               ;; missed refresh longer than a slot, start a new period here.
+               (set! (● p phase)
+                     (if (> (* dt rate) (+ 1000 rate)) (min rate 500) (modulo phase 1000)))
+               (set! (● p elapsed) 0)
+               (Some (i64->i32 (min elapsed 2147483647)))))))
 
     ;; ---- Running a scene ----
 

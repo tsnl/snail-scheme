@@ -135,6 +135,33 @@ async function streetChart() {
   })()`);
 }
 
+// A normal crossing should reveal an image the browser already decoded while
+// the old chart was on screen. A teleport exercises a different path.
+async function driveAcrossSector() {
+  await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 0.25, mobile: false});
+  await browser.evaluate(`(() => {
+    document.querySelector('canvas').focus();
+    const next = document.querySelector('.spare-chart'), previous = next.src;
+    const crossing = window.mapCrossing = {prepared: '', visible: ''};
+    function observe() {
+      if (next.matches('.local-chart')) { crossing.visible = next.src; return; }
+      if (next.src !== previous && next.complete && next.naturalWidth) crossing.prepared = next.src;
+      requestAnimationFrame(observe);
+    }
+    observe();
+  })()`);
+  await key('w', true);
+  try {
+    await until(async () => parseInt(await read('.mode'), 10) > 5, 'accelerating across the sector', 90);
+    await until(() => browser.evaluate('Boolean(mapCrossing.visible)'), 'driving into the next sector', 90);
+    assert.ok(await browser.evaluate('mapCrossing.prepared === mapCrossing.visible'),
+      'the minimap was ready before its sector became active');
+  } finally {
+    await key('w', false);
+    await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 0.5, mobile: false});
+  }
+}
+
 // The instruments alone can pass every interaction check while an eye inside
 // an opaque tree sees black. Sample the street between the map and HUD.
 async function streetImage() {
@@ -361,6 +388,10 @@ try {
   await expectGraphics('Custom', '480p', 1, 1);
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.resume-game');
+  await expect('.stage', 'PICKUP');
+  await driveAcrossSector();
+  await pause();
+  await restart(true);
   await expect('.stage', 'PICKUP');
   await tap('m');
   for (let i = 0; i < 3; i++) await tap('[');

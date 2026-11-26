@@ -1,6 +1,14 @@
 ;; Dispatch, meter and navigation are projections of the current shift.
 (define-library (apps last-mile hud)
-  (export loading-screen Hud make-hud show! click-reply! clicked-stand show-menu! menu-action
+  (export loading-screen
+          Hud
+          make-hud
+          show!
+          prepare-chart!
+          click-reply!
+          clicked-stand
+          show-menu!
+          menu-action
           MenuAction Pause Resume Recover Restart SetGraphics SetSensitivity)
   (import
    (snail core base)
@@ -41,6 +49,8 @@
        (choice-node Node)
        (chart Node)
        (chart-center I64)
+       (spare-chart Node)
+       (spare-center I64)
        (ink Node)
        (you Node)
        (goal Node)
@@ -257,6 +267,7 @@
           (near (element d mast "div" "near" "")) (quality (element d dash "div" "quality" ""))
           (radar radar) (map-node map-node) (sheet sheet)
           (chart (element d sheet "img" "local-chart" "")) (chart-center -1)
+          (spare-chart (element d sheet "img" "spare-chart" "")) (spare-center -1)
           (markers (ui:patch-children d
                                       (element d sheet "div" "stations" "")
                                       (Nil)
@@ -332,6 +343,18 @@
               (speak! w i)))
            (_ (unit)))) (_ (unit))))
 
+    (define (prepare-chart! (d Dom) (h Hud) (g Area)) (→ Unit)
+      (unless (= (● h spare-center) (● g center))
+        (let ((image (● h spare-chart)) (attr (● d set-attribute)))
+          (attr image "src" (chart-source g))
+          (attr image "style" (chart-placement g))
+          (set! (● h spare-center) (● g center)))))
+    (define (switch-chart! (d Dom) (h Hud) (g Area)) (→ Unit)
+      (prepare-chart! d h g)
+      (let ((old (● h chart)) (id (● h chart-center)) (attr (● d set-attribute)))
+        (attr old "class" "spare-chart") (attr (● h spare-chart) "class" "local-chart")
+        (set! (● h chart) (● h spare-chart)) (set! (● h chart-center) (● g center))
+        (set! (● h spare-chart) old) (set! (● h spare-center) id)))
     (define (show-map! (d Dom) (h Hud) (g Area) (roads Roads) (w Game) (wide Bool) (choice I64))
       (→ Unit)
       (let* ((a (● g atlas))
@@ -352,8 +375,7 @@
           (attr (● h ink) "style" (route-ink g roads gps wide))
           (attr (● h radar) "class" (if wide "radar wide" "radar"))
           (unless (= (● h chart-center) (● g center))
-            (attr (● h chart) "src" (chart-source g)) (attr (● h chart) "style" (chart-placement g))
-            (set! (● h chart-center) (● g center)))
+            (switch-chart! d h g))
           (set! (● h revision) (● gps revision)) (set! (● h wide) wide))
         (attr (● h sheet) "style" (map-window a p wide))
         (attr (● h you)
