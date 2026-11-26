@@ -644,15 +644,15 @@
        ((workspace String)
         (name (List String)))))
 
-    ;; A .scm file is a script, a page when a public/ folder is beside it;
-    ;; an .sld file under its workspace's src/ is the library its path
-    ;; there names. Its workspace is the nearest folder above it that holds
-    ;; src/, as a build's is, which `workspace`, holding src/, bounds.
+    ;; A .scm file other than the package declaration is a script, a page
+    ;; when a public/ folder is beside it. An .sld file under its
+    ;; workspace's src/ is the library its path there names.
 
     (define (document-check (fs Fs) (workspace String) (path String)) (→ (Option Check))
       (if (and (has-prefix? path (string-append workspace "/")) (file-exists? fs path))
           (let* ((script (script-file fs path)) (src (string-append (● script workspace) "/src/")))
-            (cond ((has-suffix? path ".scm") (Some (ScriptCheck script (platform-beside fs path))))
+            (cond ((string=? path (string-append (● script workspace) "/package.scm")) (None))
+                  ((has-suffix? path ".scm") (Some (ScriptCheck script (platform-beside fs path))))
                   ((and (has-suffix? path ".sld") (has-prefix? path src))
                    (Some (LibraryCheck (● script workspace)
                                        (split-name (substring path
@@ -718,7 +718,7 @@
       (match (● server workspace)
         ((None) server)
         ((Some workspace)
-         (if (file-exists? fs (string-append workspace "/src"))
+         (if (workspace-folder? fs workspace)
              (let* ((results (map (lambda (document)
                                     (check-document processes
                                                     fs

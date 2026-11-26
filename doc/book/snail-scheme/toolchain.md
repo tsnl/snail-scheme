@@ -129,13 +129,13 @@ language, and its queries live with the extension, under
 
 `snail-scheme lsp` is the command line's `lsp`, `(snail shell lsp)`. It reads
 Content-Length framed JSON-RPC on standard input, answers on standard output,
-and serves the workspace at the root folder the editor opens, which holds
-`src/`. It offers:
+and serves the workspace the editor opens, identified by `package.scm` or
+`src/`. Its checks use the workspace's installed source packages.
 
 - **Diagnostics.** When a file is opened and on each save, it checks each
   open document as a build would, producers and all, with scratch under
   `build/snail-run/`, writing no output (`check-script` and
-  `check-library`). A `.scm` file is a script, checked as a page when a
+  `check-library`). A `.scm` file other than the package declaration is a script, checked as a page when a
   `public/` folder is beside it and for Node otherwise; an `.sld` file
   under `src/` is checked as the program that imports it. Each failure is
   reported on its file, once however many documents meet it, over the

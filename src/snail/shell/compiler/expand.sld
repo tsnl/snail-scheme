@@ -6,6 +6,7 @@
   (export
    ExpandedProgram
    expand-program
+   expand-with-libraries
    Generate
    LinkedFile
    digested-file
@@ -174,7 +175,7 @@
     ;;
     ;; What the build is given, which never changes: `fs` reads the
     ;; sources and linked files; `generate` runs a producer and answers
-    ;; what it wrote; `directories` are searched for libraries; and
+    ;; what it wrote; `lookup` locates imported libraries; and
     ;; `recipe`, in a producer program, is the recipe its printed copy
     ;; stands for.
     ;;
@@ -206,7 +207,7 @@
     (record Context
       ((fs Fs)
        (generate Generate)
-       (directories (List String))
+       (lookup LibraryLookup)
        (target (Option (List String)))
        (known (Table LinkedFile))
        (recipe (Option Recipe))
@@ -233,7 +234,7 @@
     (define (resumed (outer Context) (inner Context)) (→ Context)
       (new Context (fs (● outer fs))
            (generate (● outer generate))
-           (directories (● outer directories))
+           (lookup (● outer lookup))
            (target (● outer target))
            (known (● outer known))
            (recipe (● outer recipe))
@@ -285,14 +286,14 @@
 
     (define (new-context (fs Fs)
                          (generate Generate)
-                         (directories (List String))
+                         (lookup LibraryLookup)
                          (target (Option (List String)))
                          (known (List LinkedFile)))
       (→ Context)
       (new Context
         (fs fs)
         (generate generate)
-        (directories directories)
+        (lookup lookup)
         (target target)
         (known
          (fold-left (lambda (table file) (table-set table (● file path) file)) (empty-table) known))
@@ -418,7 +419,7 @@
 
     (define (read-library (cx Context) (name (List String)) (loc Loc))
       (→ (Pair Exports Context))
-      (let ((path (library-path (● cx fs) (● cx directories) name loc)))
+      (let ((path (lookup-library (● cx lookup) name loc)))
         (expand-library-file cx name (file-library name (read-source-file (● cx fs) path) path))))
 
     ;; A defined library expands its sections; a generated one expands the
@@ -897,7 +898,13 @@
                             (known (List LinkedFile))
                             (path String))
       (→ ExpandedProgram)
-      (expanded-program (expand-source (new-context fs generate directories target known) path)))
+      (expand-with-libraries fs (directory-lookup fs directories) generate target known path))
+
+    (define (expand-with-libraries (fs Fs) (lookup LibraryLookup) (generate Generate)
+                                   (target (Option (List String))) (known (List LinkedFile))
+                                   (path String))
+      (→ ExpandedProgram)
+      (expanded-program (expand-source (new-context fs generate lookup target known) path)))
 
     (define (expand-source (cx Context) (path String)) (→ Context)
       (let* ((source (generating-stack (read-source-file (● cx fs) path)))
@@ -3230,7 +3237,7 @@
         (lambda (text)
           (let* ((cx (new-context test-fs
                                   (lambda (loading forms) (panic "unexpected producer"))
-                                  (Nil)
+                                  (directory-lookup test-fs (Nil))
                                   (None)
                                   (Nil)))
                  (imports (fold-left (lambda (table entry)

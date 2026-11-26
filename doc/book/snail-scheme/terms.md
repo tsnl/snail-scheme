@@ -23,7 +23,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
   (write-line out (show (fibonacci 30))))
 ```
 
-A script's imports resolve under the `src/` of its workspace, the nearest folder above it that holds one, then the standard libraries'.
+A script's imports resolve in the virtual `src/` assembled from its workspace and source packages. [Workspaces and builds](projects.md#source-packages) describes how dependencies contribute libraries.
 
 A library file may instead hold a `generate-library` recipe: a program whose
 value is the library's `define-library` form, as a `Syntax` from

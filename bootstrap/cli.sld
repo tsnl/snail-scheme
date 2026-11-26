@@ -11,6 +11,9 @@
 ;;     the arguments, in the caller's directory;
 ;;   wat --target TARGET FILE
 ;;     prints the WebAssembly text of the script's whole program;
+;;   deps [DIRECTORY]
+;;     installs the declared Git dependencies, checks the virtual source
+;;     tree and lists its packages;
 ;;   lsp
 ;;     serves the Language Server Protocol on standard input and output,
 ;;     (snail shell lsp), for the workspace the editor opens, as
@@ -29,10 +32,11 @@
  (snail core base)
  (snail core io)
  (snail shell project build)
+ (snail shell project package)
  (snail shell lsp)
  (only (snail shell format) format-source format-width)
  (only (snail shell compiler driver) compile-arguments)
- (only (snail shell compiler) source->wat)
+ (only (snail shell compiler) check-with-libraries checked->wat)
  (only (snail shell compiler read) compiling Failed Requested diagnostics->string Loc)
  (snail shell process))
 
@@ -159,6 +163,7 @@
 ;; needs a build to run its producer, so here it fails.
 
 (define (print-wat
+         (processes Processes)
          (fs Fs)
          (environment ProcessEnvironment)
          (out OutputPort)
@@ -167,10 +172,11 @@
   (→ Unit)
   (match (build-flags arguments (None) (Debug))
     ((Pair (Some flags) (Cons file (Nil)))
-     (print-script-wat fs environment out tools flags file))
+     (print-script-wat processes fs environment out tools flags file))
     (_ (panic "usage: snail-scheme wat --target node|browser FILE"))))
 
 (define (print-script-wat
+         (processes Processes)
          (fs Fs)
          (environment ProcessEnvironment)
          (out OutputPort)
@@ -180,15 +186,39 @@
   (→ Unit)
   (let ((script (script-at fs environment file)))
     (match (compiling (lambda ()
-                        (source->wat fs (workspace-directories tools (● script workspace))
-                                     (● script file)
-                                     (lambda (loading forms)
-                                       (panic "wat does not run producers: build the script"))
-                                     (Some (platform-library (● flags platform)))
-                                     (Nil))))
+                        (let ((packages (workspace-packages processes
+                                                            fs
+                                                            (None)
+                                                            (● script workspace)
+                                                            (● tools root))))
+                          (checked->wat (check-with-libraries fs (● packages lookup)
+                                                              (● script file)
+                                                              (lambda (loading forms)
+                                                                (panic
+                                                                 "wat does not run producers: build the script"))
+                                                              (Some (platform-library
+                                                                     (● flags platform)))
+                                                              (Nil))))))
       ((Ok program) ((● out write-string) (● program text)))
       ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
       ((Err (Requested _)) (panic "wat does not run producers: build the script")))))
+
+;; ---- Source packages ----
+
+(define (install-packages (processes Processes) (fs Fs) (clock Clock)
+                          (environment ProcessEnvironment) (out OutputPort)
+                          (root String) (arguments (List String)))
+  (→ Unit)
+  (let* ((path (match arguments ((Nil) ".") ((Cons path (Nil)) path)
+                      (_ (panic "usage: snail-scheme deps [DIRECTORY]"))))
+         (workspace (workspace-at fs environment path)))
+    (match (compiling (lambda () (workspace-packages processes fs (Some clock) workspace root)))
+      ((Ok packages)
+       (for-each (lambda (package)
+                   (write-line out (string-append (● package name) " " (● package root))))
+                 (● packages members)))
+      ((Err (Failed diagnostics)) (panic (diagnostics->string diagnostics)))
+      ((Err (Requested _)) (panic "unexpected producer in package declaration")))))
 
 ;; ---- Formatting ----
 
@@ -301,7 +331,9 @@
      (let ((tools (tools-of environment root runtime toolchain)))
        (cond ((and (string=? action "lsp") (null? arguments))
               (serve-language processes fs clock in out tools))
-             ((string=? action "wat") (print-wat fs environment out tools arguments))
+             ((string=? action "deps")
+              (install-packages processes fs clock environment out root arguments))
+             ((string=? action "wat") (print-wat processes fs environment out tools arguments))
              (else
               (invoke processes fs clock out (request fs environment tools action arguments))))))
     (_ (panic (usage))))

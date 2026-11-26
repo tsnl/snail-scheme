@@ -30,6 +30,8 @@
    Script
    script-at
    script-file
+   workspace-at
+   workspace-folder?
    script-name
    build-script
    check-script
@@ -38,6 +40,7 @@
    producer-tools)
   (import
    (snail shell project web-app)
+   (snail shell project package)
    (snail core base)
    (snail core io)
    (snail core table)
@@ -103,7 +106,7 @@
               ((Browser) "browser"))))
 
     ;; A script: `file`, an absolute path, in `workspace`, the nearest folder
-    ;; above it that holds src/, where every import resolves.
+    ;; above it that holds a package declaration or src/.
     (record Script
       ((file String)
        (workspace String)))
@@ -143,9 +146,22 @@
                               (split-path absolute))))
         (string-append "/" (string-join (reverse parts) "/"))))
 
+    (define (workspace-at (fs Fs) (environment ProcessEnvironment) (path String)) (→ String)
+      (let ((directory (normalized (from-working-directory environment path))))
+        (match (followed-status fs directory)
+          ((Ok status) (match (● status kind)
+                         ((Directory) (workspace-of fs directory directory))
+                         (_ (panic (string-append "expected a directory: " directory)))))
+          ((Err error) (panic (string-append directory ": " (show error)))))))
+
+    (define (workspace-folder? (fs Fs) (directory String)) (→ Bool)
+      (or (file-exists? fs (string-append directory "/package.scm"))
+          (file-exists? fs (string-append directory "/src"))))
+
     (define (workspace-of (fs Fs) (file String) (directory String)) (→ String)
-      (cond ((file-exists? fs (string-append directory "/src")) directory)
-            ((string=? directory "") (panic (string-append "no folder above " file " holds src/")))
+      (cond ((workspace-folder? fs directory) directory)
+            ((string=? directory "")
+             (panic (string-append "no folder above " file " holds src/ or package.scm")))
             (else (workspace-of fs file (directory-of directory)))))
 
     (define (directory-of (path String)) (→ String)
@@ -181,7 +197,7 @@
                           (platform Platform)
                           (mode Mode))
       (→ String)
-      (match (with-builder fs clock (building-script tools script)
+      (match (with-builder processes fs clock (building-script tools script)
                            (● script workspace)
                            mode
                            (lambda (builder)
@@ -189,7 +205,7 @@
                                            fs
                                            clock
                                            builder
-                                           (script-target fs tools script platform))))
+                                           (script-target fs script platform))))
         ((Err failure) (panic (failure->string failure)))
         ((Ok output)
          (match (publish fs (● script workspace) output)
@@ -209,14 +225,13 @@
     ;; The build target a script is: a page, with the public/ folder beside
     ;; the script if there is one, or a program.
 
-    (define (script-target (fs Fs) (tools Tools) (script Script) (platform Platform))
+    (define (script-target (fs Fs) (script Script) (platform Platform))
       (→ Target)
       (new Target
         (name (script-name script))
         (browser? (match platform ((Browser) #t) (_ #f)))
         (platform (Some (platform-library platform)))
         (entry (● script file))
-        (directories (workspace-directories tools (● script workspace)))
         (public (match platform
                   ((Browser) (script-public fs script))
                   (_ (None))))))
@@ -228,8 +243,7 @@
             (Some public)
             (None))))
 
-    ;; Where a workspace's imports resolve: its src/, then the standard
-    ;; libraries', unless they are the same, as in this repository.
+    ;; The implicit search path of a workspace without a package declaration.
 
     (define (workspace-directories (tools Tools) (workspace String)) (→ (List String))
       (let ((own (string-append workspace "/src")) (standard (string-append (● tools root) "/src")))
@@ -249,7 +263,7 @@
       (→ (Result Typed Failure))
       (checking processes fs clock (building-script tools script)
                 (● script workspace)
-                (lambda (working) (script-target fs tools script platform))))
+                (lambda (working) (script-target fs script platform))))
 
     ;; The library `name` of `workspace`, checked as the program that
     ;; imports it is, under no target.
@@ -271,7 +285,6 @@
                       (browser? #f)
                       (platform (None))
                       (entry entry)
-                      (directories (workspace-directories tools workspace))
                       (public (None)))))))
 
     ;; The program `target` gives, in a working directory of its own,
@@ -284,7 +297,7 @@
                       (workspace String)
                       (target (Fn String → Target)))
       (→ (Result Typed Failure))
-      (with-builder fs clock tools
+      (with-builder processes fs clock tools
                     workspace
                     (Debug)
                     (lambda (builder)
@@ -363,13 +376,14 @@
       ((tools Tools)
        (workspace String)
        (mode Mode)
+       (packages PackageSet)
        (scratch String)))
 
     ;; `work` with a builder of its own, in a fresh scratch directory under
     ;; the repository's build/snail-run/, removed after; a failure is its
     ;; Result.
 
-    (define (with-builder (fs Fs) (clock Clock) (tools Tools)
+    (define (with-builder (processes Processes) (fs Fs) (clock Clock) (tools Tools)
                           (workspace String)
                           (mode Mode)
                           (work (Fn Builder → T)))
@@ -384,6 +398,13 @@
                                           (tools tools)
                                           (workspace workspace)
                                           (mode mode)
+                                          (packages (compiled (lambda ()
+                                                                (workspace-packages processes
+                                                                                    fs
+                                                                                    (None)
+                                                                                    workspace
+                                                                                    (● tools
+                                                                                       root)))))
                                           (scratch scratch)))))))
            (remove-tree fs scratch)
            result))))
@@ -396,14 +417,13 @@
 
     ;; What a build makes: its name, whether it is a page, the target
     ;; library its program runs under, if any, its entry program's path,
-    ;; the directories its libraries are found in, and a page's public
+    ;; and a page's public
     ;; folder, relative to the workspace.
     (record Target
       ((name String)
        (browser? Bool)
        (platform (Option (List String)))
        (entry String)
-       (directories (List String))
        (public (Option String))))
 
     ;; A target's generation, not yet published: the target's name and the
@@ -465,15 +485,23 @@
                           (target Target)
                           (working String))
       (→ Checked)
-      (let ((directories (● target directories)))
-        (producing processes fs builder working directories
+      (check-entry processes fs builder working (● target entry) (● target platform)))
+
+    ;; A script and each producer it reaches use the same assembled source tree.
+    (define (check-entry (processes Processes) (fs Fs) (builder Builder) (working String)
+                         (entry String) (platform (Option (List String))))
+      (→ Checked)
+      (let ((packages (● builder packages)))
+        (producing processes fs builder working
                    (lambda ()
-                     (source->checked fs directories
-                                      (● target entry)
-                                      (lambda (loading forms)
-                                        (generated-syntax fs working directories loading forms))
-                                      (● target platform)
-                                      (known-digests fs builder))))))
+                     (check-with-libraries fs (● packages lookup) entry
+                                           (lambda (loading forms)
+                                             (generated-syntax fs
+                                                               working
+                                                               (package-directories packages)
+                                                               loading
+                                                               forms))
+                                           platform (known-digests fs builder))))))
 
     ;; The program's one module, NAME.wasm, and copies of the files it links
     ;; in its store/; answers the libraries it holds. A release build's is
@@ -537,21 +565,16 @@
 
     (define (link-program (processes Processes) (fs Fs) (builder Builder)
                           (entry String)
-                          (directories (List String))
                           (working String)
                           (output String))
       (→ (List LinkedFile))
-      (let ((program (producing processes fs builder working directories
-                                (lambda ()
-                                  (source->wat fs directories
-                                               entry
-                                               (lambda (loading forms)
-                                                 (generated-syntax fs working
-                                                                   directories
-                                                                   loading
-                                                                   forms))
-                                               (Some (list "snail" "target" "node"))
-                                               (known-digests fs builder))))))
+      (let* ((checked (check-entry processes
+                                   fs
+                                   builder
+                                   working
+                                   entry
+                                   (Some (list "snail" "target" "node"))))
+             (program (compiled (lambda () (checked->wat checked)))))
         (write-bytes fs output (linked-program processes fs builder program))
         (● program links)))
 
@@ -831,7 +854,6 @@
 
     (define (producing (processes Processes) (fs Fs) (builder Builder)
                        (working String)
-                       (directories (List String))
                        (work (Fn → T)))
       (→ T)
       (∀ (T))
@@ -839,14 +861,13 @@
         ((Ok value) value)
         ((Err (Failed diagnostics)) (stop-build (CompileFailure diagnostics)))
         ((Err (Requested (GenerateInput key)))
-         (produce processes fs builder working directories key)
-         (producing processes fs builder working directories work))))
+         (produce processes fs builder working key)
+         (producing processes fs builder working work))))
 
     (define (produce (processes Processes)
                      (fs Fs)
                      (builder Builder)
                      (working String)
-                     (directories (List String))
                      (key String))
       (→ Unit)
       (let ((program (string-append working "/" key ".wasm")))
@@ -854,7 +875,6 @@
                      working
                      (link-program processes fs builder
                                    (string-append working "/" key ".sld")
-                                   directories
                                    working
                                    program))
         (run-producer processes fs builder program (string-append working "/" key ".syntax"))))

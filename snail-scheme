@@ -43,8 +43,8 @@ present() {
 
 case ${1:-} in
   -h|--help) cat "$root/scripts/snail-help.txt"; exit 0 ;;
-  build|run|wat|lsp|format) ;;
-  *) printf 'snail-scheme: expected build, run, wat, lsp or format; use --help\n' >&2; exit 2 ;;
+  build|run|wat|deps|lsp|format) ;;
+  *) printf 'snail-scheme: expected build, run, wat, deps, lsp or format; use --help\n' >&2; exit 2 ;;
 esac
 
 # The command line is a `snail-scheme` program (bootstrap/cli.sld). A

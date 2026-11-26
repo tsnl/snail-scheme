@@ -36,6 +36,11 @@ in a top-level value: its key is the module and the text that names the
 item, so a second use skips the declaration. Those caches live as long as
 the compiler process, and so does each module they were asked about.
 
+The expander asks for each library by its path under `src/`. A
+[package build](projects.md#source-packages) supplies a lookup for the
+assembled namespace. Stage zero supplies the directories of its bootstrap
+closure. Both return the original path for diagnostics and linked files.
+
 Every build compiles the whole program to one module and links it with
 the Rust scalar services, as stage 0 does the command line.
 Start with `examples/fibonacci.sld`, inspect its output with
