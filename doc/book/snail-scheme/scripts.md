@@ -171,11 +171,11 @@ That path cannot collide, and it is stable, which is what future caching needs.
 ## Output: one linked module
 
 Every build is fully linked: the whole program compiled as one module and
-fused with the runtime, `main.wasm`. Linked files up to **25,000,000 bytes**
+fused with the runtime, `main.wasm`. Linked files up to **25 MiB (26,214,400 bytes)**
 live at `store/sha256/AB/DIGEST`. A larger file lives at
-`store/chunks/AB/DIGEST/0`, `/1`, and so on. Each part holds 25,000,000
-bytes except for a possibly shorter final part. In both paths, `DIGEST`
+`store/chunks/26214400/AB/DIGEST/0`, `/1`, and so on. Each part holds 25 MiB except for a possibly shorter final part. In both paths, `DIGEST`
 is the SHA-256 of the complete file and `AB` is its first two hex digits.
+The compiler chooses the layout automatically for both linked files and catalog resources.
 Each physical file is a hard link to the one copy in the workspace's store,
 `build/.snail-store`, which every build of every script shares.
 Node and a page each run it directly. The output
@@ -208,7 +208,7 @@ Serve the generation under any URL prefix. Keep the catalog revalidatable and gi
 
 ### Publishing the book and demos
 
-`make pages` publishes the book and browser builds to `build/pages`. It also splits oversized ordinary assets such as Wasm, models, or audio. A generated Cloudflare Pages Worker serves their original URLs and MIME types, including HEAD and single HTTP byte-range requests. It can serve a multipart resource at its whole-file digest URL for older readers. Releases containing only small files are entirely static. Use `wrangler pages dev build/pages` to preview a release that uses the Worker.
+`make pages` publishes the book and browser builds to `build/pages`. The publisher uses the same Snail blob writer to split oversized ordinary assets such as Wasm, models, or audio. A generated Cloudflare Pages Worker serves their original URLs and MIME types, including HEAD and single HTTP byte-range requests. It can serve a multipart resource at its whole-file digest URL for older readers. Releases containing only small files are entirely static. Use `wrangler pages dev build/pages` to preview a release that uses the Worker.
 
 ## Not yet
 

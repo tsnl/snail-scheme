@@ -10,6 +10,7 @@
           acquire-files)
   (import
    (snail core base)
+   (only (snail shell compiler blob) blob-digest?)
    (snail core table)
    (snail shell fetch)
    (snail shell json)
@@ -24,10 +25,7 @@
        (size I64)))
 
     (define (resource-digest? (text String)) (→ Bool)
-      (and (= (string-length text) 64)
-           (every? (lambda (c)
-                     (or (and (>= c #\0) (<= c #\9)) (and (>= c #\a) (<= c #\f))))
-                   (string->list text))))
+      (blob-digest? text))
 
     (define (catalog-entry (name String) (value Json)) (→ (Result StaticFile String))
       (match (list (json-member value "sha256") (json-member value "size"))

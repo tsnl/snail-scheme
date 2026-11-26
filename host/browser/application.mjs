@@ -25,7 +25,7 @@ async function linkApplication(application, program, read) {
   const wasi = createWasi({print: printer(application)});
   application.program = await linkModule(read, program, wasi, application.imports,
                                          () => application.runtime.execution.tasks,
-                                         (digest, size) => readLinkedFile(digest, () => readStoredBlob(read, digest, size)));
+                                         (digest, size, width) => readLinkedFile(digest, () => readStoredBlob(read, digest, size, width)));
 }
 
 // A save the program cannot read traps before it boots: the page then

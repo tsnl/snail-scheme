@@ -30,9 +30,9 @@ extension: the whole program compiled as one and fused with its runtime.
 
 Each file the program links ([linked files](types.md#linked-files)) is an
 object of the workspace's store, `WORKSPACE/build/.snail-store/`, named
-for the SHA-256 of its complete contents. Up to 25,000,000 bytes it occupies
+for the SHA-256 of its complete contents. Up to and including 25 MiB it occupies
 `sha256/AB/DIGEST`. Larger files occupy numbered parts under
-`chunks/AB/DIGEST/`. Every build of every
+`chunks/26214400/AB/DIGEST/`. Every build of every
 script shares the store: an object is written once and never rewritten.
 The program reads its files from `store/` beside its module, at the same
 paths, where each is another name for the store's object, a hard link (a

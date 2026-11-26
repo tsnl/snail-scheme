@@ -1,5 +1,5 @@
-// pack.py embeds the URL table and partSize above this module in _worker.js.
-// Each entry holds the logical length, SHA-256, part directory and MIME type.
+// pack.py embeds the URL table above this module in _worker.js.
+// Each entry holds the logical length, SHA-256, part directory, MIME type and physical part size.
 function byteRange(header, size) {
   const range = /^bytes=(\d*)-(\d*)$/i.exec(header ?? '');
   if (!range || !(range[1] || range[2])) return undefined;
@@ -27,7 +27,7 @@ async function copyPart(assets, url, size, start, end, writer, signal) {
   throw new Error('short blob part ' + url.pathname);
 }
 
-async function sendParts(request, assets, prefix, size, start, end, writer) {
+async function sendParts(request, assets, prefix, size, partSize, start, end, writer) {
   try {
     for (let i = Math.floor(start / partSize); i <= Math.floor(end / partSize); i++) {
       const offset = i * partSize, length = Math.min(partSize, size - offset);
@@ -47,7 +47,7 @@ export default {
     if (!blob) return env.ASSETS.fetch(request);
     if (request.method !== 'GET' && request.method !== 'HEAD')
       return new Response(null, {status: 405, headers: {Allow: 'GET, HEAD'}});
-    const [size, digest, prefix, type] = blob, tag = '"' + digest + '"';
+    const [size, digest, prefix, type, partSize] = blob, tag = '"' + digest + '"';
     const headers = new Headers({'Content-Type': type, 'Accept-Ranges': 'bytes', ETag: tag,
       'Cache-Control': prefix.startsWith('/_snail_parts/') ? 'public, max-age=0, must-revalidate' : 'public, max-age=31536000, immutable'});
     const tags = (request.headers.get('If-None-Match') ?? '').split(',').map(t => t.trim().replace(/^W\//, ''));
@@ -65,7 +65,7 @@ export default {
     if (request.method === 'HEAD') return new Response(null, {headers});
     // workerd uses a FixedLengthStream to put Content-Length on the wire.
     const stream = new FixedLengthStream(length);
-    sendParts(request, env.ASSETS, prefix, size, start, end, stream.writable.getWriter());
+    sendParts(request, env.ASSETS, prefix, size, partSize, start, end, stream.writable.getWriter());
     return new Response(stream.readable, {status: range ? 206 : 200, headers});
   },
 };

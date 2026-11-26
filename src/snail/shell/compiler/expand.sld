@@ -8,13 +8,13 @@
    expand-program
    Generate
    LinkedFile
-   blob-part-size
    digested-file
    program-links)
   (import
    (snail core base)
    (snail core table)
    (snail core io)
+   (only (snail shell compiler blob) blob-link-symbol blob-part-size)
    (snail shell compiler read)
    (only (snail shell compiler inputs)
          generating-stack
@@ -264,10 +264,6 @@
        (path String)
        (size I64)
        (modified I64)))
-
-    ;; Small links retain their original import name. A multipart link also
-    ;; tells the host its byte length, so it can request exactly its parts.
-    (define blob-part-size (→ I64) 25000000)
 
     ;; A `link-handle` as the library's body expands: the global its
     ;; expression calls, its path made canonical, where that finds the
@@ -597,20 +593,19 @@
 
     (define (read-digest (fs Fs) (path String) (status FileStatus)) (→ LinkedFile)
       (new LinkedFile
-        (digest (file-digest fs path))
+        (digest (file-digest fs path (● status size)))
         (path path)
         (size (● status size))
         (modified (● status modified))))
 
     (define (link-import (file LinkedFile)) (→ Value)
-      (let ((name (if (> (● file size) blob-part-size)
-                      (string-append (● file digest) ":" (i64->string (● file size)))
-                      (● file digest))))
-        (Foreign (new Import (module "snail.runtime.link") (symbol name))
-                 (mono-scheme (TFun (Nil) (TCon "I32" (Nil)))))))
+      (Foreign (new Import (module "snail.runtime.link")
+                    (symbol (blob-link-symbol (● file digest) (● file size))))
+               (mono-scheme (TFun (Nil) (TCon "I32" (Nil))))))
 
-    (define (file-digest (fs Fs) (path String)) (→ String)
-      (bytes->hex (sha256 (read-bytes fs path))))
+    (define (file-digest (fs Fs) (path String) (size I64)) (→ String)
+      (bytes->hex (sha256-finish (fold-file-chunks fs path (max 1 (min size blob-part-size))
+                                                   (sha256-start) sha256-update))))
 
     ;; The files a library links, as the build expanded it, in the order
     ;; its uses were reached.
