@@ -5,7 +5,7 @@ two rigid links. Arm actions use steering angle as their clock, independently
 of the pedal stroke, so the hands stay on the grips while coasting.
 """
 
-from math import pi, sin, sqrt
+from math import cos, pi, sin, sqrt
 
 import bpy
 from mathutils import Matrix, Quaternion, Vector
@@ -13,6 +13,7 @@ from mathutils import Matrix, Quaternion, Vector
 SIDES = (("R", 1), ("L", -1))
 CYCLING = ("Pedal", "Climb")
 STEERING = ("Reach", "Standing reach")
+ON_FOOT = ("Idle", "Walk", "Run", "Step left", "Step right")
 
 
 def bone_head(rig, name):
@@ -121,6 +122,147 @@ def walking_back(rig, phase):
     return pose
 
 
+def reach_limb(rig, pose, side, names, start, end, pole, tip_rotation):
+    a, b, c = [bone_head(rig, side + n) for n in names]
+    mid = middle_joint(start, end, Vector(pole), (b - a).length, (c - b).length)
+    pose[side + names[0]] = link_pose(a, b, start, mid)
+    pose[side + names[1]] = link_pose(b, c, mid, end)
+    pose[side + names[2]] = end - c, tip_rotation, 1
+
+
+def shoe_contact(t, running):
+    # While one sole bears weight it travels backward by exactly the ground
+    # covered by the root. During swing the toe lifts and overtakes the hip.
+    stance, stride = (0.38, 2.24) if running else (0.59, 1.32)
+    span = stride * stance
+    if t < stance:
+        p = t / stance
+        return span * (0.5 - p), 0.081, 0.11 * (1 - p) ** 4 - 0.21 * p**6
+    p = (t - stance) / (1 - stance)
+    eased = p * p * (3 - 2 * p)
+    return (
+        span * (eased - 0.5),
+        0.081 + (0.29 if running else 0.13) * sin(pi * p),
+        -0.33 * sin(2 * pi * p),
+    )
+
+
+def on_foot(rig, cycle, gait):
+    phase = 2 * pi * cycle
+    moving, running = gait != "Idle", gait == "Run"
+    pelvis = bone_head(rig, "Body")
+    sway = (0.016 if moving else 0.003) * cos(phase)
+    height = (0.816 if running else 0.844) + (
+        0.035 if running else 0.013 if moving else 0.003
+    ) * cos(2 * phase)
+    base = Vector((sway, 0, height))
+    tilt = Quaternion((1, 0, 0), 0.25 if running else 0.435)
+    turn = Quaternion(
+        (0, 0, 1), (0.095 if running else 0.055 if moving else 0.005) * sin(phase)
+    )
+    gaze = Quaternion((1, 0, 0), -0.025)
+    if not moving:
+        base.x -= 0.024
+        gaze = (
+            Quaternion((0, 0, 1), -0.09 + 0.07 * sin(phase))
+            @ Quaternion((0, 1, 0), 0.035)
+            @ gaze
+        )
+    pose = {
+        "Body": (base - pelvis, turn @ tilt, 1),
+        "Head": (Vector(), tilt.inverted() @ gaze, 1),
+    }
+    for side, sign in SIDES:
+        t = (cycle + (0.5 if sign < 0 else 0)) % 1
+        hip = base + Vector((sign * 0.10, 0, 0))
+        y, z, roll = shoe_contact(t, running) if moving else (0.031 * sign, 0.081, 0)
+        foot = Vector((sign * (0.106 if moving else 0.133), y, z))
+        reach_limb(
+            rig,
+            pose,
+            side,
+            ("Thigh", "Shin", "Foot"),
+            hip,
+            foot,
+            (0.06 * sign, 1, 0.08),
+            Quaternion((1, 0, 0), roll),
+        )
+        shoulder = base + turn @ tilt @ (bone_head(rig, side + "UpperArm") - pelvis)
+        swing = (
+            -cos(2 * pi * t) * (0.205 if running else 0.148) if moving else 0.008 * sign
+        )
+        hand = shoulder + Vector(
+            (
+                sign * (0.062 if running else 0.046),
+                (0.11 if running else 0.025) + swing,
+                (-0.298 if running else -0.421) + 0.16 * abs(swing),
+            )
+        )
+        pole = (sign * 0.20, -1, -0.45)
+        wrist = Quaternion((1, 0, 0), 0.14 + swing)
+        if not moving and sign > 0:
+            # He hooks a hand over the strap while waiting for Moss. Anchor
+            # the wrist to the jacket so breathing carries the hand with it.
+            hand = base + turn @ tilt @ Vector((0.064, 0.313, 0.260))
+            pole = (0.35, -0.45, -1)
+            wrist = Quaternion((1, 0, 0), 2.94) @ Quaternion((0, 1, 0), -0.20)
+        reach_limb(
+            rig,
+            pose,
+            side,
+            ("UpperArm", "Forearm", "Hand"),
+            shoulder,
+            hand,
+            pole,
+            wrist,
+        )
+    return pose
+
+
+def cross_saddle(rig, side):
+    # The destination foot takes the load, the other clears the back of the
+    # saddle. During this pose the world root is halfway to its landing spot.
+    pelvis = bone_head(rig, "Body")
+    base = Vector((-side * 0.11, -0.13, 1.066))
+    tilt = Quaternion((0, 1, 0), -side * 0.12) @ Quaternion((1, 0, 0), -0.12)
+    pose = {
+        "Body": (base - pelvis, tilt, 1),
+        "Head": (Vector(), Quaternion((1, 0, 0), 0.08), 1),
+    }
+    for limb, sign in SIDES:
+        hip = base + Vector((sign * 0.114, 0, 0))
+        shoe = (
+            Vector((side * 0.235, -0.04, 0.32))
+            if sign == side
+            else Vector((-side * 0.215, -0.56, 0.93))
+        )
+        reach_limb(
+            rig,
+            pose,
+            limb,
+            ("Thigh", "Shin", "Foot"),
+            hip,
+            shoe,
+            (sign * 0.40, 1, 0.35),
+            Quaternion((1, 0, 0), -0.23),
+        )
+        shoulder = base + tilt @ (bone_head(rig, limb + "UpperArm") - pelvis)
+        hand = bone_head(rig, limb + "Hand") + Vector((-side * 0.22, 0, 0.055))
+        if sign != side:
+            hand = shoulder + Vector((sign * 0.26, -0.04, -0.22))
+        reach_limb(
+            rig,
+            pose,
+            limb,
+            ("UpperArm", "Forearm", "Hand"),
+            shoulder,
+            hand,
+            (sign * 0.28, -1, -0.5),
+            Quaternion(),
+        )
+    return pose
+
+
 def impact_pose(rig, tuck):
     # Detached limb targets are relative to the pelvis. Each pair of rigid
     # links keeps its measured length as the hands guard and the knees tuck.
@@ -170,7 +312,7 @@ def bake(rig, name, frames):
     slot = animation.action_slot
     track = animation.nla_tracks.new()
     track.name = name
-    strip = track.strips.new(name, 1, action)
+    strip = track.strips.new(name, int(action.frame_range[0]), action)
     strip.action_slot = slot
     track.mute = True
     animation.action = None
@@ -188,7 +330,11 @@ def main():
     rig.animation_data.action = None
     for track in list(tracks):
         track.mute = True
-        if track.name in CYCLING + STEERING + ("Brace", "Tumble", "Walk back"):
+        if track.name in CYCLING + STEERING + ON_FOOT + (
+            "Brace",
+            "Tumble",
+            "Walk back",
+        ):
             action = track.strips[0].action
             tracks.remove(track)
             bpy.data.actions.remove(action)
@@ -219,6 +365,10 @@ def main():
     )
     bake(rig, "Brace", ((i + 1, brace((i / 8 - 0.5) * 1.20)) for i in range(9)))
     bake(rig, "Tumble", ((i + 1, impact_pose(rig, i / 8)) for i in range(9)))
+    for name in ("Idle", "Walk", "Run"):
+        bake(rig, name, ((i, on_foot(rig, i / 32, name)) for i in range(33)))
+    for side, name in ((-1, "Step left"), (1, "Step right")):
+        bake(rig, name, [(0, cross_saddle(rig, side)), (1, cross_saddle(rig, side))])
     bpy.context.preferences.filepaths.save_version = 0
     bpy.ops.wm.save_as_mainfile(filepath=bpy.data.filepath, compress=True)
 

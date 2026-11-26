@@ -2,7 +2,7 @@
 ;; ages the water and the ruts, so a paused or saved ride keeps the same road.
 (define-library (apps iygtw soil)
   (export Basin read-basins Rut PoolWake Soil fresh-soil wheel-at pool-cover pool-level
-          rut-life rut-depth wetness press-wheels clear-wheel-contact)
+          rut-life rut-depth wetness press-wheels rest-ground clear-wheel-contact)
   (import
    (snail core base)
    (snail shell math)
@@ -110,15 +110,21 @@
                               (+ i 1)
                               (Cons (new PoolWake (index i) (tick tick) (loss loss) (at p))
                                     (filter (lambda (w) (not (= (● w index) i))) wakes))))))))))
+    (define (weathered-ruts (s Soil) (tick I64)) (→ (List Rut))
+      (if (= (modulo tick 100) 0)
+          (take (filter (lambda (r) (< (- tick (● r born)) rut-life)) (● s ruts)) 1536)
+          (● s ruts)))
+    (define (rest-ground (s Soil)) (→ Soil)
+      (let ((tick (+ (● s tick) 1)))
+        (new Soil
+          (tick tick)
+          (ruts (weathered-ruts s tick))
+          (front (None))
+          (rear (None))
+          (wakes (● s wakes)))))
     (define (press-wheels (basins (List Basin)) (s Soil) (before Body) (after Body)
                           (soft (Fn XZ → Bool)) (load F64) (grounded Bool)) (→ Soil)
-                          (let* ((tick (+ (● s tick) 1)) (prune (= (modulo tick 100) 0))
-                                 (ruts (if prune
-                                           (take
-                                            (filter (lambda (r) (< (- tick (● r born)) rut-life))
-                                                    (● s ruts))
-                                            1536)
-                                           (● s ruts)))
+                          (let* ((tick (+ (● s tick) 1)) (ruts (weathered-ruts s tick))
                                  (f (wheel-at after 0.54)) (r (wheel-at after -0.54))
                                  (front (wheel-stroke (● s front)
                                                       (wheel-at before 0.54)
