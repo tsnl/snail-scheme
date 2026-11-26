@@ -297,14 +297,10 @@
     ;; tools. Separate target directories keep the two artifacts independent;
     ;; Cargo decides whether each needs rebuilding.
     (define (build-runtime root assembler?)
-      (let ((target (runtime-target root assembler?)))
-        (apply run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
-               "rustc" "--lib" "--crate-type=cdylib" "--quiet" "--offline" "--release"
-               "--target" "wasm32-wasip1"
-               "--manifest-path" (path-join root "crates/snail-scheme-support/Cargo.toml")
-               "--target-dir" target
-               (if assembler? '("--features" "assembler") '()))
-        (runtime-path root assembler?)))
+      (run-command (append (list (path-join root "scripts/build-runtime")
+                                 (runtime-target root assembler?))
+                           (if assembler? '("--features" "assembler") '())))
+      (runtime-path root assembler?))
 
     ;; Where Cargo puts each runtime, without building it.
     (define (runtime-target root assembler?)

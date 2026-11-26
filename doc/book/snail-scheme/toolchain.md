@@ -18,6 +18,10 @@ the extension, and runs it, and `./snail-scheme wat --target TARGET FILE` prints
 program's text. Its `main` is its entry, whose parameters are the
 capabilities it asks its target for. A program links with the toolchain runtime, whose services
 include the assembler, exactly when it links `(snail shell assembler)`.
+A program importing `(snail shell game chassis)` also links the Rust Rapier
+provider. Cargo builds and caches that feature in the checkout on its first
+use. Both services can be linked together. Ordinary programs use the plain
+runtime.
 `wat` runs no producer, so a script that reaches a `generate-library`
 recipe must be built instead.
 

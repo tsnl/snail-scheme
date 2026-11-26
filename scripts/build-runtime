@@ -1,0 +1,13 @@
+#!/bin/sh
+# Build one feature set of the scalar provider. The caller owns its target
+# directory so Cargo can cache and lock each Wasm artifact independently.
+set -eu
+target=$1
+shift
+cd "$(dirname "$0")/.."
+# Resolve the checkout's rust-toolchain.toml even when the caller is inside
+# a different project or inherited an active rustup toolchain.
+unset RUSTUP_TOOLCHAIN
+exec "${CARGO:-cargo}" rustc --lib --crate-type=cdylib --locked --offline --quiet \
+  --release --target wasm32-wasip1 --manifest-path crates/snail-scheme-support/Cargo.toml \
+  --target-dir "$target" "$@"
