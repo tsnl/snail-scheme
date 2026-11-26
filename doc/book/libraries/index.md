@@ -137,7 +137,7 @@ Three conventions run through the shell:
 
 | Library | For |
 | --- | --- |
-| [`(snail shell graphics bvh)`](tracing.md#snail-shell-graphics-bvh) | A BVH over triangles, and ray queries through it |
+| [`(snail shell graphics bvh)`](tracing.md#snail-shell-graphics-bvh) | A two-level BVH over triangles, built by the surface area heuristic, and ray queries through it |
 | [`(snail shell graphics environment)`](tracing.md#snail-shell-graphics-environment) | Light from all around: an HDR file or a sky |
 | [`(snail shell graphics gltf)`](tracing.md#snail-shell-graphics-gltf) | glTF 2.0 scenes, read |
 | [`(snail shell graphics animation)`, `(snail shell graphics gltf animation)`](tracing.md#skinned-animation) | Generic rigs, authored clips and glTF skins |

@@ -18,7 +18,7 @@
 ;;
 ;; A `Tracer` is made once for a scene and the canvas, and resized with it:
 ;;
-;;   (let ((sized (resize-tracer gpu tracer w h)))
+;;   (let ((sized (resize-tracer gpu (make-tracer gpu scene sky format w h 1024 (Filmic)) w h)))
 ;;     (draw-traced gpu sized canvas camera spread exposure 4 #f
 ;;                  (new TraceSettings (display-width w) (display-height h) (samples 1))))
 ;;
@@ -30,9 +30,8 @@
    most-bounces
    TraceSettings
    encode-trace-observation
-   make-tracer make-graded-tracer
-   make-moving-tracer
-   make-graded-moving-tracer
+   make-tracer
+   build-scene-bvh
    discard-trace-history
    refit-tracer!
    resize-tracer
@@ -119,15 +118,17 @@
        (raster Camera3D)
        (exposure F32)))
 
-    ;; What is made once: the pipelines, the uniforms, the queues' counts,
-    ;; and zeros to clear them with between the first hits' paths and the
-    ;; blended layer's, whose `tracing` puts its radiance past theirs.
+    ;; What is made once: the pipelines, the BVH's builder, the uniforms,
+    ;; the queues' counts, and zeros to clear them with between the first
+    ;; hits' paths and the blended layer's, whose `tracing` puts its
+    ;; radiance past theirs.
     (record Kit
       ((surface GpuRenderPipeline)
        (blended-surface GpuRenderPipeline)
        (compose GpuRenderPipeline)
        (steps Steps)
        (rays RayKernels)
+       (builder BvhBuilder)
        (camera GpuBuffer)
        (tracing GpuBuffer)
        (blended-tracing GpuBuffer)
@@ -146,7 +147,9 @@
        (gather GpuComputePipeline)))
 
     ;; What is traced: the scene and the environment, which are the
-    ;; caller's, and the scene's BVH, which is the tracer's.
+    ;; caller's, and the scene's BVH, which is the tracer's. A scene that
+    ;; moves (a MovingScene's) has a tree for each moving object, and
+    ;; `refit-tracer!` follows them after each pose.
     (record World
       ((scene Scene)
        (bvh Bvh)
@@ -182,44 +185,31 @@
        (history GpuBuffer)
        (light Plane)))
 
+    ;; The tracer over `scene` and `environment` for a canvas of `format`,
+    ;; its internal grid `width` by `height`, with texture layers of
+    ;; `layer-size` and tone mapping by `tone`.
     (define (make-tracer (gpu Gpu) (scene Scene)
                          (environment Environment)
                          (format TextureFormat)
                          (width I32)
                          (height I32)
-                         (layer-size I32))
+                         (layer-size I32)
+                         (tone Tone))
       (→ Tracer)
-      (make-graded-tracer gpu scene environment format width height layer-size (Filmic)))
-    (define (make-graded-tracer (gpu Gpu) (scene Scene) (environment Environment)
-                                (format TextureFormat)
-                                (width I32)
-                                (height I32)
-                                (layer-size I32)
-                                (tone Tone))
-      (→ Tracer)
-      (tracer-over gpu (world-of gpu scene environment #f) format width height layer-size tone))
+      (let ((kit (make-kit gpu layer-size)))
+        (tracer-over gpu kit (world-of gpu kit scene environment) format width height tone)))
 
-    (define (make-moving-tracer (gpu Gpu) (scene Scene) (environment Environment)
-                                (format TextureFormat)
-                                (width I32)
-                                (height I32)
-                                (layer-size I32))
-      (→ Tracer)
-      (make-graded-moving-tracer gpu scene environment format width height layer-size (Filmic)))
-
-    (define (make-graded-moving-tracer (gpu Gpu) (scene Scene) (environment Environment)
-                                       (format TextureFormat) (width I32) (height I32)
-                                       (layer-size I32) (tone Tone))
-      (→ Tracer)
-      (tracer-over gpu (world-of gpu scene environment #t) format width height layer-size tone))
+    ;; A BVH for `scene` by the tracer's builder, for `retrace-built`, so a
+    ;; caller can build it ahead of the frame that changes scenes.
+    (define (build-scene-bvh (gpu Gpu) (tracer Tracer) (scene Scene)) (→ Bvh)
+      (build-bvh gpu (● tracer kit builder) (scene-triangles scene)))
 
     (define (refit-tracer! (gpu Gpu) (tracer Tracer)) (→ Unit)
       (refit-bvh! gpu (● tracer world bvh)))
 
-    (define (tracer-over (gpu Gpu) (world World) (format TextureFormat) (width I32) (height I32)
-                         (layer-size I32) (tone Tone)) (→ Tracer)
-                         (let* ((kit (make-kit gpu layer-size))
-                                (targets (targets-for gpu width height (● world scene blended)))
+    (define (tracer-over (gpu Gpu) (kit Kit) (world World) (format TextureFormat) (width I32)
+                         (height I32) (tone Tone)) (→ Tracer)
+                         (let* ((targets (targets-for gpu width height (● world scene blended)))
                                 (post (make-post gpu format width height tone)))
                            (new Tracer
                              (kit kit)
@@ -257,8 +247,7 @@
     ;; environment are the caller's, as they were given.
     (define (retrace (gpu Gpu) (tracer Tracer) (scene Scene) (environment Environment))
       (→ Tracer)
-      (let ((build (match (● tracer world bvh refitter) ((Some _) build-moving-bvh) (_ build-bvh))))
-        (retrace-built gpu tracer scene environment (build gpu (scene-triangles scene)))))
+      (retrace-built gpu tracer scene environment (build-scene-bvh gpu tracer scene)))
 
     ;; The new tree may be prepared while the previous neighbourhood draws.
     ;; Ownership transfers here. A scene cut invalidates history, but the same
@@ -319,10 +308,10 @@
         (still 0)
         (sky-revision -1) (frame (● tracer frame))))
 
-    (define (world-of (gpu Gpu) (scene Scene) (environment Environment) (moving Bool)) (→ World)
+    (define (world-of (gpu Gpu) (kit Kit) (scene Scene) (environment Environment)) (→ World)
       (new World
         (scene scene)
-        (bvh ((if moving build-moving-bvh build-bvh) gpu (scene-triangles scene)))
+        (bvh (build-bvh gpu (● kit builder) (scene-triangles scene)))
         (environment environment)))
 
     (define (svgf-inputs (kit Kit) (targets Targets)) (→ SvgfInputs)
@@ -1036,6 +1025,7 @@
         (compose (compose-pipeline gpu))
         (steps (path-steps gpu))
         (rays (make-ray-kernels gpu (string-append (declarations material-shape) scene-shader)))
+        (builder (make-bvh-builder gpu))
         (camera (uniform-buffer gpu "trace/camera" (zeros (stride camera-shape))))
         (second-sample (storage-buffer gpu
                                        "trace/second-sample"

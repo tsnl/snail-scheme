@@ -30,7 +30,7 @@
    (snail shell graphics gltf animation)
    (snail shell graphics gltf)
    (only (snail shell graphics raster) camera-3d PinholeRange Camera3D Camera3D-scene-time-set)
-   (only (snail shell graphics bvh) ray-size Bvh build-moving-bvh release-bvh)
+   (only (snail shell graphics bvh) ray-size Bvh release-bvh)
    (snail shell graphics trace scene)
    (snail shell graphics trace render)
    (only (snail shell graphics passes) Photographic)
@@ -416,13 +416,13 @@
                                       (time -1.0)
                                       (pixel-limit limit)
                                       (rig (None))
-                                      (tracer (make-graded-moving-tracer gpu
-                                                                         (● stage scene)
-                                                                         (● light environment)
-                                                                         format
-                                                                         (● size first)
-                                                                         (● size second)
-                                                                         128 (Photographic))))))
+                                      (tracer (make-tracer gpu
+                                                           (● stage scene)
+                                                           (● light environment)
+                                                           format
+                                                           (● size first)
+                                                           (● size second)
+                                                           128 (Photographic))))))
     (define (discard-pending! (gpu Gpu) (r Renderer)) (→ Unit)
       (match (● r pending)
         ((Some old) (match (● old tree) ((Some t) (release-bvh gpu t)) (_ (unit)))
@@ -430,9 +430,9 @@
         (_ (unit))))
     (define (stage-at (gpu Gpu) (r Renderer) (g Area)) (→ MovingScene)
       (build-stage gpu (● r read) g (● r horizon) (● r cast) (Some (● r stage scene images))))
-    (define (street-tree (gpu Gpu) (stage MovingScene) (palette (List Mat4x4f))) (→ Bvh)
-      (deform-scene! gpu stage palette)
-      (build-moving-bvh gpu (scene-triangles (● stage scene))))
+    (define (street-tree (gpu Gpu) (r Renderer) (stage MovingScene)) (→ Bvh)
+      (deform-scene! gpu stage (● r palette))
+      (build-scene-bvh gpu (● r tracer) (● stage scene)))
     ;; Forecast four seconds of travel, bounded to less than half a sector.
     ;; Only one window is in flight. Decode, upload and build the tree on
     ;; successive event-loop turns while the previous street is still visible.
@@ -453,7 +453,7 @@
                  (match (● pending tree)
                    ((None)
                     (set! (● pending tree)
-                          (Some (street-tree gpu (● pending stage) (● r palette)))))
+                          (Some (street-tree gpu r (● pending stage)))))
                    ((Some _) (when crossed (focus-area! g p))))
                  (discard-pending! gpu r)))
             (_ (match (prepare-area! g ahead)
