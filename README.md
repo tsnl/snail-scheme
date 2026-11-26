@@ -72,6 +72,10 @@ diagnostics where they arise and gives a name's type and definition.
 
 The [typed-state API](doc/book/snail-scheme/state.md) remains under review.
 
+## Last Mile Taxi
+
+Pick up Rosa on Russian Hill and drive a yellow cab through San Francisco. The city downloads on the first visit and the browser saves your shift. [Play Last Mile Taxi](https://snail-scheme.pages.dev/play/last-mile/) · [Driver’s guide](doc/book/games/last-mile.md).
+
 ## Reading on
 
 - [The book](https://snail-scheme.pages.dev/) gathers the guides below

@@ -1,5 +1,5 @@
 (define-library (snail shell game chase)
-  (export Chase follow)
+  (export Chase Chase-boom-set follow)
   (import
    (snail core base)
    (snail shell math)

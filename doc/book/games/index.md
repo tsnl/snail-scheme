@@ -7,6 +7,8 @@ save.
 - [Siegework](siegework.md): explore a seeded map, wire an energy network
   across it, and destroy three nests before their attacks destroy your hub.
   **[Play it](../play/siegework/)**.
+- Pick up Rosa on Russian Hill and follow the GPS through the Lombard Street
+  switchbacks in a yellow cab. [Play Last Mile Taxi](../play/last-mile/) · [Driver’s guide](last-mile.md).
 - [Hearsay](https://github.com/tsnl/snail-scheme/blob/main/src/apps/hearsay/README.md):
   a design for a role-playing game about what a city believes, with two
   prototypes to play: the rumor mill and the favor ledger.
