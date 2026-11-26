@@ -1,25 +1,74 @@
 # Workspaces and builds
 
-A workspace is a folder that holds `src/`. Every library lives under `src/`,
-at the path its name gives, and every import resolves there, then in the
-standard libraries. A script is a source file anywhere in a workspace;
-`snail-scheme build --target TARGET FILE` builds it for `node` or
-`browser`, and `snail-scheme run` builds it and becomes its program
-([scripts](scripts.md)). A script's workspace is the nearest folder above it
-that holds `src/`. There is no project file: what is built, and for which
-platform, is on the command line.
+A script belongs to the nearest enclosing folder with a `package.scm` or
+`src/`. Build it with `snail-scheme build --target TARGET FILE`, or run it
+with `snail-scheme run --target node FILE`. Targets and entry points are
+chosen on the command line. The editor uses the same library lookup when
+checking a script or following a definition.
 
-This repository is one workspace. The applications are scripts
-([application model](applications.md)):
+## Source packages
 
-```sh
-./snail-scheme build --release --target browser src/apps/siegework/main.scm
-python3 -m http.server 4191 --directory build/src/apps/siegework/main
+A checkout declares a package in `package.scm` at its root. For example, a
+private application can use a sibling checkout of Snail and a shared library
+from another repository.
+
+```scheme
+(package observatory
+  (depends
+    (snail-scheme (path "../snail-scheme"))
+    (catalog (git "git@example.org:team/catalog.git"
+                  "0123456789abcdef0123456789abcdef01234567"))))
 ```
 
-An editor opening a workspace runs `snail-scheme lsp`, which checks each
-open script and library ([editors](toolchain.md#editors)). The
-[toolchain](toolchain.md) describes command lifetimes.
+Use the repository's actual commit ID in place of the example. From the
+application checkout, fetch the dependencies once and run the script.
+
+```sh
+../snail-scheme/snail-scheme deps
+../snail-scheme/snail-scheme run --target node src/observatory/main.scm
+```
+
+Each dependency declares its own package name and dependencies in the same
+format. A path is relative to the manifest that names it, and edits to that
+checkout are visible on the next build. A Git dependency names a full
+40-digit lowercase commit ID. `deps [DIRECTORY]` follows transitive
+dependencies, fetches missing commits with Git's configured credentials,
+checks the assembled tree and prints each package and its checkout.
+Git checkouts live under the consuming workspace's
+`build/.snail-packages/`. Subsequent builds, WAT output and editor checks
+resolve installed packages offline. Changing a pin requires running
+`deps` again. Use a path dependency to edit a library.
+
+All reachable packages contribute to one virtual `src/`. For example,
+`(import (acme sky catalog))` opens the file at `src/acme/sky/catalog.sld`
+in its owning checkout. The package name and repository URL never enter
+that import. Several packages may contribute different files under
+`src/acme/sky/`. Two packages providing the same file, or providing a file
+and a directory at the same path, fail assembly. This includes unused
+files, scripts and assets. Diagnostics name both providers. A shared
+transitive dependency appears once. Local checkouts are identified by their
+physical directory, and Git sources by their URL and commit. A dependency cycle or two different
+checkouts claiming one package name fail resolution.
+
+By default a package contributes every entry under `src/`. An optional
+`export` clause before `depends` lists the immediate entries to contribute
+when another package depends on it. This repository's declaration is
+
+```scheme
+{{#include ../../../package.scm}}
+```
+
+This exposes the compiler, both targets and the standard libraries under
+`src/snail/`. Scripts built inside a package can use its entire local
+`src/`. A private app can therefore move its `src/apps/NAME/` subtree
+intact to another repository and declare `snail-scheme` as a dependency.
+Package exports control library lookup. Repository access controls who
+can fetch the checkout and its Git history.
+
+A workspace without a declaration uses its own `src/` and the toolchain
+checkout's `src/`. A declared workspace takes its sources from its
+dependency graph. Include `snail-scheme` in that graph to use its standard
+libraries and targets.
 
 ## Output directories
 
@@ -176,8 +225,9 @@ takes a path relative to the recipe, `..` included, or an absolute one. A
 generation's `store/` contains the immutable objects. The linked bundle
 can serve the same catalog and objects under its own URL prefix.
 
-A producer runs in its workspace's directory, in every build that reaches
-it, so a changed client file reaches the next build of the server. A build
+A producer runs in the consuming script's workspace on every build that reaches
+it, so a changed client file reaches the next build of the server. A
+`link-file` in the recipe resolves beside the recipe in its own checkout. A build
 that compiles a generated library whose output it has not yet produced
 prints the producer into its scratch, compiles, links and runs it, and
 compiles again (`producing` in `build.sld`). The producer's own compile does

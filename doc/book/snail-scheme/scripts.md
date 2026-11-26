@@ -8,17 +8,16 @@ it. `snail-scheme` behaves like an interpreter first and a compiler second:
 ./snail-scheme build --target browser --release src/apps/siegework/main.scm
 ```
 
-There is no project file, no target registry, no planner and no development
-service: what is built, and for which platform, is on the command line.
-[Workspaces and builds](projects.md) describes the output and how one build
-embeds another.
+The command line selects the script and its target. A package declaration
+selects the source libraries its scripts can use. See
+[workspaces and builds](projects.md) for package declarations, build
+outputs and embedding another build.
 
 ## The workspace
 
-A workspace is a folder that contains `src/`. Every library lives under `src/`,
-at the path its name gives, and every import resolves there. That is the whole
-rule. It is built for this repository's monorepo and nothing more. The editor's
-open folder is the workspace the language server uses.
+A workspace is a folder with `package.scm` or `src/`. Each library lives
+under `src/` at the path its name gives. Package dependencies contribute to
+the same source tree, so imports keep their names across checkouts.
 
 A script may sit anywhere in the workspace. Since imports resolve under `src/`,
 an application keeps its script beside its libraries:

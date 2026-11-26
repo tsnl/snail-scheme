@@ -1,13 +1,15 @@
 Usage: snail-scheme build --target TARGET [--release] FILE
        snail-scheme run --target TARGET [--release] FILE [ARGUMENT ...]
        snail-scheme wat --target TARGET FILE
+       snail-scheme deps [DIRECTORY]
        snail-scheme lsp
        snail-scheme format [--width N] [--check | --write] [FILE ...]
 
 build compiles the script FILE for TARGET: node or browser. Its
-workspace is the nearest folder above it that holds src/, where every
-import resolves. The output, build/PATH in the workspace, where PATH is
-FILE's path there without its extension, is a link to a completed
+workspace is the nearest folder above it with package.scm or src/.
+Imports resolve in the workspace and its dependencies. The output,
+build/PATH in the workspace, where PATH is FILE's path there without its
+extension, is a link to a completed
 generation: one module, NAME.wasm, the program linked with its runtime,
 and the files it links under store/, shared with every other build through
 build/.snail-store. With --release the module is also optimized by wasm-opt.
@@ -20,6 +22,11 @@ current directory, with the ARGUMENTs, retaining terminal IO, exit status
 and signals. A page is not run: serve its output.
 
 wat prints the WebAssembly text of FILE's whole program.
+
+deps reads package.scm, fetches exact Git commits, checks for conflicting
+src/ paths and lists the packages in the workspace. A dependency can name
+a local checkout or a Git URL and commit. Builds use installed packages
+offline. Workspaces without a declaration use the toolchain's src/ too.
 
 lsp serves the Language Server Protocol on standard input and output for
 the workspace an editor opens: diagnostics from checking each open script

@@ -10,11 +10,13 @@
    checked->wat
    Checked
    source->checked
+   check-with-libraries
    LinkedFile)
   (import
    (snail core base)
    (snail core io)
    (snail shell compiler read)
+   (only (snail shell compiler library) LibraryLookup directory-lookup)
    (snail shell compiler core)
    (snail shell compiler expand)
    (snail shell compiler check)
@@ -41,7 +43,13 @@
                              (target (Option (List String)))
                              (known (List LinkedFile)))
       (→ Checked)
-      (let ((expanded (expand-program fs directories generate target known source)))
+      (check-with-libraries fs (directory-lookup fs directories) source generate target known))
+
+    (define (check-with-libraries (fs Fs) (lookup LibraryLookup) (source String)
+                                  (generate Generate) (target (Option (List String)))
+                                  (known (List LinkedFile)))
+      (→ Checked)
+      (let ((expanded (expand-with-libraries fs lookup generate target known source)))
         (new Checked (expanded expanded) (typed (check-program (● expanded program))))))
 
     ;; The whole program as one module: its text, the libraries it holds,

@@ -224,6 +224,15 @@ try {
   saved('src/demo/twice.sld');
   assert.deepEqual(await diagnostics('src/demo/twice.sld'), []);
 
+  // Definitions from a declared dependency point into its original checkout.
+  put('package.scm', `(package editor-test (depends (math (path "vendor/math")) (snail-scheme (path ${JSON.stringify(root)}))))`);
+  put('vendor/math/package.scm', '(package math)');
+  put('vendor/math/src/demo/twice.sld', library);
+  rmSync(join(project, 'src/demo/twice.sld'));
+  saved('main.scm');
+  assert.deepEqual(await ask('textDocument/definition', at('main.scm', 6, 15)),
+                   {uri: uri('vendor/math/src/demo/twice.sld'), range: range(6, 13, 6, 18)});
+
   // ---- Ending ----
 
   assert.equal(await ask('shutdown', null), null);

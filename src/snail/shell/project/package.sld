@@ -1,0 +1,395 @@
+;; Source packages share one src/ namespace. Resolution reads the reachable
+;; manifests, then checks their contributions before the compiler opens a
+;; library. All source locations still point into their owning checkouts.
+(define-library (snail shell project package)
+  (export
+   Package
+   PackageSet
+   workspace-packages
+   package-directories)
+  (import
+   (snail core base)
+   (snail core io)
+   (snail core table)
+   (snail shell process)
+   (snail shell utf8)
+   (only (snail shell compiler sha256) bytes->hex sha256)
+   (only (snail shell compiler library) LibraryLookup directory-lookup)
+   (snail shell compiler read))
+  (begin
+
+    ;; ---- Declarations ----
+
+    (enum Origin
+      (Checkout ((path String)))
+      (Git ((url String) (commit String))))
+
+    (record Dependency
+      ((name String)
+       (origin Origin)
+       (loc Loc)))
+
+    (record Package
+      ((name String)
+       (root String)
+       (exports (Option (List String)))
+       (dependencies (List Dependency))))
+
+    (define (manifest (root String)) (→ String)
+      (string-append root "/package.scm"))
+
+    (define (file-loc (path String)) (→ Loc)
+      (new Loc (file path) (line 0) (column 0)))
+
+    (define (read-package (fs Fs) (root String)) (→ Package)
+      (let* ((path (manifest root))
+             (text (match (read-text-file fs path 1048576)
+                     ((Ok text) text)
+                     ((Err error) (compile-error (file-loc path) (show error))))))
+        (match (read-text text path)
+          ((Cons (Form (Cons (Ident "package" _ _) (Cons (Ident name _ _) clauses)) _) (Nil))
+           (package-clauses fs root name clauses))
+          (_ (compile-error (file-loc path) "expected one (package NAME ...) declaration")))))
+
+    ;; An optional export selects immediate entries of src/. Names are kept
+    ;; exactly as they will appear in an import. The default exports all.
+    (define (package-clauses (fs Fs) (root String) (name String) (clauses (List Syntax)))
+      (→ Package)
+      (match clauses
+        ((Cons (Form (Cons (Ident "export" _ _) items) _) rest)
+         (new Package (name name) (root root)
+              (exports (Some (map (lambda (item) (export-name fs root item)) items)))
+              (dependencies (dependencies rest))))
+        (_ (new Package (name name) (root root) (exports (None))
+                (dependencies (dependencies clauses))))))
+
+    (define (export-name (fs Fs) (root String) (item Syntax)) (→ String)
+      (match item
+        ((Atom (DString name) loc)
+         (unless (and (not (member? name (list "" "." "..")))
+                      (every? (lambda (c) (not (member? c (list #\/ #\\ #\null))))
+                              (string->list name)))
+           (compile-error loc "an export names one entry of src/"))
+         (match (file-status fs (string-append root "/src/" name))
+           ((Ok _) name)
+           ((Err error)
+            (compile-error loc (string-append "cannot export src/" name ": " (show error))))))
+        (_ (compile-error (syntax-loc item) "expected an export path string"))))
+
+    (define (dependencies (clauses (List Syntax))) (→ (List Dependency))
+      (match clauses
+        ((Nil) (Nil))
+        ((Cons (Form (Cons (Ident "depends" _ _) items) _) (Nil)) (map dependency items))
+        ((Cons item _) (compile-error (syntax-loc item) "expected (depends (NAME SOURCE) ...)"))))
+
+    (define (dependency (item Syntax)) (→ Dependency)
+      (match item
+        ((Form (Cons (Ident name _ _) (Cons source (Nil))) loc)
+         (new Dependency (name name) (origin (package-origin source)) (loc loc)))
+        (_ (compile-error (syntax-loc item) "expected a dependency (NAME SOURCE)"))))
+
+    (define (package-origin (source Syntax)) (→ Origin)
+      (match source
+        ((Form (Cons (Ident "path" _ _) (Cons path (Nil))) _) (Checkout (source-string path)))
+        ((Form (Cons (Ident "git" _ _) (Cons url (Cons rev (Nil)))) _)
+         (Git (source-string url) (commit-id rev)))
+        (_ (compile-error (syntax-loc source) "expected (path DIRECTORY) or (git URL COMMIT)"))))
+
+    (define (commit-id (item Syntax)) (→ String)
+      (let* ((commit (source-string item))
+             (hex? (lambda (c) (or (and (<= #\0 c) (<= c #\9))
+                                   (and (<= #\a c) (<= c #\f))))))
+        (unless (and (= (string-length commit) 40) (every? hex? (string->list commit)))
+          (compile-error (syntax-loc item) "expected a full 40-digit lowercase Git commit ID"))
+        commit))
+
+    (define (source-string (item Syntax)) (→ String)
+      (match item
+        ((Atom (DString value) loc)
+         (when (or (string=? value "") (member? #\null (string->list value)))
+           (compile-error loc "expected a nonempty source string without NUL"))
+         value)
+        (_ (compile-error (syntax-loc item) "expected a source string"))))
+
+    ;; ---- Dependency closure ----
+
+    ;; Only the explicit deps command supplies a clock to fetch a missing
+    ;; Git checkout. Builds and editor checks resolve the same graph offline.
+    (record Resolver
+      ((fs Fs)
+       (processes Processes)
+       (fetch (Option Clock))
+       (cache String)))
+
+    (record PackageSet
+      ((members (List Package))
+       (lookup LibraryLookup)))
+
+    (define (source-directory (package Package)) (→ String)
+      (string-append (● package root) "/src"))
+
+    (define (package-directories (packages PackageSet)) (→ (List String))
+      (map source-directory (● packages members)))
+
+    (define (workspace-packages (processes Processes) (fs Fs) (fetch (Option Clock))
+                                (workspace String) (standard String))
+      (→ PackageSet)
+      (if (manifest-present? fs workspace)
+          (let* ((root (physical-directory processes workspace (file-loc (manifest workspace))))
+                 (resolver (new Resolver (fs fs) (processes processes) (fetch fetch)
+                                (cache (string-append root "/build/.snail-packages"))))
+                 (package (Package-exports-set (read-package fs root) (None))))
+            (assembled fs (visit resolver package (Nil) (Nil))))
+          (assembled fs (implicit-packages workspace standard))))
+
+    (define (manifest-present? (fs Fs) (root String)) (→ Bool)
+      (match (file-status fs (manifest root))
+        ((Ok _) #t)
+        ((Err (NotFound)) #f)
+        ((Err error) (compile-error (file-loc (manifest root)) (show error)))))
+
+    ;; A workspace created before packages sees the two src/ trees it has
+    ;; always used, including the repository's in-tree applications.
+    (define (implicit-packages (workspace String) (standard String)) (→ (List Package))
+      (let ((local (lambda (name root)
+                     (new Package (name name) (root root) (exports (None)) (dependencies (Nil))))))
+        (if (string=? workspace standard)
+            (list (local "workspace" workspace))
+            (list (local "workspace" workspace) (local "toolchain" standard)))))
+
+    (define (visit (resolver Resolver) (package Package) (parents (List Package))
+                   (done (List Package)))
+      (→ (List Package))
+      (Cons package
+            (fold-left (lambda (seen edge)
+                         (visit-dependency resolver package edge (Cons package parents) seen))
+                       done (● package dependencies))))
+
+    (define (visit-dependency (resolver Resolver) (parent Package) (edge Dependency)
+                              (parents (List Package)) (done (List Package)))
+      (→ (List Package))
+      (let* ((name (● edge name)) (loc (● edge loc))
+             (path (dependency-root resolver (● parent root) edge))
+             (named? (lambda (package) (string=? (● package name) name))))
+        (match (find named? (append parents done))
+          ((Some prior)
+           (unless (string=? path (● prior root))
+             (compile-error loc
+                            (string-append "package "
+                                           name
+                                           " has two sources: "
+                                           (● prior root)
+                                           " and "
+                                           path)))
+           (when (any? named? parents)
+             (let ((chain (reverse (Cons name (map (lambda (p) (● p name)) parents)))))
+               (compile-error loc
+                              (string-append "package dependency cycle: "
+                                             (string-join chain " → ")))))
+           done)
+          ((None) (visit resolver (declared-dependency (● resolver fs) edge path) parents done)))))
+
+    (define (declared-dependency (fs Fs) (edge Dependency) (path String)) (→ Package)
+      (let ((package (read-package fs path)))
+        (unless (string=? (● edge name) (● package name))
+          (compile-error (● edge loc) (string-append "expected package " (● edge name)
+                                                     ", found " (● package name) " in " path)))
+        package))
+
+    (define (dependency-root (resolver Resolver) (parent String) (edge Dependency)) (→ String)
+      (match (● edge origin)
+        ((Checkout path)
+         (physical-directory (● resolver processes) (relative-to parent path) (● edge loc)))
+        ((Git url commit)
+         (git-checkout resolver
+                       (match (string-index url #\:)
+                         ((Some _) url)
+                         ((None) (relative-to parent url)))
+                       commit (● edge loc)))))
+
+    (define (relative-to (directory String) (path String)) (→ String)
+      (if (char=? (string-ref path 0) #\/) path (string-append directory "/" path)))
+
+    ;; pwd -P lets paths through symlinks, . and .. share one package identity.
+    (define (physical-directory (processes Processes) (path String) (loc Loc)) (→ String)
+      (let ((line (command-text processes loc path "pwd" (list "-P"))))
+        (substring line 0 (- (string-length line) 1))))
+
+    ;; ---- Git checkouts ----
+
+    ;; Each URL and exact commit has its own checkout. Only completed
+    ;; checkouts are published, by renaming a private directory beside them.
+    (define (git-checkout (resolver Resolver) (url String) (commit String) (loc Loc)) (→ String)
+      (let* ((fs (● resolver fs)) (cache (● resolver cache))
+             (path (string-append cache "/" (bytes->hex (sha256 (string->utf8 url))) "-" commit)))
+        (if (file-exists? fs path)
+            (verify-checkout (● resolver processes) path commit loc)
+            (match (● resolver fetch)
+              ((Some clock) (fetch-checkout resolver clock url commit path loc))
+              ((None) (compile-error loc (string-append "missing Git commit " commit
+                                                        "; run snail-scheme deps")))))
+        path))
+
+    (define (verify-checkout (processes Processes) (path String) (commit String) (loc Loc)) (→ Unit)
+      (unless (string=? (command-text processes loc path "git" (list "rev-parse" "--verify" "HEAD"))
+                        (string-append commit "\n"))
+        (compile-error loc (string-append "wrong Git commit in " path)))
+      (unless (string=? (command-text processes loc path "git"
+                                      (list "status"
+                                            "--porcelain"
+                                            "--untracked-files=all"
+                                            "--ignored"))
+                        "")
+        (compile-error loc (string-append "modified Git package checkout: " path))))
+
+    (define (fetch-checkout (resolver Resolver) (clock Clock) (url String) (commit String)
+                            (path String) (loc Loc))
+      (→ Unit)
+      (let ((fs (● resolver fs)) (cache (● resolver cache)))
+        (match (make-directories fs cache)
+          ((Err error) (compile-error loc (string-append cache ": " (show error))))
+          ((Ok _) (unit)))
+        (let ((temp (checkout-scratch fs cache ((● clock monotonic-nanoseconds)) loc)))
+          (match (recovering (lambda ()
+                               (fetch-commit (● resolver processes) temp url commit loc)
+                               (publish-checkout resolver temp path commit loc)))
+            ((Ok _) (unit))
+            ((Err errors) (remove-tree fs temp) (stop (Failed errors)))))))
+
+    ;; A concurrent install can win the rename. Its checkout must satisfy
+    ;; the same pin. After our rename succeeds the temp name is free again.
+    (define (publish-checkout (resolver Resolver)
+                              (temp String)
+                              (path String)
+                              (commit String)
+                              (loc Loc))
+      (→ Unit)
+      (let ((fs (● resolver fs)))
+        (match (rename-file fs temp path)
+          ((Ok _) (unit))
+          ((Err error)
+           (unless (file-exists? fs path)
+             (compile-error loc (string-append path ": " (show error))))
+           (verify-checkout (● resolver processes) path commit loc)
+           (remove-tree fs temp)
+           (unit)))))
+
+    (define (checkout-scratch (fs Fs) (cache String) (number I64) (loc Loc)) (→ String)
+      (let ((path (string-append cache "/fetch-" (show number))))
+        (match (make-directory fs path)
+          ((Ok _) path)
+          ((Err (AlreadyExists)) (checkout-scratch fs cache (+ number 1) loc))
+          ((Err error) (compile-error loc (string-append path ": " (show error)))))))
+
+    (define (fetch-commit (processes Processes)
+                          (temp String)
+                          (url String)
+                          (commit String)
+                          (loc Loc))
+      (→ Unit)
+      (command-text processes loc temp "git" (list "init" "--quiet"))
+      (command-text processes loc temp "git"
+                    (list "-c" "protocol.allow=never" "-c" "protocol.https.allow=always"
+                          "-c" "protocol.ssh.allow=always" "-c" "protocol.file.allow=always"
+                          "fetch" "--quiet" "--no-tags" "--depth=1" "--" url commit))
+      (command-text processes loc temp "git"
+                    (list "-c" "core.hooksPath=/dev/null" "checkout" "--quiet" "--detach" commit))
+      (verify-checkout processes temp commit loc))
+
+    (define (command-text (processes Processes) (loc Loc) (directory String)
+                          (program String) (arguments (List String)))
+      (→ String)
+      (let ((command (new Command (program program) (arguments arguments) (directory directory))))
+        (match ((● processes run) command #u8())
+          ((Err error)
+           (compile-error loc
+                          (string-append "cannot run "
+                                         program
+                                         " in "
+                                         directory
+                                         ": "
+                                         (● error code))))
+          ((Ok captured)
+           (match (● captured exit)
+             ((Exited 0) (match (utf8->string (● captured stdout))
+                           ((Ok text) text)
+                           ((Err _) (compile-error loc "command output is not UTF-8"))))
+             (_ (compile-error loc (string-append program " failed in " directory ": "
+                                                  (match (utf8->string (● captured stderr))
+                                                    ((Ok text) text)
+                                                    ((Err _) "unreadable output"))))))))))
+
+    ;; ---- The virtual src/ tree ----
+
+    ;; Only directories can be shared. A top-level entry owned by one
+    ;; package needs no walk. Where roots overlap, descend just their
+    ;; intersection, checking assets as well as libraries before any import.
+    (type Providers (Table (List Package)))
+
+    (define (assembled (fs Fs) (members (List Package))) (→ PackageSet)
+      (let ((providers (fold-left (lambda (index package)
+                                    (fold-left
+                                     (lambda (index name) (contribute fs index name package))
+                                     index (source-entries fs package)))
+                                  (empty-table) members)))
+        (new PackageSet (members members) (lookup (provider-lookup fs providers)))))
+
+    (define (provider-lookup (fs Fs) (providers Providers)) (→ LibraryLookup)
+      (lambda (relative)
+        (let ((head (match (string-index relative #\/)
+                      ((Some end) (substring relative 0 end)) ((None) relative))))
+          (match (table-ref providers head)
+            ((None) (None))
+            ((Some packages)
+             ((directory-lookup fs (map source-directory packages)) relative))))))
+
+    (define (source-entries (fs Fs) (package Package)) (→ (List String))
+      (match (● package exports)
+        ((Some names) (delete-duplicates string=? names))
+        ((None)
+         (let ((src (source-directory package)))
+           (match (list-directory fs src)
+             ((Ok names) names)
+             ((Err (NotFound)) (Nil))
+             ((Err error) (compile-error (file-loc src) (show error))))))))
+
+    (define (source-path (package Package) (relative String)) (→ String)
+      (string-append (● package root) "/src/" relative))
+
+    (define (contribute (fs Fs) (index Providers) (name String) (package Package)) (→ Providers)
+      (let ((others (match (table-ref index name) ((Some packages) packages) ((None) (Nil)))))
+        (for-each (lambda (other) (check-overlap fs name package other)) others)
+        (table-set index name (Cons package others))))
+
+    (define (entry-kind (fs Fs) (path String)) (→ (Option FileKind))
+      (match (file-status fs path)
+        ((Ok status) (Some (● status kind)))
+        ((Err (NotFound)) (None))
+        ((Err error) (compile-error (file-loc path) (show error)))))
+
+    (define (check-overlap (fs Fs) (relative String) (left Package) (right Package)) (→ Unit)
+      (let ((a (source-path left relative)) (b (source-path right relative)))
+        (match (new Pair (first (entry-kind fs b)) (second (entry-kind fs a)))
+          ((Pair (None) _) (unit))
+          ((Pair _ (None)) (unit))
+          ((Pair (Some (Directory)) (Some (Directory)))
+           (match (list-directory fs a)
+             ((Err error) (compile-error (file-loc a) (show error)))
+             ((Ok names)
+              (for-each
+               (lambda (name) (check-overlap fs (string-append relative "/" name) left right))
+               names))))
+          (_ (compile-error (file-loc (manifest (● left root)))
+                            (string-append "conflicting src/"
+                                           relative
+                                           " in packages "
+                                           (● left name)
+                                           " ("
+                                           a
+                                           ") and "
+                                           (● right name)
+                                           " ("
+                                           b
+                                           ")"))))))
+
+    ))

@@ -5,7 +5,10 @@
 (define-library (snail shell compiler library)
   (export
    library-name
+   LibraryLookup
+   directory-lookup
    library-path
+   lookup-library
    LibraryFile
    DefinedLibrary
    GeneratedLibrary
@@ -41,20 +44,32 @@
       (unless (string=? (string-join (library-name declared) ".") (string-join name "."))
         (compile-error loc "library name does not match its path")))
 
-    ;; Where a library's source is: the first search directory holding it.
+    ;; A lookup maps a path within the virtual src/ to the original file.
+    ;; Stage 0 supplies ordinary directories. A package build supplies its
+    ;; assembled source tree, so locations and relative resources stay local.
+    (type LibraryLookup (Fn String → (Option String)))
 
-    (define (find-library (fs Fs) (directories (List String)) (name (List String)))
-      (→ (Option String))
-      (let ((relative (string-append (string-join name "/") ".sld")))
+    (define (directory-lookup (fs Fs) (directories (List String))) (→ LibraryLookup)
+      (lambda (relative)
         (find (lambda (path) (file-exists? fs path))
               (map (lambda (directory) (string-append directory "/" relative)) directories))))
 
     (define (library-path (fs Fs) (directories (List String)) (name (List String)) (loc Loc))
       (→ String)
-      (match (find-library fs directories name)
+      (lookup-library (directory-lookup fs directories) name loc))
+
+    (define (lookup-library (lookup LibraryLookup) (name (List String)) (loc Loc)) (→ String)
+      (unless (and (not (null? name)) (every? library-component? name))
+        (compile-error loc "expected a library name made of path components"))
+      (match (lookup (string-append (string-join name "/") ".sld"))
         ((Some path) path)
         ((None)
          (compile-error loc (string-append "library not found: (" (string-join name " ") ")")))))
+
+    (define (library-component? (name String)) (→ Bool)
+      (and (not (member? name (list "" "." "..")))
+           (every? (lambda (c) (not (or (char=? c #\/) (char=? c #\\) (= (char->integer c) 0))))
+                   (string->list name))))
 
     ;; What a library's file declares, read but not expanded: a defined
     ;; library's sections, through its `cond-expand`s, or a generated
