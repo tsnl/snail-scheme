@@ -1,4 +1,4 @@
-;; The geometry table's shapes and a batch's indirect draws, through the
+;; The geometry table's shapes and a batch's indexed draws, through the
 ;; recording handler: each shape's triangles, and one draw per shape that
 ;; has instances, from its own first instance.
 (import

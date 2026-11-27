@@ -10,6 +10,7 @@
   (export
    Host
    unsafe-host
+   call-with-input-file call-with-output-file
    InputPort
    OutputPort
    standard-input
@@ -247,6 +248,22 @@
 
     (define (file-exists? (fs Fs) (path String)) (→ Bool)
       (= (support-path-exists path) 1))
+
+    ;; The callback borrows a text port for one sequential pass through a file.
+    (define (call-with-input-file (fs Fs) (path String) (body (Fn InputPort → A))) (→ A) (∀ (A))
+      (let* ((handle (support-open-input path))
+             (port (new InputPort (read-char (lambda ()
+                                               (let ((code (support-port-read handle)))
+                                                 (if (= code -1)
+                                                     (None)
+                                                     (Some (i32->char code))))))))
+             (result (body port)))
+        (support-port-close handle) result))
+    (define (call-with-output-file (fs Fs) (path String) (body (Fn OutputPort → A))) (→ A) (∀ (A))
+      (let* ((handle (support-open-output path))
+             (port (new OutputPort (write-string (lambda (text) (support-port-write handle text)))))
+             (result (body port)))
+        (support-port-close handle) result))
 
     ;; The whole file as text; the runtime fails the program if it cannot
     ;; be read.

@@ -44,16 +44,27 @@ In `(snail shell graphics scene)`, a `ModelNode` references a glTF and a `GroupN
         (GroupNode tree-by-road (list (ModelNode "oak.glb")))))
 ```
 
-A `SceneDescription` pairs this tree with an environment and tone curve. Each `SceneFrame` supplies the camera, native viewport, directional lights, shading, exposure, shadows and MSAA. A browser calls `present-scene!` with its compositor and surface. The offline API, `(render-scene! renderer frame)`, returns the finished texture. Recordings serialize these scene values so another backend can draw them.
+The public `Renderer` owns the render context, resident models and environments. `create-scene-node!` returns a model handle. Select it with `use-model!`, supply the environment with `set-sky!`, then call `render!` with a `SceneFrame`. Each frame supplies the camera, viewport, lighting, shading, exposure, shadow selection and MSAA. The result is a texture. `present-render!` can also composite that texture to a surface in the same submission. This arrangement follows the resource and scene managers in [tsnl/graphics](https://github.com/tsnl/graphics/blob/a7ab5c8862c492aac37ce4953d154091d1fbe886/src/lib.rs#L42-L49).
 
-With a model open in the viewer, press T to start a recording. Fly the camera, change exposure or inspect a cascade, then press T and download the frame sequence. The recorder stores the frames in order and refers to asset files by name. Keep the same revision of the glTF, its dependencies and any environment map when sharing a recording. For a browser model URL, supply the equivalent local file with `scene=`. A custom panorama can be supplied with `environment=`.
+A renderer accepts an optional ordinary `OutputPort` at construction. A file, an in-memory writer and the browser download adapter all use the port interface from `(snail core io)`. A new renderer can replay the stream from any `InputPort`. Each call returns the number of commands it ran and leaves the port at the next command.
 
-```sh
-./snail-scheme run --target node tools/render.scm scene=model.glb record=shot.snail-scene output=original.png
-./snail-scheme run --target node tools/render.scm replay=shot.snail-scene frame=0 output=replay.png
+```scheme
+(define (recording-renderer (gpu Gpu) (out OutputPort)) (→ Renderer)
+  (make-renderer gpu (new RendererConfig (trace (Some out)))))
+
+;; Advance three commands, inspect the renderer, then finish the stream.
+((● renderer replay) input (Some 3))
+((● renderer replay) input (None))
 ```
 
-This captures the glTF viewer and offline renderer. The gameplay simulations, persistent village ground state, orthographic instance batches and sprite atlas still have their own state.
+Open the viewer, Willowbank, The Last Mile, Siegework, Hearsay or the furnace with `?trace=1`. Click **Download renderer.jsonl** to take a snapshot of all renderer operations so far. Capture uses extra memory and may stall a frame while reading back newly painted mud tiles or composed sprites. Recording stays disabled on the usual URL. The same API works offline.
+
+```sh
+./snail-scheme run --target node tools/render.scm scene=model.glb record=ride.jsonl output=original.png
+./snail-scheme run --target node tools/render.scm replay=ride.jsonl output=replay.png
+```
+
+Each logical command begins with a versioned JSON object containing an operation, arguments and binary block lengths. The following JSON string lines carry the blocks in base64 chunks of up to 24 KiB of source data. A model creation embeds geometry, material definitions, texture bytes and any skin bindings. Later commands carry poses, lighting changes, updated material tiles and camera frames. Instanced batches contribute data when their version changes. Sprite atlas updates carry the changed rectangle, and sprite draws preserve painter order. The stream can replay offline after the original assets and game have gone away. `commands=N` stops the offline tool after N commands and writes the most recent completed frame if there is one.
 
 ## Why the path tracer was retired
 

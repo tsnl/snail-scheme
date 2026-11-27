@@ -40,6 +40,7 @@
    (snail shell graphics forward environment)
    (snail shell graphics compositor)
    (snail shell graphics scene)
+   (prefix (snail shell graphics renderer) api:)
    (snail shell game physics)
    (snail shell game atlas)
    (only (snail shell game chassis) chassis-clearance walker-height)
@@ -61,7 +62,7 @@
        (residents I64)))
     (record Prepared
       ((sector I64)
-       (stage MovingScene)))
+       (stage api:ModelHandle)))
     (record Renderer
       ((ground Area)
        (read (Fn (List String) → (List Bytes)))
@@ -72,12 +73,11 @@
        (marks (List Mat4x4f))
        (actor Humanoid)
        (horizon Gltf)
-       (stage MovingScene)
+       (stage api:ModelHandle)
        (sector I64)
        (images SceneImages)
-       (sky Environment)
        (minute I64)
-       (forward-renderer Forward)
+       (forward-renderer api:Renderer)
        (compositor Compositor)
        (palette (List Mat4x4f))
        (time F64)
@@ -331,30 +331,32 @@
              (traffic (length (● w traffic))) (residents (length (● w residents))))))
     (define (stage-model (g Area) (horizon Gltf) (cast Cast)) (→ Gltf)
       (append-gltf (append-gltf horizon (city-model g)) (● cast model)))
-    (define (build-stage (gpu Gpu) (read (Fn (List String) → (List Bytes))) (g Area)
-                         (model Gltf) (cast Cast) (images SceneImages)) (→ MovingScene)
-                         (skin-with-layout gpu
-                                           (upload-with-images gpu
-                                                               read
-                                                               model
-                                                               images
-                                                               (city-lights g)
-                                                               (* 4 (+ 1 (● cast traffic))))
-                                           (● cast skin)))
+    (define (build-stage (renderer api:Renderer) (read (Fn (List String) → (List Bytes))) (g Area)
+                         (model Gltf) (cast Cast) (images SceneImages)) (→ api:ModelHandle)
+                         (api:create-model! renderer
+                                            model
+                                            read
+                                            (Some images)
+                                            (Some (● cast skin))
+                                            (city-lights g)
+                                            (* 4 (+ 1 (● cast traffic)))))
     (define (street-samples (g Graphics)) (→ I32) (if (= (● g samples) 4) 4 1))
 
-    (define (make-renderer (gpu Gpu) (read (Fn (List String) → (List Bytes))) (models (List Bytes))
+    (define (make-renderer (gpu Gpu)
+                           (config api:RendererConfig)
+                           (read (Fn (List String) → (List Bytes)))
+                           (models (List Bytes))
                            (g Area) (s Shift)) (→ Renderer)
                            ((● gpu request-device))
                            (let ((canvas ((● gpu current-texture))))
-                             (make-street-renderer gpu
+                             (make-street-renderer gpu config
                                                    read
                                                    models
                                                    g
                                                    s
                                                    (● canvas width)
                                                    (● canvas height))))
-    (define (make-street-renderer (gpu Gpu)
+    (define (make-street-renderer (gpu Gpu) (config api:RendererConfig)
                                   (read (Fn (List String) → (List Bytes)))
                                   (models (List Bytes))
                                   (g Area) (s Shift) (width I32) (height I32)) (→ Renderer)
@@ -386,13 +388,16 @@
                                          (cast (make-cast w))
                                          (model (stage-model g horizon cast))
                                          (images (load-scene-images gpu read model))
-                                         (stage (build-stage gpu read g model cast images))
+                                         (renderer (api:make-renderer gpu config))
+                                         (stage (build-stage renderer read g model cast images))
                                          (light (daylight gpu (sky-period (clock-minute w))))
                                          (marked (zone-stand w)) (marks (zone-poses g marked))
                                          (palette (world-palette g actor marks s s 1.0 0.0)))
                                     (set! (● light sun) (street-sun (clock-minute w)))
-                                    (deform-scene! gpu stage palette)
-                                    (write-lamps! gpu stage palette s)
+                                    (api:use-model! renderer stage)
+                                    (api:set-sky! renderer light (Photographic))
+                                    (api:pose-model! renderer stage palette)
+                                    (write-lamps! renderer stage palette s)
                                     (new Renderer
                                       (ground g)
                                       (read read)
@@ -405,22 +410,21 @@
                                       (horizon horizon)
                                       (stage stage)
                                       (sector (● g center))
-                                      (images images) (sky light)
+                                      (images images)
                                       (minute (clock-minute w))
                                       (palette palette)
                                       (time -1.0)
                                       (compositor (make-compositor gpu format))
                                       (rig (None))
-                                      (forward-renderer
-                                       (make-forward gpu (● stage scene) light width height
-                                                     (street-samples (● s graphics))
-                                                     (Photographic))))))
+                                      (forward-renderer renderer))))
     (define (discard-pending! (gpu Gpu) (r Renderer)) (→ Unit)
       (match (● r pending)
-        ((Some old) (release-moving-scene gpu (● old stage)) (set! (● r pending) (None)))
+        ((Some old)
+         (api:delete-model! (● r forward-renderer) (● old stage))
+         (set! (● r pending) (None)))
         (_ (unit))))
-    (define (stage-at (gpu Gpu) (r Renderer) (g Area)) (→ MovingScene)
-      (build-stage gpu
+    (define (stage-at (gpu Gpu) (r Renderer) (g Area)) (→ api:ModelHandle)
+      (build-stage (● r forward-renderer)
                    (● r read)
                    g
                    (stage-model g (● r horizon) (● r cast))
@@ -461,11 +465,11 @@
             (_ (unit)))
           (let ((next
                  (match (● r pending) ((Some p) (● p stage)) (_ (stage-at gpu r (● r ground))))))
-            (set-scene! gpu (● r forward-renderer) (● next scene))
+            (api:use-model! (● r forward-renderer) next)
             (set! (● r pending) (None))
             (set! (● r stage) next))
           (set! (● r marked-stand) -2) (set! (● r sector) id) (set! (● r time) -1.0)
-          (release-moving-scene gpu old)))
+          (api:delete-model! (● r forward-renderer) old)))
       (let ((id (zone-stand w))) (unless (= id (● r marked-stand))
                                    (set! (● r marks) (zone-poses (● r ground) id))
                                    (set! (● r marked-stand) id)))
@@ -473,9 +477,8 @@
         (unless (= minute (● r minute))
           (unless (= (sky-period minute) (sky-period (● r minute)))
             (let ((sky (daylight gpu (sky-period minute))))
-              (set-environment! gpu (● r forward-renderer) sky)
-              (release-environment gpu (● r sky)) (set! (● r sky) sky)))
-          (set! (● r sky sun) (street-sun minute)) (set! (● r minute) minute))))
+              (api:set-sky! (● r forward-renderer) sky (Photographic))))
+          (api:set-sun! (● r forward-renderer) (street-sun minute)) (set! (● r minute) minute))))
     ;; The camera owns a world-space focus, its velocity and an orbit heading.
     ;; Integrate a critically damped spring exactly for each presentation interval.
     (record Chase
@@ -540,21 +543,27 @@
                         (PinholeRange 1.0 0.35 32000.0) aspect 1.0)))
     (define (reset-view! (r Renderer)) (→ Unit) (set! (● r rig) (None)) (set! (● r sector) -1))
     (define (render-resolution (r Renderer)) (→ String)
-      (let ((target (● r forward-renderer target)))
-        (string-append (show (● target w))
-                       "×"
-                       (show (● target h))
-                       " · "
-                       (show (● target samples))
-                       "× MSAA")))
+      (match (● r forward-renderer context forward)
+        ((Some f) (let ((t (● f target)))
+                    (string-append (show (● t w))
+                                   "×"
+                                   (show (● t h))
+                                   " · "
+                                   (show (● t samples))
+                                   "× MSAA")))
+        ((None) "Preparing first frame")))
     (define (street-camera (r Renderer) (s Shift) (aspect F64)) (→ Camera3D)
       (let* ((b (carrier (● s game))) (h (area-height (● r ground) (● b position))))
         (camera! r b h (aboard? (● s game driver)) 0.0 0.28 0 aspect)))
-    (define (write-lamps! (gpu Gpu) (stage MovingScene) (palette (List Mat4x4f)) (s Shift)) (→ Unit)
-      (update-moving-lights! gpu (● stage scene lights)
-                             (concatenate
-                              (map-indexed (lambda (i m) (car-lights m (= i 0) (braking? s i)))
-                                           (take palette (length (● s cars)))))))
+    (define (write-lamps! (renderer api:Renderer)
+                          (stage api:ModelHandle)
+                          (palette (List Mat4x4f))
+                          (s Shift))
+      (→ Unit)
+      (api:model-lights! renderer stage
+                         (concatenate
+                          (map-indexed (lambda (i m) (car-lights m (= i 0) (braking? s i)))
+                                       (take palette (length (● s cars)))))))
     (define (draw! (r Renderer)
                    (gpu Gpu)
                    (before Shift)
@@ -594,11 +603,11 @@
                                (* (* 0.001 (i64->f64 tick-ms)) (max 0.0 (- time 1.0)))))
           (set! (● r time) time))
         (when changed
-          (deform-scene! gpu (● r stage) (● r palette))
-          (write-lamps! gpu (● r stage) (● r palette) now))
+          (api:pose-model! (● r forward-renderer) (● r stage) (● r palette))
+          (write-lamps! (● r forward-renderer) (● r stage) (● r palette) now))
         (let ((frame (scene-frame (Camera3D-scene-time-set camera (f64->f32 (* time 0.05)))
                                   width
                                   height
                                   (street-samples settings)
                                   (street-exposure (clock-minute w)))))
-          (present-scene! (● r forward-renderer) frame (● r compositor) canvas))))))
+          (api:present-render! (● r forward-renderer) frame (● r compositor) canvas))))))

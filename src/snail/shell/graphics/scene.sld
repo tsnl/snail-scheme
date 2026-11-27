@@ -5,22 +5,19 @@
           ModelNode
           GroupNode
           scene-geometry
-          load-scene-node
           DirectionalLight
-          SceneFrame
+          SceneFrame SceneFrame-shadows-set
           scene-frame
           render-scene!
           present-scene!
-          SkySource BakedSky Panorama SceneDescription SceneRecording recording-frame)
+          SkySource BakedSky Panorama)
   (import
    (snail core base)
    (snail shell wire)
    (only (snail shell graphics gltf) Gltf Gltf-placed-set gltf-transformed append-gltf unreadable)
    (only (snail shell graphics pod) Vec4f Mat4x4f)
    (only (snail shell graphics animation) unit-matrix matrix-product)
-   (only (snail shell graphics forward scene) Scene drawable read-model-file upload-scene)
    (snail shell gpu)
-   (only (snail shell graphics passes) Tone)
    (only (snail shell graphics raster) Camera3D Plane)
    (snail shell graphics forward render)
    (snail shell graphics compositor))
@@ -62,19 +59,9 @@
                              assets)))
            (match models ((Nil) (unreadable "the scene has no models"))
                   ((Cons first rest) (fold-left append-gltf first rest)))))))
-    (define (load-scene-node (gpu Gpu) (read (Fn (List String) → (List Bytes))) (node SceneNode))
-      (→ Scene)
-      (let ((model (scene-geometry node (lambda (path) (read-model-file read path)))))
-        (upload-scene gpu read (drawable model))))
-
     (enum SkySource
       (BakedSky ((period I64)))
       (Panorama ((file String)))
-      (deriving Serialize Deserialize))
-    (record SceneDescription
-      ((root SceneNode)
-       (sky SkySource)
-       (tone Tone))
       (deriving Serialize Deserialize))
     (record SceneFrame
       ((camera Camera3D)
@@ -87,11 +74,6 @@
        (shading Shading)
        (cascade I32))
       (deriving Serialize Deserialize))
-    (record SceneRecording
-      ((scene SceneDescription)
-       (frames (List SceneFrame)))
-      (deriving Serialize Deserialize))
-
     (define (scene-frame (camera Camera3D) (w I32) (h I32) (samples I32) (exposure F32))
       (→ SceneFrame)
       (new SceneFrame
@@ -102,11 +84,6 @@
         (exposure exposure)
         (lights (Nil))
         (shadows #t) (shading (MetallicRoughness)) (cascade -1)))
-    (define (recording-frame (recording SceneRecording) (index I64)) (→ SceneFrame)
-      (unless (and (>= index 0) (< index (length (● recording frames))))
-        (panic "frame outside recorded scene"))
-      (list-ref (● recording frames) index))
-
     (define (encode-frame (gpu Gpu) (encoder GpuCommandEncoder) (r Forward) (frame SceneFrame))
       (→ Plane)
       (let ((w (● frame width))

@@ -5,6 +5,9 @@
  (snail shell page)
  (snail core table)
  (snail shell fetch)
+ (only (snail shell files) FilePicker)
+ (only (snail shell graphics api-trace) RendererConfig)
+ (snail shell graphics renderer page)
  (snail shell static-resource)
  (snail shell png)
  (snail shell game atlas)
@@ -243,7 +246,12 @@
       ((Some bytes) bytes)
       ((None) (panic (string-append "city catalog is missing " name))))))
 
-(define (drive-city (events Events) (clock Clock) (gpu Gpu) (dom Dom) (storage PageStorage)
+(define (drive-city (config RendererConfig)
+                    (events Events)
+                    (clock Clock)
+                    (gpu Gpu)
+                    (dom Dom)
+                    (storage PageStorage)
                     (out OutputPort) (files (Table Bytes)))
   (→ Unit)
   (let* ((file (lambda (name) (city-file files name)))
@@ -259,7 +267,7 @@
                     (populate! g roads w))
                   (ensure-cars! g roads w)
                   (match (attempt-reading (lambda ()
-                                            (make-renderer gpu
+                                            (make-renderer gpu config
                                                            (lambda (paths)
                                                              (map file paths))
                                                            models
@@ -268,11 +276,12 @@
                     ((Ok renderer) (play events clock gpu dom renderer hud g roads w save))
                     ((Err why) (write-line out why) (panic why))))))))
 
-(define (main (events Events) (clock Clock) (gpu Gpu) (dom Dom) (fetch Fetch)
+(define (main (events Events) (clock Clock) (gpu Gpu) (dom Dom) (fetch Fetch) (picker FilePicker)
               (store StaticResources) (storage PageStorage) (out OutputPort))
   (→ Unit)
   (match (city-files fetch store dom)
-    ((Ok files) (drive-city events clock gpu dom storage out files))
+    ((Ok files)
+     (drive-city (page-renderer-config fetch picker) events clock gpu dom storage out files))
     ((Err why)
      ((● dom set-attribute) ((● dom document-root)) "data-load-error" why)
      ((● events report-ready)))))

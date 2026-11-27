@@ -13,7 +13,8 @@
    (only (snail shell graphics environment) Hdr))
   (begin
     (record Environment
-      ((cube Plane)
+      ((baked Bytes)
+       (cube Plane)
        (diffuse GpuBuffer)
        (sun V3)
        (color V3)
@@ -47,7 +48,7 @@
                                           (subarray bytes at (+ at stride)))))
                         (iota 6))
               (loop (+ level 1) (quotient side 2) (+ start (* 6 stride))))))
-        (new Environment (cube (new Plane (texture texture) (view view)))
+        (new Environment (baked bytes) (cube (new Plane (texture texture) (view view)))
              (diffuse (uniform-buffer gpu "ibl/diffuse" (subarray bytes 0 144)))
              (sun sun) (color color) (disc disc))))
     (define (daylight (gpu Gpu) (id I64)) (→ Environment)

@@ -43,6 +43,7 @@
    Raster
    make-raster
    make-forward-batches
+   release-raster
    write-raster
    begin-gbuffer
    begin-lit
@@ -466,6 +467,18 @@
           (forward-camera (group gpu "raster/forward/camera" forward-pipeline 0 camera))
           (forward-sun (group gpu "raster/sun" forward-pipeline 2 sun))
           (last (None)))))
+
+    (define (release-raster (gpu Gpu) (r Raster)) (→ Unit)
+      (let ((drop (● gpu destroy)))
+        (match (● r opaque-sun) ((Some group) (drop (BindGroupObject group))) (_ (unit)))
+        (for-each drop
+                  (list (BindGroupObject (● r opaque-camera)) (BindGroupObject (● r forward-camera))
+                        (BindGroupObject (● r forward-sun))
+                        (PipelineObject (● r opaque-pipeline))
+                        (PipelineObject (● r forward-pipeline))
+                        (BufferObject (● r camera)) (BufferObject (● r sun))
+                        (BufferObject (● r geometry vertices))
+                        (BufferObject (● r geometry indices))))))
 
     ;; The frame's camera, moving from the last frame's, and its sun. A
     ;; batch remade since the last frame shows the motion of its new

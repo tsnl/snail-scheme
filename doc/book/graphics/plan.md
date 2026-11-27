@@ -1,6 +1,6 @@
 # WebGPU design
 
-Games and tools describe models, transforms, lights and cameras with Snail Scheme scene values. The glTF viewer records these values and replays them through the same forward renderer as the games. Siegework and Hearsay use the forward color pass and compositor for orthographic meshes and sprites. [Scene graphs, rendering and replay](rasterizer.md).
+Games and tools describe models, transforms, lights and cameras with Snail Scheme scene values. A renderer can record resource creation, updates and draws from any of the forward-rendered applications. Siegework and Hearsay use its orthographic mesh and sprite paths. [Scene graphs, rendering and replay](rasterizer.md).
 
 The renderer implements that interface on top of the `Gpu` capability. This chapter describes the device operations and includes measurements from the earlier G-buffer pipeline. [GPU library reference](../libraries/gpu.md).
 
@@ -164,7 +164,7 @@ repeated texels wait for filtered textures, with mips.
 `(snail shell graphics mesh)` holds eight shapes, each standing on y = 0
 within the unit cell, in one geometry table written once. `meshes` packs a
 batch's `Instance` records grouped by shape, with one `DrawArgs` per
-shape, so a batch is one `drawIndexedIndirect` per shape from its own first
+shape, so a batch is one `drawIndexed` per populated shape from its own first
 instance. An instance carries where it is and where it was, its yaw, scale,
 glow, color and whether it turns to face the camera. Its `material` is a
 `Vec2f` holding metalness and roughness. Its `id` is an `I32` for picking.
@@ -174,7 +174,7 @@ makes its `Raster` once: the G-buffer's and the translucent pipelines, the
 geometry, and the camera's and sun's uniforms with their bind groups; a
 `GBuffer` for the canvas's size, made again when it changes; and a
 `Surface` for each batch, its style's uniform and bind group and its
-instances and indirect draws, made again when the batch changes. A frame
+instance buffer and CPU draw ranges, made again when the batch changes. A frame
 writes the camera and the sun, and draws. A `Camera3D` carries its
 view-projection and its inverse, computed in closed form for a pinhole or
 parallel lens, so the sun pass recovers each pixel's position from its
@@ -383,9 +383,7 @@ application can read, replace or extend.
   in atlas arrays, and the quad pass draws runs of quads that share a
   texture. The path tracer puts every image in one texture array for the
   same reason ([scenes](tracer.md#scenes)).
-- **No multi-draw.** The G-buffer pass issues one `drawIndexedIndirect` per
-  geometry; the `indirect-first-instance` feature lets each start at its
-  own instance.
+- **Indexed draws.** Each populated shape gets a direct draw with its own first instance and count.
 - **A low-poly game** packs its geometry, material and instance tables,
   renders albedo, normal and depth, lights them with a sun pass of its own
   or the library's, and composites the result to the canvas with quads. A
@@ -501,8 +499,8 @@ bicycle's 30,000 steps took 857.5 s with it and 857.1 s without.
 
 ## Device baseline
 
-Required features: `indirect-first-instance`, `float32-filterable` and
-`rg11b10ufloat-renderable`. Used when present: `texture-compression-bc`,
+The device requires `float32-filterable` and `rg11b10ufloat-renderable`.
+It enables `indirect-first-instance` when available for callers of the raw GPU API. Other optional features include `texture-compression-bc`,
 which phones lack, `shader-f16`, which SwiftShader, the tests' adapter,
 lacks, `timestamp-query`, for profiling, and `subgroups`, which splat
 training's backward pass sums over; `request-device` answers which it got.

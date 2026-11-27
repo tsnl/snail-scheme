@@ -1,6 +1,6 @@
 ;; Read the display image or the scene-linear HDR attachment of a forward frame.
 (define-library (snail shell graphics still)
-  (export read-rgba read-plane read-linear)
+  (export read-rgba read-plane read-region read-linear)
   (import
    (snail core base)
    (snail shell gpu)
@@ -16,6 +16,9 @@
     ;; Native texture bytes in top-to-bottom rows, without WebGPU pitch padding.
     (define (read-plane (gpu Gpu) (target Plane) (width I32) (height I32) (texel-size I64))
       (→ Bytes)
+      (read-region gpu (whole-texture (● target texture)) width height texel-size))
+    (define (read-region (gpu Gpu) (source TextureCopy) (width I32) (height I32) (texel-size I64))
+      (→ Bytes)
       (let* ((row (* texel-size (i32->i64 width))) (h (i32->i64 height))
              (pitch (* 256 (quotient (+ row 255) 256))) (size (i64->i32 (* pitch h)))
              (buffer
@@ -24,7 +27,7 @@
              (encoder ((● gpu create-command-encoder))))
         ((● gpu copy-texture-to-buffer)
          encoder
-         (whole-texture (● target texture))
+         source
          buffer
          0
          (i64->i32 pitch)

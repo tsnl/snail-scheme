@@ -4,6 +4,7 @@
   (export Punctual point-light spot-light LightGrid light-grid update-moving-lights!)
   (import
    (snail core base)
+   (snail shell wire)
    (snail shell math)
    (snail shell gpu)
    (snail shell graphics pod)
@@ -13,7 +14,7 @@
     (record Punctual
       ((position Vec4f)
        (intensity Vec4f)
-       (axis Vec4f)))
+       (axis Vec4f)) (deriving Serialize Deserialize))
     (define (point-light (p Vec3f) (rgb Vec3f) (reach F32)) (→ Punctual)
       (unless (and (> reach 0.0) (>= (min (● rgb x) (min (● rgb y) (● rgb z))) 0.0))
         (panic "light needs a positive range and nonnegative intensity"))

@@ -8,7 +8,7 @@
           set-scene!
           set-environment!
           set-directional-lights!
-          release-forward
+          release-forward release-forward-context
           DirectionalLight
           transparent-order
           cascade-views
@@ -397,6 +397,8 @@
                 (list (● p color) (● p back) (● p front) (● p sky))))
     (define (release-targets (gpu Gpu) (t Targets)) (→ Unit)
       (release-plane gpu (● t output))
+      (release-depth-targets gpu t))
+    (define (release-depth-targets (gpu Gpu) (t Targets)) (→ Unit)
       (release-plane gpu (● t depth))
       (match (● t multi) ((Some p) (release-plane gpu p)) ((None) (unit))))
     (define (resize-forward (gpu Gpu) (r Forward) (w I32) (h I32) (samples I32)) (→ Forward)
@@ -557,8 +559,11 @@
                                              (● r target post))))
                             (● r target output)))
     (define (release-forward (gpu Gpu) (r Forward)) (→ Unit)
+      (release-plane gpu (● r target output)) (release-forward-context gpu r))
+    ;; A renderer may keep the last completed color image after deleting the model.
+    (define (release-forward-context (gpu Gpu) (r Forward)) (→ Unit)
       (release-pipes gpu (● r pipes) (● r target samples)) (release-depth gpu (● r depth-1x))
-      (release-targets gpu (● r target)) (release-post gpu (● r target post))
+      (release-depth-targets gpu (● r target)) (release-post gpu (● r target post))
       (release-plane gpu (● r lut))
       (for-each (lambda (v) ((● gpu destroy) (ViewObject v))) (● r shadow-layers))
       (for-each (lambda (v) ((● gpu destroy) (BufferObject (● v buffer)))

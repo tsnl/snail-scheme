@@ -1,12 +1,12 @@
 // Record a viewer frame and replay it on a fresh native WebGPU device.
-// Browser URLs are remapped to the same local asset for offline playback.
+// A new device has only the JSONL stream, including the browser-only asset.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {createCanvas, loadImage} from '@napi-rs/canvas';
+import {pixels, observeOutput, captureFrame, assertMatches} from './renderer-trace.mjs';
 import {openBrowser, until} from './chromium.mjs';
 import {serve} from './static.mjs';
 
@@ -24,44 +24,13 @@ const browser = await openBrowser({hardware: process.env.SNAIL_WEBGPU_HARDWARE =
 const tap = async key => {
   for (const type of ['keyDown', 'keyUp']) await browser.send('Input.dispatchKeyEvent', {type, key});
 };
-async function pixels(png) {
-  const img = await loadImage(png);
-  const canvas = createCanvas(img.width, img.height), ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  return {width: img.width, height: img.height, rgba: ctx.getImageData(0, 0, img.width, img.height).data};
-}
-// Read the owned output just as the offline renderer does. Browser canvas
-// capture may return the preceding surface while changing sample count.
-function observeOutput() {
-  const create = GPUDevice.prototype.createTexture;
-  GPUDevice.prototype.createTexture = function(desc) {
-    const texture = create.call(this, desc);
-    if (texture.label === 'forward/depth') window.cameraSamples = texture.sampleCount;
-    if (texture.label === 'forward/output') window.sceneOutput = async () => {
-      const {width, height} = texture, pitch = Math.ceil(width * 4 / 256) * 256;
-      const buffer = this.createBuffer({size: height * pitch, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ});
-      const enc = this.createCommandEncoder();
-      enc.copyTextureToBuffer({texture}, {buffer, bytesPerRow: pitch}, {width,height});
-      this.queue.submit([enc.finish()]);
-      await buffer.mapAsync(GPUMapMode.READ);
-      const data = new Uint8Array(buffer.getMappedRange()), rgba = new Uint8ClampedArray(width * height * 4);
-      for (let y = 0; y < height; y++) rgba.set(data.subarray(y*pitch, y*pitch + width*4), y*width*4);
-      buffer.unmap(); buffer.destroy();
-      const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
-      canvas.getContext('2d').putImageData(new ImageData(rgba,width,height),0,0);
-      return canvas.toDataURL();
-    };
-    return texture;
-  };
-}
 try {
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: '(' + observeOutput.toString() + ')()'});
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 192, height: 120, deviceScaleFactor: 1, mobile: false});
   const url = 'http://127.0.0.1:' + server.address().port;
-  await browser.navigate(url + '/?model=' + encodeURIComponent(url + '/materials.gltf'));
+  await browser.navigate(url + '/?trace=1&model=' + encodeURIComponent(url + '/materials.gltf'));
   await until(() => browser.evaluate('document.body?.dataset.ready && document.querySelector("#status").textContent !== "Loading…"'), 'viewer model');
-  await tap('4'); await tap('t');
-  await until(() => browser.evaluate('document.querySelector("#status").textContent.includes("Recording.")'), 'record start');
+  await tap('4');
   const image = await until(async () => {
     const uri = await browser.evaluate('window.cameraSamples === 4 && window.sceneOutput()');
     if (!uri) return false;
@@ -69,21 +38,29 @@ try {
     return new Set(value.rgba).size > 20 && value;
   }, 'shaded image');
   await browser.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve))))');
-  await tap('t');
-  const clip = await until(() => browser.evaluate('document.querySelector("a[download]")?.href'), 'recorded scene');
-  const trace = join(dir, 'viewer.snail-scene');
-  await writeFile(trace, Buffer.from(clip.split(',')[1], 'base64'));
+  const {trace: clip, image: rendered} = await captureFrame(browser);
+  const headers = clip.trimEnd().split('\n').map(line => JSON.parse(line)).filter(line => typeof line === 'object');
+  assert.ok(headers.some(c => c.op === 'createModel' && c.bytes.length >= 2 && c.bytes[1] > 0));
+  assert.ok(headers.some(c => c.op === 'setEnvironment' && c.bytes[0] > 0));
+  assert.ok(headers.some(c => c.op === 'render' && c.args.samples === 4));
+  const trace = join(dir, 'viewer.jsonl');
+  await writeFile(trace, clip);
+  server.closeAllConnections();
+  await new Promise(resolve => server.close(resolve));
   const png = join(dir, 'replayed.png');
-  await run(cli, ['run', '--target', 'node', 'tools/render.scm', 'replay=' + trace, 'scene=' + asset, 'output=' + png], {cwd: root});
-  const replay = await pixels(await readFile(png));
-  assert.equal(replay.width, image.width);
-  assert.equal(replay.height, image.height);
-  let close = 0;
-  for (let i = 0; i < replay.rgba.length; i++) if (Math.abs(image.rgba[i] - replay.rgba[i]) <= 4) close++;
-  assert.ok(close / replay.rgba.length > 0.99, '99% of viewer and offline channels agree within four display levels: ' + close / replay.rgba.length);
+  await run(cli, ['run', '--target', 'node', 'tools/render.scm', 'replay=' + trace, 'output=' + png], {cwd: root});
+  await assertMatches(rendered, await readFile(png));
+  // A bounded replay leaves the next header unread. An unbounded replay of
+  // the same stream must actually encounter the truncated binary command.
+  await writeFile(trace, clip + '{"v":1,"op":"createModel","args":{"id":27},"bytes":[9]}\n');
+  const play = count => run(cli, ['run', '--target', 'node', 'tools/render.scm', 'replay=' + trace,
+    ...(count === undefined ? [] : ['commands=' + count]), 'output=' + png], {cwd: root});
+  await play(headers.length);
+  await assertMatches(rendered, await readFile(png));
+  await assert.rejects(play(), error => (error.stderr + error.stdout).includes('truncated renderer trace block'));
   console.log('Recorded viewer scene reproduced offline at ' + image.width + '×' + image.height + '.');
 } finally {
   browser.close();
-  server.close();
+  if (server.listening) server.close();
   await rm(dir, {recursive: true, force: true});
 }

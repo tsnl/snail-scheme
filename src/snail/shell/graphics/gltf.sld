@@ -54,6 +54,7 @@
   (import
    (snail core base)
    (only (snail shell little-endian) uint-le u32)
+   (snail shell wire)
    (snail shell utf8)
    (snail shell json)
    (snail shell json read))
@@ -98,7 +99,8 @@
        (width I64)
        (component I64)
        (normalized Bool)
-       (count I64)))
+       (count I64))
+      (deriving Serialize Deserialize))
 
     ;; Its corners, from POSITION's min and max, are in the mesh's space.
     (record Primitive
@@ -111,11 +113,16 @@
        (indices (Option Attribute))
        (material I64)
        (low (List F64))
-       (high (List F64))))
+       (high (List F64)))
+      (deriving Serialize Deserialize))
 
     ;; A texture is the index of its image, -1 when there is none. Alpha
     ;; is 0 for OPAQUE, 1 for MASK and 2 for BLEND.
-    (enum AlphaMode (OpaqueMaterial) (MaskedMaterial) (BlendedMaterial))
+    (enum AlphaMode
+      (OpaqueMaterial)
+      (MaskedMaterial)
+      (BlendedMaterial)
+      (deriving Serialize Deserialize))
     (define (alpha-code (mode AlphaMode)) (→ I64)
       (match mode ((OpaqueMaterial) 0) ((MaskedMaterial) 1) ((BlendedMaterial) 2)))
     (define (blended-material? (mode AlphaMode)) (→ Bool)
@@ -139,13 +146,15 @@
        (water Bool)
        (subsurface F64)
        (diffuse-transmission F64)
-       (fiber-anisotropy F64)))
+       (fiber-anisotropy F64))
+      (deriving Serialize Deserialize))
 
     ;; A primitive, and the column-major matrix from its mesh to the world.
     (record Placed
       ((node I64)
        (primitive Primitive)
-       (matrix (List F64))))
+       (matrix (List F64)))
+      (deriving Serialize Deserialize))
 
     ;; ---- Reading ----
 

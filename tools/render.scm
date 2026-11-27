@@ -17,7 +17,7 @@
  (snail shell graphics forward render)
  (snail shell graphics still)
  (snail shell graphics scene)
- (snail shell wire)
+ (prefix (snail shell graphics renderer) api:)
  (only (snail shell graphics passes) Photographic)
  (only (snail shell graphics fly) fly-over fly-camera))
 
@@ -47,13 +47,12 @@
        (z (coordinate (list-ref xs 2)))))
     (_ (panic "camera positions need x,y,z"))))
 
-(define (read-model (gpu Gpu) (fs Fs) (node SceneNode)) (→ Scene)
-  (match (attempt-reading (lambda ()
-                            (load-scene-node gpu
-                                             (lambda (paths)
-                                               (map (lambda (p) (read-bytes fs p)) paths))
-                                             node)))
-    ((Ok scene) scene) ((Err why) (panic why))))
+(define (read-model (r api:Renderer) (fs Fs) (path String)) (→ api:ModelHandle)
+  (let ((read (lambda ((paths (List String)))
+                (→ (List Bytes))
+                (map (lambda (p) (read-bytes fs p)) paths))))
+    (match (attempt-reading (lambda () (api:create-scene-node! r read (ModelNode path))))
+      ((Ok h) h) ((Err why) (panic why)))))
 
 (define (sky-source (path String) (minute I64)) (→ SkySource)
   (if (string=? path "")
@@ -73,11 +72,11 @@
 
 ;; Each duration ends when the last submitted draw finishes. Readback and
 ;; encoding are separate from timing. All iterations reuse the same scene.
-(define (benchmark (gpu Gpu) (r Forward) (view SceneFrame)
+(define (benchmark (gpu Gpu) (r api:Renderer) (view SceneFrame)
                    (clock Clock) (started I64) (fs Fs) (path String)) (→ Unit)
                    (let* ((now (● clock monotonic-nanoseconds))
                           (frame (lambda () (let ((start (now)))
-                                              (render-scene! r view)
+                                              (api:render! r view)
                                               ((● gpu work-done))
                                               (/ (i64->f64 (- (now) start)) 1e9)))))
                      ((● gpu work-done))
@@ -92,7 +91,7 @@
                                                   (string-join times ",")
                                                   "]}")))))
 
-(define (configured-frame (args Arguments) (scene Scene)) (→ SceneFrame)
+(define (configured-frame (args Arguments) (bounds (Pair (List F64) (List F64)))) (→ SceneFrame)
   (let* ((w (i64->i32 (number args "width" 960 1 16384)))
          (h (i64->i32 (number args "height" 540 1 16384)))
          (msaa (i64->i32 (number args "msaa" 1 1 4))) (shadows (setting args "shadows" "on"))
@@ -103,12 +102,13 @@
     (unless (and (> fov 0.0) (< fov 3.14159)) (panic "invalid field of view"))
     (unless (if (string=? eye "") (string=? target "") (not (string=? target "")))
       (panic "supply eye and target together"))
-    (let* ((camera (if (string=? eye "") (fly-camera (fly-over (● scene low) (● scene high)) aspect)
-                       (camera-3d (point eye)
-                                  (point target)
-                                  (PinholeRange (f32->f64 fov) 0.05 32000.0)
-                                  aspect
-                                  1.0)))
+    (let* ((camera
+            (if (string=? eye "") (fly-camera (fly-over (● bounds first) (● bounds second)) aspect)
+                (camera-3d (point eye)
+                           (point target)
+                           (PinholeRange (f32->f64 fov) 0.05 32000.0)
+                           aspect
+                           1.0)))
            (frame (scene-frame camera w h msaa (real-setting args "exposure" 1.0))))
       (set! (● frame shadows)
             (cond ((string=? shadows "on") #t)
@@ -120,57 +120,72 @@
                   (else (panic "invalid brdf"))))
       (set! (● frame cascade) (i64->i32 (number args "cascade" -1 -1 2))) frame)))
 
+(define (run-renderer (args Arguments) (fs Fs) (out OutputPort) (gpu Gpu) (clock Clock)
+                      (port (Option OutputPort))) (→ Unit)
+                      (let* ((r (api:make-renderer gpu (new api:RendererConfig (trace port))))
+                             (started ((● clock monotonic-nanoseconds)))
+                             (replay (setting args "replay" ""))
+                             (path (setting args "output" "render.png"))
+                             (linear (setting args "linear" ""))
+                             (timing (setting args "timing" "")))
+                        (if (string=? replay "")
+                            (let* ((model (setting args "scene" ""))
+                                   (_ (when (string=? model "")
+                                        (panic "supply scene=PATH or replay=TRACE")))
+                                   (handle (read-model r fs model))
+                                   (sky (sky-source (setting args "environment" "")
+                                                    (number args "minute" 1040 0 1439)))
+                                   (f (configured-frame args (api:model-bounds r handle))))
+                              (api:use-model! r handle)
+                              (api:set-sky! r (lighting gpu fs sky) (Photographic))
+                              (when (and (>= (● f cascade) 0) (not (string=? linear "")))
+                                (panic "linear output needs a shaded frame"))
+                              (if (string=? timing "") (begin (api:render! r f) (unit))
+                                  (benchmark gpu r f clock started fs timing)))
+                            (begin
+                              (unless (and (string=? (setting args "scene" "") "")
+                                           (string=? (setting args "environment" "") ""))
+                                (panic "renderer traces contain their own meshes and lighting"))
+                              (call-with-input-file fs replay (lambda (in)
+                                                                (let ((limit
+                                                                       (if (string=? (setting args
+                                                                                              "commands"
+                                                                                              "")
+                                                                                     "")
+                                                                           (None)
+                                                                           (Some (number args
+                                                                                         "commands"
+                                                                                         0
+                                                                                         0
+                                                                                         2147483647)))))
+                                                                  ((● r replay) in limit)
+                                                                  (unit))))))
+                        (let* ((size (api:renderer-size r)) (w (● size first)) (h (● size second)))
+                          (when (and (> w 0) (string=? timing ""))
+                            (write-bytes fs
+                                         path
+                                         (rgba->png w
+                                                    h
+                                                    (read-rgba gpu (api:renderer-output r) w h))))
+                          (unless (string=? linear "")
+                            (write-bytes fs linear (read-linear gpu (api:renderer-forward r))))
+                          (api:release-renderer! r)
+                          (write-line out (if (= w 0) "Replay stopped before the first draw."
+                                              (string-append (if (string=? timing "")
+                                                                 path
+                                                                 (string-append timing ".json"))
+                                                             " · "
+                                                             (show w)
+                                                             "×"
+                                                             (show h)))))))
+
 (define (main (args Arguments) (fs Fs) (out OutputPort) (host Host) (clock Clock)) (→ Unit)
-  (let* ((replay (setting args "replay" "")) (record (setting args "record" ""))
-         (clip (if (string=? replay "")
-                   (ann (None) (Option SceneRecording))
-                   (Some (deserialize (read-bytes fs replay)))))
-         (source (match clip ((Some c) (● c scene))
-                        (_ (new SceneDescription (root (ModelNode (setting args "scene" "")))
-                                (sky (sky-source (setting args "environment" "")
-                                                 (number args "minute" 1040 0 1439)))
-                                (tone (Photographic))))))
-         (root (match (● source root)
-                 ((ModelNode path) (ModelNode (setting args "scene" path)))
-                 ((GroupNode _ _)
-                  (unless (string=? (setting args "scene" "") "")
-                    (panic "scene= overrides a single model"))
-                  (● source root))))
-         (override (setting args "environment" ""))
-         (sky (if (string=? override "") (● source sky) (Panorama override)))
-         (path (setting args "output" "render.png"))
-         (linear (setting args "linear" ""))
-         (timing (setting args "timing" "")))
-    (match root
-      ((ModelNode path) (when (string=? path "") (panic "supply scene=PATH or replay=RECORDING")))
-      (_ (unit)))
-    (let* ((started ((● clock monotonic-nanoseconds)))
-           (gpu (host-gpu host))
-           (_ ((● gpu request-device)))
-           (scene (read-model gpu fs root))
-           (frame (match clip
-                    ((Some c) (recording-frame c (number args "frame" 0 0 2147483647)))
-                    (_ (configured-frame args scene))))
-           (env (lighting gpu fs sky)) (w (● frame width)) (h (● frame height))
-           (r (make-forward gpu scene env w h (● frame samples) (● source tone))))
-      (when (and (>= (● frame cascade) 0) (not (string=? linear "")))
-        (panic "linear output needs a shaded frame"))
-      (if (string=? timing "")
-          (write-bytes fs path (rgba->png w h (read-rgba gpu (render-scene! r frame) w h)))
-          (benchmark gpu r frame clock started fs timing))
-      (unless (string=? linear "") (write-bytes fs linear (read-linear gpu r)))
-      (unless (string=? record "")
-        (write-bytes fs record (serialize (new SceneRecording
-                                            (scene (new SceneDescription
-                                                     (root root)
-                                                     (sky sky)
-                                                     (tone (● source tone))))
-                                            (frames (list frame))))))
-      (release-forward gpu r) (release-environment gpu env) (release-scene gpu scene)
-      (write-line out
-                  (string-append (if (string=? timing "") path (string-append timing ".json"))
-                                 " · "
-                                 (show w)
-                                 "×"
-                                 (show h)
-                                 " · " (show (● frame samples)) "× MSAA")))))
+  (let ((gpu (host-gpu host)) (record (setting args "record" "")))
+    ((● gpu request-device))
+    (if (string=? record "") (run-renderer args fs out gpu clock (None))
+        (begin
+          (when (string=? record (setting args "replay" ""))
+            (panic "input and output trace must be different files"))
+          (call-with-output-file fs
+            record
+            (lambda (port) (run-renderer args fs out gpu clock (Some port))))))))

@@ -1,6 +1,6 @@
 ;; Base64 data URLs for in-memory images and other linked byte resources.
 (define-library (snail shell base64)
-  (export data-url)
+  (export data-url base64-text decode-base64)
   (import
    (snail core base))
   (begin
@@ -15,7 +15,33 @@
                    (digit (i32-and 63 (i32-shift-right/logical bits (i64->i32 (- 18 (* 6 slot)))))))
               (string-ref "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
                           (i32->i64 digit))))))
+    (define (base64-text (bytes Bytes)) (→ String)
+      (string-generate (* 4 (quotient (+ (array-length bytes) 2) 3))
+                       (lambda (i) (letter bytes i))))
     (define (data-url (mime String) (bytes Bytes)) (→ String)
-      (string-append "data:" mime ";base64,"
-                     (string-generate (* 4 (quotient (+ (array-length bytes) 2) 3))
-                                      (lambda (i) (letter bytes i)))))))
+      (string-append "data:" mime ";base64," (base64-text bytes)))
+    (define (digit (c Char)) (→ I32)
+      (let ((n (i64->i32 (char->integer c))))
+        (cond ((and (>= n 65) (<= n 90)) (- n 65))
+              ((and (>= n 97) (<= n 122)) (- n 71))
+              ((and (>= n 48) (<= n 57)) (+ n 4))
+              ((= n 43) 62) ((= n 47) 63) (else -1))))
+    (define (decode-base64 (text String)) (→ Bytes)
+      (let* ((n (string-length text))
+             (pad (if (and (> n 0) (char=? (string-ref text (- n 1)) #\=))
+                      (if (and (> n 1) (char=? (string-ref text (- n 2)) #\=)) 2 1) 0))
+             (end (- n pad)))
+        (unless (= (remainder n 4) 0) (panic "invalid base64 length"))
+        (let loop ((i 0))
+          (when (< i end)
+            (when (< (digit (string-ref text i)) 0) (panic "invalid base64 digit"))
+            (loop (+ i 1))))
+        (array-generate (- (* 3 (quotient n 4)) pad)
+                        (lambda (i)
+                          (let* ((k (remainder i 3)) (at (+ (* 4 (quotient i 3)) k))
+                                 (left (digit (string-ref text at)))
+                                 (right (digit (string-ref text (+ at 1)))))
+                            (i32->u8 (i32-or (i32-shift-left left (i64->i32 (+ 2 (* 2 k))))
+                                             (i32-shift-right/logical right
+                                                                      (i64->i32
+                                                                       (- 4 (* 2 k)))))))))))))

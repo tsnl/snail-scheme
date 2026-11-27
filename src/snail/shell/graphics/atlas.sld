@@ -26,7 +26,7 @@
    Slot
    Atlas
    make-atlas
-   atlas-pictures
+   atlas-pictures next-picture compose-picture! release-atlas
    atlas-slot
    slot-region
    atlas-url)
@@ -93,7 +93,7 @@
        (pages I32)
        (texture GpuTexture)
        (pipeline GpuRenderPipeline)
-       (sources (Table GpuTextureView))
+       (sources (Table (Pair GpuTexture GpuTextureView)))
        (page I32)
        (x I32)
        (y I32)
@@ -192,18 +192,28 @@
                             (encoder GpuCommandEncoder)
                             (pictures (List Picture)))
       (→ Atlas)
-      (match (find (lambda (picture) (not (composed? atlas picture))) pictures)
+      (match (next-picture atlas pictures)
         ((None) atlas)
-        ((Some picture)
-         (match (placed atlas picture)
-           ((Some next) (compose gpu encoder (● next second) picture #f))
-           ((None)
-            (match (placed (emptied atlas) picture)
-              ((Some next) (compose gpu encoder (● next second) picture #t))
-              ((None)
-               (panic (string-append "atlas: a picture is larger than the pages of atlas "
-                                     (● atlas name))))))))))
-
+        ((Some picture) (● (compose-picture! gpu atlas encoder picture) second))))
+    (define (next-picture (atlas Atlas) (pictures (List Picture))) (→ (Option Picture))
+      (find (lambda (picture) (not (composed? atlas picture))) pictures))
+    ;; True when making room for this picture cleared all pages.
+    (define (compose-picture! (gpu Gpu) (atlas Atlas) (encoder GpuCommandEncoder) (picture Picture))
+      (→ (Pair Bool Atlas))
+      (match (placed atlas picture)
+        ((Some next)
+         (new Pair (first #f) (second (compose gpu encoder (● next second) picture #f))))
+        ((None) (match (placed (emptied atlas) picture)
+                  ((Some next)
+                   (new Pair (first #t) (second (compose gpu encoder (● next second) picture #t))))
+                  ((None) (panic (string-append "picture larger than atlas " (● atlas name))))))))
+    (define (release-atlas (gpu Gpu) (atlas Atlas)) (→ Unit)
+      (for-each (lambda (image)
+                  ((● gpu destroy) (ViewObject (● image second)))
+                  ((● gpu destroy) (TextureObject (● image first))))
+                (table-values (● atlas sources)))
+      ((● gpu destroy) (TextureObject (● atlas texture)))
+      ((● gpu destroy) (PipelineObject (● atlas pipeline))))
     (define (composed? (atlas Atlas) (picture Picture)) (→ Bool)
       (match (atlas-slot atlas (● picture key))
         ((Some slot) (= (● slot version) (● picture version)))
@@ -268,9 +278,10 @@
                  atlas
                  layers))
 
-    (define (decoded-view (gpu Gpu) (layer Placed)) (→ GpuTextureView)
+    (define (decoded-view (gpu Gpu) (layer Placed)) (→ (Pair GpuTexture GpuTextureView))
       (match ((● gpu decode-image) ((● layer source bytes)))
-        ((Some image) (view-of gpu (● image texture) 1))
+        ((Some image)
+         (new Pair (first (● image texture)) (second (view-of gpu (● image texture) 1))))
         ((None) (panic "atlas: a source is no image the host decodes"))))
 
     (define (laid (atlas Atlas) (pictures (List Picture))) (→ (List Placed))
@@ -376,7 +387,7 @@
 
     (define (source-view (atlas Atlas) (source Source)) (→ GpuTextureView)
       (match (table-ref (● atlas sources) (show (● source key)))
-        ((Some view) view)
+        ((Some view) (● view second))
         ((None) (panic "atlas: a source was not decoded"))))
 
     (define (compose-pipeline (gpu Gpu)) (→ GpuRenderPipeline)

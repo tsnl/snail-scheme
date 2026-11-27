@@ -29,8 +29,8 @@
  (snail shell graphics forward environment)
  (snail shell graphics compositor)
  (snail shell graphics scene)
- (snail shell base64)
- (snail shell wire)
+ (prefix (snail shell graphics renderer) api:)
+ (snail shell graphics renderer page)
  (snail shell graphics forward render)
  (only (snail shell graphics passes) Filmic)
  (snail shell graphics fly))
@@ -103,17 +103,14 @@
 
 ;; The scene shown, the light it is shown in, and the renderer drawing it.
 (record View
-  ((scene Scene)
-   (environment Environment)
-   (renderer Forward)
-   (description SceneDescription)
-   (recording (Option (List SceneFrame)))))
+  ((scene api:ModelHandle)
+   (cascade I32)))
 
 ;; The page's events, each answered with the next view. The view, the
 ;; fly, the settings and the frame count are what change from one event
 ;; to the next; what the loop reaches the page through, and how it saves
 ;; the settings, it is handed once.
-(define (view-loop (gpu Gpu)
+(define (view-loop (gpu Gpu) (renderer api:Renderer)
                    (dom Dom)
                    (picker FilePicker)
                    (events Events)
@@ -136,7 +133,7 @@
           ;; refresh after it.
           ((● gpu work-done))
           (let* ((fly (flown fly elapsed))
-                 (_ (drawn gpu compositor shown fly settings)))
+                 (_ (drawn gpu renderer compositor shown fly settings)))
             ((● events report-ready))
             (loop (Some shown) fly settings (timed out timing elapsed))))
          ((None)
@@ -145,13 +142,10 @@
       ((InputEvent (KeyDown 111 shift))
        ((● picker open-picker) (if shift (Folder) (SomeFiles)))
        (loop view fly settings timing))
-      ((InputEvent (KeyDown 116 _))
-       (match view ((Some shown) (toggle-recording! dom out shown)) (_ (unit)))
-       (loop view fly settings timing))
       ((InputEvent (KeyDown 118 _))
        (match view ((Some current)
-                    (let* ((r (● current renderer)) (next (- (remainder (+ (● r inspect) 2) 4) 1)))
-                      (set! (● r inspect) next)
+                    (let ((next (- (remainder (+ (● current cascade) 2) 4) 1)))
+                      (set! (● current cascade) next)
                       (say dom
                            out
                            (if (< next 0)
@@ -166,11 +160,10 @@
           (loop view fly changed timing))
          ((None) (loop view (steered fly input) settings timing))))
       ((FilesEvent _)
-       (match (opened gpu
+       (match (opened gpu renderer
                       dom
                       fetch
                       out
-                      compositor
                       settings
                       view
                       fly
@@ -181,34 +174,19 @@
       ((SaveRequested) (save settings) (loop view fly settings timing))
       (_ (loop view fly settings timing)))))
 
-(define (drawn (gpu Gpu) (compositor Compositor) (view View) (fly Fly) (settings Settings)) (→ Unit)
+(define (drawn (gpu Gpu)
+               (renderer api:Renderer)
+               (compositor Compositor)
+               (view View)
+               (fly Fly)
+               (settings Settings))
+  (→ Unit)
   (let* ((surface ((● gpu current-texture))) (w (● surface width)) (h (● surface height))
          (frame (scene-frame (fly-camera fly (/ (i32->f64 w) (i32->f64 h))) w h
                              (i64->i32 (● settings samples)) (fly-exposure fly))))
-    (set! (● frame cascade) (● view renderer inspect))
-    (present-scene! (● view renderer) frame compositor surface)
-    (match (● view recording)
-      ((Some frames) (set! (● view recording) (Some (Cons frame frames))))
-      ((None) (unit)))))
+    (set! (● frame cascade) (● view cascade))
+    (api:present-render! renderer frame compositor surface)))
 
-(define (stop-recording! (dom Dom) (out OutputPort) (view View) (frames (List SceneFrame))) (→ Unit)
-  (set! (● view recording) (None))
-  (if (null? frames) (say dom out "No frames recorded.")
-      (let* ((clip (new SceneRecording (scene (● view description)) (frames (reverse frames))))
-             (link ((● dom create-element) "a")) (root ((● dom document-root))))
-        (say dom out (string-append (show (length frames)) " frames recorded. "))
-        ((● dom set-text) link "Download scene recording")
-        ((● dom set-attribute) link "download" "view.snail-scene")
-        ((● dom set-attribute) link "href" (data-url "application/octet-stream" (serialize clip)))
-        ((● dom insert-node) root link (None)))))
-
-(define (toggle-recording! (dom Dom) (out OutputPort) (view View)) (→ Unit)
-  (match (● view recording)
-    ((Some frames) (stop-recording! dom out view frames))
-    ((None) (set! (● view recording) (Some (Nil))) (say dom out "Recording. Press T to finish."))))
-
-;; Frames and milliseconds since the last report, which comes every two
-;; seconds.
 (define (timed (out OutputPort) (timing (Pair I32 I32)) (elapsed I32)) (→ (Pair I32 I32))
   (let ((frames (+ 1 (● timing first))) (total (+ elapsed (● timing second))))
     (if (< total 2000)
@@ -224,11 +202,10 @@
 ;; cannot be shown. The loop waits here, so one choice is read at a time,
 ;; and one that arrives meanwhile is read next. Shown, the page says the
 ;; settings unless they are the first ones, which a visit may have saved.
-(define (opened (gpu Gpu)
+(define (opened (gpu Gpu) (renderer api:Renderer)
                 (dom Dom)
                 (fetch Fetch)
                 (out OutputPort)
-                (compositor Compositor)
                 (settings Settings)
                 (view (Option View))
                 (fly Fly)
@@ -236,39 +213,23 @@
                 (eye (Option (List F64))))
   (→ (Pair (Option View) Fly))
   ((● dom set-text) ((● dom document-root)) "Loading…")
-  (match (attempt-reading (lambda () (chosen gpu fetch out view files)))
+  (match (attempt-reading (lambda () (chosen gpu renderer fetch out view files)))
     ((Ok replacing)
      ((● dom set-text) ((● dom document-root))
       (if (string=? (described settings) (described first-settings))
           ""
           (described settings)))
-     (match view
-       ((Some v)
-        (match (● v recording) ((Some frames) (stop-recording! dom out v frames)) (_ (unit))))
-       (_ (unit)))
-     (new Pair
-       (first (Some (shown gpu view (● replacing first) (● replacing second) settings
-                           (new SceneDescription
-                             (root (match (outermost (ending files (list ".glb" ".gltf")))
-                                     ((Some path) (ModelNode path))
-                                     ((None) (match view ((Some v) (● v description root))
-                                                    (_
-                                                     (unreadable "a first view needs a model"))))))
-                             (sky (match (outermost (ending files (list ".hdr")))
-                                    ((Some path) (Panorama path))
-                                    ((None)
-                                     (match view
-                                       ((Some v) (● v description sky))
-                                       (_ (BakedSky 1))))))
-                             (tone (Filmic))))))
-       (second (match (● replacing first)
-                 ((Some scene)
-                  (let ((over (Fly-stops-set (fly-over (● scene low) (● scene high))
-                                             (● fly stops))))
-                    (match eye
-                      ((Some eye) (fly-at over eye))
-                      ((None) over))))
-                 ((None) fly)))))
+     (match (● replacing second) ((Some sky) (api:set-sky! renderer sky (Filmic)))
+            (_ (when (none? view) (api:set-sky! renderer (daylight gpu 1) (Filmic)))))
+     (match (● replacing first)
+       ((Some h)
+        (api:use-model! renderer h)
+        (match view ((Some old) (api:delete-model! renderer (● old scene))) (_ (unit)))
+        (let* ((bounds (api:model-bounds renderer h))
+               (over (Fly-stops-set (fly-over (● bounds first) (● bounds second)) (● fly stops))))
+          (new Pair (first (Some (new View (scene h) (cascade -1))))
+               (second (match eye ((Some pos) (fly-at over pos)) (_ over))))))
+       ((None) (new Pair (first view) (second fly)))))
     ((Err why)
      (say dom out why)
      (new Pair (first view) (second fly)))))
@@ -283,8 +244,13 @@
 ;; a light with no view to light. The light's file is read before the
 ;; scene is loaded, and nothing after the scene refuses, so files refused
 ;; leave nothing on the device.
-(define (chosen (gpu Gpu) (fetch Fetch) (out OutputPort) (view (Option View)) (files (List Chosen)))
-  (→ (Pair (Option Scene) (Option Environment)))
+(define (chosen (gpu Gpu)
+                (renderer api:Renderer)
+                (fetch Fetch)
+                (out OutputPort)
+                (view (Option View))
+                (files (List Chosen)))
+  (→ (Pair (Option api:ModelHandle) (Option Environment)))
   (let ((model (outermost (ending files (list ".glb" ".gltf"))))
         (light (outermost (ending files (list ".hdr")))))
     (when (and (none? model) (or (none? light) (none? view)))
@@ -294,9 +260,9 @@
                           (radiance path (list-ref (read fetch files path (list path)) 0)))))
            (scene (within model
                           (lambda (path)
-                            (loaded-scene gpu out (lambda ((paths (List String)))
-                                                    (→ (List Bytes))
-                                                    (read fetch files path paths))
+                            (loaded-scene renderer out (lambda ((paths (List String)))
+                                                         (→ (List Bytes))
+                                                         (read fetch files path paths))
                                           path)))))
       (new Pair (first scene) (second (within hdr (lambda (hdr) (hdr-light gpu hdr))))))))
 
@@ -345,36 +311,6 @@
 
 (define (hdr-light (gpu Gpu) (hdr Hdr)) (→ Environment) (import-hdr gpu hdr))
 
-(define (shown (gpu Gpu) (view (Option View)) (scene (Option Scene)) (light (Option Environment))
-               (settings Settings) (description SceneDescription)) (→ View)
-               (let* ((model
-                       (match scene ((Some s) s) ((None) (match view ((Some old) (● old scene))
-                                                                ((None)
-                                                                 (panic
-                                                                  "a first view needs a scene"))))))
-                      (env (match light
-                             ((Some e) e)
-                             ((None) (match view ((Some old) (● old environment))
-                                            ((None) (daylight gpu 1))))))
-                      (canvas ((● gpu current-texture)))
-                      (renderer (make-forward gpu model env (● canvas width)
-                                              (● canvas height)
-                                              (i64->i32 (● settings samples))
-                                              (Filmic))))
-                 (match view
-                   ((Some old) (release-forward gpu (● old renderer))
-                    (match scene ((Some _) (release-scene gpu (● old scene))) (_ (unit)))
-                    (match light
-                      ((Some _) (release-environment gpu (● old environment)))
-                      (_ (unit))))
-                   (_ (unit)))
-                 (new View
-                   (scene model)
-                   (environment env)
-                   (renderer renderer)
-                   (description description)
-                   (recording (None)))))
-
 ;; The paths of the files with one of the suffixes, in any case.
 (define (ending (files (List Chosen)) (suffixes (List String))) (→ (List String))
   (filter (lambda (path) (not (null? (filter (lambda (suffix) (suffix? path suffix)) suffixes))))
@@ -408,23 +344,21 @@
 
 
 ;; A scene, and a line saying how large it is.
-(define (loaded-scene (gpu Gpu)
-                      (out OutputPort)
-                      (read (Fn (List String) → (List Bytes)))
-                      (path String))
-  (→ Scene)
-  (let ((scene (load-scene-node gpu read (ModelNode path))))
-    (write-line out (string-append "scene: "
-                                   (show (● scene vertex-count))
-                                   " vertices, "
-                                   (show
-                                    (quotient (fold-left (lambda (n d) (+ n (i32->i64 (● d count))))
-                                                         0
-                                                         (● scene draws))
-                                              3))
-                                   " triangles, from " (string-join (map show (● scene low)) " ")
-                                   " to " (string-join (map show (● scene high)) " ")))
-    scene))
+(define (loaded-scene (renderer api:Renderer) (out OutputPort)
+                      (read (Fn (List String) → (List Bytes))) (path String)) (→ api:ModelHandle)
+                      (let* ((h (api:create-scene-node! renderer read (ModelNode path)))
+                             (n (api:model-counts renderer h))
+                             (bounds (api:model-bounds renderer h)))
+                        (write-line out
+                                    (string-append "scene: "
+                                                   (show (● n first))
+                                                   " vertices, "
+                                                   (show (● n second))
+                                                   " triangles, from "
+                                                   (string-join (map show (● bounds first)) " ")
+                                                   " to "
+                                                   (string-join (map show (● bounds second)) " ")))
+                        h))
 
 ;; ---- The page ----
 
@@ -457,20 +391,20 @@
                 (save (Fn Settings → Unit)))
   (→ Unit)
   (let* ((compositor (make-compositor gpu (● ((● gpu request-device)) format)))
+         (renderer (api:make-renderer gpu (page-renderer-config fetch picker)))
          (outside (fly-over (list -1.0 -1.0 -1.0) (list 1.0 1.0 1.0)))
          (address ((● fetch page-address))))
     (match (match (query-files address)
              ((Nil) (new Pair (first (None)) (second outside)))
              (files
-              (opened gpu
+              (opened gpu renderer
                       dom
                       fetch
                       out
-                      compositor
                       settings
                       (None)
                       outside
                       files
                       (query-eye address))))
       ((Pair view fly)
-       (view-loop gpu dom picker events fetch out compositor save view fly settings)))))
+       (view-loop gpu renderer dom picker events fetch out compositor save view fly settings)))))

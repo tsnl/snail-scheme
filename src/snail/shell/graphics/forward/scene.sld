@@ -2,6 +2,7 @@
 (define-library (snail shell graphics forward scene)
   (export Scene MapImage DrawRange SurfaceMaterial material-shape surface-material
           upload-scene
+          model-buffers model-files model-buffer-files upload-resolved release-scene-images
           read-model-file
           drawable
           release-scene
@@ -12,7 +13,6 @@
           skin-with-layout
           load-scene-images
           upload-with-images
-          release-scene-images
           SceneImages
           MovingScene skin-scene deform-scene! release-moving-scene
           ObjectPose pose-matrix moving-scene)
@@ -142,9 +142,42 @@
              (images (model-images gpu gltf files buffers)))
         (upload-geometry gpu gltf buffers materials images #t (Nil) 0)))
 
+    ;; Resolved inputs are also the portable boundary of the renderer resource manager.
+    (define (upload-resolved (gpu Gpu) (g Gltf) (buffers (List Bytes))
+                             (files (List (Pair String Bytes))) (kept (Option SceneImages))
+                             (lights (List Punctual)) (capacity I64)) (→ Scene)
+                             (let ((materials (checked-materials g buffers)))
+                               (match kept
+                                 ((Some images)
+                                  (unless (= (+ 1 (length (● g images)))
+                                             (array-length (● images maps)))
+                                    (unreadable "scene image table mismatch"))
+                                  (upload-geometry gpu
+                                                   g
+                                                   buffers
+                                                   materials
+                                                   images
+                                                   #f
+                                                   lights
+                                                   capacity))
+                                 ((None)
+                                  (upload-geometry gpu
+                                                   g
+                                                   buffers
+                                                   materials
+                                                   (model-images gpu g files buffers)
+                                                   #t
+                                                   lights
+                                                   capacity)))))
     (define (scene-files (read (Fn (List String) → (List Bytes))) (paths (List String)))
       (→ (List (Pair String Bytes)))
       (zip paths (read paths)))
+    (define (model-files (g Gltf) (read (Fn (List String) → (List Bytes))))
+      (→ (List (Pair String Bytes)))
+      (scene-files read (file-paths g)))
+    (define (model-buffer-files (g Gltf) (read (Fn (List String) → (List Bytes))))
+      (→ (List (Pair String Bytes)))
+      (scene-files read (source-paths (map (lambda (b) (● b source)) (● g buffers)))))
     (define (model-buffers (g Gltf) (files (List (Pair String Bytes)))) (→ (List Bytes))
       (map (lambda (b) (buffer-bytes b files)) (● g buffers)))
     (define (model-images (gpu Gpu)
@@ -166,7 +199,7 @@
       (→ Scene)
       (unless (= (+ 1 (length (● g images))) (array-length (● images maps)))
         (unreadable "scene image table mismatch"))
-      (let ((files (scene-files read (source-paths (map (lambda (b) (● b source)) (● g buffers))))))
+      (let ((files (model-buffer-files g read)))
         (let ((buffers (model-buffers g files)))
           (upload-geometry gpu g buffers (checked-materials g buffers) images #f lights capacity))))
 
@@ -226,7 +259,10 @@
     (define (configure-ground-layer! (gpu Gpu) (scene Scene) (w I32) (h I32) (frame Vec4f))
       (→ Plane)
       (let ((plane (make-plane gpu "scene/ground-field" w h (Rgba8Unorm)
-                               (list (TextureBinding) (StorageBinding)))))
+                               (list (TextureBinding)
+                                     (StorageBinding)
+                                     (TextureCopySrc)
+                                     (TextureCopyDst)))))
         (release-plane gpu (● scene ground-layer))
         (set! (● scene ground-layer) plane)
         ((● gpu write-buffer)

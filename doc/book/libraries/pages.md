@@ -149,6 +149,8 @@ once; a choice arrives as an event (`FilesEvent` in `(snail shell app)`),
 and `chosen-files` lists it. A link dropped on the page is a file whose
 path is its address.
 
+`((● picker download-text) filename)` creates a text output port and a page download link. Each click saves a snapshot of the text written so far. The browser retains the stream until the page is reset.
+
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/files.sld)
 
 ## `(snail shell files page)`

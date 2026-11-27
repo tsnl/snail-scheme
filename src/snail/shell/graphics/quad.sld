@@ -18,9 +18,10 @@
    View2D-pixels-set
    Quads
    make-quads
-   draw-quads draw-projected-quads)
+   draw-quads draw-projected-quads release-quads)
   (import
    (snail core base)
+   (snail shell wire)
    (snail shell gpu)
    (snail shell graphics pod)
    (only (snail shell graphics raster) Camera3D camera-3d Parallel)
@@ -38,7 +39,7 @@
        (page I32)
        (region Vec4f)
        (color Vec4f))
-      (deriving Pod))
+      (deriving Pod Serialize Deserialize))
 
     ;; The camera: the world point at the target's center, how much of the
     ;; world the target shows across and up, and the target's size in
@@ -47,7 +48,7 @@
       ((center Vec2f)
        (extent Vec2f)
        (pixels Vec2f))
-      (deriving Pod))
+      (deriving Pod Serialize Deserialize))
 
     (define quad-shape (→ (Shape Quad)) (shape))
 
@@ -69,30 +70,41 @@
        (camera GpuBuffer)
        (instances GpuBuffer)
        (room I64)
+       (pages GpuTextureView)
+       (sampler GpuSampler)
        (group GpuBindGroup)))
 
     (define (make-quads (gpu Gpu) (label String) (format TextureFormat) (pages GpuTexture))
       (→ Quads)
-      (let ((pipeline (quad-pipeline gpu format))
-            (camera ((● gpu create-buffer) (new BufferDescriptor
-                                             (label (string-append "quad/" label "/view"))
-                                             (size (i64->i32 (stride view-shape)))
-                                             (usage (list (Uniform) (CopyDst)))))))
+      (let* ((pipeline (quad-pipeline gpu format))
+             (camera ((● gpu create-buffer)
+                      (new BufferDescriptor (label (string-append "quad/" label "/view"))
+                           (size (i64->i32 (stride view-shape)))
+                           (usage (list (Uniform) (CopyDst))))))
+             (instances (instance-buffer gpu 64))
+             (pages-view (array-view gpu pages))
+             (sampler (nearest-sampler gpu)))
         (new Quads
           (pipeline pipeline)
           (camera camera)
-          (instances (instance-buffer gpu 64))
+          (instances instances)
           (room 64)
+          (pages pages-view) (sampler sampler)
           (group ((● gpu create-bind-group) (new BindGroupDescriptor
                                               (label (string-append "quad/" label))
                                               (pipeline (RenderPipeline pipeline))
                                               (group 0)
                                               (entries (list (BufferEntry 0 camera 0 0)
-                                                             (TextureEntry 1 (array-view gpu pages))
+                                                             (TextureEntry 1 pages-view)
                                                              (SamplerEntry 2
-                                                                           (nearest-sampler
-                                                                            gpu))))))))))
+                                                                           sampler)))))))))
 
+    (define (release-quads (gpu Gpu) (q Quads)) (→ Unit)
+      (for-each (● gpu destroy) (list (BindGroupObject (● q group)) (SamplerObject (● q sampler))
+                                      (ViewObject (● q pages))
+                                      (BufferObject (● q camera))
+                                      (BufferObject (● q instances))
+                                      (PipelineObject (● q pipeline)))))
     (define (draw-quads (gpu Gpu)
                         (pass GpuRenderPass)
                         (quads Quads)

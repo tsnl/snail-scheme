@@ -26,7 +26,7 @@
 ;; much smaller than the state: a record of how to rebuild it.
 ;;
 ;; A Frame's items are mesh instances in batches, rasterized into a
-;; G-buffer and lit by the sun in the metallic-roughness model
+;; color target with directional and ambient lighting
 ;; (`(snail shell graphics raster)`). A 2D scene with pictures draws them
 ;; as quads from an atlas (`(snail shell graphics quad)`), as Hearsay does.
 (define-library (snail shell app)
@@ -130,6 +130,7 @@
    rgb
    Frames
    start-frames
+   configured-frames
    draw-frame
    Ray
    pointer-ray
@@ -160,12 +161,8 @@
    (only (snail shell dom) Dom no-event Allow)
    (only (snail core io) Clock)
    (rename (snail shell gpu) (Image GpuImage))
-   (snail shell graphics pod)
-   (snail shell graphics mesh)
-   (rename (snail shell graphics raster) (Style Raster-style) (solid solid-style))
-   (snail shell graphics passes)
-   (snail shell graphics forward frame)
-   (snail shell graphics compositor)
+   (snail shell graphics renderer batches)
+   (prefix (snail shell graphics renderer) api:)
    (prefix (snail shell ui) ui:))
   (begin
 
@@ -373,95 +370,6 @@
                         (_ (Nil))))))
         ((None) (new Pair (first (new Gestures (contacts contacts))) (second (Nil))))))
 
-    ;; ---- Frames ----
-
-    ;; A 3D scene: a camera, the light, a 0xRRGGBB background, how far from
-    ;; 0 to 1 every item has moved from where it was toward where it is,
-    ;; and the batches of items. Its meshes are those of
-    ;; `(snail shell graphics mesh)`, each standing on y = 0 within the
-    ;; unit cell around the origin.
-    (record Frame
-      ((camera Camera)
-       (light Light)
-       (background I32)
-       (motion F32)
-       (batches (List Batch))))
-
-    (record Vec3
-      ((x F32)
-       (y F32)
-       (z F32))
-      (deriving Serialize Deserialize))
-
-    ;; A perspective projection with a vertical field of view, or an
-    ;; orthographic one showing `height` world units from the bottom of the
-    ;; screen to the top.
-    (enum Projection
-      (Perspective ((fov F32)))
-      (Orthographic ((height F32))))
-
-    ;; Up is +y.
-    (record Camera
-      ((eye Vec3)
-       (target Vec3)
-       (projection Projection)))
-
-    ;; Sunlight shining from `direction` with strength `sun`, and the light
-    ;; every surface receives whichever way it faces.
-    (record Light
-      ((direction Vec3)
-       (sun F32)
-       (ambient F32)))
-
-    ;; ---- Items ----
-
-    ;; A mesh instance: position, scale, rotation about the vertical axis, a
-    ;; 0xRRGGBB color, and a glow from 0, lit by the light, to 1, its own
-    ;; color. It moves from `from` to `position` as the frame's motion goes
-    ;; from 0 to 1, so a frame animates it without new items. Surfaces are
-    ;; matte.
-    (record Item
-      ((mesh Mesh)
-       (position Vec3)
-       (scale Vec3)
-       (yaw F32)
-       (color I32)
-       (glow F32)
-       (from Vec3)))
-
-    ;; A 0xRRGGBB color.
-
-    (define (rgb (red I32) (green I32) (blue I32)) (→ I32)
-      (+ (* red 65536) (+ (* green 256) blue)))
-
-    ;; An unlit, plain item standing still.
-
-    (define (item (mesh Mesh) (position Vec3) (scale Vec3) (yaw F32) (color I32)) (→ Item)
-      (new Item
-        (mesh mesh)
-        (position position)
-        (scale scale)
-        (yaw yaw)
-        (color color)
-        (glow 0.0)
-        (from position)))
-
-    ;; Solid batches hide what is behind them. Translucent ones are drawn
-    ;; after, over them. A revealed batch shows only within `radius` of a
-    ;; point on the ground. Styles cost nothing to change between frames.
-    (enum Style
-      (Solid)
-      (Translucent ((opacity F32)))
-      (Revealed ((center Vec3) (radius F32))))
-
-    ;; A batch's instances are kept until its version changes, so `items`
-    ;; runs only when its version is new.
-    (record Batch
-      ((key I32)
-       (version I32)
-       (style Style)
-       (items (Fn → (List Item)))))
-
     ;; ---- HUD ----
 
     ;; `Suggested` marks the control to use next.
@@ -550,181 +458,18 @@
 
     ;; ---- Drawing ----
 
-    ;; The batched forward renderer owns a color output, a single depth buffer
-    ;; and its post targets. Static batch versions survive a resize.
-    (record Drawn
-      ((raster Raster)
-       (depth Plane)
-       (output Plane)
-       (compositor Compositor)
-       (post Post)
-       (surfaces (List Kept))))
-
-    ;; A batch's surface, and the version it shows.
-    (record Kept
-      ((key I32)
-       (version I32)
-       (surface Surface)))
-
     (record Frames
-      ((drawn (Option Drawn))))
-
-    (define (start-frames) (→ Frames) (new Frames (drawn (None))))
-
+      ((config api:RendererConfig)
+       (renderer (Option api:Renderer))))
+    (define (configured-frames (config api:RendererConfig)) (→ Frames)
+      (new Frames (config config) (renderer (None))))
+    (define (start-frames) (→ Frames) (configured-frames (new api:RendererConfig (trace (None)))))
     (define (draw-frame (gpu Gpu) (frame Frame) (frames Frames)) (→ Frames)
-      (match (● frames drawn)
-        ((Some drawn) (drawn-frame gpu frame drawn ((● gpu current-texture))))
-        ((None)
-         (let* ((format (● ((● gpu request-device)) format)) (canvas ((● gpu current-texture))))
-           (drawn-frame gpu frame (started gpu format canvas) canvas)))))
-
-    (define (started (gpu Gpu) (format TextureFormat) (canvas GpuImage)) (→ Drawn)
-      (let ((w (● canvas width)) (h (● canvas height)))
-        (new Drawn (raster (make-forward-batches gpu light-format))
-             (depth (batch-depth gpu w h)) (output (display-plane gpu w h))
-             (compositor (make-compositor gpu format))
-             (post (make-post gpu (Rgba8Unorm) w h (Neutral)))
-             (surfaces (Nil)))))
-
-    (define (batch-depth (gpu Gpu) (w I32) (h I32)) (→ Plane)
-      (make-plane gpu "forward/batch-depth" w h (Depth24Plus) (list (RenderAttachment))))
-
-    (define (drawn-frame (gpu Gpu) (frame Frame) (drawn Drawn) (canvas GpuImage)) (→ Frames)
-      (let* ((w (● canvas width)) (h (● canvas height))
-             (drawn (surfaced gpu (resized gpu drawn w h) frame))
-             (drawn (Drawn-raster-set drawn (write-raster gpu (● drawn raster)
-                                                          (frame-camera frame w h)
-                                                          (frame-sun (● frame light)))))
-             (encoder ((● gpu create-command-encoder)))
-             (pass (begin-forward-pass gpu encoder (● drawn post targets light-view) (None)
-                                       (backdrop (● frame background))
-                                       (Some (new DepthAttachment
-                                               (view (● drawn depth view))
-                                               (load (ClearDepth 1.0))
-                                               (store #f))))))
-        (draw-surfaces gpu pass drawn #f)
-        (draw-surfaces gpu pass drawn #t)
-        ((● gpu end-pass) pass)
-        (draw-post gpu encoder (● drawn output view) (● drawn post))
-        (present! gpu (● drawn compositor) encoder (● drawn output view) canvas)
-        ((● gpu submit) (list ((● gpu finish) encoder)))
-        (new Frames (drawn (Some drawn)))))
-
-    (define (resized (gpu Gpu) (drawn Drawn) (w I32) (h I32)) (→ Drawn)
-      (unless (and (= w (● drawn post targets width)) (= h (● drawn post targets height)))
-        (release-plane gpu (● drawn depth)) (release-plane gpu (● drawn output))
-        (set! (● drawn depth) (batch-depth gpu w h)) (set! (● drawn output) (display-plane gpu w h))
-        (set! (● drawn post) (resize-post gpu (● drawn post) w h)))
-      drawn)
-
-    ;; A surface for each of the frame's batches; those of batches gone
-    ;; from it are released.
-    (define (surfaced (gpu Gpu) (drawn Drawn) (frame Frame)) (→ Drawn)
-      (let ((surfaces (map (lambda (batch) (batch-surface gpu drawn batch)) (● frame batches))))
-        (for-each (lambda (kept)
-                    (unless (any? (lambda (now) (= (● now key) (● kept key))) surfaces)
-                      (release-surface gpu (● kept surface))))
-                  (● drawn surfaces))
-        (Drawn-surfaces-set drawn surfaces)))
-
-    ;; The batch's surface, restyled when it shows the batch's version, and
-    ;; made afresh, releasing the old, when it does not.
-    (define (batch-surface (gpu Gpu) (drawn Drawn) (batch Batch)) (→ Kept)
-      (match (find (lambda (kept) (= (● kept key) (● batch key))) (● drawn surfaces))
-        ((Some kept)
-         (if (and (= (● kept version) (● batch version))
-                  (if (● kept surface translucent) (translucent? batch) (not (translucent? batch))))
-             (Kept-surface-set kept (restyle-surface gpu (● kept surface) (batch-style batch)))
-             (begin
-               (release-surface gpu (● kept surface))
-               (new-surface gpu drawn batch))))
-        ((None) (new-surface gpu drawn batch))))
-
-    (define (new-surface (gpu Gpu) (drawn Drawn) (batch Batch)) (→ Kept)
-      (new Kept
-        (key (● batch key))
-        (version (● batch version))
-        (surface (make-surface gpu (● drawn raster)
-                               (batch-name batch)
-                               (translucent? batch)
-                               (batch-style batch)
-                               (meshes (map instance-of ((● batch items))))))))
-
-    ;; The kept surfaces that are translucent, or not, in order.
-    (define (draw-surfaces (gpu Gpu) (pass GpuRenderPass) (drawn Drawn) (translucent Bool))
-      (→ Unit)
-      (for-each (lambda (kept)
-                  (let ((surface (● kept surface)))
-                    (when (if translucent (● surface translucent) (not (● surface translucent)))
-                      (draw-surface gpu pass (● drawn raster) surface))))
-                (● drawn surfaces)))
-
-    (define (instance-of (item Item)) (→ (Pair Mesh Instance))
-      (let ((position (● item position))
-            (scale (● item scale))
-            (from (● item from))
-            (color (● item color)))
-        (new Pair
-          (first (● item mesh))
-          (second (new Instance
-                    (place (vec4 position (● item yaw)))
-                    (scale (vec4 scale (● item glow)))
-                    (color (new Vec4f
-                             (x (channel color 16))
-                             (y (channel color 8))
-                             (z (channel color 0))
-                             (w 1.0)))
-                    (from (vec4 from 0.0))
-                    (material (new Vec2f (x 0.0) (y 1.0)))
-                    (id 0))))))
-
-    (define (vec4 (v Vec3) (w F32)) (→ Vec4f)
-      (new Vec4f (x (● v x)) (y (● v y)) (z (● v z)) (w w)))
-
-    (define (channel (color I32) (shift I32)) (→ F32)
-      (/ (i32->f32 (i32-and (i32-shift-right/logical color shift) 255)) 255.0))
-
-    (define (backdrop (color I32)) (→ Color)
-      (new Color
-        (red (f32->f64 (channel color 16)))
-        (green (f32->f64 (channel color 8)))
-        (blue (f32->f64 (channel color 0)))
-        (alpha 1.0)))
-
-    (define (frame-camera (frame Frame) (width I32) (height I32)) (→ Camera3D)
-      (let ((view (● frame camera)))
-        (camera-3d (vec3f (● view eye))
-                   (vec3f (● view target))
-                   (match (● view projection)
-                     ((Perspective fov) (Pinhole (f32->f64 fov)))
-                     ((Orthographic height) (Parallel (f32->f64 height))))
-                   (/ (i32->f64 width) (i32->f64 (max 1 height)))
-                   (● frame motion))))
-
-    (define (vec3f (v Vec3)) (→ Vec3f) (new Vec3f (x (● v x)) (y (● v y)) (z (● v z))))
-
-    (define (frame-sun (light Light)) (→ Sun)
-      (new Sun (direction (vec4 (● light direction) (● light sun))) (ambient (● light ambient))))
-
-    (define (translucent? (batch Batch)) (→ Bool)
-      (match (● batch style)
-        ((Translucent _) #t)
-        (_ #f)))
-
-    ;; Batch k's objects are labelled "batch k".
-    (define (batch-name (batch Batch)) (→ String) (string-append "batch " (show (● batch key))))
-
-    (define (batch-style (batch Batch)) (→ Raster-style)
-      (match (● batch style)
-        ((Solid) solid-style)
-        ((Translucent opacity)
-         (new Raster-style (opacity opacity) (center-x 0.0) (center-z 0.0) (radius -1.0)))
-        ((Revealed center radius)
-         (new Raster-style
-           (opacity 1.0)
-           (center-x (● center x))
-           (center-z (● center z))
-           (radius radius)))))
+      (let* ((r (match (● frames renderer) ((Some previous) previous)
+                       ((None) ((● gpu request-device)) (api:make-renderer gpu (● frames config)))))
+             (canvas ((● gpu current-texture))))
+        (api:render-batches! r frame (● canvas width) (● canvas height) (Some canvas))
+        (Frames-renderer-set frames (Some r))))
 
     ;; ---- The HUD's document ----
 

@@ -8,6 +8,7 @@
   (export
    Drawing
    start-drawing
+   configured-drawing
    draw-quads-frame
    drawing-url
    white
@@ -23,9 +24,7 @@
    (snail shell graphics pod)
    (snail shell graphics atlas)
    (snail shell graphics quad)
-   (snail shell graphics forward frame)
-   (only (snail shell graphics raster) Plane release-plane)
-   (snail shell graphics compositor)
+   (prefix (snail shell graphics renderer) api:)
    (only (lpc layout) face-region))
   (begin
 
@@ -35,40 +34,19 @@
     ;; from it, made on the first frame, once the device answers; and each
     ;; portrait read back, by picture key, with the version it shows.
     (record Drawing
-      ((drawn (Option Drawn))
+      ((config api:RendererConfig)
+       (renderer (Option api:Renderer))
        (portraits (Table (Pair I32 String)))))
-
-    (record Drawn
-      ((atlas Atlas)
-       (quads Quads)
-       (output Plane)
-       (compositor Compositor)
-       (width I32)
-       (height I32)))
-
-    (define (start-drawing) (→ Drawing) (new Drawing (drawn (None)) (portraits (empty-table))))
-
-    ;; One page holds the shapes and eighteen walking pictures.
-    (define (drawn-of (gpu Gpu) (drawing Drawing)) (→ Drawn)
-      (match (● drawing drawn)
-        ((Some drawn) drawn)
-        ((None)
-         (let* ((format (● ((● gpu request-device)) format))
-                (atlas (make-atlas gpu "hearsay" 2048 2)))
-           (new Drawn
-             (atlas atlas)
-             (quads (make-quads gpu "hearsay" (Rgba8Unorm) (● atlas texture)))
-             (output (display-plane gpu 1 1))
-             (compositor (make-compositor gpu format))
-             (width 1)
-             (height 1))))))
-
-    (define (fit-output! (gpu Gpu) (drawn Drawn) (image Image)) (→ Unit)
-      (let ((w (● image width)) (h (● image height)))
-        (unless (and (= w (● drawn width)) (= h (● drawn height)))
-          (release-plane gpu (● drawn output))
-          (set! (● drawn output) (display-plane gpu w h))
-          (set! (● drawn width) w) (set! (● drawn height) h))))
+    (define (configured-drawing (config api:RendererConfig)) (→ Drawing)
+      (new Drawing (config config) (renderer (None)) (portraits (empty-table))))
+    (define (start-drawing)
+      (→ Drawing)
+      (configured-drawing (new api:RendererConfig (trace (None)))))
+    (define (drawing-renderer (gpu Gpu) (d Drawing)) (→ api:Renderer)
+      (match (● d renderer) ((Some r) r)
+             (_ (let ((r (api:make-renderer gpu (● d config))))
+                  (api:create-sprite-atlas! r 2048 2)
+                  r))))
 
     ;; The portrait of picture `key`, or "" until it is read back.
     (define (drawing-url (drawing Drawing) (key I32)) (→ String)
@@ -170,34 +148,18 @@
                               (view View2D)
                               (quads (Fn Atlas → (List Quad))))
       (→ Drawing)
-      (let* ((drawn (drawn-of gpu drawing))
-             (encoder ((● gpu create-command-encoder)))
-             (atlas (atlas-pictures gpu (● drawn atlas) encoder (append shapes pictures)))
-             ;; Decoding new atlas layers can yield to the browser. Acquire its
-             ;; short-lived surface only after every layer has arrived.
-             (canvas ((● gpu current-texture)))
-             (_ (fit-output! gpu drawn canvas))
-             (pass (begin-forward-pass gpu encoder (● drawn output view) (None)
-                                       (new Color
-                                         (red (f32->f64 (channel background 16)))
-                                         (green (f32->f64 (channel background 8)))
-                                         (blue (f32->f64 (channel background 0))) (alpha 1.0))
-                                       (None)))
-             (kept (draw-quads gpu pass
-                               (● drawn quads)
-                               (View2D-pixels-set view
-                                                  (new Vec2f
-                                                    (x (i32->f32 (● canvas width)))
-                                                    (y (i32->f32 (● canvas height)))))
-                               (quads atlas))))
-        ((● gpu end-pass) pass)
-        (present! gpu (● drawn compositor) encoder (● drawn output view) canvas)
-        ((● gpu submit) (list ((● gpu finish) encoder)))
-        (portrait-read gpu (new Drawing
-                             (drawn (Some (Drawn-quads-set (Drawn-atlas-set drawn atlas) kept)))
-                             (portraits (● drawing portraits)))
-                       atlas
-                       pictures)))
+      (let* ((r (drawing-renderer gpu drawing))
+             (atlas (api:compose-sprites! r (append shapes pictures)))
+             ;; Decoding a new sprite may yield. Acquire the surface after composition.
+             (canvas ((● gpu current-texture))))
+        (api:render-sprites! r
+                             background
+                             view
+                             (quads atlas)
+                             (● canvas width)
+                             (● canvas height)
+                             (Some canvas))
+        (portrait-read gpu (Drawing-renderer-set drawing (Some r)) atlas pictures)))
 
     ;; The first picture whose portrait is missing or shows another version.
     (define (portrait-read (gpu Gpu) (drawing Drawing) (atlas Atlas) (pictures (List Picture)))

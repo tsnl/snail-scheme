@@ -93,6 +93,8 @@ prompt appears before the program waits.
   (write out (read-line empty))) ; prints (None)
 ```
 
+`(call-with-input-file fs path body)` and `(call-with-output-file fs path body)` open a text file, pass a port to the callback, close the handle when the callback returns, and return its result. Use the port inside that callback.
+
 An output port receives whole strings. One a program makes can collect
 them, drop them, or forward them:
 

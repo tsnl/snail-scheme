@@ -18,8 +18,8 @@ import {profiling, span, spansLater, traced, tracing} from './trace.mjs';
 // adapter has them. Phones lack BC compression and SwiftShader, which the
 // tests use, lacks f16 shaders, so both are optional; splat training's
 // backward pass sums over subgroups.
-const REQUIRED = ['indirect-first-instance', 'float32-filterable', 'rg11b10ufloat-renderable'];
-const OPTIONAL = ['texture-compression-bc', 'shader-f16', 'timestamp-query', 'subgroups'];
+const REQUIRED = ['float32-filterable', 'rg11b10ufloat-renderable'];
+const OPTIONAL = ['indirect-first-instance', 'texture-compression-bc', 'shader-f16', 'timestamp-query', 'subgroups'];
 
 // ---- The device ----
 

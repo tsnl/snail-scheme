@@ -6,6 +6,9 @@
  (snail shell app)
  (snail shell page)
  (snail shell fetch)
+ (only (snail shell files) FilePicker)
+ (only (snail shell graphics api-trace) RendererConfig)
+ (snail shell graphics renderer page)
  (snail shell static-resource)
  (only (snail shell dom) Dom)
  (only (snail shell gpu) Gpu)
@@ -117,7 +120,12 @@
 
 ;; ---- One-time village download ----
 
-(define (open-valley (events Events) (gpu Gpu) (dom Dom) (storage PageStorage) (out OutputPort)
+(define (open-valley (config RendererConfig)
+                     (events Events)
+                     (gpu Gpu)
+                     (dom Dom)
+                     (storage PageStorage)
+                     (out OutputPort)
                      (files (Table Bytes))) (→ Unit)
                      (let* ((file (lambda ((name String)) (→ Bytes) (match (table-ref files name)
                                                                       ((Some b) b)
@@ -138,19 +146,31 @@
                                  (lambda (b) (restore-ride v b))
                                  (lambda (s save)
                                    (match (attempt-reading
-                                           (lambda () (make-renderer gpu v
+                                           (lambda () (make-renderer gpu config v
                                                                      (file "willowbank.glb")
                                                                      (file "roadster.glb")
                                                                      (file "moss.glb")
                                                                      s)))
                                      ((Ok r) (play events gpu dom h v r s save))
                                      ((Err why) (write-line out why) (panic why)))))))
-(define (main (events Events) (gpu Gpu) (dom Dom) (fetch Fetch) (store StaticResources)
+(define (main (events Events)
+              (gpu Gpu)
+              (dom Dom)
+              (fetch Fetch)
+              (picker FilePicker)
+              (store StaticResources)
               (storage PageStorage) (out OutputPort)) (→ Unit)
               (let* ((url "resources.json") (progress (loading-screen dom))
                      (result (match (fetch-catalog fetch url) ((Err why) (Err why))
                                     ((Ok catalog) (acquire-files store url catalog progress)))))
                 (match result
-                  ((Ok files) (open-valley events gpu dom storage out files))
+                  ((Ok files)
+                   (open-valley (page-renderer-config fetch picker)
+                                events
+                                gpu
+                                dom
+                                storage
+                                out
+                                files))
                   ((Err why) ((● dom set-attribute) ((● dom document-root)) "data-load-error" why)
                    ((● events report-ready))))))
