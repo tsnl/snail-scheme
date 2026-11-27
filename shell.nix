@@ -1,6 +1,5 @@
 # The tools for building and testing, from the nixpkgs revision pinned in
-# npins/sources.json (`npins update nixpkgs` moves it). CI and the
-# devcontainer use this same file.
+# npins/sources.json (`npins update nixpkgs` moves it). CI uses this shell.
 {
   sources ? import ./npins,
   pkgs ? import sources.nixpkgs { },
