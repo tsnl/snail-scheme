@@ -54,6 +54,9 @@ pkgs.mkShell {
       nixfmt
       npins
       rustup
+      pkg-config
+      openssl
+      openssh
       nodejs_26
       mdbook
       tree-sitter

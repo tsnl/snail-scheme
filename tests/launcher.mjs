@@ -25,7 +25,7 @@ const put = (name, text = '') => {
 const touch = name => execFileSync('touch', [at(name)]);
 const calls = name => existsSync(at(name)) ? readFileSync(at(name), 'utf8').split('\n').filter(Boolean) : [];
 
-// Stage 0 names the command line and the two runtimes, making each. It can
+// Stage 0 names the command line, the runtimes, and the Git helper. It can
 // be told to fail, or to edit a source while it runs.
 const stage0 = `#!/bin/sh
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -34,6 +34,8 @@ echo bootstrap >> "$root/stage0.calls"
 [ -f "$root/stage0.edits" ] && touch "$root/src/a.sld"
 mkdir -p "$root/build"
 for tool in cli runtime toolchain; do : > "$root/build/$tool.wasm"; echo "$root/build/$tool.wasm"; done
+: > "$root/build/snail-git"
+echo "$root/build/snail-git"
 `;
 // Node records its arguments.
 const node = `#!/bin/sh
@@ -95,6 +97,8 @@ try {
     assert.match(calls('node.calls').at(-1), new RegExp(`${tools} ${command.join(' ')}$`));
   }
   assert.equal(calls('stage0.calls').length, 11, 'every command shares the answer');
+  rmSync(at('build/snail-git'));
+  assert.equal(build(), 12, 'a missing native package helper is rebuilt');
   for (const unknown of ['dev', 'watch']) assert.notEqual(snail(unknown).status, 0, `${unknown} is refused`);
   console.log('launcher: cached tools, inputs, missing tools, edits while building, failures, every command');
 } finally {

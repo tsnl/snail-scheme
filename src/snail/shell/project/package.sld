@@ -139,6 +139,7 @@
     (record Resolver
       ((fs Fs)
        (processes Processes)
+       (git-tool String)
        (fetch (Option Clock))
        (cache String)
        (locked (Table String))
@@ -158,16 +159,19 @@
                                 (workspace String) (standard String))
       (→ PackageSet)
       (if (manifest-present? fs workspace)
-          (resolve-workspace processes fs fetch
+          (resolve-workspace processes fs fetch standard
                              (physical-directory processes
                                                  workspace
                                                  (file-loc (manifest workspace))))
           (assembled fs (implicit-packages workspace standard))))
 
-    (define (resolve-workspace (processes Processes) (fs Fs) (fetch (Option Clock)) (root String))
+    (define (resolve-workspace (processes Processes) (fs Fs) (fetch (Option Clock))
+                               (standard String) (root String))
       (→ PackageSet)
       (let* ((lock (string-append root "/package.lock"))
              (resolver (new Resolver (fs fs) (processes processes) (fetch fetch)
+                            (git-tool (string-append standard
+                                                     "/build/wasm-snail-scheme-support-toolchain/release/snail-git"))
                             (cache (string-append root "/build/.snail-packages"))
                             (locked (read-pins fs lock)) (selected (empty-table))))
              (package (Package-exports-set (read-package fs root) (None)))
@@ -239,11 +243,11 @@
          (let ((remote (match (string-index url #\:)
                          ((Some _) url) ((None) (relative-to parent url))))
                (loc (● edge loc)))
-           (match revision
-             ((Commit id) (git-checkout resolver remote id (None) loc))
-             ((Tag name)
-              (git-checkout resolver remote (tag-commit! resolver remote name loc)
-                            (Some (string-append "refs/tags/" name)) loc)))))))
+           (git-checkout resolver remote
+                         (match revision
+                           ((Commit id) id)
+                           ((Tag name) (tag-commit! resolver remote name loc)))
+                         loc)))))
 
     (define (relative-to (directory String) (path String)) (→ String)
       (if (char=? (string-ref path 0) #\/) path (string-append directory "/" path)))
@@ -299,50 +303,22 @@
         (match (table-ref (● resolver selected) key)
           ((Some commit) commit)
           ((None)
-           (check-tag-name (● resolver processes) ref loc)
            (let ((commit (match (table-ref (● resolver locked) key)
-                           ((Some commit) commit)
+                           ((Some commit)
+                            (package-git resolver loc "." (list "check-tag" ref))
+                            commit)
                            ((None) (resolve-tag resolver url ref loc)))))
              (set! (● resolver selected) (table-set (● resolver selected) key commit))
              commit)))))
-
-    (define (check-tag-name (processes Processes) (ref String) (loc Loc)) (→ Unit)
-      (let ((check (new Command (program "git") (arguments (list "check-ref-format" ref))
-                        (directory "."))))
-        (match ((● processes run) check #u8())
-          ((Err error) (compile-error loc (string-append "cannot run git: " (● error code))))
-          ((Ok result) (match (● result exit)
-                         ((Exited 0) (unit))
-                         (_ (compile-error loc (string-append "invalid Git tag: " ref))))))))
 
     (define (resolve-tag (resolver Resolver) (url String) (ref String) (loc Loc)) (→ String)
       (match (● resolver fetch)
         ((None)
          (compile-error loc (string-append "unlocked Git tag " ref " (run snail-scheme deps)")))
         ((Some _)
-         (let* ((peeled (string-append ref "^{}"))
-                (listing (remote-git (● resolver processes) loc "."
-                                     (list "ls-remote" "--tags" "--" url ref peeled))))
-           (match (advertised-id listing peeled)
-             ((Some id) id)
-             ((None) (match (advertised-id listing ref)
-                       ((Some id) id)
-                       ((None)
-                        (compile-error loc
-                                       (string-append "Git tag not found: " ref " in " url))))))))))
-
-    ;; ls-remote prints OID, tab, ref, newline. Match the complete refname:
-    ;; its command-line patterns can also match the tail of another name.
-    (define (advertised-id (listing String) (ref String)) (→ (Option String))
-      (let ((suffix (string-append "\t" ref)))
-        (let lines ((text listing))
-          (match (string-index text #\newline)
-            ((None) (None))
-            ((Some end)
-             (let ((at (- end (string-length suffix))))
-               (if (and (> at 0) (string=? (substring text at end) suffix))
-                   (full-object-id (substring text 0 at))
-                   (lines (substring text (+ end 1) (string-length text))))))))))
+         (match (full-object-id (package-git resolver loc "." (list "resolve-tag" url ref)))
+           ((Some commit) commit)
+           ((None) (compile-error loc "expected a full commit hash from snail-git"))))))
 
     ;; Publish only after the whole graph and source tree have checked.
     ;; Serialize this short replacement so a racing install cannot silently
@@ -386,33 +362,24 @@
 
     ;; Each URL and exact commit has its own checkout. Only completed
     ;; checkouts are published, by renaming a private directory beside them.
-    (define (git-checkout (resolver Resolver) (url String) (commit String) (tag (Option String))
-                          (loc Loc))
+    (define (git-checkout (resolver Resolver) (url String) (commit String) (loc Loc))
       (→ String)
       (let* ((fs (● resolver fs)) (cache (● resolver cache))
              (path (string-append cache "/" (bytes->hex (sha256 (string->utf8 url))) "-" commit)))
         (if (file-exists? fs path)
-            (verify-checkout (● resolver processes) path commit loc)
+            (verify-checkout resolver path commit loc)
             (match (● resolver fetch)
-              ((Some clock) (fetch-checkout resolver clock url commit tag path loc))
+              ((Some clock) (fetch-checkout resolver clock url commit path loc))
               ((None) (compile-error loc (string-append "missing Git commit " commit
                                                         " (run snail-scheme deps)")))))
         path))
 
-    (define (verify-checkout (processes Processes) (path String) (commit String) (loc Loc)) (→ Unit)
-      (unless (string=? (command-text processes loc path "git" (list "rev-parse" "--verify" "HEAD"))
-                        (string-append commit "\n"))
-        (compile-error loc (string-append "wrong Git commit in " path)))
-      (unless (string=? (command-text processes loc path "git"
-                                      (list "status"
-                                            "--porcelain"
-                                            "--untracked-files=all"
-                                            "--ignored"))
-                        "")
-        (compile-error loc (string-append "modified Git package checkout: " path))))
+    (define (verify-checkout (resolver Resolver) (path String) (commit String) (loc Loc)) (→ Unit)
+      (package-git resolver loc path (list "verify" commit))
+      (unit))
 
     (define (fetch-checkout (resolver Resolver) (clock Clock) (url String) (commit String)
-                            (tag (Option String)) (path String) (loc Loc))
+                            (path String) (loc Loc))
       (→ Unit)
       (let ((fs (● resolver fs)) (cache (● resolver cache)))
         (match (make-directories fs cache)
@@ -420,7 +387,7 @@
           ((Ok _) (unit)))
         (let ((temp (checkout-scratch fs cache ((● clock monotonic-nanoseconds)) loc)))
           (match (recovering (lambda ()
-                               (fetch-commit (● resolver processes) temp url commit tag loc)
+                               (package-git resolver loc temp (list "checkout" url commit))
                                (publish-checkout resolver temp path commit loc)))
             ((Ok _) (unit))
             ((Err errors) (remove-tree fs temp) (stop (Failed errors)))))))
@@ -439,7 +406,7 @@
           ((Err error)
            (unless (file-exists? fs path)
              (compile-error loc (string-append path ": " (show error))))
-           (verify-checkout (● resolver processes) path commit loc)
+           (verify-checkout resolver path commit loc)
            (remove-tree fs temp)
            (unit)))))
 
@@ -450,46 +417,9 @@
           ((Err (AlreadyExists)) (checkout-scratch fs cache (+ number 1) loc))
           ((Err error) (compile-error loc (string-append path ": " (show error)))))))
 
-    (define (fetch-commit (processes Processes)
-                          (temp String)
-                          (url String)
-                          (commit String)
-                          (tag (Option String))
-                          (loc Loc))
-      (→ Unit)
-      (command-text processes loc temp "git"
-                    (list "init" "--quiet" (if (= (string-length commit) 64)
-                                               "--object-format=sha256" "--object-format=sha1")))
-      (let ((fetch (lambda (ref) (remote-git processes loc temp
-                                             (list "fetch"
-                                                   "--quiet"
-                                                   "--no-tags"
-                                                   "--depth=1"
-                                                   "--"
-                                                   url
-                                                   ref)))))
-        (match tag
-          ((None) (fetch commit))
-          ;; Some servers only serve advertised refs. Fetching the named tag
-          ;; there still has to supply the locked commit for checkout below.
-          ((Some ref) (match (recovering (lambda () (fetch commit)))
-                        ((Ok output) output)
-                        ((Err _) (fetch ref))))))
-      (command-text processes loc temp "git"
-                    (list "-c" "core.hooksPath=/dev/null" "checkout" "--quiet" "--detach" commit))
-      (verify-checkout processes temp commit loc))
-
-    (define (remote-git (processes Processes) (loc Loc) (directory String)
-                        (arguments (List String)))
+    (define (package-git (resolver Resolver) (loc Loc) (directory String) (arguments (List String)))
       (→ String)
-      (command-text processes loc directory "git"
-                    (append (list "-c" "protocol.allow=never" "-c" "protocol.https.allow=always"
-                                  "-c" "protocol.ssh.allow=always" "-c" "protocol.file.allow=always"
-                                  "-c"
-                                  "protocol.http.allow=always"
-                                  "-c"
-                                  "protocol.git.allow=always")
-                            arguments)))
+      (command-text (● resolver processes) loc directory (● resolver git-tool) arguments))
 
     (define (command-text (processes Processes) (loc Loc) (directory String)
                           (program String) (arguments (List String)))

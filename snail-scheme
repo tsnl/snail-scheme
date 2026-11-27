@@ -1,7 +1,7 @@
 #!/bin/sh
 root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-# The command line and the two runtimes it runs with, a path a line, as
+# The command line, its two runtimes, and the native package Git tool, as
 # stage 0 (scripts/bootstrap) names them. Stage 0 rebuilds the command
 # line under build/lock when its source has changed and is the only judge
 # of whether it has; it starts Chez and Cargo, so it takes most of a

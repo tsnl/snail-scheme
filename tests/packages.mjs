@@ -100,6 +100,7 @@ try {
   // package inside it. Move the remote away after installation to exercise
   // offline builds. Concurrent installs publish just one finished checkout.
   await pkg(remote, '(package words (depends (data (path "data"))))');
+  await put(remote, '.gitignore', '*.cache\n');
   await pkg(join(remote, 'data'), '(package data)');
   await put(remote, 'data/src/acme/messages/greeting.sld', textLibrary('acme messages greeting', 'pinned'));
   await git('init', '--quiet');
@@ -190,10 +191,22 @@ try {
 
   await pkg(app, declared);
   await writeFile(lock, pins);
+  // A cache populated by the Git executable also works offline.
+  const legacy = join(area, 'legacy'), legacyCheckout = join(legacy, 'build/.snail-packages', checkout);
+  await pkg(legacy, depends(standard, pinned(rev)));
+  await put(legacy, 'main.scm', program);
+  await mkdir(legacyCheckout, {recursive: true});
+  await gitAt(legacyCheckout, 'init', '--quiet');
+  await gitAt(legacyCheckout, 'fetch', '--quiet', '--depth=1', url, rev);
+  await gitAt(legacyCheckout, 'checkout', '--quiet', '--detach', rev);
   await rename(remote, join(area, 'offline'));
   await snail('deps');
   assert.equal((await run()).stdout, 'pinned\n');
+  assert.equal((await snail('run', '--target', 'node', join(legacy, 'main.scm'))).stdout, 'pinned\n');
   assert.equal(await readFile(join(cached, 'package.scm'), 'utf8'), '(package words (depends (data (path "data"))))');
+  await put(cached, 'scratch.cache', 'ignored by Git');
+  await assert.rejects(run(), /modified Git package checkout/);
+  await rm(join(cached, 'scratch.cache'));
   await put(cached, 'data/src/acme/messages/greeting.sld', textLibrary('acme messages greeting', 'edited pin'));
   await assert.rejects(run(), /modified Git package checkout/);
 
@@ -210,6 +223,15 @@ try {
   await pkg(app, depends(`(newer (git "${longUrl}" "v1"))`, `(newer (git "${longUrl}" "${longHash}"))`));
   assert.equal((await snail('deps')).stdout.split('\n').filter(line => line.startsWith('newer ')).length, 1);
   assert.equal(await readFile(lock, 'utf8'), `(package-lock\n  ("${longUrl}" "v1" "${longHash}"))\n`);
+  // A file URL can still supply an object after its last ref was replaced.
+  await gitAt(sha256, 'tag', '-d', 'v1');
+  await put(sha256, 'amended', 'different tree');
+  await gitAt(sha256, 'add', 'amended');
+  await gitAt(sha256, 'commit', '--quiet', '--amend', '-m', 'Replacement');
+  const unreferenced = join(area, 'unreferenced');
+  await pkg(unreferenced, depends(`(newer (git "${longUrl}" "${longHash}"))`));
+  const installed = (await snail('deps', unreferenced)).stdout.split('\n').find(line => line.startsWith('newer ')).slice(6);
+  assert.equal((await gitAt(installed, 'rev-parse', 'HEAD')).stdout.trim(), longHash);
   console.log('source packages passed');
 } finally {
   await rm(area, {recursive: true, force: true});
