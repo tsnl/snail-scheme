@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import {execFile, spawn} from 'node:child_process';
 import {copyFile, mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {createServer as httpsServer} from 'node:https';
-import {createServer as tcpServer} from 'node:net';
-import {tmpdir, userInfo} from 'node:os';
+import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {promisify} from 'node:util';
+import ssh2 from 'ssh2';
 
 const exec = promisify(execFile), root = resolve(process.argv[2]);
 const area = await mkdtemp(join(tmpdir(), 'snail-transports-'));
@@ -78,22 +78,30 @@ async function httpsRemote(uploadPack, upstream) {
   return {url: `https://127.0.0.1:${await listen(server)}/catalog`, cert};
 }
 
-// Inetd mode gives each connection directly to sshd. Restrict the test
-// identity to reading the one fixture, with forwarding and terminals off.
+// The SSH server recognizes one disposable key and serves one repository.
+// Its identity and access rules are independent of the machine's accounts.
 async function sshRemote(uploadPack, upstream) {
   const host = join(area, 'host-key'), key = join(area, 'client-key');
   for (const path of [host, key]) await exec('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', path]);
-  const config = join(area, 'sshd_config');
-  await put(config, [`HostKey ${host}`, `AuthorizedKeysFile ${key}.pub`, 'StrictModes no',
-    'PasswordAuthentication no', 'KbdInteractiveAuthentication no', 'UsePAM no', 'PermitRootLogin prohibit-password',
-    'DisableForwarding yes', 'PermitTTY no', `AllowUsers ${userInfo().username}`,
-    `ForceCommand "${uploadPack}" "${upstream}"`].join('\n') + '\n');
-  const sshd = (await exec('sh', ['-c', 'command -v sshd'])).stdout.trim();
-  const port = await listen(tcpServer(socket => {
-    const session = spawn(sshd, ['-i', '-e', '-f', config], {stdio: [socket, socket, 'ignore']});
-    session.on('close', () => socket.destroy());
+  const publicKey = ssh2.utils.parseKey(await readFile(key + '.pub'));
+  const port = await listen(new ssh2.Server({hostKeys: [await readFile(host)]}, client => {
+    client.on('authentication', auth => {
+      if (auth.username === 'git' && auth.method === 'publickey' && auth.key.data.equals(publicKey.getPublicSSH())
+          && (!auth.signature || publicKey.verify(auth.blob, auth.signature, auth.hashAlgo) === true)) auth.accept();
+      else auth.reject(['publickey']);
+    });
+    client.on('ready', () => client.on('session', accept => {
+      accept().on('exec', (accept, reject, request) => {
+        if (request.command !== "git-upload-pack '/catalog'") return reject();
+        const channel = accept(), service = spawn(uploadPack, [upstream]);
+        channel.pipe(service.stdin);
+        service.stdout.pipe(channel, {end: false});
+        service.on('close', code => { channel.exit(code ?? 1); channel.end(); });
+      });
+    }));
+    client.on('error', () => client.end()); // The unknown-host test disconnects during the handshake.
   }));
-  return {url: `ssh://${userInfo().username}@127.0.0.1:${port}/catalog`, key,
+  return {url: `ssh://git@127.0.0.1:${port}/catalog`, key,
     knownHost: `[127.0.0.1]:${port} ${await readFile(host + '.pub', 'utf8')}`};
 }
 

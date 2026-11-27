@@ -5,5 +5,8 @@
   "dependencies": {
     "webgpu": "0.6.2",
     "@napi-rs/canvas": "1.1.1"
+  },
+  "devDependencies": {
+    "ssh2": "1.17.0"
   }
 }
