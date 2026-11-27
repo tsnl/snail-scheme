@@ -3,12 +3,11 @@
 The proposed shared renderer uses WebGPU rasterization for Willowbank, the
 glTF viewer, headless renders and the white furnace. We built a working
 wavefront path tracer with ReSTIR, SVGF and a scene-linear reference mode
-that we compared against Blender Cycles. The transition PR is titled
-**replace path-tracer with simpler rasterizer**. We are retiring the tracer
+that we compared against Blender Cycles. We are retiring the tracer
 because of the cost of rendering a moving game on the GPUs we want to
 support. A future renderer can revisit that work. The last working revision
 includes the code, comparison scenes and commands to reproduce the results.
-[Archived renderer](https://github.com/tsnl/snail-scheme/tree/07e831337bcedfad9e6763d77a80e3d1abb44ed0/src/snail/shell/graphics/trace) · [Reference renders and furnace measurements](https://github.com/tsnl/snail-scheme/blob/07e831337bcedfad9e6763d77a80e3d1abb44ed0/doc/book/graphics/tracer.md#compare-with-blender-cycles)
+[PR #947, replace path-tracer with simpler rasterizer](https://github.com/tsnl/snail-scheme/pull/947) · [Archived renderer](https://github.com/tsnl/snail-scheme/tree/07e831337bcedfad9e6763d77a80e3d1abb44ed0/src/snail/shell/graphics/trace) · [Reference renders and furnace measurements](https://github.com/tsnl/snail-scheme/blob/07e831337bcedfad9e6763d77a80e3d1abb44ed0/doc/book/graphics/tracer.md#compare-with-blender-cycles)
 
 The published measurements explain the decision. At 1600×900, two paths
 per pixel and two bounces, the median Lantern Row frame on an RTX 5090
