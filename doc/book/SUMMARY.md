@@ -40,7 +40,7 @@
   - [The GPU](libraries/gpu.md)
   - [Rasterized graphics](libraries/rendering.md)
   - [Gaussian splats](libraries/splats.md)
-  - [Path tracing](libraries/tracing.md)
+  - [Rendering glTF scenes](libraries/tracing.md)
   - [Game simulation and stories](libraries/games.md)
   - [Tensors](libraries/tensors.md)
   - [Tools](libraries/tools.md)
@@ -62,12 +62,14 @@
 
 - [Graphics](graphics/index.md)
   - [WebGPU design](graphics/plan.md)
+  - [The forward renderer](graphics/rasterizer.md)
   - [Tensors and training](graphics/tensors.md)
   - [Path tracing primer](graphics/path-tracing.md)
-  - [The path tracer](graphics/tracer.md)
+  - [The retired path tracer](graphics/tracer.md)
 - [Games](games/index.md)
   - [Siegework](games/siegework.md)
-  - [Last Mile Taxi](games/last-mile.md)
+  - [The Last Mile](games/last-mile.md)
+  - [If You’re Going That Way](games/iygtw.md)
 
 # Proposals
 

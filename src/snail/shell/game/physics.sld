@@ -8,6 +8,7 @@
           Body-velocity-set
           Body-heading-set
           between-bodies
+          SweepContact first-contact
           sweep-fraction
           travel
           walk
@@ -66,25 +67,25 @@
           (let ((a (/ (- low at) delta)) (b (/ (- high at) delta)))
             (Some (new Pair (first (min a b)) (second (max a b)))))))
 
-    (record Contact
+    (record SweepContact
       ((time F64)
        (block-x Bool)
        (block-z Bool)))
 
-    (define free (→ Contact) (new Contact (time 1.0) (block-x #f) (block-z #f)))
+    (define free (→ SweepContact) (new SweepContact (time 1.0) (block-x #f) (block-z #f)))
 
-    (define (contact (p XZ) (v XZ) (radius F64) (wall Footprint)) (→ Contact)
+    (define (contact (p XZ) (v XZ) (radius F64) (wall Footprint)) (→ SweepContact)
       (let ((x (interval (● p x) (● v x) (- (● wall west) radius) (+ (● wall east) radius)))
             (z (interval (● p z) (● v z) (- (● wall north) radius) (+ (● wall south) radius))))
         (match (new Pair (first x) (second z))
           ((Pair (Some a) (Some b))
            (let ((entry (max (● a first) (● b first))) (exit (min (● a second) (● b second))))
              (if (and (>= entry -0.000000001) (< entry 1.0) (> exit (max 0.0 entry)))
-                 (new Contact (time (max 0.0 entry)) (block-x (>= (● a first) (● b first)))
+                 (new SweepContact (time (max 0.0 entry)) (block-x (>= (● a first) (● b first)))
                       (block-z (>= (● b first) (● a first)))) free)))
           (_ free))))
 
-    (define (first-contact (p XZ) (delta XZ) (r F64) (walls (List Footprint))) (→ Contact)
+    (define (first-contact (p XZ) (delta XZ) (r F64) (walls (List Footprint))) (→ SweepContact)
       (fold-left (lambda (nearest w)
                    (let ((hit (contact p delta r w)))
                      (if (< (● hit time) (● nearest time)) hit nearest)))

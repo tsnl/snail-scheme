@@ -1,17 +1,4 @@
-;; The graphics libraries' shaders, printed to WGSL when this library is
-;; built, each from the file of its name: `quad-shader` from
-;; quad.wgsl.scm, and so `atlas-shader`, `lighting-shader`, `raster-shader`,
-;; `sun-shader`, `tone-shader`, `post-shader`, `scan-shader`, `radix-sort-shader`,
-;; `splat-project-shader`, `splat-draw-shader` and `splat-present-shader`,
-;; and training's
-;; `splat-tiles-shader`, `splat-count-shader`, `splat-keys-shader`,
-;; `splat-ranges-shader`, `splat-forward-shader`,
-;; `splat-forward-state-shader`, `splat-backward-shader`,
-;; `splat-ssim-shader`, `splat-ssim-forward-shader`,
-;; `splat-ssim-backward-shader`, `splat-place-shader`, `splat-normals-shader`
-;; and `splat-knn-shader`, and the path tracer's `bvh-shader`,
-;; `rays-shader`, `reservoir-operations`, `svgf-shader`, `environment-shader` and
-;; `environment-light-shader`.
+;; WGSL programs shared by the raster, tensor and splat libraries.
 (generate-library (snail shell graphics shaders)
                   (import
                    (snail core base)
@@ -20,6 +7,9 @@
                   (lambda ((resources Resources))
                     (shader-library resources (list "snail" "shell" "graphics" "shaders")
                                     (list (new Pair
+                                            (first "blit-shader")
+                                            (second (link-file "blit.wgsl.scm")))
+                                          (new Pair
                                             (first "quad-shader")
                                             (second (link-file "quad.wgsl.scm")))
                                           (new Pair
@@ -34,9 +24,6 @@
                                           (new Pair
                                             (first "sun-shader")
                                             (second (link-file "sun.wgsl.scm")))
-                                          (new Pair
-                                            (first "upscale-shader")
-                                            (second (link-file "upscale.wgsl.scm")))
                                           (new Pair
                                             (first "tone-shader")
                                             (second (link-file "tone.wgsl.scm")))
@@ -95,25 +82,4 @@
                                             (second (link-file "splat-normals.wgsl.scm")))
                                           (new Pair
                                             (first "splat-knn-shader")
-                                            (second (link-file "splat-knn.wgsl.scm")))
-                                          (new Pair
-                                            (first "bvh-shader")
-                                            (second (link-file "bvh.wgsl.scm")))
-                                          (new Pair
-                                            (first "rays-shader")
-                                            (second (link-file "rays.wgsl.scm")))
-                                          (new Pair
-                                            (first "reservoir-operations")
-                                            (second (link-file "reservoir.wgsl.scm")))
-                                          (new Pair
-                                            (first "svgf-shader")
-                                            (second (link-file "svgf.wgsl.scm")))
-                                          (new Pair
-                                            (first "atmosphere-shader")
-                                            (second (link-file "atmosphere.wgsl.scm")))
-                                          (new Pair
-                                            (first "environment-shader")
-                                            (second (link-file "environment.wgsl.scm")))
-                                          (new Pair
-                                            (first "environment-light-shader")
-                                            (second (link-file "environment-light.wgsl.scm")))))))
+                                            (second (link-file "splat-knn.wgsl.scm")))))))

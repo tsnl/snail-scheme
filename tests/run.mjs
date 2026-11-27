@@ -6,7 +6,8 @@
 //
 // - A program NAME.sld of a suite must print NAME.out exactly, its standard
 //   output and then its standard error, or fail to build with each line of
-//   NAME.err in its diagnostics, in order.
+//   NAME.err in its diagnostics, in order. NAME.in supplies standard input
+//   when present.
 // - Checks: a fixture built and handed to its check script, the command
 //   line's own contracts, and the suites that are scripts already.
 //
@@ -25,11 +26,13 @@ const JOBS = 8;
 
 // What a command printed and how it ended: {stdout, stderr, status}, with
 // status null when a signal ended it.
-function command(program, args, options = {}) {
-  return new Promise(resolve => {
-    const child = execFile(program, args, {cwd: root, maxBuffer: 64 * 1024 * 1024, ...options},
+function command(program, args, input) {
+  return new Promise((resolve, reject) => {
+    const child = execFile(program, args, {cwd: root, maxBuffer: 64 * 1024 * 1024},
       (error, stdout, stderr) => resolve({stdout, stderr, status: error ? (typeof error.code === 'number' ? error.code : null) : 0}));
-    child.stdin.end();
+    // A program may finish before reading all of its input.
+    child.stdin.on('error', error => { if (error.code !== 'EPIPE') reject(error); });
+    child.stdin.end(input);
   });
 }
 
@@ -45,7 +48,8 @@ async function build(source, target = 'node') {
 }
 
 // Runs a built module on Node, as `snail-scheme run` would.
-const run = ({module}, ...args) => node(runner, module, ...args);
+const run = ({module, input}, ...args) =>
+  command(process.execPath, ['--no-warnings', runner, module, ...args], input);
 const printed = ran => ran.stdout + ran.stderr;
 
 // ---- Reporting ----
@@ -79,7 +83,9 @@ async function program(suite, name) {
   }
   if (built.failure) return fail(name, 'compile failed', built.failure);
   if (!existsSync(expected)) return fail(name, 'no expected output');
-  const output = printed(await run(built)), wanted = await readFile(expected, 'utf8');
+  const stdin = join(root, suite, `${name}.in`);
+  const input = existsSync(stdin) ? await readFile(stdin) : undefined;
+  const output = printed(await run({...built, input})), wanted = await readFile(expected, 'utf8');
   return output === wanted || fail(name, 'wrong output', `${output}\nexpected:\n${wanted}`);
 }
 
@@ -190,7 +196,7 @@ const checks = () => [
   fixture('socket boundary', 'tests/socket-boundary/main.sld', 'tests/socket-boundary/check.mjs', 'node'),
   fixture('termination', 'tests/termination/main.sld', 'tests/termination/check.mjs', 'node'),
   fixture('app runtime', 'tests/app-runtime/main.sld', 'tests/app-runtime/check.mjs', 'browser'),
-  ...['scripts', 'workspaces', 'script-builds', 'script-run', 'script-failures', 'script-resources', 'web-zip', 'embedding', 'launcher', 'lsp',
+  ...['scripts', 'workspaces', 'script-builds', 'script-run', 'script-failures', 'script-resources', 'pages-blobs', 'web-zip', 'embedding', 'launcher', 'lsp',
       'tree-sitter', 'vscode', 'tcp', 'udp', 'sf-relief', 'format-scheme', 'siegework/headless'].map(name => script(name)),
   script('udp', '--test-udp-no-try-send'),
 ];

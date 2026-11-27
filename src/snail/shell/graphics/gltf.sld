@@ -1,10 +1,10 @@
 ;; A glTF 2.0 scene, a .gltf file's JSON or a .glb file, read into what
-;; drawing and tracing it need: the buffers and images it names, each
+;; drawing it needs: the buffers and images it names, each
 ;; primitive's accessors as byte offsets into its buffers laid end to end,
 ;; its materials, and each primitive placed by the node hierarchy of the
 ;; default scene. The buffers' bytes are not read here: they go to the
 ;; device whole, and a compute pass unpacks each accessor ((snail shell
-;; graphics trace scene)). A scene that cannot be read stops the reading
+;; graphics forward scene)). A scene that cannot be read stops the reading
 ;; with why: one that is not JSON, names an item it does not have, or
 ;; stores its geometry compressed.
 ;;
@@ -33,7 +33,7 @@
    Buffer-source-set
    Placed-matrix-set
    Gltf-placed-set
-   Material
+   Material AlphaMode OpaqueMaterial MaskedMaterial BlendedMaterial alpha-code blended-material?
    Placed
    read-gltf
    append-gltf
@@ -46,13 +46,15 @@
    gltf-numbers
    source-bytes
    buffer-bytes
-   scene-materials
+   scene-materials drawable-materials placed-center position-at
    gltf-bounds
    gltf-transformed
    gltf-scaled
    uri-path)
   (import
    (snail core base)
+   (only (snail shell little-endian) uint-le u32)
+   (snail shell wire)
    (snail shell utf8)
    (snail shell json)
    (snail shell json read))
@@ -97,7 +99,8 @@
        (width I64)
        (component I64)
        (normalized Bool)
-       (count I64)))
+       (count I64))
+      (deriving Serialize Deserialize))
 
     ;; Its corners, from POSITION's min and max, are in the mesh's space.
     (record Primitive
@@ -110,30 +113,48 @@
        (indices (Option Attribute))
        (material I64)
        (low (List F64))
-       (high (List F64))))
+       (high (List F64)))
+      (deriving Serialize Deserialize))
 
     ;; A texture is the index of its image, -1 when there is none. Alpha
     ;; is 0 for OPAQUE, 1 for MASK and 2 for BLEND.
+    (enum AlphaMode
+      (OpaqueMaterial)
+      (MaskedMaterial)
+      (BlendedMaterial)
+      (deriving Serialize Deserialize))
+    (define (alpha-code (mode AlphaMode)) (→ I64)
+      (match mode ((OpaqueMaterial) 0) ((MaskedMaterial) 1) ((BlendedMaterial) 2)))
+    (define (blended-material? (mode AlphaMode)) (→ Bool)
+      (match mode ((BlendedMaterial) #t) (_ #f)))
     (record Material
       ((base-color (List F64))
        (base-texture I64)
        (metallic F64)
        (roughness F64)
        (metal-rough-texture I64)
+       (occlusion-texture I64)
+       (occlusion-strength F64)
        (normal-texture I64)
        (normal-scale F64)
        (emissive (List F64))
        (emissive-texture I64)
-       (alpha I64)
+       (alpha AlphaMode)
        (alpha-cutoff F64)
        (double-sided Bool)
-       (water Bool)))
+       (ground-layer Bool)
+       (water Bool)
+       (subsurface F64)
+       (diffuse-transmission F64)
+       (fiber-anisotropy F64))
+      (deriving Serialize Deserialize))
 
     ;; A primitive, and the column-major matrix from its mesh to the world.
     (record Placed
       ((node I64)
        (primitive Primitive)
-       (matrix (List F64))))
+       (matrix (List F64)))
+      (deriving Serialize Deserialize))
 
     ;; ---- Reading ----
 
@@ -385,6 +406,8 @@
     ;; ---- Materials ----
 
     ;; A texture reference's image, -1 when it has none.
+    (define (surface-weight (m Json) (key String)) (→ F64)
+      (max 0.0 (min 1.0 (number-or (member-or m "extras") key 0.0))))
     (define (material-of (material Json) (images (Array I64))) (→ Material)
       (let* ((pbr (member-or material "pbrMetallicRoughness"))
              (image (lambda ((holder Json) (name String)) (→ I64)
@@ -400,18 +423,25 @@
           (metallic (number-or pbr "metallicFactor" 1.0))
           (roughness (number-or pbr "roughnessFactor" 1.0))
           (metal-rough-texture (image pbr "metallicRoughnessTexture"))
+          (occlusion-texture (image material "occlusionTexture"))
+          (occlusion-strength (number-or (member-or material "occlusionTexture") "strength" 1.0))
           (normal-texture (image material "normalTexture"))
           (normal-scale (number-or (member-or material "normalTexture") "scale" 1.0))
           (emissive (map (lambda (channel) (* channel strength))
                          (gltf-numbers material "emissiveFactor" (list 0.0 0.0 0.0))))
           (emissive-texture (image material "emissiveTexture"))
           (alpha (let ((mode (gltf-text material "alphaMode" "OPAQUE")))
-                   (cond ((string=? mode "MASK") 1)
-                         ((string=? mode "BLEND") 2)
-                         (else 0))))
+                   (cond ((string=? mode "MASK") (MaskedMaterial))
+                         ((string=? mode "BLEND") (BlendedMaterial))
+                         ((string=? mode "OPAQUE") (OpaqueMaterial))
+                         (else (unreadable (string-append "unknown alphaMode: " mode))))))
           (alpha-cutoff (number-or material "alphaCutoff" 0.5))
           (double-sided (bool-or material "doubleSided" #f))
-          (water (bool-or (member-or material "extras") "snailWater" #f)))))
+          (ground-layer (bool-or (member-or material "extras") "snailGroundLayer" #f))
+          (water (bool-or (member-or material "extras") "snailWater" #f))
+          (diffuse-transmission (surface-weight material "snailDiffuseTransmission"))
+          (fiber-anisotropy (surface-weight material "snailFiberAnisotropy"))
+          (subsurface (surface-weight material "snailSubsurface")))))
 
     (define default-material (→ Material) (new Material
                                             (base-color (list 1.0 1.0 1.0 1.0))
@@ -419,13 +449,20 @@
                                             (metallic 0.0)
                                             (roughness 1.0)
                                             (metal-rough-texture -1)
+                                            (occlusion-texture -1)
+                                            (occlusion-strength 1.0)
                                             (normal-texture -1)
                                             (normal-scale 1.0)
                                             (emissive (list 0.0 0.0 0.0))
                                             (emissive-texture -1)
-                                            (alpha 0)
+                                            (alpha (OpaqueMaterial))
                                             (alpha-cutoff 0.5)
-                                            (double-sided #f) (water #f)))
+                                            (double-sided #f)
+                                            (water #f)
+                                            (ground-layer #f)
+                                            (subsurface 0.0)
+                                            (diffuse-transmission 0.0)
+                                            (fiber-anisotropy 0.0)))
     (define (scene-materials (gltf Gltf)) (→ (List Material))
       (if (null? (● gltf materials)) (list default-material) (● gltf materials)))
 
@@ -468,13 +505,39 @@
                (any? (lambda (p) (< (● p primitive material) 0)) (● g placed)))
           (append (● g materials) (list default-material))
           (scene-materials g)))
+    (define (drawable-materials (g Gltf)) (→ (List Material)) (model-materials g))
+    (define (position-component (bytes Bytes) (a Attribute) (at I64) (axis I64)) (→ F64)
+      (let* ((format (● a component))
+             (size (case format
+                     ((5120 5121) 1)
+                     ((5122 5123) 2)
+                     ((5126) 4)
+                     (else (unreadable "unsupported position component"))))
+             (raw (uint-le bytes (+ at (* axis size)) size))
+             (range (if (= size 1) 256 65536)) (signed (or (= format 5120) (= format 5122))))
+        (if (= format 5126) (f32->f64 (bits->f32 (i64->i32 raw)))
+            (let ((v (i64->f64 (if (and signed (>= raw (quotient range 2))) (- raw range) raw))))
+              (if (● a normalized)
+                  (max -1.0 (/ v (i64->f64 (- (if signed (quotient range 2) range) 1))))
+                  v)))))
+
+    ;; Read a position relative to its own buffer, or the packed buffer table.
+    (define (position-at (bytes Bytes) (base I64) (a Attribute) (i I64)) (→ (List F64))
+      (let ((at (+ (- (● a offset) base) (* i (● a stride)))))
+        (map (lambda (axis) (position-component bytes a at axis)) (list 0 1 2))))
+    (define (placed-center (p Placed)) (→ (List F64))
+      (transform (● p matrix) (map (lambda (pair) (* 0.5 (+ (● pair first) (● pair second))))
+                                   (zip (● p primitive low) (● p primitive high)))))
     (define (shift-material (m Material) (n I64)) (→ Material)
       (let ((shift (lambda ((i I64)) (→ I64) (if (< i 0) i (+ i n)))))
-        (Material-emissive-texture-set
-         (Material-normal-texture-set
-          (Material-metal-rough-texture-set (Material-base-texture-set m (shift (● m base-texture)))
-                                            (shift (● m metal-rough-texture)))
-          (shift (● m normal-texture))) (shift (● m emissive-texture)))))
+        (Material-occlusion-texture-set
+         (Material-emissive-texture-set
+          (Material-normal-texture-set
+           (Material-metal-rough-texture-set
+            (Material-base-texture-set m (shift (● m base-texture)))
+            (shift (● m metal-rough-texture)))
+           (shift (● m normal-texture))) (shift (● m emissive-texture)))
+         (shift (● m occlusion-texture)))))
     (define (shift-primitive (p Primitive) (n I64) (first I64) (count I64)) (→ Primitive)
       (let* ((at (lambda ((a Attribute)) (→ Attribute) (Attribute-offset-set a (+ n (● a offset)))))
              (maybe (lambda ((a (Option Attribute)))
@@ -655,12 +718,12 @@
     ;; many bytes: the JSON, then the binary chunk if it has one. Any other
     ;; file is the JSON, with an empty chunk.
     (define (file-chunks (file Bytes)) (→ (Pair Bytes Bytes))
-      (if (and (>= (array-length file) 20) (= (word file 0) 1179937895))
-          (let* ((json-end (+ 20 (word file 12))) (bin (+ 8 json-end)))
+      (if (and (>= (array-length file) 20) (= (u32 file 0) 1179937895))
+          (let* ((json-end (+ 20 (u32 file 12))) (bin (+ 8 json-end)))
             (new Pair
               (first (chunk file 20 json-end))
               (second (if (<= bin (array-length file))
-                          (chunk file bin (+ bin (word file json-end)))
+                          (chunk file bin (+ bin (u32 file json-end)))
                           (make-array 0 (i32->u8 0))))))
           (new Pair (first file) (second (make-array 0 (i32->u8 0))))))
 
@@ -668,13 +731,6 @@
       (if (<= to (array-length file))
           (subarray file from to)
           (unreadable "the .glb file is cut short")))
-
-    ;; The little-endian 32-bit word at `at`.
-    (define (word (bytes Bytes) (at I64)) (→ I64)
-      (fold-right
-       (lambda (index value) (+ (i32->i64 (u8->i32 (array-ref bytes (+ at index)))) (* 256 value)))
-       0
-       (iota 4)))
 
     ;; ---- Bounds ----
 

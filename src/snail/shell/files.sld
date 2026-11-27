@@ -16,7 +16,8 @@
    Folder
    FilePicker)
   (import
-   (snail core base))
+   (snail core base)
+   (only (snail core io) OutputPort))
   (begin
 
     (record Chosen
@@ -30,6 +31,7 @@
 
     (record FilePicker
       ((open-picker (Fn Choice → Unit))
-       (chosen-files (Fn → (List Chosen)))))
+       (chosen-files (Fn → (List Chosen)))
+       (download-text (Fn String → OutputPort))))
 
     ))

@@ -2,7 +2,7 @@
 ;; texture array, tinted. A quad's corners are snapped to the target's
 ;; pixels, so pixel art stays crisp at any camera position. Up is +y; a
 ;; region's texels run down from its top.
-((var uniform) (@group 0) (@binding 0) (view View2D))
+((var uniform) (@group 0) (@binding 0) (view SpriteView))
 
 (var (@group 0) (@binding 1) (pages (texture_2d_array f32)))
 
@@ -32,10 +32,11 @@
                 center
                 (vec2f (- (* c (get local x)) (* s (get local y)))
                        (+ (* s (get local x)) (* c (get local y))))))
-    (let pixel (round
-                (* (+ (/ (- world (get view center)) (get view extent)) 0.5) (get view pixels))))
+    (let clip (* (get view projection) (vec4f world 0.0 1.0)))
+    (let pixels (get view pixels))
+    (let pixel (round (* (+ (* (/ (get clip xy) (get clip w)) 0.5) 0.5) pixels)))
     (var (out QuadOut))
-    (= (get out position) (vec4f (- (* (/ pixel (get view pixels)) 2.0) 1.0) 0.0 1.0))
+    (= (get out position) (vec4f (* (- (* (/ pixel pixels) 2.0) 1.0) (get clip w)) (get clip zw)))
     (= (get out texel)
        (+ (get region xy) (* (vec2f (get unit x) (- 1.0 (get unit y))) (get region zw))))
     (= (get out page) page)

@@ -21,15 +21,17 @@
 // overlap.
 const TRACKS = {main: 1, gpu: 2, wait: 3};
 
-export let tracing = typeof location === 'object' && new URLSearchParams(location.search).has('trace');
+const query = new URLSearchParams(globalThis.location?.search);
+export const profiling = query.has('profile');
+export let tracing = profiling || query.has('trace');
 let events = null;
 
 // One span. On a page the measure is cleared once made, so a long run's
 // timeline does not grow; the trace has it already.
-export function span(track, name, start, end = performance.now()) {
+export function span(track, name, start, end = performance.now(), detail) {
   if (!tracing) return;
   if (!events) {
-    performance.measure(`${track}: ${name}`, {start, end});
+    performance.measure(`${track}: ${name}`, {start, end, detail});
     performance.clearMeasures(`${track}: ${name}`);
   } else {
     events.push(...traceEvents(track, name, start, end));

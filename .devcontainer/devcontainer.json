@@ -9,5 +9,5 @@
   "remoteUser": "root",
   "containerUser": "root",
   "userEnvProbe": "loginInteractiveShell",
-  "postCreateCommand": "make fetch"
+  "postCreateCommand": "npm ci"
 }

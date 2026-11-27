@@ -8,6 +8,6 @@ cd "$(dirname "$0")/.."
 # Resolve the checkout's rust-toolchain.toml even when the caller is inside
 # a different project or inherited an active rustup toolchain.
 unset RUSTUP_TOOLCHAIN
-exec "${CARGO:-cargo}" rustc --lib --crate-type=cdylib --locked --offline --quiet \
+exec "${CARGO:-cargo}" rustc --lib --crate-type=cdylib --locked --quiet \
   --release --target wasm32-wasip1 --manifest-path crates/snail-scheme-support/Cargo.toml \
   --target-dir "$target" "$@"

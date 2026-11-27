@@ -12,12 +12,6 @@
                                             (first "paint")
                                             (second (link-file "paint.wgsl.scm")))
                                           (new Pair
-                                            (first "inspect-reservoir")
-                                            (second (link-file "reservoir.wgsl.scm")))
-                                          (new Pair
-                                            (first "sky-probe")
-                                            (second (link-file "sky.wgsl.scm")))
-                                          (new Pair
                                             (first "water-probe")
                                             (second (link-file "water.wgsl.scm")))
                                           (new Pair

@@ -1,5 +1,5 @@
 ;; Meshes as tables: one geometry table holding every shape's vertices and
-;; indices, an instance table of `Pod` records, and an indirect draw for
+;; indices, an instance table of `Pod` records, and an indexed draw for
 ;; each shape, starting at its own first instance. A pipeline that draws
 ;; them takes two vertex buffers, `mesh-buffers`: vertices, then
 ;; instances. The geometry's buffers are made and written once; a batch's
@@ -37,6 +37,7 @@
    release-batch
    draw-meshes)
   (import
+   (snail shell wire)
    (snail core base)
    (snail shell math)
    (snail shell gpu)
@@ -56,7 +57,8 @@
       (Tile)
       (Tetrahedron)
       (Octahedron)
-      (Upright))
+      (Upright)
+      (deriving Serialize Deserialize))
 
     (define all-meshes (→ (List Mesh))
       (list (Box) (Pyramid) (Prism) (Sphere) (Tile) (Tetrahedron) (Octahedron) (Upright)))
@@ -275,14 +277,13 @@
        (id I32))
       (deriving Pod))
 
-    ;; What drawIndexedIndirect reads.
+    ;; CPU-known ranges for one indexed draw per shape.
     (record DrawArgs
       ((index-count I32)
        (instance-count I32)
        (first-index I32)
        (base-vertex I32)
-       (first-instance I32))
-      (deriving Pod))
+       (first-instance I32)))
 
     ;; A batch's instances packed, grouped by shape, and its draws.
     (record Meshes
@@ -317,7 +318,6 @@
 
     (define vertex-shape (→ (Shape MeshVertex)) (shape))
     (define instance-shape (→ (Shape Instance)) (shape))
-    (define draw-shape (→ (Shape DrawArgs)) (shape))
     (define index-shape (→ (Shape I32)) (shape))
 
     ;; Vertices at locations 0 to 2, instances from 3.
@@ -340,38 +340,25 @@
                          (pack index-shape (concatenate (map (lambda (g) (● g indices)) table)))
                          (Index)))))
 
-    ;; A batch on the device: its instances, and its draws with the
-    ;; offset of each that has instances.
+    ;; Only the instances cross to the device. The CPU already has the draw ranges.
     (record MeshBatch
       ((instances GpuBuffer)
-       (draws GpuBuffer)
-       (offsets (List I32))))
-
+       (draws (List DrawArgs))))
     (define (upload-batch (gpu Gpu) (label String) (batch Meshes)) (→ MeshBatch)
       (new MeshBatch
         (instances (filled gpu (string-append label "/instances") (● batch instances) (Vertex)))
-        (draws (filled gpu (string-append label "/draws")
-                       (pack draw-shape (● batch draws))
-                       (Indirect)))
-        (offsets (map (lambda (indexed) (i64->i32 (* 20 (● indexed first))))
-                      (filter (lambda (indexed) (> (● indexed second instance-count) 0))
-                              (map-indexed (lambda (index draw)
-                                             (new Pair (first index) (second draw)))
-                                           (● batch draws)))))))
-
+        (draws (filter (lambda (d) (> (● d instance-count) 0)) (● batch draws)))))
     (define (release-batch (gpu Gpu) (batch MeshBatch)) (→ Unit)
-      ((● gpu destroy) (BufferObject (● batch instances)))
-      ((● gpu destroy) (BufferObject (● batch draws))))
-
-    ;; The batch's draws in `pass`, whose pipeline is set.
+      ((● gpu destroy) (BufferObject (● batch instances))))
     (define (draw-meshes (gpu Gpu) (pass GpuRenderPass) (geometry MeshGeometry) (batch MeshBatch))
       (→ Unit)
-      (unless (null? (● batch offsets))
+      (unless (null? (● batch draws))
         ((● gpu set-vertex-buffer) pass 0 (● geometry vertices) 0)
         ((● gpu set-vertex-buffer) pass 1 (● batch instances) 0)
         ((● gpu set-index-buffer) pass (● geometry indices) (Uint32Index) 0)
-        (for-each (lambda (offset) ((● gpu draw-indexed-indirect) pass (● batch draws) offset))
-                  (● batch offsets))))
+        (for-each (lambda (d) ((● gpu draw-indexed) pass (● d index-count) (● d instance-count)
+                               (● d first-index) (● d base-vertex) (● d first-instance)))
+                  (● batch draws))))
 
     ;; A buffer holding `bytes`, at least a word.
     (define (filled (gpu Gpu) (label String) (bytes Bytes) (usage BufferUsage))

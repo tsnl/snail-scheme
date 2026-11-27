@@ -2,6 +2,9 @@
 ;; art.
 (import
  (snail core base)
+ (only (snail shell fetch) Fetch)
+ (only (snail shell files) FilePicker)
+ (snail shell graphics renderer page)
  (snail shell app)
  (snail shell wire)
  (apps hearsay shell)
@@ -13,11 +16,20 @@
  (only (snail shell page) PageStorage)
  (only (snail core io) Clock))
 
-(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage) (clock Clock)) (→ Unit)
+(define (main (fetch Fetch)
+              (picker FilePicker)
+              (gpu Gpu)
+              (dom Dom)
+              (events Events)
+              (storage PageStorage)
+              (clock Clock))
+  (→ Unit)
   (run-scene dom events storage (new SceneHandler
                                   (initialize new-shell)
                                   (update update-shell)
-                                  (start start-drawing)
+                                  (start (lambda ()
+                                           (configured-drawing
+                                            (page-renderer-config fetch picker))))
                                   (draw (lambda (shell drawing)
                                           (draw-shell gpu clock shell drawing art)))
                                   (hud shell-hud)

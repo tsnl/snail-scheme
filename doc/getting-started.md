@@ -22,8 +22,8 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Binaryen | 132 | `wasm-opt`, which optimizes a release build (`--release`, `make site`). |
 | tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. The shell provides it on Linux; elsewhere, set `CHROMIUM` to a Chromium or Chrome. |
-| The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `package.json` pins and `make fetch` installs from npm, for `host/native/gpu.mjs` and `make test-gpu`. On Linux it needs the Vulkan loader and a Vulkan driver for the GPU. |
-| The `@napi-rs/canvas` package | 1.1.1 | Images on Node: a 2D canvas over Skia, which `package.json` pins and `make fetch` installs from npm, for `decode-image` in `host/native/gpu.mjs`. It is MIT, and asks nothing of the system. |
+| The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `package.json` pins and `npm ci` installs from npm, for `host/native/gpu.mjs` and `make test-gpu`. On Linux it needs the Vulkan loader and a Vulkan driver for the GPU. |
+| The `@napi-rs/canvas` package | 1.1.1 | Images on Node: a 2D canvas over Skia, which `package.json` pins and `npm ci` installs from npm, for `decode-image` in `host/native/gpu.mjs`. It is MIT, and asks nothing of the system. |
 
 The first four compile and run programs, including the Scheme formatter used
 by `make check`; the rest format Nix, build or test the site, and test the
@@ -55,7 +55,7 @@ podman build -t snail-scheme -f .devcontainer/Containerfile .
 podman run --rm -it -v "$PWD":/project:Z -w /project snail-scheme
 ```
 
-An editor that opens devcontainers runs `make fetch` when it creates the
+An editor that opens devcontainers runs `npm ci` when it creates the
 container. With plain podman, run it yourself once. CI builds the image with
 podman and checks it whenever its inputs change.
 
@@ -93,12 +93,15 @@ instructions above. Clone into your Linux home directory, such as
 From the checkout:
 
 ```sh
-make fetch
 ./snail-scheme run --target node examples/fibonacci.sld
 ```
 
-`make fetch` downloads the Rust crates in each `Cargo.lock` and the npm
-packages `package-lock.json` pins once; builds and tests then run offline. The first run bootstraps the command line, which
+Rustup installs the pinned Rust toolchain on first use, and Cargo fetches
+missing crates automatically. No separate Rust dependency fetch step is
+needed. Run `npm ci` in the checkout for GPU and image support on Node;
+the example above and the Pages build do not need these npm packages.
+
+The first run bootstraps the command line, which
 takes a source compilation with Chez followed by self-compilation, and then
 the command line builds the script into `build/examples/fibonacci` and runs
 it on Node. The command line rebuilds itself whenever its source changes.
@@ -111,7 +114,7 @@ pure compile-time values.
 ```sh
 make test          # the formatter, the compiler, the programs and the games
 make check         # formatting
-cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline
+cargo test --manifest-path crates/snail-scheme-support/Cargo.toml
 make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
 make test-browser  # browser interfaces in headless Chromium
 make test-gpu      # the GPU checks on Node, on the machine's GPU or on lavapipe
@@ -123,3 +126,25 @@ the compiler also needs `make bootstrap`, a change
 to the browser host `make test-browser`, and a change to the `Gpu`'s
 hosts or the graphics and tensor libraries both browser and GPU checks. The [tour](book/snail-scheme/compilers.md)
 introduces the compiler.
+
+## Publishing the book and browser demos
+
+`make pages` builds the book and the browser demos together in `build/pages`.
+Run `python3 -m http.server 8000 --directory build/pages` to open that site
+locally at `http://localhost:8000/`.
+
+The Pages workflow builds pull requests and publishes changes from `main`
+to Cloudflare Pages. A maintainer can also publish a selected ref with the
+workflow’s **Publish** input. The deploy job receives only the built site.
+
+For initial setup, verify the account email and sign in to Wrangler. Create
+the Direct Upload project once.
+
+```sh
+wrangler pages project create snail-scheme --production-branch main --force
+```
+
+In the pinned Wrangler release, `--force` selects the Pages API for project
+creation. Subsequent uploads target the existing project by name.
+Set the repository Actions variable `CLOUDFLARE_ACCOUNT_ID` and the secret
+`CLOUDFLARE_API_TOKEN` with Cloudflare Pages Edit permission for that account.

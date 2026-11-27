@@ -63,6 +63,13 @@ time is input, the application decides how its simulation advances. Each task
 keeps what it closed over across waits. Libraries have no runtime initialization;
 application state is created by the running script.
 
+For a fixed presentation rate, create a `frame-pacer` with the desired frames
+per second and call `pace-frame!` with each `FrameEvent`’s elapsed milliseconds.
+It returns `(Some elapsed)` on a display slot and `(None)` between slots. The
+first slot reports zero. A long stall skips missed slots. Simulation can still
+advance on every refresh. The browser derives elapsed milliseconds from
+successive rounded display timestamps so fractional intervals add up.
+
 A scene draws with the [graphics libraries](../graphics/plan.md). Hearsay
 composes the pictures it needs into an atlas and draws its map as one run
 of quads ([Atlas and quads](../graphics/plan.md#atlas-and-quads)).

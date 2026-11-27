@@ -171,9 +171,12 @@ That path cannot collide, and it is stable, which is what future caching needs.
 ## Output: one linked module
 
 Every build is fully linked: the whole program compiled as one module and
-fused with the runtime, `main.wasm`, with the files it links under
-`store/sha256/ab/abcdef…`, each named for the SHA-256 of its bytes. Each
-is a hard link to the one copy in the workspace's store,
+fused with the runtime, `main.wasm`. Linked files up to **25 MiB (26,214,400 bytes)**
+live at `store/sha256/AB/DIGEST`. A larger file lives at
+`store/chunks/26214400/AB/DIGEST/0`, `/1`, and so on. Each part holds 25 MiB except for a possibly shorter final part. In both paths, `DIGEST`
+is the SHA-256 of the complete file and `AB` is its first two hex digits.
+The compiler chooses the layout automatically for both linked files and catalog resources.
+Each physical file is a hard link to the one copy in the workspace's store,
 `build/.snail-store`, which every build of every script shares.
 Node and a page each run it directly. The output
 folder can be served or run as it is, as `python3 -m http.server
@@ -199,9 +202,13 @@ for now.
 
 ## Static resource catalogs
 
-Put the files a script publishes in a directory beside it with the same stem, for example `main.resources/maps/city.bin` beside `main.scm`. Both browser and Node builds publish `resources.json` and `store/sha256/AB/DIGEST`. The catalog maps each relative name to its SHA-256 and byte length. Files with identical contents share one object. The directory may contain regular files and subdirectories. Changes to its contents update the catalog without adding imports to the client’s Wasm.
+Put the files a script publishes in a directory beside it with the same stem, for example `main.resources/maps/city.bin` beside `main.scm`. Both browser and Node builds publish `resources.json` and the same `store/` layout as linked files. The catalog maps each relative name to its full SHA-256 and byte length. Two names for the same bytes share the download and cache entry. The directory may contain regular files and subdirectories. Changes to its contents update the catalog without adding imports to the client’s Wasm.
 
 Serve the generation under any URL prefix. Keep the catalog revalidatable and give the digest URLs a long immutable cache lifetime. A Snail server can link the generation using `(snail shell project embed)` and mount its catalog with `(snail shell static-resource serve)`. A browser uses `(snail shell static-resource)` to request the catalog and acquire files. [Resource libraries](../libraries/system.md#snail-shell-static-resource)
+
+### Publishing the book and demos
+
+`make pages` publishes the book and browser builds to `build/pages`. The publisher uses the same Snail blob writer to split oversized ordinary assets such as Wasm, models, or audio. A generated Cloudflare Pages Worker serves their original URLs and MIME types, including HEAD and single HTTP byte-range requests. It can serve a multipart resource at its whole-file digest URL for older readers. Releases containing only small files are entirely static. Use `wrangler pages dev build/pages` to preview a release that uses the Worker.
 
 ## Not yet
 

@@ -11,13 +11,13 @@ export function fakeGpu() {
   const pass = () => ({
     setBindGroup(index, group) { frame.groups.push(group.label); },
     setPipeline() {}, setVertexBuffer() {}, setIndexBuffer() {}, setScissorRect() {},
-    draw() {}, drawIndexed() {}, drawIndexedIndirect() {}, end() {},
+    dispatchWorkgroups() {}, draw() {}, drawIndexed() {}, drawIndexedIndirect() {}, end() {},
   });
   const device = {
     limits: {maxStorageBufferBindingSize: 128 * 1024 * 1024},
     createBuffer: object, createTexture: object, createSampler: object, createShaderModule: object,
-    createRenderPipeline: object, createBindGroup: object,
-    createCommandEncoder: () => ({beginRenderPass: pass, copyBufferToBuffer() {}, copyTextureToBuffer() {},
+    createComputePipeline: object, createRenderPipeline: object, createBindGroup: object,
+    createCommandEncoder: () => ({beginRenderPass: pass, beginComputePass: pass, copyBufferToBuffer() {}, copyTextureToBuffer() {},
                                   copyTextureToTexture() {}, finish: () => ({})}),
     queue: {
       writeBuffer(buffer, offset, data) { frame.writes.set(buffer.label, new Uint8Array(data)); },

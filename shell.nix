@@ -24,7 +24,7 @@ let
   });
 
   # WebGPU for Node is Dawn's own binding, dawn.node, from npm's webgpu
-  # package, which package.json pins and `make fetch` installs. On Linux,
+  # package, which package.json pins and `npm ci` installs. On Linux,
   # Dawn opens the Vulkan loader by name, which finds the GPU's driver
   # where the system keeps it; NixOS keeps no loader where the dynamic
   # linker looks, so the shell names nixpkgs'. A machine without a GPU,
@@ -55,6 +55,7 @@ pkgs.mkShell {
       rustup
       nodejs_26
       mdbook
+      python3
       tree-sitter
       binaryen
     ]

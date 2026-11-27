@@ -1,12 +1,6 @@
 # Rasterized graphics
 
-Middleware for drawing: composable pipelines and packers whose interfaces
-are buffers and textures, in WebGPU's own terms. The application decides
-what to pack, when to copy and how to stitch passes together; nothing hides
-behind a renderer object, and a pipeline's interface is a `Pod` record that
-changes when the pipeline does. Hearsay draws 2D quads from an atlas, and
-Siegework a 3D frame of meshes into a G-buffer lit by the sun
-([WebGPU design](../graphics/plan.md)).
+Games and tools use `(snail shell graphics renderer)` to manage models, scenes, environments and frame output. Supplying an output port in `RendererConfig` records commands that another renderer can replay. The same renderer supports glTF meshes, Siegework's lit instances and Hearsay's orthographic sprites. Its component libraries below expose vertex formats, passes, atlas composition and presentation. [Forward rendering and API tracing](../graphics/rasterizer.md).
 
 ## `(snail shell graphics atlas)`
 
@@ -43,14 +37,7 @@ commands run, and its instance buffer grows in powers of two.
 
 ## `(snail shell graphics mesh)`
 
-Meshes as tables: one geometry table holding eight shapes' vertices and
-indices (`Box`, `Pyramid`, `Prism`, `Sphere`, `Tile`, `Tetrahedron`,
-`Octahedron`, `Upright`), each standing on y = 0 in the unit cell, written
-once by `make-geometry`; an `Instance` table of `Pod` records grouped by
-shape; and an indirect draw for each shape from its own first instance,
-which the `indirect-first-instance` feature allows, since core WebGPU has
-no multi-draw. `upload-batch` makes a batch's buffers when it changes,
-`draw-meshes` draws it, and `release-batch` lets it go.
+The geometry table holds eight shapes (`Box`, `Pyramid`, `Prism`, `Sphere`, `Tile`, `Tetrahedron`, `Octahedron` and `Upright`). Each stands on y = 0 in the unit cell. `make-geometry` uploads the shared vertex and index buffers once. `upload-batch` groups instances by shape and uploads the instance buffer. The draw ranges stay on the CPU. `draw-meshes` issues one direct indexed draw per populated shape with its first instance and count. `release-batch` frees the instance buffer.
 
 An instance carries where it is and where it was, for motion, its yaw,
 scale, glow, color, metalness and roughness, whether it turns to face the
@@ -102,6 +89,6 @@ elapsed. It starts back from a scene's box with `fly-over`, or where it is
 put with `fly-at` and `fly-toward`; `fly-eye`, `fly-target`, `fly-fov` and
 `fly-exposure` say where it is and how it sees, and `fly-camera` is the
 rasterizer's camera. `upright` stands a scene whose up is another way. The
-path tracer's viewer and the splats viewer share it.
+glTF viewer and the splats viewer share it.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/fly.sld)

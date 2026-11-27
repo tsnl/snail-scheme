@@ -14,24 +14,46 @@
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readFile, rm, stat, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
+import {blobPartSize, partPath} from '../host/browser/load.mjs';
 
 const execute = promisify(execFile), root = process.argv[2];
-const archive = await readFile(join(root, 'tests/programs/data/notes.zip'));
+const sample = await readFile(join(root, 'tests/programs/data/notes.zip'));
 
 // The archive's end, from its directory on: Zip64's end record, 56 bytes
 // before its locator, says where the directory starts.
-const record = archive.length - 22 - 20 - 56;
-const end = archive.subarray(Number(archive.readBigUInt64LE(record + 48)));
+const record = sample.length - 22 - 20 - 56;
+const end = sample.subarray(Number(sample.readBigUInt64LE(record + 48)));
 const pin = createHash('sha256').update(end).digest('hex');
 
 // What the server was asked for, as `METHOD RANGE PATH`.
+// A classic ZIP with long per-member comments gives us a real multipart
+// directory without allocating a large asset or adding it to the repository.
+function commentedArchive() {
+  const locals = [], directory = [], count = Math.ceil(blobPartSize / 65535);
+  let offset = 0;
+  for (let i = 0; i < count; i++) {
+    const name = Buffer.from(String(i)), local = Buffer.alloc(30 + name.length);
+    local.writeUInt32LE(0x04034b50); local.writeUInt16LE(20, 4); local.writeUInt16LE(name.length, 26); name.copy(local, 30);
+    const header = Buffer.alloc(46 + name.length + 65535);
+    header.writeUInt32LE(0x02014b50); header.writeUInt16LE(20, 4); header.writeUInt16LE(20, 6);
+    header.writeUInt16LE(name.length, 28); header.writeUInt16LE(65535, 32); header.writeUInt32LE(offset, 42); name.copy(header, 46);
+    locals.push(local); directory.push(header); offset += local.length;
+  }
+  const entries = Buffer.concat(directory), trailer = Buffer.alloc(22);
+  trailer.writeUInt32LE(0x06054b50); trailer.writeUInt16LE(count, 8); trailer.writeUInt16LE(count, 10);
+  trailer.writeUInt32LE(entries.length, 12); trailer.writeUInt32LE(offset, 16);
+  const end = Buffer.concat([entries, trailer]);
+  return {bytes: Buffer.concat([...locals, end]), end};
+}
+let oversized;
 const asked = [];
 const server = createServer((request, response) => {
+  const archive = request.url === '/oversized.zip' ? oversized.bytes : sample;
   const range = /^bytes=(\d+)-(\d+)$/.exec(request.headers.range ?? '');
   asked.push(`${request.method} ${request.headers.range ?? '-'} ${request.url}`);
   if (request.url === '/missing.zip') return response.writeHead(404).end();
@@ -127,6 +149,26 @@ try {
 
   await put('src/sample/notes.sld', recipe(url('missing.zip'), `${pin.slice(0, 63)}y`));
   assert.match(await failure(), /cannot read \S+missing\.zip: the server answers 404/);
+  oversized = commentedArchive();
+  const bigPin = createHash('sha256').update(oversized.end).digest('hex');
+  const disk = join(cache, 'snail-scheme', 'zip');
+  await writeFile(join(disk, bigPin + '.end'), oversized.end);
+  await put('src/sample/notes.sld', recipe(url('oversized.zip'), bigPin)
+    .replace('(not (string=? name "notes/empty.txt"))', '#f'));
+  asked.length = 0;
+  assert.equal((await run()).stdout, '');
+  assert.deepEqual(asked, [], 'the legacy archive end migrates offline');
+  assert.equal(await readFile(join(disk, bigPin + '.end.size'), 'utf8'), String(oversized.end.length));
+  await assert.rejects(stat(join(disk, bigPin + '.end')), {code: 'ENOENT'});
+  const leading = join(disk, partPath(bigPin, 0)), trailing = join(disk, partPath(bigPin, 1));
+  assert.equal((await stat(leading)).size, blobPartSize);
+  assert.deepEqual(await readFile(trailing), oversized.end.subarray(blobPartSize));
+  assert.equal((await run()).stdout, '');
+  assert.deepEqual(asked, [], 'the new parts reopen offline');
+  await writeFile(trailing, Buffer.alloc(oversized.end.length - blobPartSize));
+  assert.equal((await run()).stdout, '');
+  assert.equal(asked.length, 3, 'a corrupt part refetches the verified archive end');
+  assert.deepEqual(await readFile(trailing), oversized.end.subarray(blobPartSize));
 } finally {
   server.close();
   await rm(workspace, {recursive: true, force: true});

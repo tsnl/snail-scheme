@@ -7,6 +7,10 @@
 (define-library (snail shell compiler sha256)
   (export
    sha256
+   Sha256
+   sha256-start
+   sha256-update
+   sha256-finish
    bytes->hex)
   (import
    (snail core base))
@@ -93,14 +97,12 @@
     ;; blocks. The blocks the message fills are read from it in place;
     ;; only the last one or two, which the padding reaches, are made.
 
-    (define (tail-blocks (message Bytes)) (→ Bytes)
-      (let* ((length (array-length message))
-             (start (* 64 (quotient length 64)))
-             (total (if (< (- length start) 56) 64 128)))
+    (define (tail-blocks (suffix Bytes) (length I64)) (→ Bytes)
+      (let* ((n (array-length suffix)) (total (if (< n 56) 64 128)))
         (array-generate total
                         (lambda (index)
-                          (cond ((< (+ start index) length) (array-ref message (+ start index)))
-                                ((= (+ start index) length) (i32->u8 128))
+                          (cond ((< index n) (array-ref suffix index))
+                                ((= index n) (i32->u8 128))
                                 ((< index (- total 8)) (i32->u8 0))
                                 (else (length-byte length (- (- total 1) index))))))))
 
@@ -168,19 +170,37 @@
                              (bytes Bytes)
                              (blocks I64))
       (→ (Array I64))
-      (fold-left (lambda (state block) (compress constants state (schedule bytes (* 64 block))))
-                 state (iota blocks)))
+      (let loop ((i 0) (words state))
+        (if (= i blocks) words
+            (loop (+ i 1) (compress constants words (schedule bytes (* 64 i)))))))
 
     ;; ---- Digests ----
 
     ;; The final state's eight words, big-endian.
 
+    (record Sha256
+      ((words (Array I64))
+       (suffix Bytes)
+       (size I64)))
+
+    (define (sha256-start) (→ Sha256)
+      (new Sha256 (words initial-state) (suffix (make-array 0 (i32->u8 0))) (size 0)))
+
+    (define (sha256-update (state Sha256) (input Bytes)) (→ Sha256)
+      (let* ((tail (● state suffix))
+             (bytes (if (= (array-length tail) 0) input (array-append tail input)))
+             (n (array-length bytes)) (blocks (quotient n 64)))
+        (new Sha256 (words (compress-blocks round-constants (● state words) bytes blocks))
+             (suffix (subarray bytes (* 64 blocks) n))
+             (size (+ (● state size) (array-length input))))))
+
     (define (sha256 (message Bytes)) (→ Bytes)
-      (let* ((constants round-constants) (tail (tail-blocks message))
-             (state (compress-blocks constants (compress-blocks constants initial-state
-                                                                message
-                                                                (quotient (array-length message)
-                                                                          64))
+      (sha256-finish (sha256-update (sha256-start) message)))
+
+    (define (sha256-finish (hash Sha256)) (→ Bytes)
+      (let* ((tail (tail-blocks (● hash suffix) (● hash size)))
+             (state (compress-blocks round-constants
+                                     (● hash words)
                                      tail
                                      (quotient (array-length tail) 64))))
         (array-generate 32
@@ -209,12 +229,22 @@
     (import
      (snail stage0 testing))
     (begin
+      (define (streamed-hex)
+        (let ((bytes (make-array 64 (i32->u8 120))))
+          (bytes->hex
+           (sha256-finish
+            (fold-left sha256-update (sha256-start)
+                       (list (subarray bytes 0 3) (subarray bytes 3 3)
+                             (subarray bytes 3 63) (subarray bytes 63 64)))))))
+
       ;; The FIPS 180-2 examples, and lengths on either side of the
       ;; padding's block boundaries, where the length moves to a second
       ;; tail block or the message fills a block of its own.
       (define test-sha256
-        (lambda () (expect (hex "")
-                           "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        (lambda () (expect (streamed-hex)
+                           "7ce100971f64e7001e8fe5a51973ecdfe1ced42befe7ee8d5fd6219506b5393c")
+                (expect (hex "")
+                        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
                 (expect (hex "abc")
                         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
                 (expect (hex "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")

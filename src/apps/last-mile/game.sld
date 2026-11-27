@@ -9,6 +9,7 @@
           (rename TaxiShift Shift)
           Graphics
           Graphics-resolution-set
+          Graphics-samples-set
           Graphics-bounces-set
           render-resolutions
           bounce-counts
@@ -44,7 +45,6 @@
    (snail core base)
    (only (snail core forms) case-id)
    (snail shell wire)
-   (only (snail shell graphics trace render) most-bounces)
    (snail shell math)
    (snail shell game physics)
    (snail shell game atlas)
@@ -108,7 +108,7 @@
        (samples I32))
       (deriving Serialize Deserialize))
     (define (render-resolutions) (→ (List I32)) (list 240 360 480 720 1080))
-    (define (bounce-counts) (→ (List I64)) (map (lambda (n) (+ n 1)) (iota most-bounces)))
+    (define (bounce-counts) (→ (List I64)) (map (lambda (n) (+ n 1)) (iota 8)))
     (define (preset-graphics (lines I32)) (→ Graphics)
       (new Graphics (resolution lines) (bounces (if (<= lines 360) 1 2)) (samples 1)))
 
@@ -176,7 +176,7 @@
                (let* ((s (ann (deserialize data) TaxiShift)) (g (● s graphics)))
                  (unless (and (member? (● g resolution) (render-resolutions))
                               (member? (● g bounces) (bounce-counts))
-                              (or (= (● g samples) 1) (= (● g samples) 2)))
+                              (member? (● g samples) (list 1 2 4)))
                    (set! (● s graphics) (preset-graphics 720)))
                  s)))))
     (define (clock-minute (w Game))

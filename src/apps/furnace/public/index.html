@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>White furnace · Snail Scheme</title>
+<link rel="stylesheet" href="./furnace.css">
+<body>
+  <main>
+    <header>
+      <h1>White furnace</h1>
+      <p>A white sphere lit equally from every direction. A lossless reflector returns exactly as much light as it receives.</p>
+    </header>
+    <p id="failure" role="alert" hidden></p>
+    <canvas hidden width="1" height="1" id="device"></canvas>
+    <div id="instrument">Preparing WebGPU…</div>
+    <details>
+      <summary>How to read the test</summary>
+      <p>Incoming radiance is 1.000 in every channel. The two outlines mark the 16 × 16 pixel patches used by the meters. Each meter gives the mean and its three scene-linear RGB components. The difference view compares each pixel’s mean RGB with 1.000. Its color scale saturates at a difference of one unit in either direction.</p>
+      <p>The sphere reflects a uniformly white environment. In the single-scattering GGX model, fully rough white metal viewed straight on returns about 0.307. The remaining energy would scatter between microscopic facets.</p>
+    </details>
+  </main>
+  <script type="module">
+    import {startApplication} from './host.mjs';
+    const failure = document.getElementById('failure');
+    const instrument = document.getElementById('instrument');
+    let app;
+    function failed(message) {
+      failure.hidden = false;
+      failure.textContent = app?.errors.at(-1) ?? message;
+      instrument.hidden = true;
+    }
+    addEventListener('error', event => failed(event.message));
+    if (!navigator.gpu) failed('This browser does not support WebGPU.');
+    else {
+      try {
+        app = await startApplication({canvas: document.getElementById('device'),
+          overlay: instrument, storageKey: 'white-furnace'});
+        if (!failure.hidden) failed(failure.textContent);
+      } catch (error) { failed(error.message); }
+    }
+  </script>
+</body>
+</html>

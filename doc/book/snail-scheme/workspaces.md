@@ -6,9 +6,10 @@ A workspace is a folder that holds `src/`. Every library lives under
 
 Each workspace folder in a build is a **layer**. Its root manifest,
 `snail-scheme-workspace.datum`, can name one local base layer with
-`extends`. Their `src/` directories form one library tree. If `app`
-extends `team` and `team` extends `snail-scheme`, every import in the
-app's build searches `app/src/`, then `team/src/`, then `snail-scheme/src/`.
+`extends`. The layers' `src/` directories form one library tree. If
+`app` extends `team` and `team` extends `snail-scheme`, the workspace
+search order for every import in the app's build is `app/src/`,
+`team/src/`, then `snail-scheme/src/`.
 
 This repository declares `(workspace)`. A private app in a sibling checkout
 can extend it with this declaration.
@@ -58,9 +59,10 @@ one module, `NAME.wasm`, NAME being the script's file name without its
 extension: the whole program compiled as one and fused with its runtime.
 
 Each file the program links ([linked files](types.md#linked-files)) is an
-object of the workspace's store,
-`WORKSPACE/build/.snail-store/sha256/AB/DIGEST`, named for the SHA-256 of
-its bytes and sharded by its first two hex digits. Every build of every
+object of the workspace's store, `WORKSPACE/build/.snail-store/`, named
+for the SHA-256 of its complete contents. Up to and including 25 MiB it occupies
+`sha256/AB/DIGEST`. Larger files occupy numbered parts under
+`chunks/26214400/AB/DIGEST/`. Every build of every
 script shares the store: an object is written once and never rewritten.
 The program reads its files from `store/` beside its module, at the same
 paths, where each is another name for the store's object, a hard link (a
@@ -139,7 +141,7 @@ package depends on npm's `webgpu` and `@napi-rs/canvas` packages, at the version
 the repository's `package.json` pins, and loads each when it is first
 needed, at the program's first `request-device` and its first
 `decode-image` ([WebGPU on Node](../graphics/plan.md#webgpu-on-node)).
-Inside the repository, Node finds the copies `make fetch` installed;
+Inside the repository, Node finds the copies `npm ci` installed;
 elsewhere, `npm install` in the package fetches them. Other programs
 depend on nothing.
 

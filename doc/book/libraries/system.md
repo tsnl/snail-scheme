@@ -70,7 +70,15 @@ that its file ships ([linked files](../snail-scheme/types.md#linked-files)).
 
 On HTTPS or localhost the browser looks up each digest in Cache Storage, promotes verified entries from the earlier IndexedDB cache, and counts incoming response bytes when it needs a download. An interrupted or invalid response never enters the cache. If storage fills up, the current run can still use the verified response. The page, Wasm and small catalog load on navigation. An offline application shell requires separate handling. Saved application state continues to use IndexedDB.
 
+Above 25 MiB the browser fetches numbered parts in order. Progress counts bytes across part boundaries. The browser checks each length and the SHA-256 of the complete file before storing it. Each cache entry holds at most 26,214,400 bytes. Writing part zero last marks a multipart entry complete. A retry after an interrupted download starts with the first part. Older whole-file entries and 25,000,000-byte parts migrate on read, including offline. When the first request returns HTTP 404, the browser can try an older publisher’s layout.
+
 For a Snail HTTP server, call `static-resource-service` from `(snail shell static-resource serve)` once with the server’s `Resources` and the linked path/resource pairs for the bundle. The returned function takes the request method and decoded path segments relative to the mount. It answers `Some Response` for a known catalog or object on GET or HEAD, and `None` lets the server try its next route. The HTTP exchange writes the correct HEAD framing. [Publishing a catalog](../snail-scheme/scripts.md#static-resource-catalogs) · [Linking a client build into a server](../snail-scheme/workspaces.md#embedding-a-build)
+
+## `(snail shell blob-store)`
+
+The compiler, build tools and archive cache share a disk format for immutable bytes. A file at or below 25 MiB occupies one object. Larger files occupy as many numbered parts as needed under the digest of the complete file. An exact multiple has a full final part.
+
+`store-file!` accepts the filesystem, store root, source path, byte length and an optional expected SHA-256. It reads a file in bounded pieces and returns its hexadecimal digest. Supplying the known digest lets a build reuse existing parts. `put-blob!` accepts an in-memory byte array. `read-blob` takes a digest and byte length and returns the verified bytes when available. Reading a complete file into a Snail byte array is subject to the runtime’s array length limit. Programs can fold a file one buffer at a time with `fold-file-chunks` from `(snail core io)`.
 
 ## `(snail shell process)`
 
@@ -147,7 +155,8 @@ takes, the path of its file in the cache, reading those not yet there
 eight at a time, checked against the pinned directory's CRC-32:
 
 ```text
-CACHE/zip/PIN.end    the archive's end, as pinned
+CACHE/zip/PIN.end       a pinned archive end up to 25 MiB
+CACHE/zip/PIN.end.size  the byte length of a larger end in CACHE/zip/store/
 CACHE/zip/PIN/NAME   each member read, by its name in the archive
 ```
 

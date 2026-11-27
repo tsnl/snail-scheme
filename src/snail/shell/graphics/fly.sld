@@ -3,7 +3,7 @@
 ;; changes its speed; [ and ] darken and brighten the exposure by half a
 ;; stop. It starts back from a scene's box, looking at its middle, or
 ;; where it is put; `upright` stands a scene whose up is another way. The
-;; path tracer's viewer and the splats' share it.
+;; glTF viewer and the splats' share it.
 (define-library (snail shell graphics fly)
   (export
    Fly

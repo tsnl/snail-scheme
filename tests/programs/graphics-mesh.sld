@@ -1,4 +1,4 @@
-;; The geometry table's shapes and a batch's indirect draws, through the
+;; The geometry table's shapes and a batch's indexed draws, through the
 ;; recording handler: each shape's triangles, and one draw per shape that
 ;; has instances, from its own first instance.
 (import
@@ -60,14 +60,14 @@
          (encoder ((● gpu create-command-encoder)))
          (pass ((● gpu begin-render-pass) encoder
                 (new RenderPassDescriptor
-                  (colors (list (Some (new ColorAttachment
-                                        (view
-                                         (view-of gpu
-                                                  (● ((● gpu current-texture))
-                                                     texture)
-                                                  1))
-                                        (load (Keep))
-                                        (store #t)))))
+                  (colors (list (Some (new ColorAttachment (resolve (None))
+                                           (view
+                                            (view-of gpu
+                                                     (● ((● gpu current-texture))
+                                                        texture)
+                                                     1))
+                                           (load (Keep))
+                                           (store #t)))))
                   (depth (None))))))
     (draw-meshes gpu pass geometry uploaded)
     ((● gpu end-pass) pass)

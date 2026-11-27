@@ -17,7 +17,7 @@ after = ["links"]
 renderers = ["html"]
 
 [output.html]
-site-url = "/snail-scheme/"
+site-url = "/"
 additional-css = ["doc/highlight.css"]
 git-repository-url = "https://github.com/tsnl/snail-scheme"
 edit-url-template = "https://github.com/tsnl/snail-scheme/edit/main/doc/book/{path}"

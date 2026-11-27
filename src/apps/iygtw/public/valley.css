@@ -1,0 +1,51 @@
+:root { color-scheme: dark; color: #fff5dc; background: #293f39; font: 14px "Source Sans 3", system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; overflow: hidden; }
+#view { position: fixed; inset: 0; width: 100vw; height: 100dvh; display: block; outline: none; }
+#overlay { position: fixed; inset: 0; pointer-events: none; }
+button, summary { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, summary:focus-visible { outline: 2px solid #ffdc98; outline-offset: 3px; }
+button { background: transparent; border: 0; }
+.waymark, .options, .controls { display: none; }
+body[data-ready] .waymark { display: block; position: fixed; left: clamp(20px, 4vw, 64px); bottom: clamp(20px, 4vh, 48px); text-shadow: 0 1px 6px #121f17, 0 2px 24px #13261f; }
+body[data-ready] #overlay { background: linear-gradient(0deg, #13251f77, transparent 19%); }
+.place { font: italic 500 clamp(29px, 3.2vw, 49px)/1.06 "Baskervville", Georgia, serif; letter-spacing: -.045em; margin: 0 0 7px; }
+.readings { display: flex; align-items: center; gap: 12px; font-size: 12px; letter-spacing: .055em; font-weight: 570; }
+.speed { border-left: 1px solid #fff5dc88; padding-left: 12px; font-variant-numeric: tabular-nums; }
+body[data-ready] .options, body[data-ready] .controls { display: flex; position: fixed; right: clamp(16px, 3vw, 48px); pointer-events: auto; background: #263931dd; border: 1px solid #eadcbd66; border-radius: 4px; }
+.options { top: clamp(13px, 3vh, 36px); }
+.options button { padding: 7px 12px; font-size: 12px; }
+.options button + button { border-left: 1px solid #f0e8d344; }
+.options button:hover, summary:hover { background: #dee1c41f; }
+body[data-ready] .controls { display: block; bottom: clamp(16px, 3vh, 36px); font-size: 12px; }
+.controls summary { padding: 7px 13px; }
+.controls[open] summary { border-bottom: 1px solid #eadcbd55; }
+.controls dl { margin: 12px 14px; display: grid; grid-template-columns: auto auto; gap: 6px 17px; }
+.controls dd { margin: 0; text-align: right; color: #fff; }
+.controls a { display: inline-block; margin: 0 14px 12px; color: #e9e5cb; }
+#opening { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; background: radial-gradient(ellipse at 40% 25%, #587062, #334d43 50%, #243a34); }
+#opening[hidden], [hidden] { display: none; }
+.opening-type { max-width: min(90vw, 620px); padding-bottom: 76px; }
+.opening-title { margin: 0; font: italic 400 clamp(36px, 6vw, 72px)/1.12 "Baskervville", Georgia, serif; letter-spacing: -.045em; }
+#status-text { font-size: 13px; margin: 12px auto 0; }
+#retry { border: 1px solid; border-radius: 3px; padding: 6px 12px; margin-top: 12px; }
+.download { position: fixed; z-index: 2; left: 50%; top: calc(50% + 50px); transform: translateX(-50%); width: min(78vw, 310px); display: grid; gap: 8px; text-align: center; font-size: 12px; }
+#overlay:has(.download) { z-index: 1; }
+.download-bar { width: 100%; height: 4px; border: 0; appearance: none; background: #708379; }
+.download-bar::-webkit-progress-bar { background: #708379; }
+.download-bar::-webkit-progress-value { background: #f4cf89; }
+body[data-ready] .download, body[data-error] .download { display: none; }
+body[data-ready] .controls { z-index: 2; }
+@media(max-width: 540px) { .options button { padding: 6px 8px; } .waymark { max-width: 62vw; } }
+.pause-screen { position: fixed; inset: 0; z-index: 4; display: grid; place-items: center; background: #12201980; pointer-events: auto; padding: 16px; }
+.pause-screen[hidden] { display: none; }
+.pause-panel { width: min(100%, 25rem); max-height: 95dvh; overflow: auto; background: #253a31fa; border: 1px solid #b7b79a; border-radius: 5px; box-shadow: 0 10px 65px #0a140d66; padding: clamp(18px, 4vw, 32px); }
+.pause-panel h2 { margin: 0 0 1rem; font: italic 400 2.2rem/1.1 "Baskervville", Georgia, serif; }
+.pause-panel fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.pause-panel legend { color: #dccba6; font-size: .9rem; letter-spacing: .04em; padding: 0 0 .5rem; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .48rem 0; border-top: 1px solid #b2b59b44; }
+.setting select { font: inherit; color: inherit; background: #364c40; border: 1px solid #b5b99888; border-radius: 3px; padding: .33rem; min-width: 6.1rem; }
+.pause-actions { display: flex; gap: .5rem; margin-top: 1.15rem; }
+.pause-actions button { padding: .55rem .7rem; border: 1px solid #d2cfb57a; border-radius: 3px; }
+.pause-actions .resume { background: #f1ddb0; color: #24372c; border-color: #f1ddb0; }
+body:has(.pause-screen:not([hidden])) :is(.options, .controls) { visibility: hidden; }
