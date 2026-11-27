@@ -144,11 +144,14 @@ equations to their least answer. A suspension is named by its prompt when a
 top-level value holds it, so a `with-prompt` of that value is known to
 catch it; any other prompt is known only by whether anything may resume it.
 
-Lowering uses a subset of the same expression language, not a separate CPS
-language. A call that may yield stays in tail position or is named by a
-`let`; operands that execute before it are named first. The backend can
-therefore test for a pending yield before executing the rest of the
-expression. Code that never suspends is left as it was.
+Preparation keeps tail calls in tail position. It names each other call
+that may yield and the operands that must run before it. A marked
+binding has two possible forms. An abort-only call unwinds on a yield. A
+call that may resume gets a **resume routine** whose argument is the
+call's result. Preparation records the locals the routine reads, in
+first-use order, with their specialized types. When it reaches another
+resume site, that site's recorded inputs tell it which locals the rest
+of the path needs.
 
 ### WasmGC emission
 
@@ -200,6 +203,14 @@ hash table; no module globals are involved. The Chez adapter implements the same
 semantics. See [cached functions](terms.md#cached-functions).
 
 ### Suspension and frames
+
+The normal path runs straight through a successful call. The Wasm emitter
+compiles each prepared resume routine on first use and reuses its function
+and frame type throughout that specialized definition. Its unique local
+binder names the site. On the resumed path, reaching the next
+resumable call transfers control to its own routine. For a chain of 32
+such calls, the emitter builds 32 resume bodies. Each suspended invocation
+stores its own live values in a frame.
 
 `suspend` sets a yield record: the prompt it is aimed at, its value, and
 whether anything may resume it. As execution returns through named yield
