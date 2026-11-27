@@ -1,6 +1,9 @@
 ;; Siegework: the page's scene, from its game, view and HUD.
 (import
  (snail core base)
+ (only (snail shell fetch) Fetch)
+ (only (snail shell files) FilePicker)
+ (snail shell graphics renderer page)
  (snail shell app)
  (snail shell wire)
  (apps siegework game)
@@ -12,11 +15,18 @@
  (only (snail shell page) PageStorage)
  (only (snail core io) Clock))
 
-(define (main (gpu Gpu) (dom Dom) (events Events) (storage PageStorage)) (→ Unit)
+(define (main (fetch Fetch)
+              (picker FilePicker)
+              (gpu Gpu)
+              (dom Dom)
+              (events Events)
+              (storage PageStorage))
+  (→ Unit)
   (run-scene dom events storage (new SceneHandler
                                   (initialize new-game)
                                   (update update-game)
-                                  (start start-frames)
+                                  (start (lambda ()
+                                           (configured-frames (page-renderer-config fetch picker))))
                                   (draw (lambda (game frames)
                                           (draw-frame gpu (view-game game) frames)))
                                   (hud game-hud)

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats last-mile pages
+.PHONY: format check test test-browser test-gpu bootstrap unicode-tables generated-unicode site last-mile siegework hearsay viewer splats furnace iygtw iygtw-art pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -24,7 +24,12 @@ test-browser:
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
 	node tests/browser/gpu.mjs "$(CURDIR)"
+	node tests/browser/furnace.mjs "$(CURDIR)"
+	node tests/browser/static-resources.mjs "$(CURDIR)"
+	node tests/browser/scene-recording.mjs "$(CURDIR)"
+	node tests/browser/orthographic.mjs "$(CURDIR)"
 	node tests/browser/last-mile.mjs "$(CURDIR)"
+	node tests/browser/iygtw.mjs "$(CURDIR)"
 
 # The GPU checks on Node, on the GPU Dawn finds (host/native/gpu.mjs), or
 # on the CPU through lavapipe where there is none, as in CI (shell.nix).
@@ -60,13 +65,21 @@ generated-unicode:
 
 # Each application is a script, src/apps/NAME/main.scm, built into
 # build/src/apps/NAME/main.
-site: siegework hearsay viewer splats last-mile
+site: last-mile siegework hearsay viewer splats iygtw furnace
 
-siegework:
-	./snail-scheme build --release --target browser src/apps/siegework/main.scm
+BLENDER ?= blender
+
+iygtw-art:
+	$(BLENDER) --background -noaudio --factory-startup --python-exit-code 1 --python src/blender/export_village.py
+
+iygtw:
+	./snail-scheme build --release --target browser src/apps/iygtw/main.scm
 
 last-mile:
 	./snail-scheme build --release --target browser src/apps/last-mile/main.scm
+
+siegework:
+	./snail-scheme build --release --target browser src/apps/siegework/main.scm
 
 hearsay:
 	./snail-scheme build --release --target browser src/apps/hearsay/main.scm
@@ -74,24 +87,30 @@ hearsay:
 viewer:
 	./snail-scheme build --release --target browser src/apps/viewer/main.scm
 
+furnace:
+	./snail-scheme build --release --target browser src/apps/furnace/main.scm
+
 splats:
 	./snail-scheme build --release --target browser src/apps/splats/main.scm
 
-# The GitHub Pages site in build/pages: the book, with each published
+# The public site in build/pages contains the book and each published
 # application at play/NAME/. The glTF viewer and Splats ship no scene:
 # the viewer's samples are links to where they are published, and Splats
 # opens on procedural rings until given a trained scene's files. Hearsay
 # carries its LPC art's credits, read from the packs when it is built,
 # and shows them from its menu.
 # Train stays unpublished: its page trains on a dataset served beside it.
-PAGES_APPS = siegework viewer splats hearsay last-mile
+PAGES_APPS = last-mile siegework viewer splats hearsay iygtw furnace
 
 pages: $(PAGES_APPS)
-	"$(MDBOOK)" build --dest-dir build/pages
+	$(RM) -r build/pages-input
+	"$(MDBOOK)" build --dest-dir build/pages-input
+	cp host/cloudflare/_redirects build/pages-input/_redirects
 	for app in $(PAGES_APPS); do \
-	  mkdir -p build/pages/play/$$app && \
-	  cp -R build/src/apps/$$app/main/. build/pages/play/$$app/ && \
-	  test -f build/pages/play/$$app/main.wasm || exit 1; \
+	  mkdir -p build/pages-input/play/$$app && \
+	  cp -R build/src/apps/$$app/main/. build/pages-input/play/$$app/ && \
+	  test -f build/pages-input/play/$$app/main.wasm || exit 1; \
 	done
+	python3 host/cloudflare/pack.py build/pages-input build/pages
 	test -f build/pages/index.html
 	test -f build/pages/games/siegework.html

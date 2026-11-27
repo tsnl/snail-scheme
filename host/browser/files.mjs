@@ -14,10 +14,13 @@
 // path is relative to the folder: a folder chosen or dropped alone lists
 // its contents, not itself.
 
+import {byteView} from './load.mjs';
+
 export const FILES = 17;
 
 export function createFiles(runtime) {
-  let latest = [], listed = [], reply = [];
+  let latest = [], listed = [], reply = [], nextDownload = 1;
+  const downloads = new Map();
 
   function arrived(files) {
     latest = files;
@@ -26,6 +29,11 @@ export function createFiles(runtime) {
   function reset() {
     for (const {address} of listed) URL.revokeObjectURL(address);
     latest = listed = [];
+    for (const d of downloads.values()) {
+      d.link.remove();
+      if (d.url) URL.revokeObjectURL(d.url);
+    }
+    downloads.clear();
   }
 
   // ---- Choosing ----
@@ -96,10 +104,43 @@ export function createFiles(runtime) {
       .catch(error => console.error('cannot read the dropped files', error));
   });
 
+  // A text port appends to browser-owned chunks. Construct the downloadable
+  // Blob on a user click, after a complete command has returned to the loop.
+  function openDownload(address) {
+    const name = new TextDecoder().decode(byteView(runtime.execution.entry.memory, address));
+    const id = nextDownload++, link = document.createElement('a');
+    const file = {link, chunks: [], pending: [], size: 0, url: null};
+    link.download = name;
+    link.href = '#';
+    link.textContent = 'Download ' + name;
+    link.style.cssText = 'position:fixed;z-index:10000;right:1rem;top:1rem;background:#202629;color:white;padding:.5rem;font:14px system-ui';
+    link.addEventListener('click', () => {
+      if (file.url) URL.revokeObjectURL(file.url);
+      file.url = URL.createObjectURL(new Blob([...file.chunks, ...file.pending], {type: name.endsWith('.jsonl') ? 'application/x-ndjson' : 'text/plain;charset=utf-8'}));
+      link.href = file.url;
+    });
+    document.body.append(link);
+    downloads.set(id, file);
+    return id;
+  }
+  function writeDownload(id, address) {
+    const file = downloads.get(id);
+    const bytes = byteView(runtime.execution.entry.memory, address).slice();
+    file.pending.push(bytes);
+    file.size += bytes.length;
+    if (file.size >= 1024 * 1024) {
+      file.chunks.push(new Blob(file.pending));
+      file.pending = [];
+      file.size = 0;
+    }
+  }
+
   // ---- Imports ----
 
   const imports = {
     'open-picker': openPicker,
+    'open-download': openDownload,
+    'write-download': writeDownload,
     listing() {
       for (const {address} of listed) URL.revokeObjectURL(address);
       listed = latest.map(({path, file, address}) => ({path, address: address ?? URL.createObjectURL(file)}));

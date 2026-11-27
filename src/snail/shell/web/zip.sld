@@ -12,7 +12,8 @@
 ;; a build that finds it there needs no network. The machine's cache is
 ;; shared by every workspace on it:
 ;;
-;;   CACHE/zip/PIN.end    the archive's end, as pinned
+;;   CACHE/zip/PIN.end    a small pinned archive end
+;;   CACHE/zip/PIN.end.size and CACHE/zip/store/    a multipart end
 ;;   CACHE/zip/PIN/NAME   each member read, by its name in the archive
 ;;
 ;; CACHE is snail-scheme in $XDG_CACHE_HOME, or ~/.cache/snail-scheme. A
@@ -34,6 +35,8 @@
    (snail core io)
    (snail shell web)
    (snail shell zip)
+   (only (snail shell blob-store) blob-part-size put-blob! read-blob)
+   (only (snail shell utf8) string->utf8)
    (only (snail shell compiler sha256) sha256 bytes->hex))
   (begin
 
@@ -100,19 +103,42 @@
     ;; else the web's, which must.
 
     (define (archive-end (fs Fs) (web Web) (archive WebZip) (path String)) (→ Bytes)
-      (match (if (file-exists? fs path) (pinned archive (read-bytes fs path)) (None))
-        ((Some end) end)
+      (let ((store (string-append (parent path) "/store")))
+        (match (cached-end fs archive path store)
+          ((Some end) end)
+          ((None)
+           (let ((end (fetched-end web archive)))
+             (match (pinned archive end)
+               ((Some end) (keep-end! fs path store end) end)
+               ((None) (panic (string-append "the end of " (● archive url) " has the SHA-256 "
+                                             (bytes->hex (sha256 end))
+                                             ", not the pinned "
+                                             (● archive end))))))))))
+
+    (define (cached-end (fs Fs) (archive WebZip) (path String) (store String)) (→ (Option Bytes))
+      (match (match (read-text-file fs (string-append path ".size") 32)
+               ((Ok text) (match (string->i64 text)
+                            ((Some n) (read-blob fs store (● archive end) n)) ((None) (None))))
+               ((Err _) (None)))
+        ((Some end) (Some end))
         ((None)
-         (let ((end (fetched-end web archive)))
-           (match (pinned archive end)
-             ((Some end) (keep! fs path end) end)
-             ((None)
-              (panic (string-append "the end of "
-                                    (● archive url)
-                                    " has the SHA-256 "
-                                    (bytes->hex (sha256 end))
-                                    ", not the pinned "
-                                    (● archive end)))))))))
+         (if (file-exists? fs path)
+             (match (pinned archive (read-bytes fs path))
+               ((Some end)
+                (when (> (array-length end) blob-part-size) (keep-end! fs path store end))
+                (Some end))
+               ((None) (None)))
+             (None)))))
+
+    (define (keep-end! (fs Fs) (path String) (store String) (end Bytes)) (→ Unit)
+      (if (<= (array-length end) blob-part-size) (keep! fs path end)
+          (begin
+            (parsed (put-blob! fs store end))
+            (keep! fs (string-append path ".size") (string->utf8 (show (array-length end))))
+            (match (remove-file fs path)
+              ((Err (NotFound)) (unit))
+              (result
+               (expect-done result (string-append "cannot remove old archive end " path)))))))
 
     (define (pinned (archive WebZip) (end Bytes)) (→ (Option Bytes))
       (if (string=? (bytes->hex (sha256 end)) (● archive end)) (Some end) (None)))

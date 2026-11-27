@@ -133,17 +133,15 @@ Three conventions run through the shell:
 | [`(snail shell graphics splat-train)`](splats.md#snail-shell-graphics-splat-train) | The differentiable splat renderer, as a tensor graph |
 | [`(snail shell graphics splat-fit)`](splats.md#snail-shell-graphics-splat-fit) | Training: a step, densification and the opacity reset |
 
-### Path tracing
+### Forward rendering
 
-| Library | For |
+| Library | Responsibility |
 | --- | --- |
-| [`(snail shell graphics bvh)`](tracing.md#snail-shell-graphics-bvh) | A two-level BVH over triangles, built by the surface area heuristic, and ray queries through it |
-| [`(snail shell graphics environment)`](tracing.md#snail-shell-graphics-environment) | Light from all around: an HDR file or a sky |
-| [`(snail shell graphics gltf)`](tracing.md#snail-shell-graphics-gltf) | glTF 2.0 scenes, read |
-| [`(snail shell graphics animation)`, `(snail shell graphics gltf animation)`](tracing.md#skinned-animation) | Generic rigs, authored clips and glTF skins |
-| [`(snail shell graphics trace scene)`](tracing.md#snail-shell-graphics-trace-scene) | A glTF scene on the device |
-| [`(snail shell graphics svgf)`](tracing.md#snail-shell-graphics-svgf) | A denoiser for one path a pixel |
-| [`(snail shell graphics trace render)`](tracing.md#snail-shell-graphics-trace-render) | A scene path traced to the canvas |
+| `(snail shell graphics gltf)`, `(snail shell graphics gltf animation)` | Parse authored materials, geometry, rigs and clips |
+| `(snail shell graphics forward scene)` | Upload material images, vertex ranges and skin bindings |
+| `(snail shell graphics forward render)` | Draw shadow cascades, opaque and translucent meshes into an owned texture |
+| `(snail shell graphics forward environment)` | Prefiltered sky and directional lighting |
+| `(snail shell graphics forward frame)`, `(snail shell graphics compositor)` | Open a color pass and present its output |
 
 ### Game simulation and stories
 

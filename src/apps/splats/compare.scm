@@ -173,6 +173,7 @@
 (define (cleared (gpu Gpu) (target Target)) (→ RenderPassDescriptor)
   (new RenderPassDescriptor
     (colors (list (Some (new ColorAttachment
+                          (resolve (None))
                           (view (view-of gpu (● target texture) 1))
                           (load (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))))
                           (store #t)))))

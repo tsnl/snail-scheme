@@ -48,18 +48,18 @@
          (encoder ((● gpu create-command-encoder)))
          (pass ((● gpu begin-render-pass) encoder
                 (new RenderPassDescriptor
-                  (colors (list (Some (new ColorAttachment
-                                        (view
-                                         (view-of gpu
-                                                  (● ((● gpu current-texture))
-                                                     texture)
-                                                  1))
-                                        (load (Clear (new Color
-                                                       (red 0.0)
-                                                       (green 0.5)
-                                                       (blue 1.0)
-                                                       (alpha 1.0))))
-                                        (store #t)))))
+                  (colors (list (Some (new ColorAttachment (resolve (None))
+                                           (view
+                                            (view-of gpu
+                                                     (● ((● gpu current-texture))
+                                                        texture)
+                                                     1))
+                                           (load (Clear (new Color
+                                                          (red 0.0)
+                                                          (green 0.5)
+                                                          (blue 1.0)
+                                                          (alpha 1.0))))
+                                           (store #t)))))
                   (depth (None))))))
     ((● gpu write-buffer) buffer 0 (make-array 64 (i32->u8 0)))
     ((● gpu set-pipeline) pass pipeline)

@@ -8,6 +8,7 @@ import {createCanvas, loadImage} from '@napi-rs/canvas';
 import {promisify} from 'node:util';
 import {openBrowser, sleep, until} from './chromium.mjs';
 import {serve} from './static.mjs';
+import {blobPartSize, objectPath, partPath} from '../../host/browser/load.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
 const {stdout} = await promisify(execFile)(join(root, 'snail-scheme'),
@@ -18,10 +19,10 @@ const program = new WebAssembly.Module(await readFile(join(directory, 'main.wasm
 assert.equal(WebAssembly.Module.imports(program).filter(i => i.module === 'snail.runtime.link').length, 0);
 const total = Object.values(catalog).reduce((n, file) => n + file.size, 0);
 const totalMiB = (Math.floor(total * 10 / 1048576) / 10).toFixed(1);
-const object = name => {
-  const digest = catalog[name].sha256;
-  return 'store/sha256/' + digest.slice(0, 2) + '/' + digest;
-};
+const paths = ({sha256, size}) => size <= blobPartSize ? [objectPath(sha256)] :
+  Array.from({length: Math.ceil(size / blobPartSize)}, (_, i) => partPath(sha256, i));
+const object = name => paths(catalog[name])[0];
+const assetPaths = new Set(Object.values(catalog).flatMap(paths));
 const held = Promise.withResolvers();
 let hold = true, fail = true;
 const server = await serve(directory, async (path, response) => {
@@ -46,8 +47,8 @@ const server = await serve(directory, async (path, response) => {
   return false;
 });
 const objects = new Map();
-server.on('request', request => { if (request.url.includes('/store/sha256/')) objects.set(request.url, (objects.get(request.url) ?? 0) + 1); });
-const browser = await openBrowser();
+server.on('request', request => { if (assetPaths.has(request.url.slice(1))) objects.set(request.url, (objects.get(request.url) ?? 0) + 1); });
+const browser = await openBrowser({hardware: process.env.SNAIL_WEBGPU_HARDWARE === '1'});
 const url = 'http://127.0.0.1:' + server.address().port + '/';
 const read = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ')?.textContent');
 const expect = (selector, text) => until(async () => (await read(selector))?.includes(text), text, 100);
@@ -65,38 +66,18 @@ async function chooseTogether(changes) {
     }
   })()`);
 }
-// Check the actual GPU reconstruction target alongside the tracer dimensions
-// reported by the HUD. The canvas remains full size for the final FXAA pass.
-async function checkPortraitPreset(preset, lines, capped) {
-  await choose('#graphics-preset', preset);
-  const size = await until(async () => {
-    const match = (await read('.quality'))?.match(/^(\d+)p · (\d+)×(\d+)$/);
-    // The HUD can see the selected preset before the first resized frame.
-    // size-at rounds down both dimensions to fit the storage-buffer limit.
-    const width = Math.floor(780 * lines / 1400);
-    if (match && +match[1] === lines && +match[2] === width && Math.abs(+match[3] - lines) <= 1)
-      return [+match[2], +match[3]];
-  }, preset + ' on a portrait display', 130);
-  const {toned, canvas} = await browser.evaluate(`({
-    toned: window.tonedSize, canvas: [document.querySelector('canvas').width, document.querySelector('canvas').height]
-  })`);
-  assert.deepEqual(canvas, [780, 1400]);
-  assert.deepEqual(toned, capped ? size.map((dimension, i) => Math.min(2 * dimension, canvas[i])) : canvas);
-}
-
-async function expectGraphics(preset, resolution, bounces, samples) {
+async function expectGraphics(samples, size) {
   await until(async () => {
-    const current = await browser.evaluate(`({
-      preset: document.querySelector('#graphics-preset').value,
-      resolution: document.querySelector('#render-resolution').value,
-      bounces: document.querySelector('#ray-bounces').value,
-      samples: document.querySelector('.sampling-note').textContent,
-      traced: window.pathBounces
+    const value = await selection('#msaa');
+    const state = await browser.evaluate(`({
+      depth: window.streetDepth, output: window.streetOutput,
+      width: document.querySelector('canvas').width, height: document.querySelector('canvas').height
     })`);
-    return current?.preset === preset && current.resolution === resolution &&
-      current.bounces === String(bounces) && current.samples.startsWith(samples + ' light path') &&
-      current.traced === bounces;
-  }, [preset, resolution, bounces + ' traced bounces', samples + ' samples'].join(', '), 130);
+    return (!size || (state.width === size[0] && state.height === size[1])) &&
+      value === String(samples) && state.depth?.[2] === samples &&
+      state.depth[0] === state.width && state.depth[1] === state.height &&
+      state.output?.[0] === state.width && state.output[1] === state.height;
+  }, 'native resolution at ' + samples + '× MSAA', 130);
 }
 
 async function pause() {
@@ -136,8 +117,8 @@ async function streetChart() {
 // The instruments alone can pass every interaction check while an eye inside
 // an opaque tree sees black. Sample the street between the map and HUD.
 async function streetImage() {
-  const capture = await browser.send('Page.captureScreenshot', {format: 'png'});
-  const bytes = Buffer.from(capture.result.data, 'base64');
+  const url = await browser.evaluate('document.querySelector("canvas").toDataURL("image/png")');
+  const bytes = Buffer.from(url.split(',')[1], 'base64');
   const image = await loadImage(bytes);
   const ctx = createCanvas(32, 16).getContext('2d');
   ctx.drawImage(image, image.width * 0.16, image.height * 0.23,
@@ -160,19 +141,11 @@ async function visibleStreet() {
 
 try {
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: `
-    // Each path dispatches one ray intersection per bounce before gathering
-    // its light. Observe the actual GPU command encoding, including paused redraws.
-    const setPipeline = GPUComputePassEncoder.prototype.setPipeline, depths = new WeakMap();
-    GPUComputePassEncoder.prototype.setPipeline = function(pipeline) {
-      if (pipeline.label === 'trace/primary') depths.set(this, 0);
-      if (pipeline.label === 'rays/intersect') depths.set(this, depths.get(this) + 1);
-      if (pipeline.label === 'trace/gather') window.pathBounces = depths.get(this);
-      return setPipeline.call(this, pipeline);
-    };
     const createTexture = GPUDevice.prototype.createTexture;
     GPUDevice.prototype.createTexture = function(descriptor) {
       const texture = createTexture.call(this, descriptor);
-      if (texture.label === 'upscale/toned') window.tonedSize = [texture.width, texture.height];
+      if (texture.label === 'forward/depth') window.streetDepth = [texture.width, texture.height, texture.sampleCount];
+      if (texture.label === 'forward/output') window.streetOutput = [texture.width, texture.height];
       return texture;
     };`});
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 900, height: 600, deviceScaleFactor: 0.6, mobile: false});
@@ -219,43 +192,18 @@ try {
   assert.ok(local.ratio > 1 && local.ratio < 3);
   assert.equal(local.overview, 'none');
   await pause();
-  await expectGraphics('Balanced', '720p', 2, 1);
-  assert.deepEqual(await browser.evaluate('[...document.querySelector("#render-resolution").options].map(o => o.value)'),
-    ['240p', '360p', '480p', '720p', '1080p']);
-  assert.deepEqual(await browser.evaluate('[...document.querySelector("#ray-bounces").options].map(o => o.value)'),
-    ['1', '2', '3', '4', '5', '6', '7', '8']);
-  assert.ok(await browser.evaluate('[...document.querySelector("#graphics-preset").options].some(o => o.value === "Custom" && o.disabled)'));
+  await expectGraphics(1);
+  assert.deepEqual(await browser.evaluate('[...document.querySelector("#msaa").options].map(o => o.value)'), ['1', '4']);
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 390, height: 700, deviceScaleFactor: 2, mobile: false});
   const narrow = await streetChart();
   assert.equal(narrow.box, local.box);
   assert.ok(narrow.labelPixels >= 10, 'street names remain legible at phone width');
   assert.ok(narrow.ratio > 1 && narrow.ratio < 3);
-  await checkPortraitPreset('Low', 360, true);
-  await checkPortraitPreset('Minimum', 240, true);
-  await checkPortraitPreset('480p', 480, false);
-  await checkPortraitPreset('High', 1080, false);
-  // The high-density check above exercises the display resolution. Render the
-  // keyboard drive at 300 × 190 so the software GPU can present each manoeuvre.
+  await expectGraphics(1, [780, 1400]);
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 600, height: 380, deviceScaleFactor: 0.5, mobile: false});
-  await choose('#graphics-preset', 'Ultra');
-  await expectGraphics('Ultra', '1080p', 4, 1);
-  await choose('#graphics-preset', '480p');
-  await expectGraphics('480p', '480p', 2, 1);
-  await choose('#ray-bounces', '8');
-  await expectGraphics('Custom', '480p', 8, 1);
-  await choose('#ray-bounces', '2');
-  await expectGraphics('480p', '480p', 2, 1);
-  await choose('#render-resolution', '360p');
-  await expectGraphics('Custom', '360p', 2, 1);
-  await choose('#graphics-preset', 'Low');
-  await expectGraphics('Low', '360p', 1, 1);
-  await chooseTogether([['#graphics-preset', '480p'], ['#graphics-preset', 'Low'],
-    ['#ray-bounces', '3'], ['#render-resolution', '480p']]);
-  await expectGraphics('Custom', '480p', 3, 1);
-  await choose('#ray-bounces', '1');
-  await expectGraphics('Custom', '480p', 1, 1);
-  await expect('.quality', '480p · 300×190');
-  assert.deepEqual(await browser.evaluate('window.tonedSize'), [300, 190]);
+  await choose('#msaa', '4');
+  await expectGraphics(4, [300, 190]);
+  await expect('.quality', '300×190 · 4× MSAA');
   await choose('#mouse-sensitivity', 'High');
   await click('.resume-game');
   await expect('.stage', 'PICKUP');
@@ -297,11 +245,11 @@ try {
   await tap('p');
   await expect('.stage', 'SHIFT PAUSED');
   await sleep(5500);
-  assert.equal(objects.size, Object.keys(catalog).length - 1);
+  assert.equal(objects.size, assetPaths.size - 1);
   for (const [path, count] of objects)
     assert.equal(count, path === '/' + object('sf-2.bin') ? 2 : 1, path);
   await browser.send('Network.enable');
-  await browser.send('Network.setBlockedURLs', {urls: ['*/store/sha256/*']});
+  await browser.send('Network.setBlockedURLs', {urls: ['*/store/*']});
   const before = [...objects];
   await browser.navigate(url);
   await ready();
@@ -334,7 +282,7 @@ try {
   })()`);
   assert.deepEqual(cache, [true, 1, 14, 1, 13, 15, false]);
   await pause();
-  await expectGraphics('Custom', '480p', 1, 1);
+  await expectGraphics(4);
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.recover-cab');
   await expect('.stage', 'METER RUNNING');
@@ -354,7 +302,7 @@ try {
   await ready();
   await expect('.stage', 'PICKUP');
   await pause();
-  await expectGraphics('Custom', '480p', 1, 1);
+  await expectGraphics(4);
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.resume-game');
   await expect('.stage', 'PICKUP');
@@ -368,7 +316,8 @@ try {
     return chart?.paths > 0 && chart.box !== local.box && chart.overview === 'none';
   }, 'island vector chart from the cached city');
   await until(visibleStreet, 'the independently drawn island streets', 65);
-  const day = (await streetImage()).luminance;
+  const dayImage = await until(async () => { const image = await streetImage(); return image.colors >= 12 && image; }, "daylight exposure");
+  const day = dayImage.luminance;
   await tap('l');
   await expect('.time', '11:');
   const night = await until(async () => {
@@ -379,7 +328,7 @@ try {
   assert.deepEqual([...objects], before);
   assert.ok((await read('.loading-bytes')).includes(totalMiB + ' MiB cached'));
   assert.equal(await browser.evaluate('document.body.dataset.error'), undefined);
-  console.log(`Rosa boarded, recovered with her fare, and restarted a shift with all ${Object.keys(catalog).length} city object URLs blocked. Treasure Island daylight/night luminance: ${day.toFixed(1)} / ${night.luminance.toFixed(1)}.`);
+  console.log(`Rosa boarded, recovered with her fare, and restarted a shift with all ${assetPaths.size} city object URLs blocked. Treasure Island daylight/night luminance: ${day.toFixed(1)} / ${night.luminance.toFixed(1)}.`);
 } finally {
   held.resolve();
   browser.close();

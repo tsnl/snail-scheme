@@ -106,7 +106,7 @@
     (extern pass-color
             "snail.runtime.gpu"
             "pass-color"
-            (Fn I32 I32 F64 F64 F64 F64 I32 → Unit))
+            (Fn I32 I32 F64 F64 F64 F64 I32 I32 → Unit))
     (extern pass-no-color "snail.runtime.gpu" "pass-no-color" (Fn → Unit))
     (extern pass-depth "snail.runtime.gpu" "pass-depth" (Fn I32 I32 F64 I32 → Unit))
     (extern begin-pass "snail.runtime.gpu" "begin-pass" (Fn I32 → I32))

@@ -10,6 +10,7 @@
   (export
    Host
    unsafe-host
+   call-with-input-file call-with-output-file
    InputPort
    OutputPort
    standard-input
@@ -24,6 +25,7 @@
    host-fs
    read-file
    read-bytes
+   fold-file-chunks
    write-file
    write-bytes
    file-exists?
@@ -247,6 +249,22 @@
     (define (file-exists? (fs Fs) (path String)) (→ Bool)
       (= (support-path-exists path) 1))
 
+    ;; The callback borrows a text port for one sequential pass through a file.
+    (define (call-with-input-file (fs Fs) (path String) (body (Fn InputPort → A))) (→ A) (∀ (A))
+      (let* ((handle (support-open-input path))
+             (port (new InputPort (read-char (lambda ()
+                                               (let ((code (support-port-read handle)))
+                                                 (if (= code -1)
+                                                     (None)
+                                                     (Some (i32->char code))))))))
+             (result (body port)))
+        (support-port-close handle) result))
+    (define (call-with-output-file (fs Fs) (path String) (body (Fn OutputPort → A))) (→ A) (∀ (A))
+      (let* ((handle (support-open-output path))
+             (port (new OutputPort (write-string (lambda (text) (support-port-write handle text)))))
+             (result (body port)))
+        (support-port-close handle) result))
+
     ;; The whole file as text; the runtime fails the program if it cannot
     ;; be read.
 
@@ -267,6 +285,27 @@
                                 (if (= byte -1) (None) (Some (i32->u8 byte))))))))
           (support-port-close port)
           bytes)))
+
+    ;; Fold a binary file without holding it all in memory. Each callback
+    ;; receives a fresh array, exactly width bytes except at EOF.
+    (define (fold-file-chunks (fs Fs) (path String) (width I64) (initial T)
+                              (step (Fn T Bytes → T))) (→ T) (∀ (T))
+                              (when (or (<= width 0) (> width 2147483647))
+                                (panic "invalid file chunk width"))
+                              (let ((port (support-open-input path)))
+                                (let loop ((state initial))
+                                  (let ((first (support-port-read-byte port)))
+                                    (if (= first -1) (begin (support-port-close port) state)
+                                        (loop (step state (file-chunk port width first))))))))
+
+    (define (file-chunk (port I32) (width I64) (first I32)) (→ Bytes)
+      (let ((bytes (make-array width (i32->u8 0))))
+        (array-set! bytes 0 (i32->u8 first))
+        (let fill ((n 1))
+          (if (= n width) bytes
+              (let ((next (support-port-read-byte port)))
+                (if (= next -1) (subarray bytes 0 n)
+                    (begin (array-set! bytes n (i32->u8 next)) (fill (+ n 1)))))))))
 
     ;; Everything `next` gives until it gives None. Items gather a chunk at a
     ;; time, and the chunks are joined at the end, so a file of millions of

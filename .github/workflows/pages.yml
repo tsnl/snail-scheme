@@ -3,21 +3,24 @@ name: Pages
 on:
   pull_request:
     paths: &inputs
-      - src/apps/siegework/**
       - bootstrap/**
-      - doc/**
+      - doc/book/**
+      - doc/highlight.css
       - examples/**
       - crates/**
       - host/**
+      - package.json
+      - package-lock.json
       - scripts/**
       - src/**
       - tools/**
       - book.toml
-      - snail
+      - snail-scheme
       - Makefile
       - rust-toolchain.toml
       - shell.nix
       - npins/**
+      - .github/actions/ci-shell/action.yml
       - .github/workflows/pages.yml
   push:
     branches: [main]
@@ -25,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish this ref to Pages (subject to the github-pages environment rules)
+        description: Publish the selected ref to the production Cloudflare Pages site
         type: boolean
         default: false
 
@@ -35,6 +38,7 @@ permissions:
 env:
   # Use Bash from PATH so nix-shell does not probe <nixpkgs> for its shell.
   NIX_BUILD_SHELL: bash
+  CARGO_INCREMENTAL: 0
 
 concurrency:
   group: pages-${{ github.event.pull_request.number || github.ref }}
@@ -49,30 +53,35 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      # shell.nix reads its nixpkgs from npins/sources.json.
-      - uses: cachix/install-nix-action@3c6342b75005b9cc7c7d4069c3e9179247c89012 # v31
+      - uses: ./.github/actions/ci-shell
       - name: Build the book and its applications
         run: nix-shell --run 'make pages'
-      - name: Upload Pages artifact
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
-        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+      - name: Pass the built site to the deploy job
+        if: &publish github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
+          name: public-site
           path: build/pages
+          if-no-files-found: error
+          retention-days: 1
 
   deploy:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    if: *publish
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: public-site
+          path: site
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
       - name: Deploy the book and its applications
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
+        with:
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          wranglerVersion: '4.164.0'
+          command: pages deploy site --project-name=snail-scheme --branch=main --commit-hash=${{ github.sha }}

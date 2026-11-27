@@ -174,14 +174,14 @@
   (let* ((encoder ((● gpu create-command-encoder)))
          (pass ((● gpu begin-render-pass) encoder
                 (new RenderPassDescriptor
-                  (colors (list (Some (new ColorAttachment
-                                        (view
-                                         (view-of gpu
-                                                  (● ((● gpu current-texture))
-                                                     texture)
-                                                  1))
-                                        (load (Keep))
-                                        (store #t)))))
+                  (colors (list (Some (new ColorAttachment (resolve (None))
+                                           (view
+                                            (view-of gpu
+                                                     (● ((● gpu current-texture))
+                                                        texture)
+                                                     1))
+                                           (load (Keep))
+                                           (store #t)))))
                   (depth (None)))))
          (quads (draw-quads gpu pass
                             quads

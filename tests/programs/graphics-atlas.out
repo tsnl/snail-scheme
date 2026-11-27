@@ -128,7 +128,7 @@ encoder 11
 canvas 12
 create view 13 12
 pass 14 11
-write-buffer 6 0 24
+write-buffer 6 0 80
 write-buffer 7 0 192
 set-pipeline 14 5
 set-bind-group 14 0 10
@@ -143,7 +143,7 @@ create view 18 17
 pass 19 16
 destroy 7
 create buffer 20 quad/instances
-write-buffer 6 0 24
+write-buffer 6 0 80
 write-buffer 20 0 6400
 set-pipeline 19 5
 set-bind-group 19 0 10
@@ -158,7 +158,7 @@ create view 24 23
 pass 25 22
 destroy 20
 create buffer 26 quad/instances
-write-buffer 6 0 24
+write-buffer 6 0 80
 write-buffer 26 0 12800
 set-pipeline 25 5
 set-bind-group 25 0 10

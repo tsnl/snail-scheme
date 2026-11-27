@@ -17,11 +17,13 @@ export function createEventQueue(frames = null) {
   const wake = () => { waiter?.resolve(); waiter = null; };
   function schedule() {
     if (!frames || !open || ticket !== null) return;
-    if (last === null) last = performance.now();
+    if (last === null) last = Math.round(performance.now());
     ticket = frames.request(now => {
       ticket = null;
-      push(FRAME, Math.round(Math.min(250, Math.max(0, now - last))));
-      last = now;
+      // Difference the rounded timestamps so fractional refresh intervals add up.
+      const stamp = Math.round(now);
+      push(FRAME, Math.min(250, Math.max(0, stamp - last)));
+      last = stamp;
     });
   }
   function push(kind, ...fields) {

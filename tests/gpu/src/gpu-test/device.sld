@@ -31,6 +31,7 @@
   (import
    (snail core base)
    (snail core io)
+   (snail shell resource)
    (snail shell task)
    (snail shell gpu)
    (snail shell graphics pod)
@@ -41,12 +42,9 @@
    (snail shell graphics radix-sort)
    (snail shell graphics splat)
    (snail shell graphics splat-view)
-   (only (snail shell graphics trace shaders) water-shader)
+   (only (snail shell graphics forward shaders) water-shader)
    (only (snail shell graphics kernel) compute-kernel kernel-group)
-   (snail shell graphics environment)
-   (only (snail shell graphics shaders) environment-light-shader)
-   (gpu-test moving-scene)
-   (gpu-test restir)
+   (gpu-test forward)
    (gpu-test shaders)
    (gpu-test tensor)
    (gpu-test splat-train)
@@ -55,16 +53,12 @@
 
     ;; ---- Checks ----
 
-    (define (device-checks (gpu Gpu) (out OutputPort)) (→ Unit)
-      (write-line out (string-append "moving shadows: " (moving-shadows gpu)))
-      (write-line out (string-append "skinned shadows: " (bent-shadows gpu)))
-      (write-line out (string-append "wide tree: " (wide-shadows gpu)))
-      (write-line out (string-append "reservoirs: " (check-restir gpu)))
+    (define (device-checks (gpu Gpu) (out OutputPort) (resources Resources)) (→ Unit)
+      (write-line out (forward-material-check gpu resources))
       (write-line out (string-append "decoded: " (texels (decoded-texels gpu))))
       (write-line out (string-append "scene: " (texels (scene-frame gpu (Neutral)))))
       (write-line out (string-append "filmic: " (texels (scene-frame gpu (Filmic)))))
       (write-line out (string-append "photographic: " (texels (scene-frame gpu (Photographic)))))
-      (write-line out (string-append "coastal sky: " (coastal-check gpu)))
       (write-line out (string-append "squares: " (words (squares gpu))))
       (write-line out
                   (string-append "water normals: "
@@ -417,59 +411,6 @@
                         (iota (quotient (array-length bytes) 4)))
                    " "))
 
-    ;; ---- Outdoor light ----
-
-    (define (weather (up F32) (cover F32)) (→ Atmosphere)
-      (new Atmosphere (sun (new Vec3f (x 0.6) (y up) (z 0.0)))
-           (wind (new Vec2f (x 0.0) (y 0.0))) (cover cover)))
-
-    (define (sky-reading (gpu Gpu) (light SkyLight) (air Atmosphere) (pipeline GpuComputePipeline)
-                         (groups (List GpuBindGroup)) (result GpuBuffer)) (→ Bytes)
-                         (update-atmosphere! gpu light air)
-                         (let* ((encoder ((● gpu create-command-encoder)))
-                                (pass ((● gpu begin-compute-pass) encoder)))
-                           ((● gpu set-compute-pipeline) pass pipeline)
-                           (for-each (lambda (p)
-                                       ((● gpu set-compute-bind-group)
-                                        pass
-                                        (i64->i32 (● p first))
-                                        (● p second)))
-                                     (zip (iota 3) groups))
-                           ((● gpu dispatch-workgroups) pass 1 1 1)
-                           ((● gpu end-compute-pass) pass)
-                           ((● gpu submit) (list ((● gpu finish) encoder)))
-                           (read-numbers gpu result 5)))
-
-    (define (coastal-check (gpu Gpu)) (→ String)
-      (let* ((noon (weather 0.8 0.0)) (light (make-atmosphere-light gpu noon 64))
-             (module ((● gpu create-shader-module) (new ShaderModuleDescriptor (label "sky probe")
-                                                        (code
-                                                         (string-append environment-light-shader
-                                                                        sky-probe)))))
-             (pipeline (compute-kernel gpu module "sky probe" "sky_main"))
-             (result (storage-buffer gpu "sky reading" 5))
-             (groups (list (kernel-group gpu pipeline 0 "results" (list (BufferEntry 0 result 0 0)))
-                           (kernel-group gpu pipeline 1 "empty" (list))
-                           (environment-group gpu pipeline (● light environment))))
-             (read (lambda (air) (sky-reading gpu light air pipeline groups result)))
-             (day (read noon)) (low (read (weather 0.024 0.0)))
-             (cloud (read (weather 0.8 1.0))) (night (read (weather -0.8 0.0))))
-        (for-each (lambda (group) ((● gpu destroy) (BindGroupObject group))) groups)
-        (for-each (● gpu destroy)
-                  (list (ComputePipelineObject pipeline)
-                        (ModuleObject module)
-                        (BufferObject result)))
-        (release-sky-light gpu light)
-        (if (and (= (number-at day 0) 1) (= (number-at day 1) 0) (= (number-at low 1) 1)
-                 (> (number-at day 2) (* 20 (number-at night 2)))
-                 (not (= (number-at day 2) (number-at cloud 2)))
-                 (> (number-at day 3) (* 100 (number-at cloud 3)))
-                 (> (number-at day 3) (number-at low 3)) (> (number-at low 3) (number-at night 3))
-                 (fold-left (lambda (ok sample) (and ok (= (number-at sample 4) 1)))
-                            #t
-                            (list day low cloud night)))
-            "blue noon, warm sunset, cloud extinction, dark night" "unexpected sky")))
-
     ;; ---- Scans, sorts and splats ----
 
     (define (storage-buffer (gpu Gpu) (name String) (count I64)) (→ GpuBuffer)
@@ -723,7 +664,11 @@
 
     (define (cleared (view GpuTextureView) (color Color)) (→ RenderPassDescriptor)
       (new RenderPassDescriptor
-        (colors (list (Some (new ColorAttachment (view view) (load (Clear color)) (store #t)))))
+        (colors (list (Some (new ColorAttachment
+                              (resolve (None))
+                              (view view)
+                              (load (Clear color))
+                              (store #t)))))
         (depth (None))))
 
     (define red (→ Color) (new Color (red 1.0) (green 0.0) (blue 0.0) (alpha 1.0)))

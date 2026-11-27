@@ -4,12 +4,15 @@
 ;; `FilePicker` over these.
 (define-library (snail runtime browser files)
   (export
+   open-download write-download
    open-picker
    listing
    reply-scalar)
   (import
    (snail core base))
   (begin
+    (extern open-download "snail.runtime.browser.files" "open-download" (Fn Bytes → I32))
+    (extern write-download "snail.runtime.browser.files" "write-download" (Fn I32 Bytes → Unit))
     (extern open-picker "snail.runtime.browser.files" "open-picker" (Fn I32 → Unit))
     (extern listing "snail.runtime.browser.files" "listing" (Fn → I32))
     (extern reply-scalar "snail.runtime.browser.files" "reply-scalar" (Fn I32 → I32))))

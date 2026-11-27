@@ -61,6 +61,20 @@ function checkFrames() {
   assert.deepEqual(queue.poll(), [FRAME, 250]);
   assert.equal(queue.poll(), undefined);
   assert.equal(scheduled.size, 1);
+  let stamp = Math.ceil(performance.now()) + 2000;
+  function refresh(now) {
+    const [id, callback] = [...scheduled][0];
+    scheduled.delete(id);
+    callback(now);
+    return queue.poll()[1];
+  }
+  refresh(stamp);
+  for (const hz of [60, 120, 144]) {
+    let ms = 0;
+    for (let i = 1; i <= hz; i++) ms += refresh(stamp + i * 1000 / hz);
+    assert.equal(ms, 1000, hz + ' display intervals add up to one second');
+    stamp += 1000;
+  }
   queue.close();
   assert.equal(scheduled.size, 0);
   assert.equal(cancelled.length, 1);

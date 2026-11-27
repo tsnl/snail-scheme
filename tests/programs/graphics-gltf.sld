@@ -20,7 +20,7 @@
    "{\"attributes\":{\"POSITION\":0},\"mode\":1}]}],"
    "\"materials\":[{\"pbrMetallicRoughness\":{\"baseColorFactor\":[1,0.5,0.25,1],\"baseColorTexture\":{\"index\":0},"
    "\"metallicFactor\":0},\"alphaMode\":\"MASK\",\"alphaCutoff\":0.25,\"emissiveFactor\":[1,1,0],"
-   "\"extensions\":{\"KHR_materials_emissive_strength\":{\"emissiveStrength\":4.5}}}],"
+   "\"extras\":{\"snailSubsurface\":0.75,\"snailDiffuseTransmission\":0.4,\"snailFiberAnisotropy\":0.8},\"extensions\":{\"KHR_materials_emissive_strength\":{\"emissiveStrength\":4.5}}}],"
    "\"textures\":[{\"source\":1}],\"images\":[{\"uri\":\"a.png\"},{\"bufferView\":1,\"mimeType\":\"image/png\"}],"
    "\"buffers\":[{\"uri\":\"one.bin\",\"byteLength\":61},"
    "{\"uri\":\"data:application/octet-stream;base64,AAECAwQF\",\"byteLength\":6}],"
@@ -96,6 +96,11 @@
 (define (main (out OutputPort)) (→ Unit)
   (match (read (string->utf8 scene))
     ((Ok gltf)
+     (unless (let ((m (list-ref (● gltf materials) 0)))
+               (and (= (● m subsurface) 0.75)
+                    (< (abs (- (● m diffuse-transmission) 0.4)) 1e-6)
+                    (< (abs (- (● m fiber-anisotropy) 0.8)) 1e-6)))
+       (panic "default and authored subsurface weights"))
      (write-line out (string-append "buffers: " (buffers gltf) " size " (show (● gltf size))))
      (write-line out (string-append "images: " (sources (● gltf images))))
      (for-each (lambda (placed)
@@ -116,7 +121,7 @@
                  (write-line out (string-append "material: " (numbers (● material base-color))
                                                 " texture " (show (● material base-texture))
                                                 " metallic " (show (● material metallic))
-                                                " alpha " (show (● material alpha))
+                                                " alpha " (show (alpha-code (● material alpha)))
                                                 " cutoff " (show (● material alpha-cutoff))
                                                 " emissive " (numbers (● material emissive)))))
                (● gltf materials))
@@ -128,7 +133,13 @@
                                   (numbers (● bounds second))))))
     ((Err reason) (write-line out reason)))
   (match (read two-buffers)
-    ((Ok gltf) (write-line out (string-append "glb buffers: " (buffers gltf))))
+    ((Ok gltf)
+     (unless (let ((m (list-ref (scene-materials gltf) 0)))
+               (and (= (● m subsurface) 0.0)
+                    (= (● m diffuse-transmission) 0.0)
+                    (= (● m fiber-anisotropy) 0.0)))
+       (panic "default subsurface weight"))
+     (write-line out (string-append "glb buffers: " (buffers gltf))))
     ((Err reason) (write-line out reason)))
   (for-each (lambda (file)
               (match (read file)

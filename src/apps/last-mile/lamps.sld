@@ -9,7 +9,7 @@
    (snail shell graphics pod)
    (snail shell graphics gltf)
    (only (snail shell graphics animation) product-column v4)
-   (snail shell graphics trace lights))
+   (snail shell graphics forward lights))
   (begin
     (record Sockets
       ((front F32)
@@ -46,7 +46,7 @@
              (aim (new Vec3f (x (● dir x)) (y (● dir y)) (z (● dir z))))
              (white (new Vec3f (x 78.0) (y 70.0) (z 54.0)))
              (red (new Vec3f (x (if brake 4.2 0.24)) (y 0.022) (z 0.012))))
-        ;; Start visibility rays just outside the lens face, including its bright brake overlay.
+        ;; Place each source just outside its lens, including the bright brake overlay.
         (concatenate (map (lambda (x)
                             (list (spot-light (lamp-point m x (● s height) (+ (● s front) 0.012))
                                               white 52.0 aim 0.84)

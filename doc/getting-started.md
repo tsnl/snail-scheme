@@ -126,3 +126,25 @@ the compiler also needs `make bootstrap`, a change
 to the browser host `make test-browser`, and a change to the `Gpu`'s
 hosts or the graphics and tensor libraries both browser and GPU checks. The [tour](book/snail-scheme/compilers.md)
 introduces the compiler.
+
+## Publishing the book and browser demos
+
+`make pages` builds the book and the browser demos together in `build/pages`.
+Run `python3 -m http.server 8000 --directory build/pages` to open that site
+locally at `http://localhost:8000/`.
+
+The Pages workflow builds pull requests and publishes changes from `main`
+to Cloudflare Pages. A maintainer can also publish a selected ref with the
+workflow’s **Publish** input. The deploy job receives only the built site.
+
+For initial setup, verify the account email and sign in to Wrangler. Create
+the Direct Upload project once.
+
+```sh
+wrangler pages project create snail-scheme --production-branch main --force
+```
+
+In the pinned Wrangler release, `--force` selects the Pages API for project
+creation. Subsequent uploads target the existing project by name.
+Set the repository Actions variable `CLOUDFLARE_ACCOUNT_ID` and the secret
+`CLOUDFLARE_API_TOKEN` with Cloudflare Pages Edit permission for that account.

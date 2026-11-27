@@ -9,6 +9,7 @@ import {join, resolve} from 'node:path';
 import {promisify} from 'node:util';
 import assert from 'node:assert/strict';
 import {createOverlay, widget as widgetIn, part, text, fire} from '../document.mjs';
+import {createFetch} from '../../host/browser/fetch.mjs';
 import {createDom} from '../../host/browser/dom.mjs';
 import {createGpu} from '../../host/browser/gpu.mjs';
 import {fakeGpu, fakeCanvas} from '../fake-gpu.mjs';
@@ -42,7 +43,8 @@ async function instantiateGame(directory, host, saved) {
   const runtime = createRuntime({seed: 7, load: async () => saved});
   const wasi = createWasi({print: (fd, line) => console.log(line)});
   const program = await linkModule(file => readFile(join(directory, file)), 'main.wasm', wasi,
-    {...runtime.imports, 'snail.runtime.browser.dom': createDom(host.overlay, runtime).imports,
+    {...runtime.imports, 'snail.runtime.browser.fetch': createFetch(runtime).imports,
+     'snail.runtime.browser.dom': createDom(host.overlay, runtime).imports,
      'snail.runtime.gpu': createGpu(fakeCanvas(960, 640), runtime, host.gpu.open).imports},
     () => runtime.execution.tasks);
   await runtime.start(applicationEntry(program)).ready.promise;
@@ -83,7 +85,7 @@ assert.equal(text(widget(host, 'opening-title')), 'Siegework');
 const spoken = key => part(widget(host, key), 'text').childNodes
   .map(span => span.tagName === 'strong' ? `*${span.textContent}*` : span.textContent).join('');
 assert.equal(spoken('opening-crystal'), 'Click the *glowing crystal*');
-assert.match(widget(host, 'how-to-play').getAttribute('href'), /games\/siegework\.html$/);
+assert.equal(widget(host, 'how-to-play').getAttribute('href'), 'https://snail-scheme.pages.dev/games/siegework');
 assert.ok(instances(host, 1) > 200, 'the explored ground around the hub');
 assert.equal(text(widget(host, 'energy')), '160');
 assert.equal(text(widget(host, 'nests')), '☆☆☆');
