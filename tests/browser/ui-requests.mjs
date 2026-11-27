@@ -4,7 +4,7 @@
 // timer ordering.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {cp, mkdtemp, readFile, rm} from 'node:fs/promises';
+import {cp, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {basename, extname, join} from 'node:path';
@@ -15,6 +15,7 @@ const [root, screenshot] = process.argv.slice(2);
 const directory = await mkdtemp(join(tmpdir(), 'snail-ui-requests-'));
 const app = join(directory, 'app');
 await cp(join(root, 'tests/apps/requests'), app, {recursive: true, filter: path => basename(path) !== 'build'});
+await writeFile(join(app, 'snail-scheme-workspace.datum'), `(workspace (extends ${JSON.stringify(root)}))\n`);
 const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', '--target', 'browser', join(app, 'main.scm')])).stdout.trim();
 const waiting = [];
 const types = {'.html': 'text/html', '.mjs': 'text/javascript', '.wasm': 'application/wasm'};

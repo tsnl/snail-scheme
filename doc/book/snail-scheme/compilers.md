@@ -60,11 +60,12 @@ children execute, bind names or start a new scope. Data fields contain a
 name and type, with no mutable/immutable flag. Every source field has one
 runtime slot.
 
-`library.sld` reads a library's file before any of it is expanded: where the
-source is among the search directories, and what the file declares, a
-`define-library`'s sections through its `cond-expand`s or a
-`generate-library`'s producer program. It knows no binding and holds no
-state.
+For a workspace build, `(snail shell project workspace)` follows `extends`,
+checks the layers for path conflicts and supplies their `src/` directories
+in order, starting with the script's layer. `library.sld` searches those
+directories for each import. Before expansion it reads a `define-library`'s
+sections through its `cond-expand`s or a `generate-library`'s producer
+program. It knows no binding and holds no state.
 
 `expand.sld` alone knows binding syntax. It loads libraries, resolves import
 sets, expands hygienic `syntax-rules`, assigns unique names and converts
@@ -329,7 +330,7 @@ key, since the files it links depend on it. The producer computes the
 recipe's expression in a task, as `(write-generated-library producer-fs
 producer-arguments (lambda () EXPR))`, so the expression may read what the recipe links with
 `read-resource`, run processes and build other scripts
-([embedding](projects.md#embedding-a-build)).
+([embedding](workspaces.md#embedding-a-build)).
 
 Generated syntax is obtained before expanding its library. A build runs each
 producer its compiles reach once, and the output serves every later compile
@@ -412,7 +413,7 @@ for good.
 | `host/native/run-snail.mjs` | Node/WASI program execution, the compiled compiler's included, on Node's main thread, plus module loading; it drives the program's task scheduler through `host/browser/tasks.mjs`, as the page does. A trap is status 2 and a WASI exit its own, as on wasmtime. |
 | `src/`, `host/chez/` | Typed language libraries and the explicit Chez adapters. `host/chez/load.scm` permits only the compiler's source closure and stage-zero tools. |
 
-Builds and publication belong to the [builder](projects.md),
+Builds and publication belong to the [builder](workspaces.md),
 the language server to the
 [development toolchain](toolchain.md), and
 task scheduling and resources to the [runtime](../runtimes/index.md).

@@ -127,7 +127,7 @@ export async function start(filename, arguments_) {
 // As a command, this runs the module its first argument names; a Node
 // package's main.mjs imports it and names its own. Neither waits at the
 // top level, so `require` can load the package too, as an executable's
-// injected script does (doc/book/snail-scheme/projects.md, "A Node package").
+// injected script does (doc/book/snail-scheme/workspaces.md, "A Node package").
 if (import.meta.main) {
   const [filename, ...arguments_] = process.argv.slice(2);
   start(filename, arguments_);

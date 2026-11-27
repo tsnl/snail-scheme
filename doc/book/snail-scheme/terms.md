@@ -23,7 +23,7 @@ Import sets may use `only`, `except`, `prefix` and `rename`.
   (write-line out (show (fibonacci 30))))
 ```
 
-A script's imports resolve under the `src/` of its workspace, the nearest folder above it that holds one, then the standard libraries'.
+A script's imports resolve in the `src/` trees of its workspace and its bases.
 
 A library file may instead hold a `generate-library` recipe: a program whose
 value is the library's `define-library` form, as a `Syntax` from
@@ -363,7 +363,8 @@ remains proposed.
 
 | Term | Meaning |
 | --- | --- |
-| Workspace | A folder that holds `src/`, where every library lives and every import resolves. |
+| Workspace | A folder that holds `src/`. Its `snail-scheme-workspace.datum` can name one local base. |
+| Layer | One workspace folder in a build's base chain. It contributes its `src/` to the shared library tree. |
 | Script | A source file in a workspace, built for a platform named on the command line. Its build produces one output directory, which may contain multiple files. |
 | Build attempt | One invocation of a script's build, with diagnostics and a success/failure result. |
 | Application process | An OS process running a program. A browser frontend is a client of a server process. |
