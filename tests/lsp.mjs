@@ -120,8 +120,7 @@ const edited = text => {
 };
 
 try {
-  put('snail-scheme-workspace.datum', '(workspace (extends "github.com:example/team"))');
-  put('.gitmodules', '[submodule "team"]\n  path = base\n  url = git@github.com:example/team.git\n');
+  put('snail-scheme-workspace.datum', '(workspace (extends "base"))');
   put('base/snail-scheme-workspace.datum', `(workspace (extends ${JSON.stringify(root)}))`);
   put('base/src/demo/twice.sld', library);
   put('main.scm', program);

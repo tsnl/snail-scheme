@@ -33,9 +33,7 @@ are extensions for Zed and VS Code.
 
 A script runs for an explicit target. The tool finds its workspace by looking
 upward for `snail-scheme-workspace.datum`. A workspace can extend a local
-base by path or name a checked-out GitHub submodule with
-`(workspace (extends "github.com:tsnl/snail-scheme"))`. Both contribute
-libraries under `src/`.
+base, and both contribute libraries under `src/`.
 
 ```sh
 ./snail-scheme run --target node examples/fibonacci.sld
