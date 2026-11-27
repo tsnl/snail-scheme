@@ -99,7 +99,9 @@ try {
   await tap('b');
   await until(async () => await browser.evaluate('document.querySelectorAll("audio").length') === 2, 'bell and hub', 25);
   await browser.evaluate('document.querySelector(".pause").click()');
-  await until(async () => await text('.pause') === 'Resume', 'pause and save', 30);
+  await until(async () => await text('.pause') === 'Resume', 'pause', 30);
+  await click('.load-game');
+  await until(async () => await text('.save-status') === 'No saved game available.', 'empty save slot');
 
   await browser.evaluate('document.querySelector(".reset").focus()');
   await tap('Tab');
@@ -112,7 +114,7 @@ try {
   await key('w', true); await new Promise(resolve => setTimeout(resolve, 350)); await key('w', false);
   assert.equal(await metres(), stopped, 'ride advanced while the menu was open');
   await click('.resume');
-  await until(async () => await text('.pause') === 'Pause', 'resume after saving settings');
+  await until(async () => await text('.pause') === 'Pause', 'resume with changed settings');
 
   await click('.bicycle');
   await until(async () => await text('.bicycle') === 'Ride · F', 'park beside the roadster');
@@ -133,11 +135,38 @@ try {
   await tap('f');
   assert.equal(await text('.surface'), 'On foot');
   await click('.pause');
-  await until(async () => await text('.pause') === 'Resume', 'save away from the bicycle');
+  await until(async () => await text('.pause') === 'Resume', 'pause away from the bicycle');
+  await browser.evaluate("import('./application.mjs').then(({running}) => running[0].runtime.send(12))");
+  await click('.load-game');
+  await until(async () => await text('.save-status') === 'No saved game available.', 'riding and hiding leave the slot empty');
+  await browser.evaluate(`import('./storage.mjs').then(m => m.storeSave('iygtw-willowbank-v1', Uint8Array.of(255)))`);
+  await click('.load-game');
+  await until(async () => (await text('.save-status'))?.includes('unreadable'), 'bad save leaves the ride paused');
+  assert.equal(await text('.surface'), 'On foot');
+  await browser.evaluate(`(() => {
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function(...args) {
+      const request = put.apply(this, args);
+      if (this.name === 'saves') { IDBObjectStore.prototype.put = put; this.transaction.abort(); }
+      return request;
+    };
+  })()`);
+  await click('.save-game');
+  await until(async () => await text('.save-status') === 'Could not save this ride.', 'aborted save reported');
+  assert.deepEqual(await browser.evaluate(`import('./storage.mjs').then(async m => [...await m.loadSave('iygtw-willowbank-v1')])`), [255]);
+  await click('.save-game');
+  await until(async () => await text('.save-status') === 'Ride saved.', 'manual save committed');
 
   offline = true; const before = fetched, saved = await metres();
   await browser.navigate('http://127.0.0.1:' + server.address().port);
-  await ready(); await until(async () => await metres() >= saved, 'saved ride', 25);
+  await ready();
+  assert.equal(await metres(), 0);
+  assert.equal(await text('.surface'), 'Paved lane');
+  await click('.pause');
+  await until(async () => await text('.pause') === 'Resume', 'open a fresh ride');
+  assert.equal(await choice('.msaa'), '1');
+  await click('.load-game');
+  await until(async () => await metres() >= saved && await text('.surface') === 'On foot', 'loaded ride', 25);
   assert.equal(await text('.light'), 'High sun');
   assert.equal(await text('.surface'), 'On foot');
   assert.equal(fetched, before, 'reload attempted to download village art again');
@@ -150,5 +179,13 @@ try {
   await tap('p');
   await until(async () => await text('.pause') === 'Resume', 'settings after reset');
   assert.equal(await choice('.msaa'), '4');
-  console.log('Willowbank rendered, rode, parked, remounted, walked, ran, changed settings, reset and reloaded on foot offline.');
+  await click('.load-game');
+  await until(async () => await text('.surface') === 'On foot' && await metres() >= saved, 'reset kept the saved ride');
+  const oldRide = await readFile(join(root, 'tests/programs/data/willowbank-before-walking.ride'));
+  await browser.evaluate(`import('./storage.mjs').then(m => m.storeSave('iygtw-willowbank-v1', Uint8Array.of(${[...oldRide]})))`);
+  await click('.pause');
+  await until(async () => await text('.pause') === 'Resume', 'pause to load an older ride');
+  await click('.load-game');
+  await until(async () => await text('.surface') === 'E · Get back on', 'loaded the earlier ride after a fall');
+  console.log('Willowbank rendered, rode, parked, remounted, walked, ran, changed settings, saved from the pause menu and loaded the on-foot ride offline.');
 } finally { browser.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }

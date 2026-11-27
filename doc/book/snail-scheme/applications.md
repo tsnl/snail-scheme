@@ -22,8 +22,10 @@ host does, and (snail target browser) runs `main` as its first task, with
 the page's capabilities ([targets](scripts.md#targets-and-capabilities)).
 `main` can wait: `run-scene` waits for the page's events as a task does. There are two engines, `run-scene` for a canvas and `run-interface`
 for a document, and both boot and save through `run-page` from
-`(snail shell page)`. An application with its own loop calls `run-page`
-itself, as `tests/apps/requests` does. IPC remains outside this contract.
+`(snail shell page)`. An application with its own loop can call `run-page`
+for automatic checkpoints, as `tests/apps/requests` does. Last Mile Taxi
+and If You’re Going That Way start with a fresh world and access
+`PageStorage` from their pause menus. IPC remains outside this contract.
 Typed session protocols are future library work.
 
 ## Scenes
@@ -295,7 +297,8 @@ run. DOM listeners enqueue input rather than calling
 Wasm. Consecutive moves for the same pointer and consecutive resizes coalesce
 without crossing other input. Consuming a pending frame requests the next
 animation frame, so slow work does not accumulate ticks. HUD values update at
-most every 100 milliseconds and periodic saves occur every five seconds.
+most every 100 milliseconds. For applications using `run-page`, the host
+asks for a save every five seconds.
 
 Event waits and complete storage operations wait by ticket on the
 `snail-scheme` scheduler. Starting a save copies its byte argument before the
@@ -308,11 +311,14 @@ The engine acknowledges its first completed presentation: a scene handles
 resize and a zero-time frame, while a document presents its initial model
 and startup messages. Input sent before then is delivered after it.
 
-A save the application cannot read traps before the page boots; the page
-then starts again without it. A trap after boot ends the page, which keeps
-its last save: up to five seconds of work, or what happened since the page
-was last hidden, is lost. Keep state that must survive a reload in the
-application's Save.
+If `run-page` encounters an unreadable save at boot, the page starts again
+from its initial state. A trap after boot ends the run. With automatic
+checkpoints, the player normally loses up to five seconds of work.
+
+In a manual-save game, **Save game** calls `((● storage store-save) bytes)`,
+which reports whether the write committed. **Load game** calls `read-saved`
+with the game's reader and resumes play on success. An empty slot or an
+unreadable save leaves the player in the pause menu with their current game.
 
 <a id="proposed-application-processes"></a>
 

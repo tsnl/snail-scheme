@@ -56,6 +56,10 @@ const key = (key, down) => browser.send('Input.dispatchKeyEvent', {type: down ? 
 const tap = async k => { await key(k, true); await key(k, false); };
 const click = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ').click()');
 const selection = selector => browser.evaluate('document.querySelector(' + JSON.stringify(selector) + ').value');
+const savedShift = () => browser.evaluate(`import('./storage.mjs').then(async ({loadSave}) => {
+  const bytes = await loadSave('last-mile-sf-taxi-v1');
+  return bytes ? [...bytes] : null;
+})`);
 const choose = (selector, value) => chooseTogether([[selector, value]]);
 async function chooseTogether(changes) {
   await browser.evaluate(`(() => {
@@ -192,6 +196,8 @@ try {
   assert.ok(local.ratio > 1 && local.ratio < 3);
   assert.equal(local.overview, 'none');
   await pause();
+  await click('.load-game');
+  await expect('.save-status', 'No saved game available.');
   await expectGraphics(1);
   assert.deepEqual(await browser.evaluate('[...document.querySelector("#msaa").options].map(o => o.value)'), ['1', '4']);
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 390, height: 700, deviceScaleFactor: 2, mobile: false});
@@ -244,7 +250,13 @@ try {
   if (screenshot) await writeFile(screenshot, await until(visibleStreet, 'occupied taxi'));
   await tap('p');
   await expect('.stage', 'SHIFT PAUSED');
+  await browser.evaluate("import('./application.mjs').then(({running}) => running[0].runtime.send(12))");
   await sleep(5500);
+  assert.equal(await savedShift(), null, 'playing, hiding and changing settings leave the slot empty');
+  await click('.save-game');
+  await expect('.save-status', 'Shift saved.');
+  const saved = await savedShift();
+  assert.ok(saved?.length);
   assert.equal(objects.size, assetPaths.size - 1);
   for (const [path, count] of objects)
     assert.equal(count, path === '/' + object('sf-2.bin') ? 2 : 1, path);
@@ -253,6 +265,11 @@ try {
   const before = [...objects];
   await browser.navigate(url);
   await ready();
+  await expect('.stage', 'PICKUP');
+  await pause();
+  await expectGraphics(1);
+  assert.equal(await selection('#mouse-sensitivity'), 'Medium');
+  await click('.load-game');
   await expect('.stage', 'METER RUNNING');
   await expect('.speech', 'Leavenworth');
   await until(visibleStreet, 'cached city, rider and taxi');
@@ -298,9 +315,17 @@ try {
   await restart(true);
   await expect('.stage', 'PICKUP');
   await expect('h2', 'Rosa');
+  assert.deepEqual(await savedShift(), saved, 'recover and restart preserve the saved fare');
+  await pause();
+  await click('.save-game');
+  await expect('.save-status', 'Shift saved.');
+  assert.notDeepEqual(await savedShift(), saved, 'an explicit save replaces the old shift');
   await browser.navigate(url);
   await ready();
   await expect('.stage', 'PICKUP');
+  await pause();
+  await click('.load-game');
+  await until(() => browser.evaluate('document.querySelector(".pause-scrim").hidden'), 'loaded shift');
   await pause();
   await expectGraphics(4);
   assert.equal(await selection('#mouse-sensitivity'), 'High');
@@ -328,6 +353,12 @@ try {
   assert.deepEqual([...objects], before);
   assert.ok((await read('.loading-bytes')).includes(totalMiB + ' MiB cached'));
   assert.equal(await browser.evaluate('document.body.dataset.error'), undefined);
+  const oldShift = await readFile(join(root, 'tests/programs/data/taxi-v3.save'));
+  await browser.evaluate(`import('./storage.mjs').then(m => m.storeSave('last-mile-sf-taxi-v1', Uint8Array.of(${[...oldShift]})))`);
+  await pause();
+  await click('.load-game');
+  await expect('.stage', 'METER RUNNING');
+  await expect('.total', '$12.34');
   console.log(`Rosa boarded, recovered with her fare, and restarted a shift with all ${assetPaths.size} city object URLs blocked. Treasure Island daylight/night luminance: ${day.toFixed(1)} / ${night.luminance.toFixed(1)}.`);
 } finally {
   held.resolve();

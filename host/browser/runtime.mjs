@@ -131,19 +131,25 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       byte: index => run().loaded[index],
       'start-store'(ticket, address) {
         const current = run(), bytes = byteSnapshot(current.entry.memory, address);
-        current.saved = bytes;
         saveLater(current);
         current.tasks.start(Number(ticket), async signal => {
-          try { await store(bytes, signal); }
-          catch (error) { if (!signal.aborted) warn(`save failed: ${error.message}`); }
-        }, () => 0);
+          try {
+            await store(bytes, signal);
+            current.saved = bytes;
+            return 1;
+          } catch (error) {
+            if (!signal.aborted) warn(`save failed: ${error.message}`);
+            return 0;
+          }
+        }, stored => stored);
       },
       'finish-store': ticket => run().tasks.finish(Number(ticket)),
     },
   };
-  // The program saves when the page is hidden and when this timer asks:
-  // five seconds after it boots or last saved.
+  // run-page reports a boot when it takes charge of automatic checkpoints.
+  // A game that manages its own save slot can use storage without a timer.
   function saveLater(run) {
+    if (run.boot === null) return;
     clearTimeout(run.saveTimer);
     run.saveTimer = setTimeout(() => run.queue.push(SAVE), 5000);
   }
