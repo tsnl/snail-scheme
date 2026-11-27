@@ -11,8 +11,8 @@
 ;; let's value; anywhere else, a let names it, with the rest of the
 ;; expression as the let's body, and names first each operand that runs
 ;; before it, so those still run first. The backend tests for a yield after
-;; each let whose value may yield. The prepared program uses this subset of
-;; the checked expression language; emission has no specialization work.
+;; each marked binding. Preparation outlines its resume routine with a typed
+;; parameter and the locals it needs after the call.
 (define-library (snail shell compiler prepare)
   (export
    Prepared
@@ -453,13 +453,13 @@
                  (_ #t))
                (every? (lambda (child) (yield-free? suspensions child)) (expr-children expr)))))
 
-    ;; Whether a let inside `expr`, outside its lambdas, has a value that
-    ;; may yield. The backend tests for a yield after such a let and leaves
-    ;; while one is set, so a value that holds one is a block it can leave.
-
+    ;; A yield inside a let's value can leave that value's block. A prepared
+    ;; site is marked explicitly; for a checked let the summary classifies
+    ;; its value. Lambda bodies execute in a separate function.
     (define (holds-yield-point? (suspensions Suspensions) (expr Expr)) (→ Bool)
       (match (● expr term)
         ((Lambda _ _) #f)
+        ((YieldLet _ _ _) #t)
         ((Let _ value body)
          (or (not (null? (yields suspensions value))) (holds-yield-point? suspensions body)))
         (_ (any? (lambda (child) (holds-yield-point? suspensions child)) (expr-children expr)))))
@@ -485,6 +485,67 @@
         ((TCon "Funcref" _) (compile-error loc "cache keys cannot be raw Funcref values"))
         (_ (unit))))
 
+    ;; ---- Resume routines ----
+
+    ;; The locals read on resumption, in order of first use. Resolved binders
+    ;; are unique, so a name bound inside this body can be skipped everywhere
+    ;; in it. A recursive lambda also binds its name inside its initializer.
+    (record Captures
+      ((seen (Table Bool))
+       (locals (List (Pair String Type)))))
+
+    (define (skip-local (found Captures) (name String)) (→ Captures)
+      (Captures-seen-set found (table-set (● found seen) name #t)))
+
+    (define (read-local (found Captures) (name String) (type Type)) (→ Captures)
+      (if (table-contains? (● found seen) name)
+          found
+          (new Captures (seen (table-set (● found seen) name #t))
+               (locals (Cons (new Pair (first name) (second type)) (● found locals))))))
+
+    (define (skip-pattern (found Captures) (pattern Pattern)) (→ Captures)
+      (match pattern
+        ((PVar name _) (skip-local found name))
+        ((PCon _ fields _) (fold-left skip-pattern found fields))
+        (_ found)))
+
+    ;; A following resume routine has already computed its inputs. Reading
+    ;; those and the call's operands accounts for the rest of that path.
+    (define (capture-reads (known Known) (found Captures) (expr Expr)) (→ Captures)
+      (let ((read (lambda (found child) (capture-reads known found child))))
+        (match (● expr term)
+          ((Var name _ _) (if (local? known name) (read-local found name (● expr type)) found))
+          ((Lambda params body) (read (fold-left skip-local found params) body))
+          ((Let name value body) (read (read (skip-local found name) value) body))
+          ((YieldLet name value after)
+           (let ((found (read (skip-local found name) value)))
+             (match after
+               ((Unwind body) (read found body))
+               ((ResumeAt routine)
+                (fold-left
+                 (lambda (found input) (read-local found (● input first) (● input second)))
+                 found (● routine captures))))))
+          ((Match test clauses)
+           (fold-left (lambda (found clause)
+                        (read (skip-pattern found (● clause pattern)) (● clause body)))
+                      (read found test) clauses))
+          (_ (fold-left read found (expr-children expr))))))
+
+    (define (resume-routine (known Known) (name String) (argument Type) (body Expr))
+      (→ ResumeRoutine)
+      (let* ((found (new Captures (seen (table-set (empty-table) name #t)) (locals (Nil))))
+             (inputs (capture-reads known found body)))
+        (new ResumeRoutine (argument argument) (captures (reverse (● inputs locals))) (body body))))
+
+    (define (binding (suspensions Suspensions) (name String) (value Expr) (body Expr)) (→ Term)
+      (let ((labels (yields suspensions value)))
+        (cond ((null? labels) (Let name value body))
+              ((may-resume? suspensions labels)
+               (YieldLet name value
+                         (ResumeAt
+                          (resume-routine (● suspensions known) name (● value type) body))))
+              (else (YieldLet name value (Unwind body))))))
+
     ;; ---- A-normal form ----
 
     ;; Source locals end in `.digits` and globals contain a colon, so these
@@ -496,8 +557,11 @@
     (define (temporary (name String) (value Expr)) (→ Expr)
       (new Expr (term (Var name (Nil) (Nil))) (type (● value type)) (loc (● value loc))))
 
-    (define (bind (name String) (value Expr) (body Expr)) (→ Expr)
-      (new Expr (term (Let name value body)) (type (● body type)) (loc (● value loc))))
+    (define (bind (suspensions Suspensions) (name String) (value Expr) (body Expr)) (→ Expr)
+      (new Expr
+        (term (binding suspensions name value body))
+        (type (● body type))
+        (loc (● value loc))))
 
     ;; `expr` with each call that may yield, and each operand that runs
     ;; before one, named by a let, except where its value flows out of
@@ -524,7 +588,9 @@
           ((Let name value body)
            (threading count ((value (normal suspensions value))
                              (body (normal suspensions body)))
-                      (new Pair (first (rebuild (Let name value body))) (second count))))
+                      (new Pair
+                        (first (rebuild (binding suspensions name value body)))
+                        (second count))))
           ((Seq first rest)
            (threading count ((first (normal suspensions first))
                              (rest (normal suspensions rest)))
@@ -582,7 +648,7 @@
           (new Pair (first (make operand)) (second count))
           (let ((name (temporary-name count)))
             (new Pair
-              (first (bind name operand (make (temporary name operand))))
+              (first (bind suspensions name operand (make (temporary name operand))))
               (second (+ count 1))))))
 
     ;; A sequence whose first part may yield binds it, so the let tests it.
@@ -593,7 +659,9 @@
           (new Pair
             (first (new Expr (term (Seq first rest)) (type (● expr type)) (loc (● expr loc))))
             (second count))
-          (new Pair (first (bind (temporary-name count) first rest)) (second (+ count 1)))))
+          (new Pair
+            (first (bind suspensions (temporary-name count) first rest))
+            (second (+ count 1)))))
 
     (define (normal-call (count I64)
                          (suspensions Suspensions)
@@ -605,7 +673,9 @@
                         (bound (bind-operands suspensions operands)))
                  (match (● bound operands)
                    ((Cons callee args)
-                    (new Pair (first (wrap-lets bound (applied expr callee args))) (second count)))
+                    (new Pair
+                      (first (wrap-lets suspensions bound (applied expr callee args)))
+                      (second count)))
                    ((Nil) (panic "internal error: a call without a callee")))))
 
     (define (applied (expr Expr) (callee Expr) (args (List Expr))) (→ Expr)
@@ -621,8 +691,8 @@
       ((lets (List (Pair String Expr)))
        (operands (List Expr))))
 
-    (define (wrap-lets (bound Bound) (body Expr)) (→ Expr)
-      (fold-right (lambda (entry body) (bind (● entry first) (● entry second) body))
+    (define (wrap-lets (suspensions Suspensions) (bound Bound) (body Expr)) (→ Expr)
+      (fold-right (lambda (entry body) (bind suspensions (● entry first) (● entry second) body))
                   body
                   (● bound lets)))
 
@@ -799,6 +869,14 @@
                                              ")"))
                              ((Let name value body)
                               (string-append "(let " name " " (shape value) " " (shape body) ")"))
+                             ((YieldLet name value after)
+                              (string-append "(yield "
+                                             name
+                                             " "
+                                             (shape value)
+                                             " "
+                                             (shape (after-body after))
+                                             ")"))
                              ((Seq first rest)
                               (string-append "(begin " (shape first) " " (shape rest) ")"))
                              (_ "?"))))
@@ -922,33 +1000,33 @@
             (lambda ()
               (expect
                (normalized (call add (list (call g (list (number 1))) (call f (list (number 2))))))
-               "(let %control.0% (g 1) (let %control.1% (f 2) (add %control.0% %control.1%)))")
+               "(let %control.0% (g 1) (yield %control.1% (f 2) (add %control.0% %control.1%)))")
               (expect (normalized (call add (list (number 1) (call f (list (number 2))))))
-                      "(let %control.0% (f 2) (add 1 %control.0%))")
+                      "(yield %control.0% (f 2) (add 1 %control.0%))")
               (expect
                (normalized (call add (list (call f (list (number 1))) (call g (list (number 2))))))
-               "(let %control.0% (f 1) (add %control.0% (g 2)))")
+               "(yield %control.0% (f 1) (add %control.0% (g 2)))")
               (expect (normalized (call g (list (call f (list (call f (list (number 1))))))))
-                      "(let %control.1% (let %control.0% (f 1) (f %control.0%)) (g %control.1%))")))
+                      "(yield %control.1% (yield %control.0% (f 1) (f %control.0%)) (g %control.1%))")))
 
           (define test-flow
             (lambda () (expect (normalized (call f (list (call g (list (number 1)))))) "(f (g 1))")
                     (expect (normalized
                              (expr (If (call predicate (Nil)) (call f (list (number 1))) (number 2))
                                    i64))
-                            "(let %control.0% (predicate) (if %control.0% (f 1) 2))")
+                            "(yield %control.0% (predicate) (if %control.0% (f 1) 2))")
                     (expect (normalized (expr (Seq (call f (list (number 1))) (number 2)) i64))
-                            "(let %control.0% (f 1) 2)")
+                            "(yield %control.0% (f 1) 2)")
                     (expect
                      (normalized
                       (expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
                             i64))
-                     "(let x.1 (f 1) (g x.1))")
+                     "(yield x.1 (f 1) (g x.1))")
                     (expect
                      (normalized
                       (expr (Lambda (list "x.1") (call g (list (call f (list (number 1))))))
                             (● g type)))
-                     "(lambda (let %control.0% (f 1) (g %control.0%)))")))
+                     "(lambda (yield %control.0% (f 1) (g %control.0%)))")))
 
           (define test-unchanged
             (lambda ()
@@ -957,17 +1035,16 @@
 
           (define test-holds
             (lambda ()
-              (let ((inner
-                     (expr (Let "x.1" (call f (list (number 1))) (call g (list (local "x.1" i64))))
-                           i64)))
+              (let ((inner (bind suspensions "x.1" (call f (list (number 1)))
+                                 (call g (list (local "x.1" i64))))))
                 (expect (holds-yield-point? suspensions inner) #t)
                 (expect (holds-yield-point? suspensions
                                             (expr (If (local "c.1" bool) inner (number 2)) i64))
                         #t)
                 (expect (holds-yield-point? suspensions (call f (list (number 1)))) #f)
-                (expect (holds-yield-point? suspensions
-                                            (expr (Lambda (list "y.1") inner) (● g type)))
-                        #f))))
+                (expect
+                 (holds-yield-point? suspensions (expr (Lambda (list "y.1") inner) (● g type)))
+                 #f))))
 
           (test-yields)
           (test-delimited)

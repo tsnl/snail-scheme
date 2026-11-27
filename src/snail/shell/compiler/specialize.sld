@@ -189,6 +189,7 @@
                            (consequent (copy-expr inst consequent))
                            (alternative (copy-expr inst alternative)))
                     (new Pair (first (If test consequent alternative)) (second state))))
+        ((YieldLet _ _ _) (panic "internal error: yield point before preparation"))
         ((Let name value body)
          (threading state ((value (copy-expr inst value)) (body (copy-expr inst body)))
                     (new Pair (first (Let name value body)) (second state))))

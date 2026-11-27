@@ -48,6 +48,12 @@
    FieldWrite
    If
    Let
+   YieldLet
+   AfterCall
+   Unwind
+   ResumeAt
+   ResumeRoutine
+   after-body
    Seq
    Match
    Ann
@@ -451,6 +457,11 @@
        ((name String)
         (value Expr)
         (body Expr)))
+      ;; Preparation marks bindings whose value can yield.
+      (YieldLet
+       ((name String)
+        (value Expr)
+        (after AfterCall)))
       (Seq
        ((first Expr)
         (rest Expr)))
@@ -464,6 +475,22 @@
       (Downcast
        ((expr Expr)
         (target Type))))
+
+    ;; A call that only unwinds has an ordinary body on success. A resumable
+    ;; call also needs an entry to that body with its live locals restored.
+    (enum AfterCall
+      (Unwind ((body Expr)))
+      (ResumeAt ((routine ResumeRoutine))))
+
+    (record ResumeRoutine
+      ((argument Type)
+       (captures (List (Pair String Type)))
+       (body Expr)))
+
+    (define (after-body (after AfterCall)) (→ Expr)
+      (match after
+        ((Unwind body) body)
+        ((ResumeAt routine) (● routine body))))
 
     (record Initializer
       ((slot I64)
@@ -507,6 +534,7 @@
         ((FieldWrite record _ value _) (list record value))
         ((If test then otherwise) (list test then otherwise))
         ((Let _ value body) (list value body))
+        ((YieldLet _ value after) (list value (after-body after)))
         ((Seq first rest) (list first rest))
         ((Match scrutinee clauses) (Cons scrutinee (map (lambda (record) (● record body)) clauses)))
         ((Ann inner _) (list inner))
