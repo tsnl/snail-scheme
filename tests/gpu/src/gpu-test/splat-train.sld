@@ -5,15 +5,10 @@
 ;; device; fused SSIM's gradient against central differences of its mean;
 ;; and Adam pulling a perturbed cloud toward a rendered one.
 (define-library (gpu-test splat-train)
-  (export
-   splat-forward-check
-   shared-fill
-   splat-tile-ranges
-   splat-gradient-check
-   splat-ssim-check
-   splat-fit-check)
+  (export splat-checks training-checks)
   (import
    (snail core base)
+   (snail core io)
    (snail core table)
    (only (snail shell gpu) Gpu)
    (only (snail shell math) exp log sin)
@@ -25,8 +20,23 @@
    (snail shell tensor grad)
    (snail shell tensor lower)
    (snail shell tensor adam)
-   (snail shell graphics splat-train))
+   (snail shell graphics splat-train)
+   (gpu-test splat-fit))
   (begin
+
+    (define (splat-checks (gpu Gpu) (out OutputPort)) (→ Unit)
+      (write-line out (string-append "splat forward: " (splat-forward-check gpu)))
+      (write-line out (string-append "shared fill: " (show (shared-fill gpu))))
+      (write-line out (string-append "splat tile ranges: " (splat-tile-ranges gpu)))
+      (write-line out (string-append "ssim: " (splat-ssim-check gpu)))
+      (write-line out (string-append "densify: " (splat-densify-check gpu)))
+      (write-line out (string-append "room: " (splat-room-check gpu))))
+
+    ;; These two runs exhaust SwiftShader's pool of 8,192 stacks for workgroups
+    ;; with barriers (#856). The browser runs the other checks. Dawn runs all of them.
+    (define (training-checks (gpu Gpu) (out OutputPort)) (→ Unit)
+      (write-line out (string-append "splat gradients: " (splat-gradient-check gpu)))
+      (write-line out (string-append "splat fit: " (splat-fit-check gpu))))
 
     ;; ---- Scenes ----
 

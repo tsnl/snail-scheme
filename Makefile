@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats last-mile pages
+.PHONY: format check check-scheme test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats last-mile pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -12,7 +12,7 @@ SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 # by the command line (tests/run.mjs): the examples and test programs, both
 # games' tests, Siegework headless, the build suites and the formatter's.
 # The command line is bootstrapped first.
-test:
+test: check-scheme
 	./scripts/bootstrap >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 	node tests/run.mjs "$(CURDIR)"
@@ -41,8 +41,10 @@ format:
 	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --write
 	$(NIXFMT) shell.nix benches/*/*.nix
 
-check:
+check-scheme:
 	git ls-files -z $(SCHEME_SOURCES) | xargs -0 ./scripts/format-scheme --check
+
+check: check-scheme
 	$(NIXFMT) --check shell.nix benches/*/*.nix
 	$(MAKE) generated-unicode
 	cmp build/unicode.sld src/snail/shell/text/unicode.sld

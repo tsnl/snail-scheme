@@ -1,29 +1,8 @@
-;; The checks of a `Gpu` that need only a device and no screen, so
-;; the page (tests/gpu/main.scm) and Node (tests/gpu/node.scm) run them
-;; alike, and the training checks, which only Node runs. Each writes its
-;; line: a PNG's two texels, decoded by the host; two tiles
-;; rasterized into a G-buffer and lit by the sun, under each tone curve,
-;; and their motion and 32-bit ids, and a sprite that stays still under an
-;; orbiting camera; numbers squared in a compute pass; 300,000 numbers
-;; scanned and 5,000 keys sorted; three gaussians splatted under two
-;; transform tables; a render pass timed; tensor programs lowered, checked
-;; against the CPU and profiled, params swapped and assigned, and Adam
-;; fitting a line; and the
-;; differentiable splat renderer checked against the paper's blending, its
-;; tiles past 65,535, fused SSIM's gradient against central differences,
-;; and densification's clones, splits and prunes, within the cloud's
-;; capacity. The training checks are the renderer's gradients against
-;; central differences and Adam fitting a cloud. SwiftShader, the page's
-;; device, cannot run that much (#856): for a kernel with a
-;; `workgroupBarrier` it keeps a megabyte stack for every four invocations
-;; of each workgroup it runs at once, pools those stacks a worker thread
-;; and never frees them, and Chromium's allocator holds 8,192. The checks
-;; the page does run leave about 3,600.
-;; tests/gpu/expected.mjs holds the lines.
+;; Graphics checks shared by Node and the page. Each renders or computes
+;; on the host device and reads its result back.
 (define-library (gpu-test device)
   (export
    device-checks
-   training-checks
    buffer-named
    texture-named
    texels
@@ -47,10 +26,7 @@
    (only (snail shell graphics shaders) environment-light-shader)
    (gpu-test moving-scene)
    (gpu-test restir)
-   (gpu-test shaders)
-   (gpu-test tensor)
-   (gpu-test splat-train)
-   (gpu-test splat-fit))
+   (gpu-test shaders))
   (begin
 
     ;; ---- Checks ----
@@ -83,24 +59,7 @@
       (let ((viewed (viewed-frames gpu)))
         (write-line out (string-append "viewed splats: " (texels (● viewed first))))
         (write-line out (string-append "viewed turned: " (texels (● viewed second)))))
-      (write-line out (string-append "timed: " (timed-pass gpu)))
-      (write-line out (string-append "tensor: " (tensor-agreement gpu)))
-      (write-line out (string-append "fused tensor: " (fused-agreement gpu)))
-      (write-line out (string-append "profiled: " (profiled-steps gpu)))
-      (write-line out (string-append "swapped: " (swapped-params gpu)))
-      (write-line out (string-append "assigned: " (assigned-param gpu)))
-      (write-line out (string-append "bound: " (bound-param gpu)))
-      (write-line out (string-append "fitted: " (fitted-line gpu)))
-      (write-line out (string-append "splat forward: " (splat-forward-check gpu)))
-      (write-line out (string-append "shared fill: " (show (shared-fill gpu))))
-      (write-line out (string-append "splat tile ranges: " (splat-tile-ranges gpu)))
-      (write-line out (string-append "ssim: " (splat-ssim-check gpu)))
-      (write-line out (string-append "densify: " (splat-densify-check gpu)))
-      (write-line out (string-append "room: " (splat-room-check gpu))))
-
-    (define (training-checks (gpu Gpu) (out OutputPort)) (→ Unit)
-      (write-line out (string-append "splat gradients: " (splat-gradient-check gpu)))
-      (write-line out (string-append "splat fit: " (splat-fit-check gpu))))
+      (write-line out (string-append "timed: " (timed-pass gpu))))
 
     ;; ---- Objects ----
 
@@ -651,9 +610,11 @@
                                       (new Pair (first 8) (second 4)))))))
 
     (define (three-splats (gpu Gpu)) (→ Splats)
-      (let ((splats (make-splats gpu "test" (Rgba8Unorm) 3 3)))
+      ;; Straddle the projection's 256-wide workgroup boundary. Dropping the
+      ;; final partial group changes the green and blue pixels.
+      (let ((splats (make-splats gpu "test" (Rgba8Unorm) 258 3)))
         (write-cloud gpu splats
-                     0
+                     255
                      (pack-cloud (list (gaussian (new Vec3f (x 0.9) (y 0.3) (z 0.3)) 0)
                                        (gaussian (new Vec3f (x 0.2) (y 0.2) (z 0.2)) 2)
                                        (gaussian (new Vec3f (x 0.3) (y 0.3) (z 0.3)) 1))

@@ -360,11 +360,12 @@ an RTX 5090. T toggles drawing tile by tile. Every two seconds the console
 has the frame rate and one frame's compute and render passes, timed on the
 device where it has timestamps.
 
-`tests/programs/graphics-splat.sld` reads a PLY file and records the
-dispatches of a frame of 300,000 gaussians; `tests/browser/gpu.mjs` scans
-300,000 numbers in three levels and checks each, sorts 5,000 keys and
-checks the order is stable, and splats three gaussians, then turns one by
-its transform, as quads and tile by tile; both agree to a step of a texel. On an RTX 5090, through headless Chromium on Vulkan, the
+`tests/programs/graphics-splat.sld` reads and writes PLY clouds. On a
+device, the integration tests check all 300,000 outputs of a three-level
+scan and the stable order of 5,000 sorted keys. They also draw three
+gaussians spanning two workgroups before and after changing a transform.
+The quad and tile renderers produce matching colors within the readback
+tolerance. On an RTX 5090, through headless Chromium on Vulkan, the
 viewer keeps 60 frames a second with room for 60,000, 1,000,000 and
 4,000,000 gaussians, the gaussians it does not write culled but sorted and
 drawn; from submit to the queue's completion takes 3.9, 3.8 and 5.8 ms at

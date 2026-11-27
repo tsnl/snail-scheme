@@ -1,11 +1,7 @@
-;; The geometry table's shapes and a batch's indirect draws, through the
-;; recording handler: each shape's triangles, and one draw per shape that
-;; has instances, from its own first instance.
+;; Packed instances and indirect draws for a batch containing two shapes.
 (import
  (snail core base)
  (snail core io)
- (snail shell gpu)
- (snail shell gpu record)
  (snail shell graphics pod)
  (snail shell graphics mesh))
 
@@ -25,22 +21,6 @@
                 (new Pair (first (Box)) (second (instance 1.0)))
                 (new Pair (first (Prism)) (second (instance 2.0))))))
 
-;; A created object's kind, id and label, and a pass's id and encoder,
-;; without their descriptors.
-(define (heads (lines (List String))) (→ (List String))
-  (map (lambda (line)
-         (let ((words (words-of line)))
-           (cond ((string=? (list-ref words 0) "create") (string-join (take words 4) " "))
-                 ((string=? (list-ref words 0) "pass") (string-join (take words 3) " "))
-                 (else line))))
-       lines))
-
-(define (words-of (text String)) (→ (List String))
-  (match (string-index text #\space)
-    ((Some at)
-     (Cons (substring text 0 at) (words-of (substring text (+ at 1) (string-length text)))))
-    ((None) (list text))))
-
 (define (main (out OutputPort)) (→ Unit)
   (write-line out (string-append "instance bytes: " (show (array-length (● batch instances)))))
   (for-each (lambda (draw)
@@ -50,27 +30,4 @@
                                              ", " (show (● draw instance-count))
                                              " instances from " (show (● draw first-instance)))))
             (● batch draws))
-  (for-each (lambda (text) (write-line out text))
-            (heads (● (with-recorded-gpu (lambda (gpu) (frame gpu))) second)))
   (unit))
-(define (frame (gpu Gpu)) (→ Unit)
-  ((● gpu request-device))
-  (let* ((geometry (make-geometry gpu))
-         (uploaded (upload-batch gpu "mesh/test" batch))
-         (encoder ((● gpu create-command-encoder)))
-         (pass ((● gpu begin-render-pass) encoder
-                (new RenderPassDescriptor
-                  (colors (list (Some (new ColorAttachment
-                                        (view
-                                         (view-of gpu
-                                                  (● ((● gpu current-texture))
-                                                     texture)
-                                                  1))
-                                        (load (Keep))
-                                        (store #t)))))
-                  (depth (None))))))
-    (draw-meshes gpu pass geometry uploaded)
-    ((● gpu end-pass) pass)
-    ((● gpu submit) (list ((● gpu finish) encoder)))
-    (release-batch gpu uploaded)))
-

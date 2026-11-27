@@ -1,0 +1,5 @@
+unbound identifier Cell-value
+unbound identifier Circle-radius
+unbound identifier Cell-value-set!
+unbound identifier Cell-value-replace!
+unbound identifier ::value

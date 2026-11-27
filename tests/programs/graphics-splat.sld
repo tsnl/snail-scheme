@@ -1,13 +1,8 @@
-;; Gaussian splatting without a device: a 3DGS PLY file read into a cloud,
-;; with its activations, its coefficients by degree and its transform row;
-;; a trained cloud written as such a file and read back; the files
-;; `read-ply` refuses; and the dispatches a frame records, which show the
-;; scan's levels inside each pass of the radix sort.
+;; Read a 3DGS PLY file, round-trip a trained cloud, and check which
+;; malformed files the reader rejects.
 (import
  (snail core base)
  (snail core io)
- (snail shell gpu)
- (snail shell gpu record)
  (snail shell graphics pod)
  (snail shell graphics splat)
  (snail shell graphics ply))
@@ -48,18 +43,6 @@
 (define file
   (→ Bytes)
   (array-append (header-bytes degree-one) (float-bytes (append (vertex 1.0) (vertex -1.0)))))
-
-(define (float-at (bytes Bytes) (index I64)) (→ F32)
-  (bits->f32 (fold-left (lambda (word k)
-                          (i32-or (i32-shift-left word 8)
-                                  (u8->i32 (array-ref bytes (+ (* 4 index) k)))))
-                        0
-                        (list 3 2 1 0))))
-
-(define (floats (bytes Bytes) (from I64) (count I64)) (→ String)
-  (string-join (map (lambda (index) (f64->string (f32->f64 (float-at bytes (+ from index)))))
-                    (iota count))
-               " "))
 
 ;; The second gaussian's record, read back: position, transform,
 ;; quaternion, scale and opacity, the last two as their f16s hold them;
@@ -145,45 +128,6 @@
                                                    " "))))
       ((Err message) (write-line out message)))))
 
-;; ---- Dispatches ----
-
-;; The workgroups of each dispatch a frame of 300,000 gaussians records:
-;; the projection, then four passes of the sort, each counting 1172
-;; blocks, a workgroup a block, scanning their 300,032 counts, 256 a
-;; workgroup, in three levels and adding the upper two back, and
-;; scattering.
-
-(define (frame (gpu Gpu)) (→ Unit)
-  (let* ((splats (make-splats gpu "test" (Bgra8Unorm) 300000 2))
-         (encoder ((● gpu create-command-encoder)))
-         (pass ((● gpu begin-compute-pass) encoder)))
-    (write-transforms gpu splats (list (identity-of 2.0)))
-    (sort-splats gpu pass
-                 splats
-                 (splat-camera (new Vec3f (x 0.0) (y 0.0) (z 5.0))
-                               (new Vec3f (x 0.0) (y 0.0) (z 0.0))
-                               (new Vec3f (x 0.0) (y 1.0) (z 0.0))
-                               1.0
-                               640
-                               480))
-    ((● gpu end-compute-pass) pass)
-    ((● gpu submit) (list ((● gpu finish) encoder)))))
-
-(define (identity-of (scale F32)) (→ Mat4x4f)
-  (new Mat4x4f
-    (x (new Vec4f (x scale) (y 0.0) (z 0.0) (w 0.0)))
-    (y (new Vec4f (x 0.0) (y scale) (z 0.0) (w 0.0)))
-    (z (new Vec4f (x 0.0) (y 0.0) (z scale) (w 0.0)))
-    (w (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 1.0)))))
-
-(define (dispatched (line String)) (→ Bool)
-  (and (> (string-length line) 19) (string=? (substring line 0 19) "dispatch-workgroups")))
-
-(define (workgroups (line String)) (→ String)
-  (match (string-index (substring line 20 (string-length line)) #\space)
-    ((Some at) (substring line (+ 21 at) (- (string-length line) 4)))
-    ((None) line)))
-
 (define (main (out OutputPort)) (→ Unit)
   (match (read-ply file 3)
     ((Ok cloud) (show-cloud out cloud))
@@ -200,10 +144,4 @@
                              "format binary_little_endian 1.0"
                              "element vertex 1"
                              "property float x")))
-  (write-line out
-              (string-join (map workgroups
-                                (filter dispatched
-                                        (● (with-recorded-gpu (lambda (gpu) (frame gpu)))
-                                           second)))
-                           " "))
   (unit))

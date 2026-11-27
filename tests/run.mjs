@@ -115,18 +115,11 @@ function script(name, ...flags) {
   };
 }
 
-// The command line's own contracts: `wat` prints a program's text, and a
-// run's status is its program's: a panic exits with 1, and a trap is 2.
-async function commandLine() {
+// A run's status is its program's. A panic exits with 1, and a trap is 2.
+async function exitStatuses() {
   const ran = file => command(snail, ['run', '--target', 'node', file]);
-  const wat = await command(snail, ['wat', '--target', 'node', 'examples/fibonacci.sld']);
-  if (wat.status !== 0 || !wat.stdout.includes('(func $main')) return fail('command line', 'wat printed no module text', wat.stderr);
-  const fibonacci = await ran('examples/fibonacci.sld');
-  if (fibonacci.stdout !== '832040\n') return fail('command line', 'run printed', fibonacci.stdout + fibonacci.stderr);
   const failed = await ran('tests/tasks/failure.sld');
-  if (failed.status === 0 || failed.stdout !== '') return fail('command line', 'a fatal child panic must fail the run before starting queued siblings', failed.stdout + failed.stderr);
-  const panicked = await ran('tests/programs/panic.sld');
-  if (panicked.status !== 1) return fail('command line', 'a panic must exit with status 1', panicked.stderr);
+  if (failed.status !== 1 || failed.stdout !== '') return fail('command line', 'a fatal child panic must exit with status 1 before starting queued siblings', failed.stdout + failed.stderr);
   const trapped = await ran('tests/programs/traps.sld');
   return trapped.status === 2 || fail('command line', 'a trap must be status 2', trapped.stderr);
 }
@@ -164,7 +157,7 @@ async function toolchainAssembler() {
   const directory = join(root, 'build/tests/toolchain');
   await mkdir(directory, {recursive: true});
   const wat = await command(snail, ['wat', '--target', 'node', 'examples/fibonacci.sld']);
-  if (wat.status !== 0) return fail('toolchain assembler', 'compile failed', wat.stderr);
+  if (wat.status !== 0 || !wat.stdout.includes('(func $main')) return fail('toolchain assembler', 'wat printed no module text', wat.stderr);
   await writeFile(join(directory, 'fibonacci.wat'), wat.stdout);
   const tool = await build('tests/toolchain/assemble.sld', 'node');
   if (tool.failure) return fail('toolchain assembler', 'compile failed', tool.failure);
@@ -186,7 +179,7 @@ async function bookHighlighter() {
 }
 
 const checks = () => [
-  commandLine,
+  exitStatuses,
   typeIds,
   asyncFiles,
   toolchainAssembler,

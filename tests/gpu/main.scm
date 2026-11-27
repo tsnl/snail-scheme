@@ -6,7 +6,7 @@
 ;; read back the same way. A second frame draws again with the objects the
 ;; first made.
 ;; Then an atlas's picture is drawn as quads, and the checks that need
-;; only a device run, as they do on Node ((gpu-test device)). The page
+;; only a device run, including the tensor and splat readbacks. The page
 ;; reads its own index.html as bytes, and a file it lacks fails; the last
 ;; frame's work is waited for. tests/browser/gpu.mjs checks what it prints.
 (import
@@ -20,7 +20,9 @@
  (snail shell graphics quad)
  (only (snail shell fetch) Fetch fetch-bytes)
  (gpu-test shaders)
- (gpu-test device))
+ (gpu-test device)
+ (gpu-test tensor)
+ (gpu-test splat-train))
 
 (record Paint-uniform
   ((color Vec4f))
@@ -228,6 +230,8 @@
       (write-line out (string-append "quads: " (texels (● quads first))))
       (write-line out (string-append "url: " (● quads second))))
     (device-checks gpu out)
+    (tensor-checks gpu out)
+    (splat-checks gpu out)
     ((● gpu work-done))
     (write-line out (string-append "fetched: " (fetched fetch)))
     ((● events report-ready)))

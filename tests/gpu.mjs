@@ -1,11 +1,7 @@
-// The `Gpu` capability on Node, whose device is Dawn's (host/native/gpu.mjs):
-// tests/gpu/node.scm runs the checks that need only a device, as the page
-// does, and the splat renderer's training checks, on the GPU Dawn finds,
-// and WebGPU reports no error. Its build is a package that depends on the
-// webgpu and @napi-rs/canvas packages, and runs as it would be shipped:
-// Node finds both in the repository's node_modules, which `npm ci`
-// installs. `make test-gpu` runs this, on the machine's GPU, or in CI,
-// which has none, on the CPU through lavapipe (shell.nix).
+// Build and run a shipped Node package per GPU workload. The compiler
+// analyzes possible suspensions across a whole program. Combining graphics,
+// tensors and splat training makes a single build much more expensive.
+// Dawn uses the machine's GPU or the software driver lavapipe in CI.
 //
 //   node tests/gpu.mjs ROOT
 import assert from 'node:assert/strict';
@@ -13,17 +9,25 @@ import {execFile} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {assertLines, deviceLines, trainingLines} from './gpu/expected.mjs';
+import {assertLines, deviceLines, splatLines, tensorLines, trainingLines} from './gpu/expected.mjs';
 
 const [root] = process.argv.slice(2);
 const execute = promisify(execFile);
-const built = (await execute(join(root, 'snail-scheme'), ['build', '--target', 'node', 'tests/gpu/node.scm'],
-  {cwd: root})).stdout.trim();
-const manifest = JSON.parse(await readFile(join(built, 'package.json'), 'utf8'));
-assert.ok(manifest.dependencies.webgpu && manifest.dependencies['@napi-rs/canvas'], 'the package depends on webgpu and @napi-rs/canvas');
-const {stdout, stderr} = await execute(process.execPath, [join(built, 'main.mjs')], {cwd: root});
-assert.deepEqual(stderr.split('\n').filter(line => line.startsWith('WebGPU')), [], 'WebGPU reported nothing');
-const printed = stdout.trimEnd().split('\n');
-assert.equal(printed[0], 'format: rgba8unorm');
-assertLines(printed.slice(1), [...deviceLines, ...trainingLines]);
-console.log('gpu on node, from its package: decoding, a lit, tone-mapped G-buffer, motion and ids, a compute pass, a scan, a sort, splats as quads and tile by tile, a timed pass, tensor programs and their profile, the differentiable splat renderer and densification on Dawn passed');
+async function checkPackage(name, expected) {
+  console.time(`Build ${name}`);
+  const {stdout: directory} = await execute(join(root, 'snail-scheme'),
+    ['build', '--target', 'node', `tests/gpu/${name}.scm`], {cwd: root});
+  console.timeEnd(`Build ${name}`);
+  const built = directory.trim();
+  const manifest = JSON.parse(await readFile(join(built, 'package.json'), 'utf8'));
+  assert.ok(manifest.dependencies.webgpu && manifest.dependencies['@napi-rs/canvas'], `GPU dependencies in ${name}`);
+  console.time(`Run ${name}`);
+  const {stdout, stderr} = await execute(process.execPath, [join(built, 'main.mjs')], {cwd: root});
+  console.timeEnd(`Run ${name}`);
+  assert.deepEqual(stderr.split('\n').filter(line => line.startsWith('WebGPU')), [], `WebGPU errors in ${name}`);
+  assertLines(stdout.trimEnd().split('\n'), expected);
+}
+
+await checkPackage('node', ['format: rgba8unorm', ...deviceLines]);
+await checkPackage('tensors', tensorLines);
+await checkPackage('splat-training', [...splatLines, ...trainingLines]);
