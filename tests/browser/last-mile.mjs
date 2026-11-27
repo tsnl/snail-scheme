@@ -146,6 +146,23 @@ async function visibleStreet() {
 
 try {
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: `
+    window.streetMeshes = 0;
+    const streetIds = new WeakMap(), drawn = new Set();
+    const createBuffer = GPUDevice.prototype.createBuffer;
+    GPUDevice.prototype.createBuffer = function(descriptor) {
+      const buffer = createBuffer.call(this, descriptor);
+      if (descriptor.label === 'scene/vertices') streetIds.set(buffer, ++window.streetMeshes);
+      return buffer;
+    };
+    const bind = GPURenderPassEncoder.prototype.setVertexBuffer, submit = GPUQueue.prototype.submit;
+    GPURenderPassEncoder.prototype.setVertexBuffer = function(slot, buffer, ...rest) {
+      if (streetIds.has(buffer)) drawn.add(streetIds.get(buffer));
+      return bind.call(this, slot, buffer, ...rest);
+    };
+    GPUQueue.prototype.submit = function(commands) {
+      if (drawn.size) { window.visibleStreets = [...drawn]; drawn.clear(); }
+      return submit.call(this, commands);
+    };
     const createTexture = GPUDevice.prototype.createTexture;
     GPUDevice.prototype.createTexture = function(descriptor) {
       const texture = createTexture.call(this, descriptor);
@@ -182,6 +199,11 @@ try {
   assert.equal(await browser.evaluate("document.querySelector('#retry').hidden"), false);
   await click('#retry');
   await until(() => browser.evaluate('document.body && !document.body.dataset.error'), 'fresh retry');
+  await until(() => browser.evaluate(`(() => {
+    const bar = document.querySelector('progress[aria-label="City geometry"]');
+    return bar && bar.value > 0 && bar.value < bar.max;
+  })()`), 'street preparation progress', 90);
+  if (screenshot) await browser.screenshot(screenshot.replace(/\.png$/, '-prepare.png'));
   await ready();
   assert.equal(objects.get('/' + object('sf-1.bin')), 1, 'retry retained the completed transfer');
   assert.equal(objects.get('/' + object(legacyFile)), undefined, 'old IndexedDB bytes avoided a download');
@@ -334,6 +356,11 @@ try {
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.resume-game');
   await expect('.stage', 'PICKUP');
+  const resident = await browser.evaluate('window.streetMeshes');
+  const near = await browser.evaluate('window.visibleStreets');
+  assert.ok(near.length > 0 && near.length <= 9);
+  const city = JSON.parse(await readFile(join(directory, 'geodata/city.json')));
+  assert.equal(resident, city.land_sectors + 1, 'all detailed sectors and the animated scene uploaded before driving');
   await tap('m');
   for (let i = 0; i < 3; i++) await tap('[');
   await expect('.picker', 'Treasure Island');
@@ -344,6 +371,10 @@ try {
     return chart?.paths > 0 && chart.box !== local.box && chart.overview === 'none';
   }, 'island vector chart from the cached city');
   await until(visibleStreet, 'the independently drawn island streets', 65);
+  assert.equal(await browser.evaluate('window.streetMeshes'), resident, 'teleport selected resident geometry');
+  const island = await browser.evaluate('window.visibleStreets');
+  assert.ok(island.length > 0 && island.length <= 9 && island.every(id => !near.includes(id)),
+    'the island draws its own resident neighbors');
   const dayImage = await until(async () => { const image = await streetImage(); return image.colors >= 12 && image; }, "daylight exposure");
   const day = dayImage.luminance;
   await tap('l');
@@ -356,6 +387,14 @@ try {
   assert.deepEqual([...objects], before);
   assert.ok((await read('.loading-bytes')).includes(totalMiB + ' MiB cached'));
   assert.equal(await browser.evaluate('document.body.dataset.error'), undefined);
+  await tap('m');
+  await browser.evaluate('[...document.querySelectorAll(".stand-dot")].find(node => node.title === "Hyde at Lombard").click()');
+  await expect('.picker', 'Hyde at Lombard');
+  await tap('Enter');
+  await expect('.message', 'Hyde at Lombard');
+  await until(async () => (await streetChart())?.box === local.box, 'return to the starting neighborhood');
+  assert.deepEqual(await browser.evaluate('window.visibleStreets'), near, 'the return trip reuses the original buffers');
+  assert.equal(await browser.evaluate('window.streetMeshes'), resident);
   const oldShift = await readFile(join(root, 'tests/programs/data/taxi-v3.save'));
   await browser.evaluate(`import('./storage.mjs').then(m => m.storeSave('last-mile-sf-taxi-v1', Uint8Array.of(${[...oldShift]})))`);
   await pause();

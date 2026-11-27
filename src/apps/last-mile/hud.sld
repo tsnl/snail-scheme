@@ -1,6 +1,6 @@
 ;; Dispatch, meter and navigation are projections of the current shift.
 (define-library (apps last-mile hud)
-  (export loading-screen
+  (export Loading loading-screen show-download! show-preparation!
           Hud
           make-hud
           show!
@@ -63,36 +63,46 @@
             ((< bytes 104858) (string-append (show (quotient bytes 1024)) " KiB"))
             (else (string-append (mib bytes) " MiB"))))
 
-    (define (download-view (s StaticProgress)) (→ (ui:Html Unit))
+    (record Loading
+      ((root (ui:Root Unit))
+       (transfer String)))
+    (define (show-download! (loading Loading) (s StaticProgress)) (→ Unit)
       (let* ((net (● s downloaded)) (local (● s cached)) (total (● s total)) (done (+ net local))
              (title (cond ((and (> total 0) (= done total)) "Preparing the streets…")
                           ((> net 0) "Downloading San Francisco")
                           ((> local 0) "Opening cached city files")
                           (else "Checking city files…")))
-             (detail (string-append (mib done)
-                                    " / "
-                                    (mib total)
-                                    " MiB · "
-                                    (show (quotient (* done 100) (max 1 total)))
-                                    "%"
+             (detail (string-append (mib done) " / " (mib total) " MiB · "
+                                    (show (quotient (* done 100) (max 1 total))) "%"
                                     (if (> local 0)
                                         (string-append " · " (cached-size local) " cached")
                                         ""))))
-        (panel "section" "city-loading"
-               (list (ui:Element "p"
-                                 (list (ui:Attr "class" "loading-title") (ui:Attr "role" "status"))
-                                 (list (ui:Text title)))
-                     (ui:Element "progress"
-                                 (list (ui:Attr "class" "city-progress")
-                                       (ui:Attr "aria-label" "San Francisco city files")
-                                       (ui:Attr "max" (show (max 1 total)))
-                                       (ui:Attr "value" (show done)))
-                                 (Nil))
-                     (label "p" "loading-bytes" detail)))))
-    (define (loading-screen (d Dom)) (→ (Fn StaticProgress → Unit))
-      (let ((root (ui:render-root d ((● d document-root)))))
-        (define (show (s StaticProgress)) (→ Unit) (ui:render! root (list (download-view s))))
-        (show (new StaticProgress (downloaded 0) (cached 0) (total 0))) show))
+        (set! (● loading transfer) detail)
+        (ui:render! (● loading root)
+                    (list (loading-view title detail done total "San Francisco city files")))))
+    (define (loading-view (title String) (detail String) (done I64) (total I64) (name String))
+      (→ (ui:Html Unit))
+      (panel "section" "city-loading"
+             (list (ui:Element "p"
+                               (list (ui:Attr "class" "loading-title") (ui:Attr "role" "status"))
+                               (list (ui:Text title)))
+                   (ui:Element "progress"
+                               (list (ui:Attr "class" "city-progress")
+                                     (ui:Attr "aria-label" name)
+                                     (ui:Attr "max" (show (max 1 total)))
+                                     (ui:Attr "value" (show done)))
+                               (Nil))
+                   (label "p" "loading-bytes" detail))))
+    (define (loading-screen (d Dom)) (→ Loading)
+      (let ((loading (new Loading (root (ui:render-root d ((● d document-root)))) (transfer ""))))
+        (show-download! loading (new StaticProgress (downloaded 0) (cached 0) (total 0)))
+        loading))
+    (define (show-preparation! (loading Loading) (done I64) (total I64)) (→ Unit)
+      (ui:render! (● loading root)
+                  (list (loading-view (string-append "Preparing the streets · "
+                                                     (show (quotient (* done 100) total))
+                                                     "%")
+                                      (● loading transfer) done total "City geometry"))))
 
     ;; ---- Pause menu ----
 
