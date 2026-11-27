@@ -50,6 +50,13 @@ services include the assembler, and prints it and the two runtimes, plain
 and the toolchain's, a line each, which `./snail-scheme` caches in
 `build/tools.txt`.
 
+Cargo fetches missing dependencies from crates.io while building the Rust
+runtimes and stage-zero linker. Bootstrap needs no separate dependency
+fetch step or offline/online mode selection; its cache only avoids repeated
+downloads. The checked-in `Cargo.lock` records the dependency versions.
+If a dependency becomes unavailable, update the dependencies and rerun
+`make bootstrap` to check the entire chain from Chez again.
+
 1. A working previous command line produces stage one. For a clean
    bootstrap, Chez executes the compiler's source to produce it instead.
 2. Stage one compiles the command line's source to stage two.

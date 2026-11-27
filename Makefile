@@ -8,10 +8,9 @@ MDBOOK ?= mdbook
 # Tree-sitter's queries under editors/zed are written in .scm files too.
 SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 
-# Downloads the Rust crates in each Cargo.lock, which the tests and every
-# build then use offline, and the npm packages package-lock.json pins:
-# webgpu, for WebGPU on Node, and @napi-rs/canvas, which decodes its
-# images. Run it once in a new checkout or container.
+# Prefetches the Rust crates in Cargo.lock and installs the npm packages
+# package-lock.json pins: webgpu, for WebGPU on Node, and @napi-rs/canvas,
+# which decodes its images. Bootstrap also fetches missing crates itself.
 fetch:
 	cargo fetch --locked --manifest-path crates/snail-scheme-support/Cargo.toml
 	npm ci --no-fund --no-audit

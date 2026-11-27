@@ -97,8 +97,10 @@ make fetch
 ./snail-scheme run --target node examples/fibonacci.sld
 ```
 
-`make fetch` downloads the Rust crates in each `Cargo.lock` and the npm
-packages `package-lock.json` pins once; builds and tests then run offline. The first run bootstraps the command line, which
+`make fetch` prefetches the Rust crates in `Cargo.lock` and installs the npm
+packages `package-lock.json` pins. Bootstrap fetches missing Rust crates
+automatically, so a changed lockfile needs no separate fetch step before
+bootstrapping. The first run bootstraps the command line, which
 takes a source compilation with Chez followed by self-compilation, and then
 the command line builds the script into `build/examples/fibonacci` and runs
 it on Node. The command line rebuilds itself whenever its source changes.
