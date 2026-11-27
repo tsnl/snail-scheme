@@ -1,6 +1,6 @@
 ;; A single world and light environment serve the landscape, cyclist and dog.
 (define-library (apps iygtw render)
-  (export Renderer make-renderer draw! reset-camera! view-bearing light-name)
+  (export Renderer make-renderer draw! reset-camera! reset-ride-view! view-bearing light-name)
   (import
    (snail core base)
    (snail shell math)
@@ -267,6 +267,10 @@
        (chase (Option Chase))))
     (define (reset-camera! (r Renderer)) (→ Unit)
       (set! (● r chase) (None)))
+    (define (reset-ride-view! (r Renderer)) (→ Unit)
+      (reset-camera! r)
+      ;; Two rides can have different tyre tracks at the same simulation tick.
+      (set! (● r film last) -100))
     (define (view-bearing (r Renderer) (bike-heading F64) (yaw F64)) (→ F64)
       (+ yaw (match (● r chase) ((Some c) (● c heading)) (_ bike-heading))))
     (define (camera! (r Renderer)

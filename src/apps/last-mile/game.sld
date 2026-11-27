@@ -32,6 +32,7 @@
           objective
           sedan
           save-game
+          read-shift
           restore-game
           speak!
           clock-minute
@@ -157,23 +158,27 @@
       (fresh-shift (initial-game) (● old graphics) (● old sensitivity)))
     (define (save-game (s TaxiShift)) (→ Bytes) (serialize s))
     (define (restore-game (data Bytes)) (→ TaxiShift)
-      (let ((kind (decode (new Decoder (bytes data) (position 0)))))
-        (cond ((= kind (case-id Game)) (fresh-shift (deserialize data) (preset-graphics 720) 1))
+      (match (read-shift data) ((Ok s) s) ((Err why) (panic why))))
+    (define (read-shift (data Bytes)) (→ (Result TaxiShift String)) (read-wire data decode-shift))
+    (define (decode-shift (d Decoder)) (→ TaxiShift)
+      (let ((kind (ann (decode d) I32)))
+        (set! (● d position) 0)
+        (cond ((= kind (case-id Game)) (fresh-shift (decode d) (preset-graphics 720) 1))
               ((= kind (case-id Shift))
-               (let ((old (ann (deserialize data) Shift)))
+               (let ((old (ann (decode d) Shift)))
                  (TaxiShift-cars-set
                   (fresh-shift (● old game)
                                (preset-graphics (● old resolution))
                                (● old sensitivity))
                   (● old cars))))
               ((= kind (case-id CabShift))
-               (let ((old (ann (deserialize data) CabShift)))
+               (let ((old (ann (decode d) CabShift)))
                  (new TaxiShift (game (● old game)) (cars (● old cars))
                       (graphics (preset-graphics (● old resolution)))
                       (sensitivity (● old sensitivity))
                       (falls (● old falls)) (braking (● old braking)))))
               (else
-               (let* ((s (ann (deserialize data) TaxiShift)) (g (● s graphics)))
+               (let* ((s (ann (decode d) TaxiShift)) (g (● s graphics)))
                  (unless (and (member? (● g resolution) (render-resolutions))
                               (member? (● g bounces) (bounce-counts))
                               (member? (● g samples) (list 1 2 4)))

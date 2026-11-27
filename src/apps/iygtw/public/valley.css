@@ -45,7 +45,10 @@ body[data-ready] .controls { z-index: 2; }
 .pause-panel legend { color: #dccba6; font-size: .9rem; letter-spacing: .04em; padding: 0 0 .5rem; }
 .setting { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .48rem 0; border-top: 1px solid #b2b59b44; }
 .setting select { font: inherit; color: inherit; background: #364c40; border: 1px solid #b5b99888; border-radius: 3px; padding: .33rem; min-width: 6.1rem; }
-.pause-actions { display: flex; gap: .5rem; margin-top: 1.15rem; }
+.pause-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: 1.15rem; }
+.pause-actions .resume,.pause-actions .reset { grid-column: 1 / -1; }
+.save-status { margin: .75rem 0 0; }
+.save-status:empty { display: none; }
 .pause-actions button { padding: .55rem .7rem; border: 1px solid #d2cfb57a; border-radius: 3px; }
 .pause-actions .resume { background: #f1ddb0; color: #24372c; border-color: #f1ddb0; }
 body:has(.pause-screen:not([hidden])) :is(.options, .controls) { visibility: hidden; }

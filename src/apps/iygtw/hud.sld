@@ -4,6 +4,8 @@
           show!
           loading-screen
           RideKey
+          SaveRide
+          LoadRide
           SetSamples
           FocusControl
           focus-control!
@@ -50,17 +52,20 @@
 
     (enum HudAction
       (RideKey ((key I32)))
+      (SaveRide)
+      (LoadRide)
       (SetSamples ((samples I32)))
       (FocusControl ((id String))))
     (record Hud
       ((view (ui:Root HudAction))
        (paused Bool)
+       (save-status String)
        (hub-url String)
        (bell-url String)
        (hub (Option Node))
        (bell (Option Node))))
     (define (make-hud (d Dom) (hub Bytes) (bell Bytes)) (→ Hud)
-      (new Hud (view (ui:render-root d ((● d document-root)))) (paused #f)
+      (new Hud (view (ui:render-root d ((● d document-root)))) (paused #f) (save-status "")
            (hub-url (data-url "audio/wav" hub)) (bell-url (data-url "audio/wav" bell))
            (hub (None)) (bell (None))))
 
@@ -88,12 +93,17 @@
       (let ((wrap (ui:On "keydown" (list (Key)) (Chords (list (chord "Tab" 0)))
                          (lambda (_) (FocusControl "ride-samples")))))
         (ui:Element "div" (list (ui:Attr "class" "pause-actions"))
-                    (list (button "resume" 112 "Resume ride" (list (ui:Attr "id" "ride-resume")))
+                    (list (button "resume"
+                                  (RideKey 112)
+                                  "Resume ride"
+                                  (list (ui:Attr "id" "ride-resume")))
+                          (button "save-game" (SaveRide) "Save game" (Nil))
+                          (button "load-game" (LoadRide) "Load game" (Nil))
                           (button "reset"
-                                  114
+                                  (RideKey 114)
                                   "Reset to Lantern Row"
                                   (list (ui:Attr "id" "ride-reset") wrap))))))
-    (define (pause-panel (samples I32) (paused Bool)) (→ (ui:Html HudAction))
+    (define (pause-panel (samples I32) (paused Bool) (status String)) (→ (ui:Html HudAction))
       (let* ((dialog (list (ui:Attr "class" "pause-screen")
                            (ui:Attr "role" "dialog")
                            (ui:Attr "aria-modal" "true")
@@ -104,7 +114,11 @@
              (settings (ui:Element "fieldset" (Nil) (list legend (sample-picker samples))))
              (panel (ui:Element "div"
                                 (list (ui:Attr "class" "pause-panel"))
-                                (list title settings (pause-actions)))))
+                                (list title settings (pause-actions)
+                                      (ui:Element "p"
+                                                  (list (ui:Attr "class" "save-status")
+                                                        (ui:Attr "role" "status"))
+                                                  (list (ui:Text status)))))))
         (ui:Element "section" dialog (list panel))))
 
 
@@ -144,32 +158,35 @@
               (ui:Element "div" (list (ui:Attr "class" "readings")) (list surface pace-display))))
         (ui:Element "section" (list (ui:Attr "class" "waymark")) (list title readings))))
     (define (button (class String)
-                    (key I32)
+                    (action HudAction)
                     (label String)
                     (attributes (List (ui:Attribute HudAction))))
       (→ (ui:Html HudAction))
       (ui:Element "button" (append (list (ui:Attr "class" class)
-                                         (ui:On "click" (Nil) (Allow) (lambda (_) (RideKey key))))
+                                         (ui:On "click" (Nil) (Allow) (lambda (_) action)))
                                    attributes)
                   (list (ui:Text label))))
     (define (ride-buttons (v Valley) (s Ride) (paused Bool)) (→ (ui:Html HudAction))
       (let ((action (bicycle-action v s)))
         (ui:Element "nav" (list (ui:Attr "class" "options") (ui:Attr "aria-label" "Ride settings"))
                     (list (button "bicycle"
-                                  102
+                                  (RideKey 102)
                                   action
                                   (list (ui:FlagProperty "hidden" (string=? action ""))))
                           (button "light"
-                                  108
+                                  (RideKey 108)
                                   (light-name (● s light))
                                   (list (ui:Attr "title" "Change time of day (L)")))
-                          (button "pause" 112 (if paused "Resume" "Pause")
+                          (button "pause" (RideKey 112) (if paused "Resume" "Pause")
                                   (list (ui:Attr "id" "ride-pause")
                                         (ui:Attr "aria-haspopup" "dialog")))))))
     (define (show! (d Dom) (h Hud) (v Valley) (s Ride) (paused Bool)) (→ Unit)
       (ui:render! (● h view)
-                  (list (waymark v s) (ride-buttons v s paused) (pause-panel (● s samples) paused)))
+                  (list (waymark v s)
+                        (ride-buttons v s paused)
+                        (pause-panel (● s samples) paused (● h save-status))))
       (when (if paused (not (● h paused)) (● h paused))
+        (unless paused (set! (● h save-status) ""))
         (set! (● h paused) paused)
         (focus-control! d (if paused "ride-resume" "ride-pause"))))
     ;; Use standard audio elements. A rider's first input starts the freewheel;

@@ -15,5 +15,5 @@
     (extern start-load "snail.runtime.browser.storage" "start-load" (Fn I64 → Unit))
     (extern finish-load "snail.runtime.browser.storage" "finish-load" (Fn I64 → I32))
     (extern start-store "snail.runtime.browser.storage" "start-store" (Fn I64 Bytes → Unit))
-    (extern finish-store "snail.runtime.browser.storage" "finish-store" (Fn I64 → Unit))
+    (extern finish-store "snail.runtime.browser.storage" "finish-store" (Fn I64 → I32))
     (extern byte "snail.runtime.browser.storage" "byte" (Fn I32 → U8))))

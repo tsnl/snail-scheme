@@ -1,6 +1,6 @@
 # If You’re Going That Way
 
-From the shop awnings on Lantern Row you can follow the paved lane north, cross Mill Bridge and climb to Foxglove Farm. The first dirt turning on the left climbs through the orchard. The right-hand turn leads past Reedwater, where a footbridge takes you around the millpond. Moss follows the courier by bicycle and on foot. Your position, parked bicycle, distance and settings are saved in this browser. [Ride through Willowbank](../play/iygtw/).
+From the shop awnings on Lantern Row you can follow the paved lane north, cross Mill Bridge and climb to Foxglove Farm. The first dirt turning on the left climbs through the orchard. The right-hand turn leads past Reedwater, where a footbridge takes you around the millpond. Moss follows the courier by bicycle and on foot. Each visit starts a fresh ride. Open the pause menu and choose **Save game** to keep your position, parked bicycle, distance and settings in this browser. **Load game** resumes the last saved ride, including saves from earlier versions. [Ride through Willowbank](../play/iygtw/).
 
 ![A cyclist and Moss on the approach to Mill Bridge in morning mist](willowbank.jpg)
 
@@ -25,7 +25,7 @@ Willowbank’s rideable survey spans 176 × 176 metres. The roadster has a 1.08 
 
 Press F while moving and the courier brakes before stepping off on the open side of the saddle. Walk away and the bicycle stays put. Turn the camera to choose a new direction, hold Shift to run, and approach the bicycle to ride again. The controller in `(snail shell game locomotion)` sweeps the walker against the village obstacles and advances the stride by the distance actually covered.
 
-The shallow puddles on Lantern Row are visible from the shop. Take the first dirt turn to the left and ride a figure eight to see the two tyre paths diverge. On soft ground each pass presses a groove, up to 3.5 cm deep. The wheels settle into existing grooves. Turning through a pool pushes water aside and sends a ripple out from the tyre. Runoff seeps back over seconds, and undisturbed tracks soften over roughly three minutes of riding time. Pause freezes that clock. A reload or a return to Lantern Row keeps the marked ground.
+The shallow puddles on Lantern Row are visible from the shop. Take the first dirt turn to the left and ride a figure eight to see the two tyre paths diverge. On soft ground each pass presses a groove, up to 3.5 cm deep. The wheels settle into existing grooves. Turning through a pool pushes water aside and sends a ripple out from the tyre. Runoff seeps back over seconds, and undisturbed tracks soften over roughly three minutes of riding time. Pause freezes that clock. A saved ride includes the marked ground. Returning to Lantern Row also keeps the current tracks.
 
 A glancing collision can turn the front wheel along a fence. A sharper stop throws the rider forward against the bars. A hard, square hit separates the rider from the bicycle. The torso tumbles under gravity, the limbs draw in, and the bicycle tips onto its side. Once the rider settles, E gets them back on beside the obstacle. Hold S or Down to walk clear, including uphill.
 

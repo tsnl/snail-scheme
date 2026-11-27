@@ -93,6 +93,10 @@ async function openRide(place) {
   if (state !== 'true') throw Error(state);
   await evaluate('document.querySelector(".pause").click()');
   await until(() => evaluate('document.querySelector(".pause-screen")?.hidden === false'), 'pause menu');
+  await evaluate('document.querySelector(".load-game").click()');
+  await until(() => evaluate('document.querySelector(".pause-screen")?.hidden'), 'load the surveyed ride');
+  await evaluate('document.querySelector(".pause").click()');
+  await until(() => evaluate('document.querySelector(".pause-screen")?.hidden === false'), 'render settings');
   for (const [selector, value] of [['.msaa', samples]]) {
     const changed = await evaluate(`(() => {const s=document.querySelector(${JSON.stringify(selector)});
       s.value=${JSON.stringify(value)}; if(s.selectedIndex<0)return false;
