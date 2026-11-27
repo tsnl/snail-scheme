@@ -71,7 +71,9 @@
                  (camera Camera3D)
                  (prefix String)
                  (samples I64)
-                 (bounces I64))
+                 (bounces I64)
+                 (seed I64)
+                 (box Bool))
   (→ Unit)
   (let* ((w (● t targets width)) (h (● t targets height)) (spread (/ 1.0 (i32->f32 h)))
          (target (make-plane gpu "capture/display" w h (Rgba8Unorm) (list (RenderAttachment))))
@@ -84,7 +86,7 @@
                              (new TraceSettings (display-width w) (display-height h))))
          (raster (match (● noisy last) ((Some view) (● view raster))
                         (_ (panic "capture has no rasterized frame"))))
-         (first (● noisy frame)))
+         (first (+ (● noisy frame) (i64->i32 seed))))
     (write-bytes fs (string-append prefix ".noisy.rgba32f") (read-traced-radiance gpu noisy))
     (write-bytes fs (string-append prefix ".camera") (pod-bytes camera-shape raster))
     (capture-guides gpu
@@ -99,7 +101,8 @@
        (capture-guides gpu fs (string-append prefix ".blended") (● b planes) (● b depth) w h))
       (_ (unit)))
     (write-bytes fs (string-append prefix ".reference.rgba32f")
-                 (trace-reference gpu noisy raster spread bounces first samples))
+                 (if box (trace-film gpu noisy camera spread bounces first samples)
+                     (trace-reference gpu noisy raster spread bounces first samples)))
     (write-file fs (string-append prefix ".json")
                 (string-append "{\"width\":" (show w) ",\"height\":" (show h) ",\"layers\":"
                                (match (● t targets blended)
@@ -111,6 +114,7 @@
                                (show first)
                                ",\"referenceSamples\":"
                                (show samples)
+                               ",\"pixelFilter\":" (if box "\"box\"" "\"fixed\"")
                                ",\"bounces\":"
                                (show bounces)
                                "}"))
@@ -136,6 +140,18 @@
   (let ((t (max 0.0 (min 1.0 (/ (- 0.20 (f32->f64 (● sun y))) 0.34)))))
     (f64->f32 (* 1.10 (expt 2.0 (* (* 2.0 (* t t)) (- 3.0 (* 2.0 t))))))))
 
+(define (lighting (gpu Gpu) (fs Fs) (path String) (sun Vec3f)) (→ Environment)
+  (if (string=? path "")
+      (● (make-atmosphere-light gpu
+                                (new Atmosphere
+                                  (sun sun)
+                                  (wind (new Vec2f (x 0.0) (y 0.0)))
+                                  (cover 0.54))
+                                1024)
+         environment)
+      (match (read-hdr (read-bytes fs path))
+        ((Ok hdr) (hdr-environment gpu hdr 4096))
+        ((Err why) (panic why)))))
 (define (main (args Arguments) (fs Fs) (out OutputPort) (host Host)) (→ Unit)
   (let* ((name (setting args "scene" "")) (path (setting args "output" "render.png"))
          (width (number args "width" 960 1 16384)) (height (number args "height" 540 1 16384))
@@ -151,11 +167,10 @@
       (unless (<= (* ray-size (* width height)) (i32->i64 (● info storage-binding-size)))
         (panic "image exceeds the GPU ray-buffer limit; reduce width or height"))
       (let* ((scene (read-model gpu fs name layers))
-             (air (new Atmosphere (sun sun) (wind (new Vec2f (x 0.0) (y 0.0))) (cover 0.54)))
-             (sky (make-atmosphere-light gpu air 1024))
+             (sky (lighting gpu fs (setting args "environment" "") sun))
              (tracer (make-tracer gpu
                                   scene
-                                  (● sky environment)
+                                  sky
                                   (Rgba8Unorm)
                                   w
                                   h
@@ -178,6 +193,10 @@
                                              (show depth)
                                              " bounces")))
             (begin
-              (capture gpu fs tracer camera prefix spp depth)
+              (let ((film (setting args "pixel-filter" "fixed")))
+                (unless (or (string=? film "fixed") (string=? film "box"))
+                  (panic "pixel-filter must be fixed or box"))
+                (capture gpu fs tracer camera prefix spp depth (number args "seed" 0 0 2147479550)
+                         (string=? film "box")))
               (write-line out (string-append prefix ".json · 1 spp input and " (show spp)
                                              " spp reference"))))))))

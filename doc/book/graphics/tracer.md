@@ -84,6 +84,9 @@ new display history and preserves render-grid history.
 
 A glTF material can set a numeric `extras.snailSubsurface` weight between zero and one. After denoising and before remodulating albedo, SVGF gathers irradiance from nearby visible skin pixels. It measures distance in world metres and gives red a broader diffusion profile than green or blue. Albedo and emission retain their detail. Zero is the default. This screen-space approximation samples only surfaces visible to the camera.
 
+For a leaf or a blade of grass, `extras.snailDiffuseTransmission` assigns a fraction of diffuse scattering to the opposite hemisphere. A backlit sheet takes its color from the same base texture as its front. The BSDF, light proposals and continuation rays all use the split. This treats the geometry as a thin sheet. A groom ribbon can also set `extras.snailFiberAnisotropy` for a directional GGX highlight. Orient texture V along the fibers. The tracer reconstructs that direction from the deformed triangle and UVs. Both coefficients range from zero to one and default to zero. Primary hits pack them into the existing material attachment with four bits for transmission and three for anisotropy. Later hits read them directly from the material.
+
+
 ### Local fog and depth of field
 
 `with-photography` attaches a `LensSettings` from `(snail shell graphics trace photography)` to a tracer. Each camera ray integrates ten intervals through exponential height fog, up to the first visible surface or the specified range. Density is extinction per metre at the reference height. Falloff controls how quickly the air clears with elevation. Each interval traces towards the atmospheric light through the scene's BVH, including cutout foliage. This gives a tree a shadow in the mist as well as on the ground. The volume uses one sample per six render pixels on each axis. Depth-aware interpolation keeps thick fog behind nearby silhouettes.
@@ -464,7 +467,7 @@ The Node host can render a PNG directly from a local glTF or GLB with the same W
 ./snail-scheme run --target node tools/render.scm scene=tests/programs/data/crew.glb minute=1040 output=portrait.png
 ```
 
-A model resolves buffers and images relative to its file and is framed from its bounds. Supply both `eye` and `target` to choose a camera in scene coordinates. `minute` is local solar time in minutes after midnight. `layers` sets the square texture-layer size for sampled materials.
+A model resolves buffers and images relative to its file and is framed from its bounds. Supply both `eye` and `target` to choose a camera in scene coordinates. Supply `environment=studio.hdr` to light the scene from a Radiance HDR image. `minute` is local solar time in minutes after midnight. `layers` sets the square texture-layer size for sampled materials.
 
 `(snail shell graphics still)` renders a fixed camera into an offscreen texture and returns the updated tracer and tightly packed RGBA bytes. It traces every pixel on every sample, with up to 4,096 observations and eight bounces. Image dimensions must fit the device’s ray-buffer limit. Offline frames use the stationary SVGF history.
 
@@ -485,6 +488,23 @@ tone mapping. Each file holds all opaque pixels first, followed by the
 blended layer when present. The blended layer's albedo alpha gives its
 compositing weight. The JSON file records dimensions, layer order, seeds,
 sample count and bounce depth.
+
+By default the high-sample reference keeps the primary sample fixed at the guide camera, useful for training against those guides. With `pixel-filter=box` it jitters primary visibility for every reference sample to integrate over the pixel. The guides and noisy observation still describe the first sample. `seed=N` offsets the reference's path and box-filter seed range. The capture metadata records the filter and first reference seed.
+
+### Compare with Blender Cycles
+
+Run the comparison in the repository's development shell with Blender on the path.
+
+```sh
+node benches/render/compare.mjs
+node benches/render/compare.mjs --village
+```
+
+The first shot has a mesh light, a matte sphere, a rough metal sphere and colored indirect light. The second uses the shipped Willowbank level looking uphill along Lantern Row under an overcast environment. Both use the same glTF geometry, HDR lighting, pinhole camera, box pixel filter, 128 samples and eight bounces in each engine. Cycles renders on the CPU. Snail runs the game's WebGPU light transport without temporal reuse or denoising. The village comparison uses the static level. The game adds its changing atmosphere, moving actors, road simulation and camera effects when played.
+
+Each command writes a labeled comparison PNG, scene-linear images and `metrics.json` under `build/cycles-reference` or `build/cycles-village`. Metrics use linear RGB before any display conversion. Mean bias measures a systematic difference in overall energy. The RMSE compares a single 128-spp image from each renderer. A second independent seed from each estimates the RMSE expected from Monte Carlo noise alone. The wall, clay, metal and floor swatches identify differences a whole-frame mean can hide. A separate Cycles emission override and the Snail G-buffer compare the unlit base colors at the same primary sample. This locates texture and coverage differences before the light transport. Cycles' Principled and translucent closures and Snail's glTF microfacet and thin-sheet models have different grazing-angle behavior.
+
+The 256×160 calibration room with Blender 5.2.2 measured a linear RGB RMSE of 0.0091 against an estimated 0.0078 noise floor. Mean radiance was 0.87% lower in Snail. At the game's 512-pixel texture layer size, Lantern Row showed 0.0251 RMSE against 0.0056 expected noise. Its ash-canopy swatch was 54% darker in the lit render and 63% darker in the first-hit base color. This makes the canopy a sensitive test for future changes to texture sampling and cutout coverage.
 
 The matching `.opaque.*` and `.blended.*` files contain the native,
 tightly packed G-buffer planes. Their names give the channel formats.
