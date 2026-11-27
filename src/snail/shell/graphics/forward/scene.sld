@@ -1,7 +1,12 @@
 ;; The native vertex and index buffers, texture maps and draw ranges of a glTF scene.
 (define-library (snail shell graphics forward scene)
   (export Scene MapImage DrawRange SurfaceMaterial material-shape surface-material
-          upload-scene load-scene release-scene vertex-stride configure-ground-layer!
+          upload-scene
+          read-model-file
+          load-scene
+          release-scene
+          vertex-stride
+          configure-ground-layer!
           SkinLayout
           pack-skin
           skin-with-layout
@@ -14,6 +19,7 @@
   (import
    (snail core base)
    (snail shell gpu)
+   (only (snail shell little-endian) u32)
    (snail shell graphics pod)
    (snail shell graphics gltf)
    (snail shell graphics kernel)
@@ -23,7 +29,7 @@
          rigid-binding
          shift-influence
          v4
-         matrix-from)
+         matrix-from product-column plus times)
    (only (snail shell graphics raster) Plane make-plane release-plane)
    (snail shell graphics compositor)
    (snail shell graphics forward lights)
@@ -35,6 +41,14 @@
        (count I32)
        (material I64)
        (center Vec3f)))
+    ;; Only transparent vertices need CPU bind positions for a moving sort key.
+    (record BlendMesh
+      ((draw DrawRange)
+       (first-vertex I64)
+       (points (Array Vec4f))))
+    (record BlendPose
+      ((draw DrawRange)
+       (joints (List (Pair I64 Vec4f)))))
     (record MapImage
       ((texture GpuTexture)
        (view GpuTextureView)))
@@ -51,34 +65,64 @@
        (lights LightGrid)
        (local-lights Bool)
        (draws (List DrawRange))
+       (blend-meshes (List BlendMesh))
        (low (List F64))
        (high (List F64))
        (ground-layer Plane)
        (ground-frame GpuBuffer)))
     (define vertex-stride (→ I64) 48)
-    (define (draw-ranges (gltf Gltf)) (→ (List DrawRange))
+    (define (draw-ranges (gltf Gltf) (default-material I64)) (→ (List DrawRange))
       (let loop ((items (● gltf placed)) (first 0) (draws (ann (Nil) (List DrawRange))))
-        (match items ((Nil) (reverse draws)) ((Cons p more)
-                                              (let* ((prim (● p primitive)) (n (index-count prim))
-                                                     (c (placed-center p)))
-                                                (loop more
-                                                      (+ first n)
-                                                      (Cons (new DrawRange (first (i64->i32 first))
-                                                                 (count (i64->i32 n))
-                                                                 (material
-                                                                  (if (< (● prim material) 0)
-                                                                      (- (length
-                                                                          (drawable-materials gltf))
-                                                                         1)
-                                                                      (● prim material)))
-                                                                 (center (new Vec3f
-                                                                           (x (f64->f32
-                                                                               (list-ref c 0)))
-                                                                           (y (f64->f32
-                                                                               (list-ref c 1)))
-                                                                           (z (f64->f32
-                                                                               (list-ref c 2))))))
-                                                            draws)))))))
+        (match items
+          ((Nil) (reverse draws))
+          ((Cons p more)
+           (let* ((prim (● p primitive)) (n (index-count prim)) (c (placed-center p)))
+             (loop more (+ first n)
+                   (Cons (new DrawRange (first (i64->i32 first)) (count (i64->i32 n))
+                              (material
+                               (if (< (● prim material) 0) default-material (● prim material)))
+                              (center (new Vec3f (x (f64->f32 (list-ref c 0)))
+                                           (y (f64->f32 (list-ref c 1)))
+                                           (z (f64->f32 (list-ref c 2))))))
+                         draws)))))))
+    (define (bind-points (p Placed) (buffers (List (Pair Buffer Bytes)))) (→ (Array Vec4f))
+      (let* ((a (● p primitive positions)) (matrix (matrix-from (● p matrix)))
+             (b (find (lambda (entry)
+                        (let ((start (● entry first start)))
+                          (and (<= start (● a offset))
+                               (< (● a offset) (+ start (● entry first length))))))
+                      buffers)))
+        (match b
+          ((None) (unreadable "missing transparent vertex buffer"))
+          ((Some entry)
+           (array-generate (● a count)
+                           (lambda (i)
+                             (let ((v (position-at (● entry second) (● entry first start) a i)))
+                               (product-column matrix
+                                               (v4 (f64->f32 (list-ref v 0))
+                                                   (f64->f32 (list-ref v 1))
+                                                   (f64->f32 (list-ref v 2))
+                                                   1.0)))))))))
+    (define (blend-meshes (g Gltf)
+                          (buffers (List Bytes))
+                          (mats (Array Material))
+                          (draws (List DrawRange)))
+      (→ (List BlendMesh))
+      (let ((sources (zip (● g buffers) buffers)))
+        (let loop ((items (zip (● g placed) draws))
+                   (vertex 0)
+                   (meshes (ann (Nil) (List BlendMesh))))
+          (match items ((Nil) (reverse meshes))
+                 ((Cons entry more)
+                  (let ((p (● entry first)) (r (● entry second)))
+                    (loop more (+ vertex (● p primitive positions count))
+                          (if (blended-material? (● (array-ref mats (● r material)) alpha))
+                              (Cons (new BlendMesh
+                                      (draw r)
+                                      (first-vertex vertex)
+                                      (points (bind-points p sources)))
+                                    meshes)
+                              meshes))))))))
     (record SurfaceMaterial
       ((base-color Vec4f)
        (emissive Vec4f)
@@ -91,13 +135,14 @@
     (define material-shape (→ (Shape SurfaceMaterial)) (shape))
 
     (define (load-scene (gpu Gpu) (read (Fn (List String) → (List Bytes))) (path String)) (→ Scene)
-      (upload-scene gpu
-                    read
-                    (drawable (read-gltf (list-ref (read (list path)) 0) (directory-of path)))))
+      (upload-scene gpu read (drawable (read-model-file read path))))
+    (define (read-model-file (read (Fn (List String) → (List Bytes))) (path String)) (→ Gltf)
+      (read-gltf (list-ref (read (list path)) 0) (directory-of path)))
     (define (upload-scene (gpu Gpu) (read (Fn (List String) → (List Bytes))) (gltf Gltf)) (→ Scene)
       (let* ((files (scene-files read (file-paths gltf))) (buffers (model-buffers gltf files))
+             (materials (checked-materials gltf buffers))
              (images (model-images gpu gltf files buffers)))
-        (upload-geometry gpu gltf buffers images #t (Nil) 0)))
+        (upload-geometry gpu gltf buffers materials images #t (Nil) 0)))
 
     (define (scene-files (read (Fn (List String) → (List Bytes))) (paths (List String)))
       (→ (List (Pair String Bytes)))
@@ -124,42 +169,49 @@
       (unless (= (+ 1 (length (● g images))) (array-length (● images maps)))
         (unreadable "scene image table mismatch"))
       (let ((files (scene-files read (source-paths (map (lambda (b) (● b source)) (● g buffers))))))
-        (upload-geometry gpu g (model-buffers g files) images #f lights capacity)))
+        (let ((buffers (model-buffers g files)))
+          (upload-geometry gpu g buffers (checked-materials g buffers) images #f lights capacity))))
+
+    (define (checked-materials (g Gltf) (buffers (List Bytes))) (→ (List Material))
+      (when (null? (● g placed)) (unreadable "the scene has no triangles"))
+      (let ((materials (drawable-materials g)))
+        (check-transparent-meshes g buffers materials)
+        materials))
 
     (define (upload-geometry (gpu Gpu)
                              (gltf Gltf)
                              (buffers (List Bytes))
+                             (materials (List Material))
                              (images SceneImages)
                              (owns Bool)
                              (lights (List Punctual)) (capacity I64)) (→ Scene)
-                             (when (null? (● gltf placed))
-                               (unreadable "the scene has no triangles"))
-                             (let* ((materials (drawable-materials gltf))
-                                    (counts (placed-counts gltf)))
-                               (check-transparent-meshes gltf buffers materials)
-                               (let* ((geometry (unpacked gpu gltf counts buffers))
-                                      (bounds (gltf-bounds gltf)))
-                                 (new Scene
-                                   (vertices (● geometry first))
-                                   (indices (● geometry second))
-                                   (vertex-count (● counts first))
-                                   (draws (draw-ranges gltf))
-                                   (materials materials)
-                                   (images images)
-                                   (owns-images owns)
-                                   (lights (light-grid gpu lights capacity))
-                                   (local-lights (or (> capacity 0) (not (null? lights))))
-                                   (low (● bounds first))
-                                   (high (● bounds second))
-                                   (ground-layer (make-plane gpu
-                                                             "scene/ground"
-                                                             1
-                                                             1
-                                                             (Rgba8Unorm)
-                                                             (list (TextureBinding))))
-                                   (ground-frame (uniform-buffer gpu
-                                                                 "scene/ground-frame"
-                                                                 (make-array 16 (i32->u8 0))))))))
+                             (let* ((counts (placed-counts gltf))
+                                    (draws (draw-ranges gltf (- (length materials) 1)))
+                                    (meshes
+                                     (blend-meshes gltf buffers (list->array materials) draws))
+                                    (geometry (unpacked gpu gltf counts buffers))
+                                    (bounds (gltf-bounds gltf)))
+                               (new Scene
+                                 (vertices (● geometry first))
+                                 (indices (● geometry second))
+                                 (vertex-count (● counts first))
+                                 (draws draws) (blend-meshes meshes)
+                                 (materials materials)
+                                 (images images)
+                                 (owns-images owns)
+                                 (lights (light-grid gpu lights capacity))
+                                 (local-lights (or (> capacity 0) (not (null? lights))))
+                                 (low (● bounds first))
+                                 (high (● bounds second))
+                                 (ground-layer (make-plane gpu
+                                                           "scene/ground"
+                                                           1
+                                                           1
+                                                           (Rgba8Unorm)
+                                                           (list (TextureBinding))))
+                                 (ground-frame (uniform-buffer gpu
+                                                               "scene/ground-frame"
+                                                               (make-array 16 (i32->u8 0)))))))
     (define (release-scene-images (gpu Gpu) (images SceneImages)) (→ Unit)
       (for-each (lambda (map) ((● gpu destroy) (ViewObject (● map view)))
                         ((● gpu destroy) (TextureObject (● map texture))))
@@ -200,6 +252,7 @@
        (pipeline GpuComputePipeline)
        (group GpuBindGroup)
        (joints I64)
+       (centers (List BlendPose))
        (vertices I64)))
 
     (define matrix-shape (→ (Shape Mat4x4f)) (shape))
@@ -255,6 +308,42 @@
           (joints (● b slots))
           (vertices (length vs)))))
 
+    ;; The mean of posed vertices is the sum of the posed, weighted bind moments.
+    ;; Accumulate them once. A rigid shell needs one matrix product per frame.
+    (define (blend-pose (mesh BlendMesh) (prefix I64) (layout SkinLayout)) (→ BlendPose)
+      (let* ((slots (● layout joints)) (zero (v4 0.0 0.0 0.0 0.0))
+             (sum (make-array (+ 1 slots) zero)) (points (● mesh points))
+             (bytes (● layout bytes)) (size (i64->f32 (array-length points))))
+        (let loop ((i 0))
+          (when (< i (array-length points))
+            (let* ((p (array-ref points i)) (vertex (- (+ (● mesh first-vertex) i) prefix))
+                   (add (lambda ((slot I64) (weight F32)) (→ Unit)
+                          (when (> weight 0.0)
+                            (array-set! sum
+                                        slot
+                                        (plus (array-ref sum slot) (times p (/ weight size))))))))
+              (if (< vertex 0) (add slots 1.0)
+                  (for-each (lambda (k)
+                              (let ((at (+ (* vertex 32) (* k 4))))
+                                (add (u32 bytes at) (bits->f32 (i64->i32 (u32 bytes (+ at 16)))))))
+                            (list 0 1 2 3)))
+              (loop (+ i 1)))))
+        (new BlendPose (draw (● mesh draw))
+             (joints (map (lambda (j) (new Pair (first j) (second (array-ref sum j))))
+                          (filter (lambda (j) (> (● (array-ref sum j) w) 0.0))
+                                  (iota (+ slots 1))))))))
+    (define (update-blend-centers! (centers (List BlendPose)) (palette (List Mat4x4f))) (→ Unit)
+      (unless (null? centers)
+        (let ((poses (list->array palette)))
+          (for-each
+           (lambda (mesh)
+             (let ((c (fold-left (lambda (total joint)
+                                   (let ((j (● joint first)) (p (● joint second)))
+                                     (plus total (if (= j (array-length poses)) p
+                                                     (product-column (array-ref poses j) p)))))
+                                 (v4 0.0 0.0 0.0 0.0) (● mesh joints))))
+               (set! (● mesh draw center) (new Vec3f (x (● c x)) (y (● c y)) (z (● c z))))))
+           centers))))
     (define (skin-with-layout (gpu Gpu) (source Scene) (layout SkinLayout)) (→ MovingScene)
       (let* ((joints (● layout joints))
              (total (● layout vertices)) (size (* vertex-stride (● source vertex-count))))
@@ -278,6 +367,12 @@
                (influences ids)
                (poses poses)
                (joints joints)
+               (centers (let ((prefix (- (● source vertex-count) total)))
+                          (map (lambda (mesh) (blend-pose mesh prefix layout))
+                               (filter (lambda (mesh)
+                                         (> (+ (● mesh first-vertex) (array-length (● mesh points)))
+                                            prefix))
+                                       (● source blend-meshes)))))
                (vertices total)
                (pipeline kernel)
                (group (kernel-group gpu kernel 0 "scene/pose"
@@ -288,6 +383,7 @@
 
     (define (deform-scene! (gpu Gpu) (scene MovingScene) (palette (List Mat4x4f))) (→ Unit)
       (unless (= (length palette) (● scene joints)) (panic "wrong joint palette size"))
+      (update-blend-centers! (● scene centers) palette)
       ((● gpu write-buffer) (● scene poses) 0 (pack matrix-shape palette))
       (let* ((encoder ((● gpu create-command-encoder))) (pass ((● gpu begin-compute-pass) encoder)))
         ((● gpu set-compute-pipeline) pass (● scene pipeline))

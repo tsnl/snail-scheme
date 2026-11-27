@@ -7,6 +7,7 @@ create render-pipeline 2 raster/gbuffer_fragment
 create render-pipeline 3 raster/forward_fragment
 create buffer 4 raster/camera
 create buffer 5 raster/sun
+destroy 1
 create buffer 6 mesh/geometry/vertices
 write-buffer 6 0 16320
 create buffer 7 mesh/geometry/indices

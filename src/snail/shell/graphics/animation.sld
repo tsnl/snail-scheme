@@ -18,7 +18,7 @@
           named-node
           posed-nodes
           skin-palette
-          matrix-product product-column
+          matrix-product product-column plus times
           joint-palette
           clip-time
           rigid-influence

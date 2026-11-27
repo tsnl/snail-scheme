@@ -8,7 +8,7 @@ The renderer draws into its own textures. A browser compositor samples the finis
 
 1. Draw three 1024² directional shadow cascades and the camera depth prepass. Each has a different view-projection. They share the vertex transform, alpha coverage, draw loop and single-sample pipelines. A 4× MSAA camera uses the same shaders compiled for four samples. The GPU clips the submitted triangles for each view.
 2. Shade opaque draws into HDR with depth equality. The depth prepass allows grouping draw calls by material. Each glTF primitive has a vertex and index range and its material has one bind group.
-3. Sort translucent primitives by distance from the eye and blend them back to front with depth writes disabled. For a double-sided convex shell, draw its back faces before its front faces.
+3. Sort translucent primitives by distance from the eye and blend them back to front with depth writes disabled. For moving shells, the CPU updates each sort center from the same joint palette as the vertices. A rigid mesh costs one matrix product. Double-sided convex shells draw their back faces first.
 4. Resolve MSAA, tone-map in compute and run FXAA. Both games with a sky render at the canvas’s physical pixel dimensions. The pause menu selects 1× or 4× MSAA. The glTF viewer uses the 1 and 4 keys.
 
 | glTF material | Depth and shadow maps | Forward color |
@@ -35,7 +35,16 @@ Render an asset locally with `./snail-scheme run --target node tools/render.scm 
 
 ## Record and replay a scene
 
-The application-facing `(snail shell graphics scene)` interface takes a camera, native viewport, material shading mode, exposure, shadows and MSAA in a `SceneFrame`. The browser presents it with `present-scene!`; the offline renderer submits it with `render-scene!` and reads the returned texture. Geometry, node transforms, materials and textures come from the referenced glTF. The description also names the environment and tone curve. GPU handles stay inside the rendering libraries.
+In `(snail shell graphics scene)`, a `ModelNode` references a glTF and a `GroupNode` places its children under a local transform. Each model brings its own geometry and materials. Repeated references share the source buffers and material images. For example, a village scene can place two instances of the same tree beside a house.
+
+```scheme
+(GroupNode unit-matrix
+  (list (ModelNode "house.glb")
+        (GroupNode tree-by-gate (list (ModelNode "oak.glb")))
+        (GroupNode tree-by-road (list (ModelNode "oak.glb")))))
+```
+
+A `SceneDescription` pairs this tree with an environment and tone curve. Each `SceneFrame` supplies the camera, native viewport, directional lights, shading, exposure, shadows and MSAA. A browser calls `present-scene!` with its compositor and surface. The offline API, `(render-scene! renderer frame)`, returns the finished texture. Recordings serialize these scene values so another backend can draw them.
 
 With a model open in the viewer, press T to start a recording. Fly the camera, change exposure or inspect a cascade, then press T and download the frame sequence. The recorder stores the frames in order and refers to asset files by name. Keep the same revision of the glTF, its dependencies and any environment map when sharing a recording. For a browser model URL, supply the equivalent local file with `scene=`. A custom panorama can be supplied with `environment=`.
 

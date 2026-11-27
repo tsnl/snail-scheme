@@ -161,6 +161,7 @@
   (→ GpuRenderPass)
   (let ((descriptor (new RenderPassDescriptor
                       (colors (list (Some (new ColorAttachment
+                                            (resolve (None))
                                             (view (view-of gpu (● canvas texture) 1))
                                             (load (Clear (new Color
                                                            (red 0.02)

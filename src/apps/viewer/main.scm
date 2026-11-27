@@ -186,7 +186,7 @@
          (frame (scene-frame (fly-camera fly (/ (i32->f64 w) (i32->f64 h))) w h
                              (i64->i32 (● settings samples)) (fly-exposure fly))))
     (set! (● frame cascade) (● view renderer inspect))
-    (present-scene! gpu (● view renderer) frame compositor surface)
+    (present-scene! (● view renderer) frame compositor surface)
     (match (● view recording)
       ((Some frames) (set! (● view recording) (Some (Cons frame frames))))
       ((None) (unit)))))
@@ -249,10 +249,11 @@
      (new Pair
        (first (Some (shown gpu view (● replacing first) (● replacing second) settings
                            (new SceneDescription
-                             (model (match (outermost (ending files (list ".glb" ".gltf")))
-                                      ((Some path) path)
-                                      ((None)
-                                       (match view ((Some v) (● v description model)) (_ "")))))
+                             (root (match (outermost (ending files (list ".glb" ".gltf")))
+                                     ((Some path) (ModelNode path))
+                                     ((None) (match view ((Some v) (● v description root))
+                                                    (_
+                                                     (unreadable "a first view needs a model"))))))
                              (sky (match (outermost (ending files (list ".hdr")))
                                     ((Some path) (Panorama path))
                                     ((None)
@@ -412,7 +413,7 @@
                       (read (Fn (List String) → (List Bytes)))
                       (path String))
   (→ Scene)
-  (let ((scene (load-scene gpu read path)))
+  (let ((scene (load-scene-node gpu read (ModelNode path))))
     (write-line out (string-append "scene: "
                                    (show (● scene vertex-count))
                                    " vertices, "

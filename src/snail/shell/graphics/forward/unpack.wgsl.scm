@@ -111,8 +111,7 @@
          (= (at indices (+ (* triangle 3u) corner)) (+ index (u32 (get p first_vertex))))))
 
 
-;; The suffix of moving vertices uses a mesh-local immutable source. delta
-;; is in world space and leads from this frame back to the previous one.
+;; The moving suffix reads its immutable bind positions and the current palette.
 (struct VertexInfluence (joints vec4i) (weights vec4f))
 ((var storage read) (@group 0) (@binding 4) (rest_vertices (array Vertex)))
 ((var storage read) (@group 0) (@binding 5) (influences (array VertexInfluence)))

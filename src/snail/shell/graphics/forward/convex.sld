@@ -4,6 +4,7 @@
   (export check-transparent-meshes convex-shell?)
   (import
    (snail core base)
+   (only (snail shell little-endian) uint-le)
    (snail core table)
    (only (snail shell game rigid-body) V3 v3 v+ v- scaled dot cross squared unit-vector)
    (snail shell build-mode)
@@ -125,44 +126,14 @@
                          (every? (lambda (v) (>= (dot inward (v- v a)) (negate eps))) points)))
                      border))))
 
-    (define (word-at (bytes Bytes) (offset I64) (size I64)) (→ I64)
-      (let loop ((i size) (result 0))
-        (if (= i 0)
-            result
-            (loop (- i 1)
-                  (+ (* 256 result) (i32->i64 (u8->i32 (array-ref bytes (+ offset (- i 1))))))))))
-    (define (position-component (bytes Bytes) (a Attribute) (at I64) (axis I64)) (→ F64)
-      (let* ((format (● a component))
-             (size (case format
-                     ((5120 5121) 1)
-                     ((5122 5123) 2)
-                     ((5126) 4)
-                     (else (unreadable "unsupported position component"))))
-             (raw (word-at bytes (+ at (* axis size)) size))
-             (range (if (= size 1) 256 65536)) (signed (or (= format 5120) (= format 5122))))
-        (if (= format 5126) (f32->f64 (bits->f32 (i64->i32 raw)))
-            (let ((v (i64->f64 (if (and signed (>= raw (quotient range 2))) (- raw range) raw))))
-              (if (● a normalized)
-                  (max -1.0 (/ v (i64->f64 (- (if signed (quotient range 2) range) 1))))
-                  v)))))
-
     (define (validate-primitive (bytes Bytes) (prim Primitive)) (→ Unit)
       (let* ((pos (● prim positions))
-             (points (array-generate (● pos count) (lambda (i)
-                                                     (point (map (lambda (axis)
-                                                                   (position-component bytes
-                                                                                       pos
-                                                                                       (+ (● pos
-                                                                                             offset)
-                                                                                          (* i
-                                                                                             (● pos
-                                                                                                stride)))
-                                                                                       axis))
-                                                                 (list 0 1 2))))))
+             (points (array-generate (● pos count)
+                                     (lambda (i) (point (position-at bytes 0 pos i)))))
              (indices (match (● prim indices)
                         ((None) (iota (● pos count)))
                         ((Some a)
-                         (map (lambda (i) (word-at bytes (+ (● a offset) (* i (● a stride)))
+                         (map (lambda (i) (uint-le bytes (+ (● a offset) (* i (● a stride)))
                                                    (case (● a component)
                                                      ((5121) 1)
                                                      ((5123) 2)

@@ -9,7 +9,13 @@
           set-environment!
           set-directional-lights!
           release-forward
-          Light transparent-order cascade-views Lighting Shading MetallicRoughness BlinnPhong)
+          DirectionalLight
+          transparent-order
+          cascade-views
+          Lighting
+          Shading
+          MetallicRoughness
+          BlinnPhong)
   (import
    (snail core base)
    (snail shell wire)
@@ -32,9 +38,10 @@
    (snail shell graphics forward shaders))
   (begin
     (enum Shading (MetallicRoughness) (BlinnPhong) (deriving Serialize Deserialize))
-    (record Light
-      ((position V3)
-       (power V3)))
+    (record DirectionalLight
+      ((direction V3)
+       (irradiance V3))
+      (deriving Serialize Deserialize))
     (record Lighting
       ((near-map Mat4x4f)
        (mid-map Mat4x4f)
@@ -71,7 +78,8 @@
        (post Post)
        (output Plane)))
     (record Forward
-      ((scene Scene)
+      ((gpu Gpu)
+       (scene Scene)
        (env Environment)
        (module GpuShaderModule)
        (layouts (List GpuPipelineLayout))
@@ -308,34 +316,39 @@
                                           (min-filter (Linear))
                                           (mipmap-filter (Linear))
                                           (address (ClampToEdge))))))
-                            (new Forward (scene scene) (env env) (module module) (layouts ls)
-                                 (camera (make-view gpu (● one solid)))
-                                 (shadow-cameras
-                                  (map (lambda (_) (make-view gpu (● one solid))) (iota 3)))
-                                 (shadow shadow)
-                                 (shadow-view sv)
-                                 (shadow-layers
-                                  (map (lambda (i) (layer-view gpu shadow (i64->i32 i))) (iota 3)))
-                                 (depth-1x one) (pipes p) (shading (MetallicRoughness)) (inspect -1)
-                                 (inspector (compute-kernel gpu module "shadow" "inspect_cascade"))
-                                 (target
-                                  (targets gpu (make-post gpu (Rgba8Unorm) w h curve) w h samples))
-                                 (materials mats) (opaque (opaque-materials mats))
-                                 (blend (blended-draws scene mats))
-                                 (frame frame)
-                                 (sources sources)
-                                 (directions 0)
-                                 (ibl-sampler samp)
-                                 (lut lut)
-                                 (lighting (lighting-group gpu
-                                                           (● p color)
-                                                           frame
-                                                           sv
-                                                           env
-                                                           samp
-                                                           lut
-                                                           scene
-                                                           sources)))))
+                            (new Forward
+                              (gpu gpu)
+                              (scene scene)
+                              (env env)
+                              (module module)
+                              (layouts ls)
+                              (camera (make-view gpu (● one solid)))
+                              (shadow-cameras
+                               (map (lambda (_) (make-view gpu (● one solid))) (iota 3)))
+                              (shadow shadow)
+                              (shadow-view sv)
+                              (shadow-layers
+                               (map (lambda (i) (layer-view gpu shadow (i64->i32 i))) (iota 3)))
+                              (depth-1x one) (pipes p) (shading (MetallicRoughness)) (inspect -1)
+                              (inspector (compute-kernel gpu module "shadow" "inspect_cascade"))
+                              (target
+                               (targets gpu (make-post gpu (Rgba8Unorm) w h curve) w h samples))
+                              (materials mats) (opaque (opaque-materials mats))
+                              (blend (blended-draws scene mats))
+                              (frame frame)
+                              (sources sources)
+                              (directions 0)
+                              (ibl-sampler samp)
+                              (lut lut)
+                              (lighting (lighting-group gpu
+                                                        (● p color)
+                                                        frame
+                                                        sv
+                                                        env
+                                                        samp
+                                                        lut
+                                                        scene
+                                                        sources)))))
     (define (opaque-materials (mats (Array BoundMaterial))) (→ (List BoundMaterial))
       (filter (lambda (m) (not (blended-material? (● m alpha)))) (array->list mats)))
     (define (blended-draws (scene Scene) (mats (Array BoundMaterial))) (→ (List DrawRange))
@@ -363,14 +376,15 @@
         (y (f64->f32 (● p y)))
         (z (f64->f32 (● p z)))
         (w (f64->f32 w))))
-    (define (set-directional-lights! (gpu Gpu) (r Forward) (directions (List Light))) (→ Unit)
+    (define (set-directional-lights! (gpu Gpu) (r Forward) (directions (List DirectionalLight)))
+      (→ Unit)
       (when (> (length directions) 3) (panic "too many directional lights"))
       (unless (null? directions)
         ((● gpu write-buffer) (● r sources) 0 (pack (ann (shape) (Shape Vec4f))
                                                     (concatenate (map (lambda (l)
                                                                         (list
-                                                                         (f4 (● l position) 0.0)
-                                                                         (f4 (● l power) 0.0)))
+                                                                         (f4 (● l direction) 0.0)
+                                                                         (f4 (● l irradiance) 0.0)))
                                                                       directions)))))
       (set! (● r directions) (length directions)))
     (define (release-depth (gpu Gpu) (p DepthPipelines)) (→ Unit)

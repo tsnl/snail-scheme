@@ -1,5 +1,5 @@
 ;; A glTF 2.0 scene, a .gltf file's JSON or a .glb file, read into what
-;; drawing and tracing it need: the buffers and images it names, each
+;; drawing it needs: the buffers and images it names, each
 ;; primitive's accessors as byte offsets into its buffers laid end to end,
 ;; its materials, and each primitive placed by the node hierarchy of the
 ;; default scene. The buffers' bytes are not read here: they go to the
@@ -46,13 +46,14 @@
    gltf-numbers
    source-bytes
    buffer-bytes
-   scene-materials drawable-materials placed-center
+   scene-materials drawable-materials placed-center position-at
    gltf-bounds
    gltf-transformed
    gltf-scaled
    uri-path)
   (import
    (snail core base)
+   (only (snail shell little-endian) uint-le u32)
    (snail shell utf8)
    (snail shell json)
    (snail shell json read))
@@ -496,6 +497,25 @@
           (append (● g materials) (list default-material))
           (scene-materials g)))
     (define (drawable-materials (g Gltf)) (→ (List Material)) (model-materials g))
+    (define (position-component (bytes Bytes) (a Attribute) (at I64) (axis I64)) (→ F64)
+      (let* ((format (● a component))
+             (size (case format
+                     ((5120 5121) 1)
+                     ((5122 5123) 2)
+                     ((5126) 4)
+                     (else (unreadable "unsupported position component"))))
+             (raw (uint-le bytes (+ at (* axis size)) size))
+             (range (if (= size 1) 256 65536)) (signed (or (= format 5120) (= format 5122))))
+        (if (= format 5126) (f32->f64 (bits->f32 (i64->i32 raw)))
+            (let ((v (i64->f64 (if (and signed (>= raw (quotient range 2))) (- raw range) raw))))
+              (if (● a normalized)
+                  (max -1.0 (/ v (i64->f64 (- (if signed (quotient range 2) range) 1))))
+                  v)))))
+
+    ;; Read a position relative to its own buffer, or the packed buffer table.
+    (define (position-at (bytes Bytes) (base I64) (a Attribute) (i I64)) (→ (List F64))
+      (let ((at (+ (- (● a offset) base) (* i (● a stride)))))
+        (map (lambda (axis) (position-component bytes a at axis)) (list 0 1 2))))
     (define (placed-center (p Placed)) (→ (List F64))
       (transform (● p matrix) (map (lambda (pair) (* 0.5 (+ (● pair first) (● pair second))))
                                    (zip (● p primitive low) (● p primitive high)))))
@@ -689,12 +709,12 @@
     ;; many bytes: the JSON, then the binary chunk if it has one. Any other
     ;; file is the JSON, with an empty chunk.
     (define (file-chunks (file Bytes)) (→ (Pair Bytes Bytes))
-      (if (and (>= (array-length file) 20) (= (word file 0) 1179937895))
-          (let* ((json-end (+ 20 (word file 12))) (bin (+ 8 json-end)))
+      (if (and (>= (array-length file) 20) (= (u32 file 0) 1179937895))
+          (let* ((json-end (+ 20 (u32 file 12))) (bin (+ 8 json-end)))
             (new Pair
               (first (chunk file 20 json-end))
               (second (if (<= bin (array-length file))
-                          (chunk file bin (+ bin (word file json-end)))
+                          (chunk file bin (+ bin (u32 file json-end)))
                           (make-array 0 (i32->u8 0))))))
           (new Pair (first file) (second (make-array 0 (i32->u8 0))))))
 
@@ -702,13 +722,6 @@
       (if (<= to (array-length file))
           (subarray file from to)
           (unreadable "the .glb file is cut short")))
-
-    ;; The little-endian 32-bit word at `at`.
-    (define (word (bytes Bytes) (at I64)) (→ I64)
-      (fold-right
-       (lambda (index value) (+ (i32->i64 (u8->i32 (array-ref bytes (+ at index)))) (* 256 value)))
-       0
-       (iota 4)))
 
     ;; ---- Bounds ----
 

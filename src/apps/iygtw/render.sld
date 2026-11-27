@@ -387,4 +387,4 @@
                           (frame (scene-frame (Camera3D-scene-time-set cam (f64->f32 time))
                                               w h (samples-of s) 1.16)))
                      (deform-scene! gpu (● r stage) (palette (● r actors) (● r ground) before s t))
-                     (present-scene! gpu (● r forward-renderer) frame (● r compositor) canvas)))))
+                     (present-scene! (● r forward-renderer) frame (● r compositor) canvas)))))

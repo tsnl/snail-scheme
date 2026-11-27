@@ -601,4 +601,4 @@
                                   height
                                   (street-samples settings)
                                   (street-exposure (clock-minute w)))))
-          (present-scene! gpu (● r forward-renderer) frame (● r compositor) canvas))))))
+          (present-scene! (● r forward-renderer) frame (● r compositor) canvas))))))
