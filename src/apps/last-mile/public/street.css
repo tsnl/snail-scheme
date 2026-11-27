@@ -14,8 +14,6 @@ h1 { font:italic 900 clamp(29px,3.8vw,54px)/.94 "Barlow Condensed","Arial Narrow
 .dispatch { top:24px;right:28px;max-width:min(330px,44vw);padding:13px 16px;border-top:3px solid #ffd25f; }
 h2 { margin:5px 0;font-size:clamp(17px,2.1vw,29px);line-height:1.06;letter-spacing:-.03em; }
 p { margin:0;color:#d6dfdd;font-size:clamp(12px,1.1vw,15px);line-height:1.35; }
-.speech:not(:empty) { border-top:1px solid #61716c99;padding-top:6px;margin-top:7px;color:#d0ece4; }
-.answers button { pointer-events:auto;display:block;border:0;background:transparent;color:#ffe4a3;text-align:left;padding:3px 0;cursor:pointer;font:inherit;font-size:12px; }
 .dash { right:28px;bottom:66px;min-width:155px;padding:12px 14px;border-bottom:3px solid #ffd25f;text-align:right; }
 .meter { font:700 clamp(27px,3.2vw,42px)/1.1 "IBM Plex Mono",monospace;color:#ffdf84; }
 .mode { font:700 16px/1.25 "Barlow Condensed",sans-serif;margin:5px 0 2px; }.total {margin-top:7px;color:#c3d2cd;font-size:10px;}

@@ -245,8 +245,7 @@ try {
   await until(async () => parseInt(await read('.time'), 10) % 12 === (fareHour + 6) % 12, 'time change during the fare');
   await expect('.stage', 'METER RUNNING');
 
-  await tap('1');
-  await expect('.speech', 'Leavenworth');
+  assert.equal(await browser.evaluate('document.querySelectorAll(".dispatch button").length'), 0);
   await until(() => browser.evaluate('document.querySelector(".route").style.backgroundImage.includes("polyline")'), 'GPS polyline');
   if (screenshot) await writeFile(screenshot, await until(visibleStreet, 'occupied taxi'));
   await tap('p');
@@ -274,7 +273,7 @@ try {
   assert.equal(await selection('#mouse-sensitivity'), 'Medium');
   await click('.load-game');
   await expect('.stage', 'METER RUNNING');
-  await expect('.speech', 'Leavenworth');
+  await expect('.message', 'Rosa');
   await until(visibleStreet, 'cached city, rider and taxi');
   assert.deepEqual([...objects], before);
   assert.ok((await read('.loading-bytes')).includes(totalMiB + ' MiB cached'));
@@ -308,7 +307,7 @@ try {
   await expect('.stage', 'METER RUNNING');
   await expect('.meter', '$4.00');
   await expect('h2', 'Jones Street');
-  await expect('.speech', 'Leavenworth');
+  await expect('.message', 'Rosa');
   await pause();
   await restart(false);
   await expect('.stage', 'SHIFT PAUSED');

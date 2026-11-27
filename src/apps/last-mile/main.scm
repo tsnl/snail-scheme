@@ -84,8 +84,6 @@
             (else (case key
                     ((99) (set! (● c yaw) 0.0) (set! (● c pitch) 0.28))
                     ((101) (set! (● c use) #t))
-                    ((116) (speak! w -1))
-                    ((49 50 51 52 53 54 55 56 57) (speak! w (- (i32->i64 key) 49)))
                     ((109)
                      (set! (● c wide) (not (● c wide)))
                      (set! (● c choice) (modulo (● w dispatch) 16)))
@@ -222,9 +220,6 @@
                           (loop (menu! action dom hud g roads renderer c s storage) 100))
                          ((Some (ChooseStand i))
                           (when (and (not (● c paused)) (● c wide)) (set! (● c choice) i))
-                          (loop s 100))
-                         ((Some (ChooseReply from index))
-                          (unless (● c paused) (answer! w from index))
                           (loop s 100))
                          (_ (loop s since))))
                       ((Hidden)

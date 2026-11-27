@@ -21,7 +21,7 @@ continues above it.
 
 ## Dialogue
 
-`(snail shell game dialogue)` reads a `Dialogue` made of named passages, lines and ordered replies. Each reply names its destination. Construct the dialogue directly in an application library. The game saves a `Cursor` containing the passage ID and line index. `open-dialogue`, `continue-dialogue` and `answer-dialogue` return an optional cursor. An out-of-range answer keeps the current cursor. [Dialogue authoring](../games/last-mile.md#write-dialogue) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/dialogue.sld)
+`(snail shell game dialogue)` reads a `Dialogue` made of named passages, lines and ordered replies. Each reply names its destination. Construct the dialogue directly in an application library. The game saves a `Cursor` containing the passage ID and line index. `open-dialogue`, `continue-dialogue` and `answer-dialogue` return an optional cursor. An out-of-range answer keeps the current cursor. [Dialogue example](https://github.com/tsnl/snail-scheme/blob/main/tests/programs/game-dialogue.sld) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/dialogue.sld)
 
 ## Movement and boarding
 

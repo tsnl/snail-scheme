@@ -12,7 +12,6 @@
  (only (snail shell game chassis) chassis-body)
  (snail shell game boarding)
  (snail shell game pedestrian)
- (snail shell game dialogue)
  (apps last-mile assets)
  (apps last-mile gps)
  (only (apps last-mile render) Chase follow)
@@ -156,10 +155,9 @@
           (> (distance (● car position) (● (chassis-body (list-ref (● w cars) 1)) position))
              0.4))
      "street life did not advance")
-    (speak! (● w game) 0)
     (let ((v (restore-game (save-game w))))
       (check (and (aboard? (● v game passenger))
-                  (match (● v game talk) ((Some c) (string=? (● c page) "directions")) (_ #f)))
+                  (match (● v game fare) ((Hired) #t) (_ #f)))
              "occupied cab lost its passenger")
       ;; This driver follows recorded checkpoints and cannot overtake. Other cars
       ;; are exercised at pickup and in the traffic stopping-distance checks.
@@ -309,6 +307,7 @@
 
 (define legacy-shift (→ Resource) (link-file "data/taxi-v1.save"))
 (define rigid-shift (→ Resource) (link-file "data/taxi-v2.save"))
+(define graphics-shift (→ Resource) (link-file "data/taxi-v4.save"))
 (define impact-shift (→ Resource) (link-file "data/taxi-v3.save"))
 ;; Recorded with the published two-dimensional game, after Rosa boards and
 ;; the driver asks for directions. This fixture keeps that wire layout fixed.
@@ -317,8 +316,7 @@
     (ensure-cars! g roads s)
     (check (and (= (length (● s cars)) 6) (= (length (● s game residents)) 6)
                 (= (● s graphics resolution) 720) (aboard? (● s game passenger))
-                (match (● s game fare) ((Hired) #t) (_ #f))
-                (match (● s game talk) ((Some c) (string=? (● c page) "directions")) (_ #f)))
+                (match (● s game fare) ((Hired) #t) (_ #f)))
            "published fare failed to migrate")))
 (define (recovery (g Area) (roads Roads)) (→ Unit)
   (let* ((s (new-world)) (w (● s game)) (p (● w cab position)))
@@ -500,6 +498,14 @@
                   (= (● (list-ref (● old cars) 0) center z) 7.0) (list-ref (● old braking) 0)
                   (match (fall-at old 1) ((Some k) (= (● k rest) 1.5)) (_ #f)))
              "published cab shift lost its lighting or fare during migration"))
+    ;; The last release saved a directions choice alongside this active, metered fare.
+    (let ((old (restore-game (read-resource resources graphics-shift))))
+      (check (and (aboard? (● old game passenger)) (match (● old game fare) ((Hired) #t) (_ #f))
+                  (= (● old sensitivity) 2)
+                  (= (● old game bank) 850)
+                  (= (fare-cents (● old game)) 500)
+                  (= (● (objective (● old game)) dispatch) 0))
+             "published metered fare lost its passenger, money or destination"))
     (traffic-stop r)
     (traffic-clearance g r (● w game cab))
     (interpolation)

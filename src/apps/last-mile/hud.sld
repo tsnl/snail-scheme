@@ -4,12 +4,10 @@
           Hud
           make-hud
           show!
-          answer!
           reset-route!
           AdjustDisplay
           Menu
           ChooseStand
-          ChooseReply
           MenuAction Pause Resume SaveShift LoadShift Recover Restart SetGraphics SetSensitivity)
   (import
    (snail core base)
@@ -23,8 +21,6 @@
    (snail shell game atlas)
    (snail shell game roads)
    (snail shell game boarding)
-   (snail shell game dialogue)
-   (apps last-mile lines)
    (apps last-mile game)
    (apps last-mile district)
    (apps last-mile gps))
@@ -34,8 +30,7 @@
     (enum HudAction
       (AdjustDisplay ((change DisplayChange)))
       (Menu ((action MenuAction)))
-      (ChooseStand ((index I64)))
-      (ChooseReply ((from Cursor) (index I64))))
+      (ChooseStand ((index I64))))
     (record Hud
       ((view (ui:Root HudAction))
        (display GameDisplay)
@@ -242,37 +237,12 @@
            (list "FARE COMPLETE"
                  (string-append (money cash) " paid")
                  (string-append who " has arrived."))))))
-    (define (reply-button (c Cursor) (i I64) (label String)) (→ (ui:Html HudAction))
-      (ui:Element "button"
-                  (list (ui:Keyed (string-append (● c page) "/" (show (● c line)) "/" (show i)))
-                        (ui:On "click" (Nil) (Allow) (lambda (_) (ChooseReply c i))))
-                  (list (ui:Text label))))
-    (define (reply-buttons (book Dialogue) (c Cursor)) (→ (List (ui:Html HudAction)))
-      (let ((options (replies book c)))
-        (if (null? options) (list (reply-button c -1 "T  ·  Continue"))
-            (map-indexed (lambda (i reply) (reply-button c i
-                                                         (if (< i 9)
-                                                             (string-append (show (+ 1 i))
-                                                                            "  ·  "
-                                                                            (● reply text))
-                                                             (● reply text))))
-                         options))))
-    (define (answer! (w Game) (from Cursor) (index I64)) (→ Unit)
-      (match (● w talk)
-        ((Some now)
-         (when (and (string=? (● from page) (● now page)) (= (● from line) (● now line)))
-           (speak! w index)))
-        (_ (unit))))
     (define (dispatch-card (w Game) (paused Bool)) (→ (ui:Html HudAction))
-      (let ((lines (brief w)) (at (● w talk)))
+      (let ((lines (brief w)))
         (panel "section" "dispatch"
                (list (label "div" "stage" (if paused "SHIFT PAUSED" (list-ref lines 0)))
                      (label "h2" "" (list-ref lines 1))
-                     (label "p" "message" (list-ref lines 2))
-                     (label "p" "speech" (match at ((None) "") ((Some c) (spoken conversation c))))
-                     (panel "div"
-                            "answers"
-                            (match at ((None) (Nil)) ((Some c) (reply-buttons conversation c))))))))
+                     (label "p" "message" (list-ref lines 2))))))
     (define (dashboard (w Game) (resolution String)) (→ (ui:Html HudAction))
       (let* ((v (distance (● (carrier w) velocity) (xz 0.0 0.0)))
              (mode (if (aboard? (● w driver))
