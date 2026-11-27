@@ -1,0 +1,76 @@
+{
+  "bounds": [
+    -9216,
+    -4608,
+    5376,
+    11008
+  ],
+  "side": 256,
+  "cols": 57,
+  "rows": 61,
+  "nodes": 93584,
+  "directed_edges": 164393,
+  "roads": 18053,
+  "buildings": 161511,
+  "shops": 7716,
+  "props": 24991,
+  "heights": [
+    0.0,
+    282.9833957024271
+  ],
+  "sources": {
+    "SanFrancisco.osm.pbf": "a16fd54d5b081163a6ad9503e323685a484f976e34df7b3a0d9576d41b6f7299",
+    "shoreline.geojson": "660b70e1d0606e8981c7d79b64c786b0b89aac57fc4d84f1aeffbd4d0b570058",
+    "USGS_13_n38w123.tif": "73c9935d3b750c01f19b292760547b8c2db0a1c8beb3ee0aaea375425b713538"
+  },
+  "land_sectors": 2086,
+  "packed_bytes": 126979200,
+  "storefronts": 7172,
+  "objects": {
+    "sf-0.bin": {
+      "size": 541955,
+      "sha256": "9d6bc3082842d899116b051c4394b2b4087632780d2c48ae81073eb20c1725e8",
+      "url": "../store/sha256/9d/9d6bc3082842d899116b051c4394b2b4087632780d2c48ae81073eb20c1725e8"
+    },
+    "sf-1.bin": {
+      "size": 11530796,
+      "sha256": "430a22ca0afe1cb2c68413f3848c623cdbafae2ebc9c0d48ebc0b622a0f55b54",
+      "url": "../store/sha256/43/430a22ca0afe1cb2c68413f3848c623cdbafae2ebc9c0d48ebc0b622a0f55b54"
+    },
+    "sf-2.bin": {
+      "size": 30727628,
+      "sha256": "9d131c0b59df967f51059001b0c448b402be2316faab4a21cda2ca28876b1911",
+      "url": "../store/sha256/9d/9d131c0b59df967f51059001b0c448b402be2316faab4a21cda2ca28876b1911"
+    },
+    "sf-3.bin": {
+      "size": 33302309,
+      "sha256": "c51096a87f05467c59d9c3a660a21eb561aa5202eaf564a9fdab949aff0de2c5",
+      "url": "../store/sha256/c5/c51096a87f05467c59d9c3a660a21eb561aa5202eaf564a9fdab949aff0de2c5"
+    },
+    "sf-4.bin": {
+      "size": 32175536,
+      "sha256": "c9ed6aced47a5e77cc15f40bfcfaddc46e019d9afa0c0523483b79b2b1d41ff9",
+      "url": "../store/sha256/c9/c9ed6aced47a5e77cc15f40bfcfaddc46e019d9afa0c0523483b79b2b1d41ff9"
+    },
+    "sf-5.bin": {
+      "size": 18700976,
+      "sha256": "52e5817a633269251c36b5b12749b8c6adef7612f442053dbb96fc66349afdba",
+      "url": "../store/sha256/52/52e5817a633269251c36b5b12749b8c6adef7612f442053dbb96fc66349afdba"
+    },
+    "streets.nav": {
+      "size": 1767501,
+      "sha256": "42d7ce133e29034fb5be8860f85236bbb781c657d8e4c85a8b1ff2329e5baa53",
+      "url": "../store/sha256/42/42d7ce133e29034fb5be8860f85236bbb781c657d8e4c85a8b1ff2329e5baa53"
+    },
+    "sf-map.png": {
+      "size": 252767,
+      "sha256": "1e8afce3f9730e1f0c3046976602b0c9cd97661c26e25af5cbaf3d3b8620afd3",
+      "url": "../store/sha256/1e/1e8afce3f9730e1f0c3046976602b0c9cd97661c26e25af5cbaf3d3b8620afd3"
+    },
+    "horizon.glb": {
+      "size": 1954588,
+      "sha256": "b3e62b3442e1a17f9b16276f427f3b75695dfb652adec175c22d1feb92089da4",
+      "url": "../store/sha256/b3/b3e62b3442e1a17f9b16276f427f3b75695dfb652adec175c22d1feb92089da4"
+    }
+  }
+}

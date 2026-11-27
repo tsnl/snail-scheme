@@ -18,7 +18,6 @@ From the shop awnings on Lantern Row you can follow the paved lane north, cross 
 | Orbit the rider and zoom | Click the view, move the mouse, scroll |
 | Centre the camera | C |
 | Set the time of day | L or the light button |
-| Change resolution | Q or the resolution button |
 | Open or close the pause menu | P, Esc, or the pause button |
 | Return to Lantern Row with Moss | R or **Reset to Lantern Row** in the pause menu |
 
@@ -30,29 +29,13 @@ The shallow puddles on Lantern Row are visible from the shop. Take the first dir
 
 A glancing collision can turn the front wheel along a fence. A sharper stop throws the rider forward against the bars. A hard, square hit separates the rider from the bicycle. The torso tumbles under gravity, the limbs draw in, and the bicycle tips onto its side. Once the rider settles, E gets them back on beside the obstacle. Hold S or Down to walk clear, including uphill.
 
-The pause menu gives three independent choices. Resolution ranges from 240p to 1080p, samples per pixel can be 1, 2 or 4, and paths can bounce 1–8 times. A fresh ride starts at 900p, 2 samples and 2 bounces. The selected resolution fits the canvas and the GPU’s ray-buffer limit. The choices stay fixed while riding and survive resetting to Lantern Row and reloading the page. An existing ride from the larger survey keeps its distance and places the cyclist at the corresponding spot on the shorter lanes.
+The game renders at the canvas’s physical pixel dimensions. The pause menu sets 1× or 4× MSAA. L cycles through morning, midday, sunset and moonlight. The visible sky and its filtered environment provide reflections and indirect light, while the sun or moon casts cascaded shadows. Skinning moves the hands, grip targets and pedals together, including when walking the bike backwards.
 
-Morning mist gathers near the creek. Sunlight passing through the leaves lights the air between their shadows. The lens focuses at the rider's actual distance from the camera, including when a wall pushes the camera closer. Try the bridge in morning light and the orchard at golden hour.
-
-To measure the ride, serve a build, then run `node benches/iygtw/ride.mjs http://127.0.0.1:4193/ 900p 2 2` from the repository root in the development shell. The arguments after the URL are resolution, samples per pixel and bounce depth. The benchmark pedals three routes in a fresh native Vulkan Chromium profile at a 1920×1080 viewport. It reports the actual render dimensions, completed frames per second and 95th-percentile frame interval.
-
-To time individual GPU pipelines in the same ride, add `--profile`. The benchmark reads WebGPU timestamps and sums every invocation of each pipeline within each completed frame. It reports median and 95th-percentile milliseconds for both the individual pipelines and their feature totals across frames. `timedWork` sums GPU pass time. Presentation intervals also include pacing and queue delays. Run the ride once with profiling off for a frame-budget comparison. Profiling opens new compute passes at pipeline changes and adds asynchronous query readback.
+To measure Lantern Row, the mill bridge and the orchard, serve a build locally and run the following command. Omit `--profile` to measure frame intervals without GPU timestamp instrumentation. The game caps presentation at 30 fps.
 
 ```sh
-node benches/iygtw/ride.mjs http://127.0.0.1:4193/ 900p 2 2 --profile
+node benches/iygtw/ride.mjs http://127.0.0.1:4193/ 1920x1080 1 --profile
 ```
-
-On an RTX 5090 with NVIDIA driver 595.104.02, Chromium Vulkan, a 1920×1080 viewport and a 1600×900 render at 2 spp, these are milliseconds of GPU work per riding frame. Ray traversal includes both continuation and shadow rays.
-
-| Route | Raster p50 | Ray traversal p50 | Total p50, 2 bounces | Total p95, 2 bounces | Total p50, 1 bounce |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Lantern Row | 0.21 | 10.76 | 15.80 | 17.46 | 10.14 |
-| Mill Bridge | 0.19 | 10.53 | 15.22 | 16.14 | 9.82 |
-| Orchard | 0.17 | 6.68 | 10.97 | 11.58 | 9.06 |
-
-With instrumentation off, all three routes averaged 30 completed frames per second. The 95th-percentile interval between completed frames was 34.2–34.8 ms. The game caps presentation at 30 fps.
-
-The exported village, bicycle, rider and dog occupy 133,483,520 bytes of shared vertex storage. On adapters exposing a 128 MiB storage-binding limit, the remaining 734,208 bytes hold 11,472 vertices. That capacity matters separately from rasterization time when adding geometry.
 
 ## Editing Willowbank
 
@@ -60,8 +43,8 @@ Open `src/apps/iygtw/art/Willowbank.blend` in Blender to edit the level. The col
 
 `Roadster.blend` contains the weighted bicycle and courier. The seated and standing pedal actions share a crank phase. Two steering actions keep the hands on the grips in either posture. The rig includes bracing, tumbling and walking the bicycle backwards. On foot, the idle, walk, run and two saddle-crossing poses animate the courier independently of the parked bicycle. With the file open in Blender, `src/blender/bake_roadster.py` rebuilds these actions from the rest rig.
 
-The courier's head, eyes and continuous forearm and hand meshes use Blender Studio’s CC0 Human Base Meshes. The jacket, cap, hair and post bag are authored for Willowbank. To rebuild the character mesh in Blender, run `src/blender/dress_courier.py` with the roadster file open and the extracted human base mesh file after `--`. The arm fit uses the shared wrist loop of the sculpt and three articulated joints per digit. The seated and standing actions orient the knuckles along the swept grips. Run the action bake after redressing the character. The finished roadster packs all its textures. The rider's skin takes its scattering weight from Blender's Principled BSDF.
+The courier's head, eyes and continuous forearm and hand meshes use Blender Studio’s CC0 Human Base Meshes. The jacket, cap, hair and post bag are authored for Willowbank. To rebuild the character mesh in Blender, run `src/blender/dress_courier.py` with the roadster file open and the extracted human base mesh file after `--`. The arm fit uses the shared wrist loop of the sculpt and three articulated joints per digit. The seated and standing actions orient the knuckles along the swept grips. Run the action bake after redressing the character. The finished roadster packs all its textures. The source material retains the scattering weight authored in Blender.
 
-The editable hollows in the level’s **Road drainage** collection set the pool centres and radii. In the level file, `src/blender/plant_verges.py` replants the sedges, dock, foxgloves, hazel and ash canopy along the lanes. `Moss.blend` contains the dog's rig and trot. Run `src/blender/groom_moss.py` with the dog open to comb its coat. The dog and courier keep an opaque undercoat or hairline under skinned, alpha-tested ribbons. Each ribbon carries a painted comb of individual fibers. Both actors share the path tracer's skinning pass.
+The editable hollows in the level’s **Road drainage** collection set the pool centres and radii. In the level file, `src/blender/plant_verges.py` replants the sedges, dock, foxgloves, hazel and ash canopy along the lanes. `Moss.blend` contains the dog's rig and trot. Run `src/blender/groom_moss.py` with the dog open to comb its coat. The dog and courier keep an opaque undercoat or hairline under skinned, alpha-tested ribbons. Each ribbon carries a painted comb of individual fibers. Both actors use the shared skinning pass.
 
 After an art edit, run `make iygtw-art` with Blender on the path. Check in the source and its exports together. A normal `make iygtw` uses the checked-in exports. The browser downloads the nine files in `main.resources` with progress, caches them locally and reuses them on subsequent visits. Tree sprays, grass blades, gravel, plaster, timber and other material scans are credited in the game. [Willowbank art credits](../play/iygtw/CREDITS.txt).

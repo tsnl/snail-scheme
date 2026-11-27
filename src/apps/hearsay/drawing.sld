@@ -23,6 +23,9 @@
    (snail shell graphics pod)
    (snail shell graphics atlas)
    (snail shell graphics quad)
+   (snail shell graphics forward frame)
+   (only (snail shell graphics raster) Plane release-plane)
+   (snail shell graphics compositor)
    (only (lpc layout) face-region))
   (begin
 
@@ -37,7 +40,11 @@
 
     (record Drawn
       ((atlas Atlas)
-       (quads Quads)))
+       (quads Quads)
+       (output Plane)
+       (compositor Compositor)
+       (width I32)
+       (height I32)))
 
     (define (start-drawing) (→ Drawing) (new Drawing (drawn (None)) (portraits (empty-table))))
 
@@ -48,7 +55,20 @@
         ((None)
          (let* ((format (● ((● gpu request-device)) format))
                 (atlas (make-atlas gpu "hearsay" 2048 2)))
-           (new Drawn (atlas atlas) (quads (make-quads gpu "hearsay" format (● atlas texture))))))))
+           (new Drawn
+             (atlas atlas)
+             (quads (make-quads gpu "hearsay" (Rgba8Unorm) (● atlas texture)))
+             (output (display-plane gpu 1 1))
+             (compositor (make-compositor gpu format))
+             (width 1)
+             (height 1))))))
+
+    (define (fit-output! (gpu Gpu) (drawn Drawn) (image Image)) (→ Unit)
+      (let ((w (● image width)) (h (● image height)))
+        (unless (and (= w (● drawn width)) (= h (● drawn height)))
+          (release-plane gpu (● drawn output))
+          (set! (● drawn output) (display-plane gpu w h))
+          (set! (● drawn width) w) (set! (● drawn height) h))))
 
     ;; The portrait of picture `key`, or "" until it is read back.
     (define (drawing-url (drawing Drawing) (key I32)) (→ String)
@@ -153,8 +173,16 @@
       (let* ((drawn (drawn-of gpu drawing))
              (encoder ((● gpu create-command-encoder)))
              (atlas (atlas-pictures gpu (● drawn atlas) encoder (append shapes pictures)))
+             ;; Decoding new atlas layers can yield to the browser. Acquire its
+             ;; short-lived surface only after every layer has arrived.
              (canvas ((● gpu current-texture)))
-             (pass ((● gpu begin-render-pass) encoder (canvas-pass gpu canvas background)))
+             (_ (fit-output! gpu drawn canvas))
+             (pass (begin-forward-pass gpu encoder (● drawn output view) (None)
+                                       (new Color
+                                         (red (f32->f64 (channel background 16)))
+                                         (green (f32->f64 (channel background 8)))
+                                         (blue (f32->f64 (channel background 0))) (alpha 1.0))
+                                       (None)))
              (kept (draw-quads gpu pass
                                (● drawn quads)
                                (View2D-pixels-set view
@@ -163,24 +191,13 @@
                                                     (y (i32->f32 (● canvas height)))))
                                (quads atlas))))
         ((● gpu end-pass) pass)
+        (present! gpu (● drawn compositor) encoder (● drawn output view) canvas)
         ((● gpu submit) (list ((● gpu finish) encoder)))
         (portrait-read gpu (new Drawing
-                             (drawn (Some (new Drawn (atlas atlas) (quads kept))))
+                             (drawn (Some (Drawn-quads-set (Drawn-atlas-set drawn atlas) kept)))
                              (portraits (● drawing portraits)))
                        atlas
                        pictures)))
-
-    (define (canvas-pass (gpu Gpu) (canvas Image) (background I32)) (→ RenderPassDescriptor)
-      (new RenderPassDescriptor
-        (colors (list (Some (new ColorAttachment
-                              (view (view-of gpu (● canvas texture) 1))
-                              (load (Clear (new Color
-                                             (red (f32->f64 (channel background 16)))
-                                             (green (f32->f64 (channel background 8)))
-                                             (blue (f32->f64 (channel background 0)))
-                                             (alpha 1.0))))
-                              (store #t)))))
-        (depth (None))))
 
     ;; The first picture whose portrait is missing or shows another version.
     (define (portrait-read (gpu Gpu) (drawing Drawing) (atlas Atlas) (pictures (List Picture)))

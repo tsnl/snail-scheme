@@ -18,11 +18,12 @@
    View2D-pixels-set
    Quads
    make-quads
-   draw-quads)
+   draw-quads draw-projected-quads)
   (import
    (snail core base)
    (snail shell gpu)
    (snail shell graphics pod)
+   (only (snail shell graphics raster) Camera3D camera-3d Parallel)
    (snail shell graphics shaders))
   (begin
 
@@ -50,7 +51,11 @@
 
     (define quad-shape (→ (Shape Quad)) (shape))
 
-    (define view-shape (→ (Shape View2D)) (shape))
+    (record SpriteView
+      ((projection Mat4x4f)
+       (pixels Vec2f))
+      (deriving Pod))
+    (define view-shape (→ (Shape SpriteView)) (shape))
 
     (define quad-code (→ String) (string-append (declarations view-shape) quad-shader))
 
@@ -94,16 +99,34 @@
                         (view View2D)
                         (run (List Quad)))
       (→ Quads)
-      (if (null? run)
-          quads
-          (let ((quads (roomy gpu quads (length run))))
-            ((● gpu write-buffer) (● quads camera) 0 (pod-bytes view-shape view))
-            ((● gpu write-buffer) (● quads instances) 0 (pack quad-shape run))
-            ((● gpu set-pipeline) pass (● quads pipeline))
-            ((● gpu set-bind-group) pass 0 (● quads group))
-            ((● gpu set-vertex-buffer) pass 0 (● quads instances) 0)
-            ((● gpu draw) pass 4 (i64->i32 (length run)) 0 0)
-            quads)))
+      (let* ((c (● view center)) (extent (● view extent))
+             (eye (new Vec3f (x (● c x)) (y (● c y)) (z 1.0)))
+             (at (new Vec3f (x (● c x)) (y (● c y)) (z 0.0)))
+             (h (f32->f64 (● extent y)))
+             (camera (camera-3d eye at (Parallel h) (/ (f32->f64 (● extent x)) h) 1.0)))
+        (draw-projected-quads gpu pass quads camera (● view pixels) run)))
+
+    (define (draw-projected-quads (gpu Gpu) (pass GpuRenderPass) (quads Quads)
+                                  (camera Camera3D) (pixels Vec2f) (run (List Quad))) (→ Quads)
+                                  (if (null? run)
+                                      quads
+                                      (let ((quads (roomy gpu quads (length run))))
+                                        ((● gpu write-buffer)
+                                         (● quads camera)
+                                         0
+                                         (pod-bytes view-shape
+                                                    (new SpriteView
+                                                      (projection (● camera view-projection))
+                                                      (pixels pixels))))
+                                        ((● gpu write-buffer)
+                                         (● quads instances)
+                                         0
+                                         (pack quad-shape run))
+                                        ((● gpu set-pipeline) pass (● quads pipeline))
+                                        ((● gpu set-bind-group) pass 0 (● quads group))
+                                        ((● gpu set-vertex-buffer) pass 0 (● quads instances) 0)
+                                        ((● gpu draw) pass 4 (i64->i32 (length run)) 0 0)
+                                        quads)))
 
     ;; Room for `count` quads; the smaller buffer goes at the submit.
 

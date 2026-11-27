@@ -74,7 +74,11 @@ The [typed-state API](doc/book/snail-scheme/state.md) remains under review.
 
 ## If You’re Going That Way
 
-Pedal out of Lantern Row with Moss, cross the millpond, and take the orchard road home. Willowbank is a hand-built Blender village running in the browser’s WebGPU path tracer. [Ride through Willowbank](https://snail-scheme.pages.dev/play/iygtw/) · [Rider’s guide](doc/book/games/iygtw.md).
+Pedal out of Lantern Row with Moss, cross the millpond, and take the orchard road home. Willowbank is a hand-built Blender village running in the browser’s WebGPU forward renderer. [Ride through Willowbank](https://snail-scheme.pages.dev/play/iygtw/) · [Rider’s guide](doc/book/games/iygtw.md).
+
+## The Last Mile
+
+Drive a cab across San Francisco, pick up Rosa and follow the GPS to her next stop. [Play The Last Mile](https://snail-scheme.pages.dev/play/last-mile/) · [Driver’s guide](doc/book/games/last-mile.md).
 
 ## Reading on
 

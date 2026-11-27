@@ -106,7 +106,7 @@ declaring them.
 
 The shader libraries are generated this way:
 `(snail shell graphics shaders)` holds the graphics libraries' shaders,
-`(snail shell graphics trace shaders)` the path tracer's, and
+`(snail shell graphics forward shaders)` the forward renderer's, and
 `(apps train shaders)` the trainer's own.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/wgsl.sld)

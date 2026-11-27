@@ -22,7 +22,7 @@ owes a fare, and Rust runs the vehicle physics.
   tasks are built ([the language](snail-scheme/index.md)).
 - The **libraries** include a prelude, files, processes
   and sockets, pages, document interfaces and canvas applications, WebGPU as
-  a capability with rasterizing, Gaussian splatting and path tracing on top
+  a capability with rasterizing, Gaussian splatting and forward rendering on top
   of it, and GPU tensor graphs with gradients ([library reference](libraries/index.md)).
 - **Tools**: one command, `snail-scheme`, that builds and runs scripts, a
   language server with editor support for Zed and VS Code, and a formatter
@@ -30,7 +30,7 @@ owes a fare, and Rust runs the vehicle physics.
 - **Runtimes**: tasks scheduled in `snail-scheme`, with Node and the
   browser completing what they wait on ([runtimes](runtimes/index.md)).
 - **Applications**, in `src/apps/`: [Siegework](games/siegework.md), a
-  colony game; Hearsay's two prototypes; a path-traced glTF viewer; a
+  colony game; Hearsay's two prototypes; a forward-lit glTF viewer; a
   Gaussian splat viewer; and a trainer that fits splats to photographs
   ([tensors and training](graphics/tensors.md)).
 
@@ -50,9 +50,10 @@ owes a fare, and Rust runs the vehicle physics.
 
 - **[Play Siegework](play/siegework/)**: explore a seeded map, wire an
   energy network across it, and destroy three nests.
+- **[Play The Last Mile](play/last-mile/)** and drive a cab through San Francisco. [Driver’s guide](games/last-mile.md).
 - **[Play If You’re Going That Way](play/iygtw/)** and explore a farming village by bicycle with Moss. [Rider’s guide](games/iygtw.md).
 - **[Open the viewer](play/viewer/)** and drop a `.glb` on it, or pick a
-  sample, to see it path traced ([the path tracer](graphics/tracer.md)).
+  sample to inspect its materials and shadows. [Forward renderer](graphics/rasterizer.md).
 - **[Open Splats](play/splats/)** and drop a trained scene's `.ply` on it.
 - **[Play Hearsay](play/hearsay/)**: the rumor mill and the favor ledger.
 

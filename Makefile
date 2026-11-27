@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-browser test-gpu test-ink bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats furnace iygtw iygtw-art pages
+.PHONY: format check fetch test test-browser test-gpu test-ink bootstrap unicode-tables generated-unicode site last-mile siegework hearsay viewer splats furnace iygtw iygtw-art pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -34,6 +34,9 @@ test-browser:
 	node tests/browser/gpu.mjs "$(CURDIR)"
 	node tests/browser/furnace.mjs "$(CURDIR)"
 	node tests/browser/static-resources.mjs "$(CURDIR)"
+	node tests/browser/scene-recording.mjs "$(CURDIR)"
+	node tests/browser/orthographic.mjs "$(CURDIR)"
+	node tests/browser/last-mile.mjs "$(CURDIR)"
 	node tests/browser/iygtw.mjs "$(CURDIR)"
 
 # The GPU checks on Node, on the GPU Dawn finds (host/native/gpu.mjs), or
@@ -74,7 +77,7 @@ generated-unicode:
 
 # Each application is a script, src/apps/NAME/main.scm, built into
 # build/src/apps/NAME/main.
-site: siegework hearsay viewer splats iygtw furnace
+site: last-mile siegework hearsay viewer splats iygtw furnace
 
 BLENDER ?= blender
 
@@ -83,6 +86,9 @@ iygtw-art:
 
 iygtw:
 	./snail-scheme build --release --target browser src/apps/iygtw/main.scm
+
+last-mile:
+	./snail-scheme build --release --target browser src/apps/last-mile/main.scm
 
 siegework:
 	./snail-scheme build --release --target browser src/apps/siegework/main.scm
@@ -106,7 +112,7 @@ splats:
 # carries its LPC art's credits, read from the packs when it is built,
 # and shows them from its menu.
 # Train stays unpublished: its page trains on a dataset served beside it.
-PAGES_APPS = siegework viewer splats hearsay iygtw furnace
+PAGES_APPS = last-mile siegework viewer splats hearsay iygtw furnace
 
 pages: $(PAGES_APPS)
 	$(RM) -r build/pages-input

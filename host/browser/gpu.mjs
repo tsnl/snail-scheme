@@ -173,10 +173,10 @@ export function createGpu(canvas, runtime, open = pageDevice) {
       object(encoder).copyTextureToTexture(copy(source, sourceMip, sx, sy, sourceLayer), copy(destination, mip, x, y, layer), [width, height, 1]);
     },
     // A pass's attachments come first, each its view, load and store.
-    'pass-color'(view, clear, r, g, b, a, store) {
+    'pass-color'(view, clear, r, g, b, a, store, resolve) {
       if (profiling && canvasIds.includes(view)) presents = true;
       pass ??= {colorAttachments: []};
-      pass.colorAttachments.push({view: object(view), loadOp: clear ? 'clear' : 'load', clearValue: {r, g, b, a},
+      pass.colorAttachments.push({view: object(view), resolveTarget: resolve ? object(resolve) : undefined, loadOp: clear ? 'clear' : 'load', clearValue: {r, g, b, a},
                                   storeOp: store ? 'store' : 'discard'});
     },
     // A location left without an attachment.
@@ -197,11 +197,12 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     },
     'begin-pass'(encoder) {
       const writes = timeline ? timeline.writes(object(encoder), timestamps) : timestamps;
-      const descriptor = {...pass, ...(writes && {timestampWrites: writes})};
+      const label = pass.colorAttachments.length === 0 ? pass.depthStencilAttachment?.view.label : undefined;
+      const descriptor = {...pass, label, ...(writes && {timestampWrites: writes})};
       pass = null;
       timestamps = null;
       const begun = object(encoder).beginRenderPass(descriptor);
-      timeline?.begun(object(encoder), begun, writes, 'render pass', presents);
+      timeline?.begun(object(encoder), begun, writes, label || 'render pass', presents);
       presents = false;
       return keep(begun);
     },
@@ -426,7 +427,7 @@ function resolvedTimes(device, encoder, {passes, own}) {
 // A pass is named for the first three pipelines it set, and how many
 // more: `splat/fit, scan/scan_tiles, scan/add_sums +2`.
 function passName(kind, pipelines) {
-  if (!pipelines.length) return kind;
+  if (!pipelines.length || (kind !== 'render pass' && kind !== 'compute pass')) return kind;
   const more = pipelines.length - 3;
   return pipelines.slice(0, 3).join(', ') + (more > 0 ? ` +${more}` : '');
 }
@@ -464,28 +465,13 @@ function fields(bytes) {
 // pipeline is of either kind.
 const made = [
   (device, f) => device.createBuffer({label: f.text(), size: f.word(), usage: f.word()}),
-  (device, f) => device.createTexture({label: f.text(), size: [f.word(), f.word(), f.word()], mipLevelCount: f.word(),
-                                       format: f.text(), usage: f.word()}),
+  (device, f) => texture(device, f, 1),
   (device, f) => {
     const label = f.text(), magFilter = f.text(), minFilter = f.text(), mipmapFilter = f.text(), address = f.text();
     return device.createSampler({label, magFilter, minFilter, mipmapFilter, addressModeU: address, addressModeV: address});
   },
   (device, f) => device.createShaderModule({label: f.text(), code: f.text()}),
-  (device, f, object) => {
-    const label = f.text(), module = object(f.word());
-    const vertex = {module, entryPoint: f.text(), buffers: f.list(() => ({
-      arrayStride: f.word(), stepMode: f.text(),
-      attributes: f.list(() => ({format: f.text(), offset: f.word(), shaderLocation: f.word()}))}))};
-    const component = () => ({operation: f.text(), srcFactor: f.text(), dstFactor: f.text()});
-    const fragment = f.flag() ? {module, entryPoint: f.text(), targets: f.list(() => {
-      if (!f.flag()) return null;
-      const format = f.text();
-      return f.flag() ? {format, blend: {color: component(), alpha: component()}} : {format};
-    })} : undefined;
-    const primitive = {topology: f.text(), cullMode: f.text()};
-    const depthStencil = f.flag() ? {format: f.text(), depthWriteEnabled: f.flag(), depthCompare: f.text()} : undefined;
-    return device.createRenderPipeline({label, layout: 'auto', vertex, fragment, primitive, depthStencil});
-  },
+  (device, f, object) => renderPipeline(device, f, object, 'auto', 1),
   (device, f, object) => {
     const label = f.text(), layout = object(f.word()).getBindGroupLayout(f.word());
     const entries = f.list(() => {
@@ -501,11 +487,48 @@ const made = [
     return device.createComputePipeline({label, layout: 'auto', compute: {module, entryPoint: f.text()}});
   },
   (device, f) => device.createQuerySet({label: f.text(), type: 'timestamp', count: f.word()}),
+  (device, f) => texture(device, f, f.word()),
+  (device, f) => {
+    const label = f.text();
+    const bindGroupLayouts = f.list(() => {
+      let binding = 0;
+      return device.createBindGroupLayout({entries: f.list(() => {
+        const kind = f.word(), slot = binding++;
+        if (kind === 0) return {binding: slot, visibility: 3, buffer: {type: 'uniform'}};
+        if (kind === 1) return {binding: slot, visibility: 2, sampler: {type: 'filtering'}};
+        return {binding: slot, visibility: 2, texture: {sampleType: kind === 4 ? 'depth' : kind === 5 ? 'unfilterable-float' : 'float',
+          viewDimension: kind === 3 ? 'cube' : kind === 4 ? '2d-array' : '2d'}};
+      })});
+    });
+    return device.createPipelineLayout({label, bindGroupLayouts});
+  },
+  (device, f, object) => renderPipeline(device, f, object, object(f.word()), f.word()),
 ];
 
 // A view's dimension, first level and count, and first layer and count,
 // 0 meaning the rest.
 function viewOf(texture, f) {
-  return texture.createView({dimension: f.text(), baseMipLevel: f.word(), mipLevelCount: f.word(),
+  return texture.createView({label: texture.label, dimension: f.text(), baseMipLevel: f.word(), mipLevelCount: f.word(),
                              baseArrayLayer: f.word(), arrayLayerCount: f.word() || undefined});
 }
+
+function texture(device, f, sampleCount) {
+  return device.createTexture({label: f.text(), size: [f.word(), f.word(), f.word()], mipLevelCount: f.word(),
+    format: f.text(), usage: f.word(), sampleCount});
+}
+
+function renderPipeline(device, f, object, layout, count) {
+    const label = f.text(), module = object(f.word());
+    const vertex = {module, entryPoint: f.text(), buffers: f.list(() => ({
+      arrayStride: f.word(), stepMode: f.text(),
+      attributes: f.list(() => ({format: f.text(), offset: f.word(), shaderLocation: f.word()}))}))};
+    const component = () => ({operation: f.text(), srcFactor: f.text(), dstFactor: f.text()});
+    const fragment = f.flag() ? {module, entryPoint: f.text(), targets: f.list(() => {
+      if (!f.flag()) return null;
+      const format = f.text();
+      return f.flag() ? {format, blend: {color: component(), alpha: component()}} : {format};
+    })} : undefined;
+    const primitive = {topology: f.text(), cullMode: f.text()};
+    const depthStencil = f.flag() ? {format: f.text(), depthWriteEnabled: f.flag(), depthCompare: f.text()} : undefined;
+    return device.createRenderPipeline({label, layout, vertex, fragment, primitive, depthStencil, multisample: {count}});
+  }

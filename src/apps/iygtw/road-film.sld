@@ -11,7 +11,7 @@
    (snail shell graphics pod)
    (only (snail shell graphics animation) v4)
    (snail shell graphics kernel)
-   (snail shell graphics trace scene)
+   (snail shell graphics forward scene)
    (apps iygtw soil)
    (apps iygtw soil-shader))
   (begin

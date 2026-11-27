@@ -1,10 +1,12 @@
 ;; A single world and light environment serve the landscape, cyclist and dog.
 (define-library (apps iygtw render)
-  (export Renderer make-renderer draw! reset-camera! view-bearing light-name quality-name)
+  (export Renderer make-renderer draw! reset-camera! view-bearing light-name)
   (import
    (snail core base)
    (snail shell math)
-   (only (snail shell gpu) Gpu view-of ViewObject)
+   (only (snail shell gpu) Gpu)
+   (snail shell graphics compositor)
+   (snail shell graphics scene)
    (snail shell game physics)
    (snail shell game terrain)
    (snail shell game locomotion)
@@ -25,11 +27,9 @@
    (snail shell graphics animation)
    (only (snail shell graphics pod) Vec2f Vec3f Vec4f Mat4x4f)
    (only (snail shell graphics raster) camera-3d PinholeRange Camera3D Camera3D-scene-time-set)
-   (only (snail shell graphics bvh) ray-size)
-   (snail shell graphics environment)
-   (snail shell graphics trace scene)
-   (snail shell graphics trace photography)
-   (snail shell graphics trace render)
+   (snail shell graphics forward environment)
+   (snail shell graphics forward scene)
+   (snail shell graphics forward render)
    (only (snail shell graphics passes) Photographic)
    (apps iygtw ride)
    (apps iygtw soil)
@@ -51,6 +51,7 @@
        (brace Clip)
        (tumble Clip)
        (walk-back Clip)
+       (back-reach Clip)
        (idle Clip)
        (walk Clip)
        (run Clip)
@@ -79,6 +80,7 @@
              (human (append walking arms)) (left-leg left)
              (rest (named-clip rider "Rest")) (brace (named-clip rider "Brace"))
              (tumble (named-clip rider "Tumble")) (walk-back (named-clip rider "Walk back"))
+             (back-reach (named-clip rider "Backing reach"))
              (idle (named-clip rider "Idle"))
              (walk (named-clip rider "Walk"))
              (run (named-clip rider "Run"))
@@ -214,11 +216,16 @@
                             (f64->f32 rest)
                             (● a left-leg)))
              (walking (max 0.0 (min 1.0 (* -3.5 (signed-speed b)))))
-             (backward (blend-branch rider (phase-pose r (● a walk-back)
-                                                       (* -1.6
-                                                          (mix (● before wheel) (● now wheel) t)))
-                                     (f64->f32 walking)
-                                     (● a walking-bones)))
+             (backward (if (<= walking 0.0) rider
+                           (let* ((steps (phase-pose r
+                                                     (● a walk-back)
+                                                     (* -1.6
+                                                        (mix (● before wheel) (● now wheel) t))))
+                                  (grip (sample-pose r
+                                                     (● a back-reach)
+                                                     (* lock (● a back-reach duration))))
+                                  (back (blend-branch steps grip 1.0 (● a arms))))
+                             (blend-branch rider back (f64->f32 walking) (● a human)))))
              (braced
               (blend-branch backward (sample-pose r (● a brace) (* lock (● a brace duration)))
                             (f64->f32 (mix (● before rider brace) (● now rider brace) t))
@@ -247,33 +254,19 @@
       (case id ((0) "Morning") ((1) "High sun") ((2) "Golden hour") (else "Moonrise")))
     (define (point (x F64) (y F64) (z F64)) (→ Vec3f)
       (new Vec3f (x (f64->f32 x)) (y (f64->f32 y)) (z (f64->f32 z))))
-    (define (atmosphere (id I64)) (→ Atmosphere)
-      (new Atmosphere (sun (case id ((0) (point -0.67 0.41 -0.62)) ((1) (point 0.18 0.93 -0.32))
-                                 ((2) (point -0.79 0.19 -0.58)) (else (point -0.72 -0.49 -0.48))))
-           (wind (new Vec2f (x 0.17) (y 0.42)))
-           (cover (case id ((0) 0.14) ((1) 0.44) ((2) 0.23) (else 0.28)))))
-    (define (quality-name (id I64)) (→ String)
-      (case id ((0) "240p") ((1) "360p") ((2) "540p") ((3) "720p") ((4) "900p") (else "1080p")))
-    (define (size-at (width I32) (height I32) (id I64) (limit F64)) (→ (Pair I32 I32))
-      (let* ((w (i32->f64 (max 1 width))) (h (i32->f64 (max 1 height)))
-             (lines
-              (case id ((0) 240.0) ((1) 360.0) ((2) 540.0) ((3) 720.0) ((4) 900.0) (else 1080.0)))
-             (s (min (min 1.0 (sqrt (/ limit (* w h))))
-                     (min (/ (* lines (/ 16.0 9.0)) w) (/ lines h)))))
-        (new Pair (first (max 1 (f64->i32 (* w s)))) (second (max 1 (f64->i32 (* h s)))))))
     (record Renderer
       ((ground Terrain)
        (basins (List Basin))
        (film RoadFilm)
        (actors Actors)
        (stage MovingScene)
-       (sky SkyLight)
+       (sky Environment)
        (light I64)
-       (tracer Tracer)
-       (limit F64)
+       (forward-renderer Forward)
+       (compositor Compositor)
        (chase (Option Chase))))
     (define (reset-camera! (r Renderer)) (→ Unit)
-      (set! (● r chase) (None)) (set! (● r tracer) (discard-trace-history (● r tracer))))
+      (set! (● r chase) (None)))
     (define (view-bearing (r Renderer) (bike-heading F64) (yaw F64)) (→ F64)
       (+ yaw (match (● r chase) ((Some c) (● c heading)) (_ bike-heading))))
     (define (camera! (r Renderer)
@@ -311,16 +304,9 @@
                    aspect
                    1.0)))
 
-    ;; The boom shortens beside walls. Focus on the rider in view space using
-    ;; the camera that actually cleared the obstacle.
-    (define (rider-focus (g Terrain) (b Body) (look-height F64) (c Camera3D)) (→ F32)
-      (let ((p (● b position)) (eye (● c eye)) (f (● c forward)))
-        (max 0.5 (+ (+ (* (- (f64->f32 (● p x)) (● eye x)) (● f x))
-                       (* (- (f64->f32 (+ (ground-height g p) look-height)) (● eye y)) (● f y)))
-                    (* (- (f64->f32 (● p z)) (● eye z)) (● f z))))))
+    ;; ---- Forward rendering ----
 
-    ;; ---- Ray-traced presentation ----
-
+    (define (samples-of (ride Ride)) (→ I32) (if (= (● ride samples) 4) 4 1))
     (define (make-renderer (gpu Gpu)
                            (valley Valley)
                            (village Bytes)
@@ -338,12 +324,10 @@
              (all
               (append-gltf (append-gltf (read-gltf village "./") (● rider model)) (● dog model)))
              (stage (skin-scene gpu
-                                (upload-scene gpu read all 512)
+                                (upload-scene gpu read all)
                                 (list (● rider binding) (● dog binding))))
              (film (road-film gpu (● stage scene) ground (● valley surfaces)))
-             (sky (make-atmosphere-light gpu (atmosphere (● s light)) 256))
-             (limit (i64->f64 (quotient (i32->i64 (● info storage-binding-size)) ray-size)))
-             (size (size-at (● canvas width) (● canvas height) (● s quality) limit)))
+             (sky (daylight gpu (● s light))))
         (deform-scene! gpu stage (palette a ground s s 1.0))
         (paint-road! gpu film (● valley basins) (● s soil))
         (new Renderer
@@ -354,23 +338,28 @@
           (stage stage)
           (sky sky)
           (light (● s light))
-          (limit limit) (chase (None))
-          (tracer
-           (make-tracer gpu (● stage scene) (● sky environment) (● info format)
-                        (● size first) (● size second) 512 (Photographic))))))
+          (chase (None))
+          (compositor (make-compositor gpu (● info format)))
+          (forward-renderer
+           (make-forward gpu
+                         (● stage scene)
+                         sky
+                         (● canvas width)
+                         (● canvas height)
+                         (samples-of s)
+                         (Photographic))))))
     (define (draw! (r Renderer) (gpu Gpu) (before Ride) (s Ride) (t F64) (time F64)
                    (yaw F64) (pitch F64) (boom F64) (elapsed I32)) (→ Unit)
                    ((● gpu work-done))
                    (paint-road! gpu (● r film) (● r basins) (● s soil))
                    (unless (= (● r light) (● s light))
-                     (update-atmosphere! gpu (● r sky) (atmosphere (● s light)))
+                     (let ((sky (daylight gpu (● s light))))
+                       (set-environment! gpu (● r forward-renderer) sky)
+                       (release-environment gpu (● r sky)) (set! (● r sky) sky))
                      (set! (● r light) (● s light)))
                    (let* ((canvas ((● gpu current-texture)))
                           (w (● canvas width))
                           (h (● canvas height))
-                          (size (size-at w h (● s quality) (● r limit))) (lines (● size second))
-                          (output (new TraceSettings (display-width (min w (* 2 (● size first))))
-                                       (display-height (min h (* 2 lines)))))
                           (b (between-bodies (● before bike) (● s bike) t))
                           (on-foot
                            (mix (foot-fraction (● before travel)) (foot-fraction (● s travel)) t))
@@ -388,7 +377,6 @@
                                           (first
                                            (between-bodies (player-body before) (player-body s) t))
                                           (second (mix 1.29 1.03 on-foot))))))
-                          (cut (match (● r chase) ((None) #t) (_ #f)))
                           (cam (camera! r
                                         (● subject first) (● subject second) (● b heading) on-foot
                                         yaw
@@ -396,47 +384,7 @@
                                         (* boom (mix 1.0 0.82 on-foot))
                                         (* 0.001 (i32->f64 elapsed))
                                         (/ (i32->f64 w) (i32->f64 (max h 1)))))
-                          (moving (or cut
-                                      (and (> on-foot 0.0)
-                                           (not (= (● before soil tick) (● s soil tick))))
-                                      (not (= (● before rider brace) (● s rider brace)))
-                                      (match (● s rider fall) ((Some f) (< (● f rest) 32)) (_ #f))
-                                      (> (distance (● b velocity) (xz 0.0 0.0)) 0.001)
-                                      (> (distance (● s dog velocity) (xz 0.0 0.0)) 0.001)
-                                      (not (= (● before lean) (● s lean)))
-                                      (not (= (● before crank) (● s crank)))
-                                      (not (= (● before standing) (● s standing)))
-                                      (not (= (● before steer) (● s steer)))))
-                          (view (view-of gpu (● canvas texture) 1)))
+                          (frame (scene-frame (Camera3D-scene-time-set cam (f64->f32 time))
+                                              w h (samples-of s) 1.16)))
                      (deform-scene! gpu (● r stage) (palette (● r actors) (● r ground) before s t))
-                     (when moving (refit-tracer! gpu (● r tracer)))
-                     (set! (● r tracer)
-                           (draw-traced-samples gpu
-                                                (with-photography gpu
-                                                                  (resize-tracer gpu
-                                                                                 (● r tracer)
-                                                                                 (● size first)
-                                                                                 lines)
-                                                                  (new LensSettings
-                                                                    (focus (rider-focus (● r ground)
-                                                                                        (● subject
-                                                                                           first)
-                                                                                        (● subject
-                                                                                           second)
-                                                                                        cam))
-                                                                    (aperture 0.021)
-                                                                    (density (case (● s light)
-                                                                               ((0) 0.0038)
-                                                                               ((1) 0.0014)
-                                                                               ((2) 0.0055)
-                                                                               (else 0.0048)))
-                                                                    (level 5.3)
-                                                                    (falloff 0.095)
-                                                                    (range 230.0)
-                                                                    (anisotropy 0.48)
-                                                                    (exposure 1.0)))
-                                                view (Camera3D-scene-time-set cam (f64->f32 time))
-                                                (/ 1.0 (i32->f32 lines))
-                                                (if (= (● s light) 3) 145.0 1.16)
-                                                (● s bounces) moving output (● s samples)))
-                     ((● gpu destroy) (ViewObject view))))))
+                     (present-scene! gpu (● r forward-renderer) frame (● r compositor) canvas)))))

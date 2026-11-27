@@ -121,7 +121,7 @@
                  (write-line out (string-append "material: " (numbers (● material base-color))
                                                 " texture " (show (● material base-texture))
                                                 " metallic " (show (● material metallic))
-                                                " alpha " (show (● material alpha))
+                                                " alpha " (show (alpha-code (● material alpha)))
                                                 " cutoff " (show (● material alpha-cutoff))
                                                 " emissive " (numbers (● material emissive)))))
                (● gltf materials))

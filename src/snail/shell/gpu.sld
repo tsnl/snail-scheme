@@ -29,6 +29,16 @@
 (define-library (snail shell gpu)
   (export
    Gpu
+   GpuPipelineLayout
+   PipelineLayoutObject
+   BindingKind
+   UniformBinding
+   FilterSampler
+   FloatTexture
+   CubeTexture
+   DepthArray
+   UnfilterableTexture
+   layout-binding-fields
    GpuBuffer
    GpuTexture
    GpuTextureView
@@ -172,6 +182,7 @@
    ViewDimension
    View2d
    View2dArray
+   ViewCube
    TextureViewDescriptor
    view-of
    layer-view
@@ -227,6 +238,26 @@
 
     ;; Each handle is the id of an object the host holds.
 
+    (record GpuPipelineLayout
+      ((id I32)))
+    ;; Groups list their bindings in numeric order. All uniform buffers may
+    ;; be read by either graphics stage. Sampled textures belong to fragments.
+    (enum BindingKind
+      (UniformBinding)
+      (FilterSampler)
+      (FloatTexture)
+      (CubeTexture)
+      (DepthArray)
+      (UnfilterableTexture))
+    (define (binding-code (kind BindingKind)) (→ I32)
+      (match kind ((UniformBinding) 0) ((FilterSampler) 1) ((FloatTexture) 2)
+             ((CubeTexture) 3) ((DepthArray) 4) ((UnfilterableTexture) 5)))
+    (define (layout-binding-fields (label String) (groups (List (List BindingKind))))
+      (→ (List Field))
+      (Cons (Text label) (counted groups (lambda (bindings)
+                                           (counted bindings
+                                                    (lambda (binding)
+                                                      (list (word (binding-code binding)))))))))
     (record GpuBuffer
       ((id I32)))
 
@@ -273,6 +304,7 @@
 
     ;; What `destroy` lets go.
     (enum GpuObject
+      (PipelineLayoutObject ((layout GpuPipelineLayout)))
       (BufferObject ((buffer GpuBuffer)))
       (TextureObject ((texture GpuTexture)))
       (ViewObject ((view GpuTextureView)))
@@ -568,7 +600,7 @@
 
     (enum ViewDimension
       (View2d)
-      (View2dArray))
+      (View2dArray) (ViewCube))
 
     ;; A view of some of a texture's levels and layers; `layers` 0 is every
     ;; layer from `base-layer` on.
@@ -643,7 +675,8 @@
       (ReadOnlyDepth))
 
     (record ColorAttachment
-      ((view GpuTextureView)
+      ((resolve (Option GpuTextureView))
+       (view GpuTextureView)
        (load ColorLoad)
        (store Bool)))
 
@@ -737,6 +770,10 @@
        (create-buffer (Fn BufferDescriptor → GpuBuffer))
        (write-buffer (Fn GpuBuffer I32 Bytes → Unit))
        (read-buffer (Fn GpuBuffer I32 I32 → Bytes))
+       (create-multisample-texture (Fn I32 TextureDescriptor → GpuTexture))
+       (create-layout (Fn String (List (List BindingKind)) → GpuPipelineLayout))
+       (create-raster-pipeline
+        (Fn GpuPipelineLayout I32 RenderPipelineDescriptor → GpuRenderPipeline))
        (create-texture (Fn TextureDescriptor → GpuTexture))
        (create-view (Fn GpuTexture TextureViewDescriptor → GpuTextureView))
        (write-texture (Fn TextureCopy I32 I32 I32 Bytes → Unit))
@@ -1031,7 +1068,7 @@
     (define (view-dimension-name (dimension ViewDimension)) (→ String)
       (match dimension
         ((View2d) "2d")
-        ((View2dArray) "2d-array")))
+        ((View2dArray) "2d-array") ((ViewCube) "cube")))
 
     ;; Dimension, first level and count, first layer and count (0 for the
     ;; rest). A view has no label.
@@ -1085,6 +1122,17 @@
         (write-buffer
          (lambda (buffer offset bytes) (host-write-buffer (● buffer id) offset bytes)))
         (read-buffer (lambda (buffer offset size) (read-bytes (● buffer id) offset size)))
+        (create-multisample-texture (lambda (samples desc)
+                                      (new GpuTexture
+                                        (id (made 8 (Cons (word samples) (texture-fields desc)))))))
+        (create-layout (lambda (label groups)
+                         (new GpuPipelineLayout
+                           (id (made 9 (layout-binding-fields label groups))))))
+        (create-raster-pipeline (lambda (layout samples desc)
+                                  (new GpuRenderPipeline (id (made 10 (Cons (word (● layout id))
+                                                                            (Cons (word samples)
+                                                                                  (pipeline-fields
+                                                                                   desc))))))))
         (create-texture
          (lambda (descriptor) (new GpuTexture (id (made 1 (texture-fields descriptor))))))
         (create-view
@@ -1241,6 +1289,7 @@
 
     (define (object-id (object GpuObject)) (→ I32)
       (match object
+        ((PipelineLayoutObject layout) (● layout id))
         ((BufferObject buffer) (● buffer id))
         ((TextureObject texture) (● texture id))
         ((ViewObject view) (● view id))
@@ -1272,7 +1321,8 @@
         ((None) (unit))))
 
     (define (color-attachment (attachment ColorAttachment)) (→ Unit)
-      (let ((view (● attachment view id)) (store (store-flag (● attachment store))))
+      (let ((view (● attachment view id)) (store (store-flag (● attachment store)))
+            (resolve (match (● attachment resolve) ((Some v) (● v id)) ((None) 0))))
         (match (● attachment load)
           ((Clear color)
            (host-pass-color view
@@ -1281,8 +1331,8 @@
                             (● color green)
                             (● color blue)
                             (● color alpha)
-                            store))
-          ((Keep) (host-pass-color view 0 0.0 0.0 0.0 0.0 store)))))
+                            store resolve))
+          ((Keep) (host-pass-color view 0 0.0 0.0 0.0 0.0 store resolve)))))
 
     (define (depth-attachment (attachment DepthAttachment)) (→ Unit)
       (let ((view (● attachment view id)) (store (store-flag (● attachment store))))

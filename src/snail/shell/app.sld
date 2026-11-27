@@ -164,6 +164,8 @@
    (snail shell graphics mesh)
    (rename (snail shell graphics raster) (Style Raster-style) (solid solid-style))
    (snail shell graphics passes)
+   (snail shell graphics forward frame)
+   (snail shell graphics compositor)
    (prefix (snail shell ui) ui:))
   (begin
 
@@ -548,16 +550,13 @@
 
     ;; ---- Drawing ----
 
-    ;; What drawing keeps across frames, from the first, once the device
-    ;; answers: the raster, the G-buffer for the canvas's size with the
-    ;; sunlight over it and the post passes from its light to the canvas,
-    ;; and a surface for each of the last frame's batches, in its order.
+    ;; The batched forward renderer owns a color output, a single depth buffer
+    ;; and its post targets. Static batch versions survive a resize.
     (record Drawn
       ((raster Raster)
-       (gbuffer GBuffer)
-       (width I32)
-       (height I32)
-       (light Sunlight)
+       (depth Plane)
+       (output Plane)
+       (compositor Compositor)
        (post Post)
        (surfaces (List Kept))))
 
@@ -572,10 +571,6 @@
 
     (define (start-frames) (→ Frames) (new Frames (drawn (None))))
 
-    ;; The frame drawn to the canvas: solid and revealed batches into the
-    ;; G-buffer, lit by the sun over the background, then translucent ones
-    ;; over them, into the light, which is tone-mapped and smoothed into the
-    ;; canvas. A batch's surface is made only when its version is new.
     (define (draw-frame (gpu Gpu) (frame Frame) (frames Frames)) (→ Frames)
       (match (● frames drawn)
         ((Some drawn) (drawn-frame gpu frame drawn ((● gpu current-texture))))
@@ -584,58 +579,43 @@
            (drawn-frame gpu frame (started gpu format canvas) canvas)))))
 
     (define (started (gpu Gpu) (format TextureFormat) (canvas GpuImage)) (→ Drawn)
-      (let* ((width (● canvas width))
-             (height (● canvas height))
-             (r (make-raster gpu color-planes light-format))
-             (g (make-gbuffer gpu color-planes width height)))
-        (new Drawn
-          (raster r)
-          (gbuffer g)
-          (width width)
-          (height height)
-          (light (make-sunlight gpu light-format g r))
-          (post (make-post gpu format width height (Neutral)))
-          (surfaces (Nil)))))
+      (let ((w (● canvas width)) (h (● canvas height)))
+        (new Drawn (raster (make-forward-batches gpu light-format))
+             (depth (batch-depth gpu w h)) (output (display-plane gpu w h))
+             (compositor (make-compositor gpu format))
+             (post (make-post gpu (Rgba8Unorm) w h (Neutral)))
+             (surfaces (Nil)))))
+
+    (define (batch-depth (gpu Gpu) (w I32) (h I32)) (→ Plane)
+      (make-plane gpu "forward/batch-depth" w h (Depth24Plus) (list (RenderAttachment))))
 
     (define (drawn-frame (gpu Gpu) (frame Frame) (drawn Drawn) (canvas GpuImage)) (→ Frames)
-      (let* ((drawn (surfaced gpu (resized gpu drawn canvas) frame))
-             (drawn (Drawn-raster-set drawn
-                                      (write-raster gpu (● drawn raster)
-                                                    (frame-camera frame
-                                                                  (● canvas width)
-                                                                  (● canvas height))
-                                                    (frame-sun (● frame light)))))
-             (target (view-of gpu (● canvas texture) 1))
-             (encoder ((● gpu create-command-encoder))))
-        (let ((pass (begin-gbuffer gpu encoder (● drawn gbuffer))))
-          (draw-surfaces gpu pass drawn #f)
-          ((● gpu end-pass) pass))
-        (let ((pass (begin-lit gpu encoder
-                               (● drawn post targets light-view)
-                               (backdrop (● frame background))
-                               (● drawn gbuffer))))
-          (draw-sun gpu pass (● drawn light))
-          (draw-surfaces gpu pass drawn #t)
-          ((● gpu end-pass) pass))
-        (draw-post gpu encoder target (● drawn post))
+      (let* ((w (● canvas width)) (h (● canvas height))
+             (drawn (surfaced gpu (resized gpu drawn w h) frame))
+             (drawn (Drawn-raster-set drawn (write-raster gpu (● drawn raster)
+                                                          (frame-camera frame w h)
+                                                          (frame-sun (● frame light)))))
+             (encoder ((● gpu create-command-encoder)))
+             (pass (begin-forward-pass gpu encoder (● drawn post targets light-view) (None)
+                                       (backdrop (● frame background))
+                                       (Some (new DepthAttachment
+                                               (view (● drawn depth view))
+                                               (load (ClearDepth 1.0))
+                                               (store #f))))))
+        (draw-surfaces gpu pass drawn #f)
+        (draw-surfaces gpu pass drawn #t)
+        ((● gpu end-pass) pass)
+        (draw-post gpu encoder (● drawn output view) (● drawn post))
+        (present! gpu (● drawn compositor) encoder (● drawn output view) canvas)
         ((● gpu submit) (list ((● gpu finish) encoder)))
         (new Frames (drawn (Some drawn)))))
 
-    ;; The G-buffer and the post targets remade, and the sunlight over
-    ;; them, when the canvas's size changes.
-    (define (resized (gpu Gpu) (drawn Drawn) (canvas GpuImage)) (→ Drawn)
-      (if (and (= (● drawn width) (● canvas width)) (= (● drawn height) (● canvas height)))
-          drawn
-          (let ((g (make-gbuffer gpu color-planes (● canvas width) (● canvas height))))
-            (release-gbuffer gpu (● drawn gbuffer))
-            (new Drawn
-              (raster (● drawn raster))
-              (gbuffer g)
-              (width (● canvas width))
-              (height (● canvas height))
-              (light (relight gpu (● drawn light) g (● drawn raster)))
-              (post (resize-post gpu (● drawn post) (● canvas width) (● canvas height)))
-              (surfaces (● drawn surfaces))))))
+    (define (resized (gpu Gpu) (drawn Drawn) (w I32) (h I32)) (→ Drawn)
+      (unless (and (= w (● drawn post targets width)) (= h (● drawn post targets height)))
+        (release-plane gpu (● drawn depth)) (release-plane gpu (● drawn output))
+        (set! (● drawn depth) (batch-depth gpu w h)) (set! (● drawn output) (display-plane gpu w h))
+        (set! (● drawn post) (resize-post gpu (● drawn post) w h)))
+      drawn)
 
     ;; A surface for each of the frame's batches; those of batches gone
     ;; from it are released.

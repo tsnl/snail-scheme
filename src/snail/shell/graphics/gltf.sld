@@ -4,7 +4,7 @@
 ;; its materials, and each primitive placed by the node hierarchy of the
 ;; default scene. The buffers' bytes are not read here: they go to the
 ;; device whole, and a compute pass unpacks each accessor ((snail shell
-;; graphics trace scene)). A scene that cannot be read stops the reading
+;; graphics forward scene)). A scene that cannot be read stops the reading
 ;; with why: one that is not JSON, names an item it does not have, or
 ;; stores its geometry compressed.
 ;;
@@ -33,7 +33,7 @@
    Buffer-source-set
    Placed-matrix-set
    Gltf-placed-set
-   Material
+   Material AlphaMode OpaqueMaterial MaskedMaterial BlendedMaterial alpha-code blended-material?
    Placed
    read-gltf
    append-gltf
@@ -46,7 +46,7 @@
    gltf-numbers
    source-bytes
    buffer-bytes
-   scene-materials
+   scene-materials drawable-materials placed-center
    gltf-bounds
    gltf-transformed
    gltf-scaled
@@ -114,17 +114,24 @@
 
     ;; A texture is the index of its image, -1 when there is none. Alpha
     ;; is 0 for OPAQUE, 1 for MASK and 2 for BLEND.
+    (enum AlphaMode (OpaqueMaterial) (MaskedMaterial) (BlendedMaterial))
+    (define (alpha-code (mode AlphaMode)) (→ I64)
+      (match mode ((OpaqueMaterial) 0) ((MaskedMaterial) 1) ((BlendedMaterial) 2)))
+    (define (blended-material? (mode AlphaMode)) (→ Bool)
+      (match mode ((BlendedMaterial) #t) (_ #f)))
     (record Material
       ((base-color (List F64))
        (base-texture I64)
        (metallic F64)
        (roughness F64)
        (metal-rough-texture I64)
+       (occlusion-texture I64)
+       (occlusion-strength F64)
        (normal-texture I64)
        (normal-scale F64)
        (emissive (List F64))
        (emissive-texture I64)
-       (alpha I64)
+       (alpha AlphaMode)
        (alpha-cutoff F64)
        (double-sided Bool)
        (ground-layer Bool)
@@ -406,15 +413,18 @@
           (metallic (number-or pbr "metallicFactor" 1.0))
           (roughness (number-or pbr "roughnessFactor" 1.0))
           (metal-rough-texture (image pbr "metallicRoughnessTexture"))
+          (occlusion-texture (image material "occlusionTexture"))
+          (occlusion-strength (number-or (member-or material "occlusionTexture") "strength" 1.0))
           (normal-texture (image material "normalTexture"))
           (normal-scale (number-or (member-or material "normalTexture") "scale" 1.0))
           (emissive (map (lambda (channel) (* channel strength))
                          (gltf-numbers material "emissiveFactor" (list 0.0 0.0 0.0))))
           (emissive-texture (image material "emissiveTexture"))
           (alpha (let ((mode (gltf-text material "alphaMode" "OPAQUE")))
-                   (cond ((string=? mode "MASK") 1)
-                         ((string=? mode "BLEND") 2)
-                         (else 0))))
+                   (cond ((string=? mode "MASK") (MaskedMaterial))
+                         ((string=? mode "BLEND") (BlendedMaterial))
+                         ((string=? mode "OPAQUE") (OpaqueMaterial))
+                         (else (unreadable (string-append "unknown alphaMode: " mode))))))
           (alpha-cutoff (number-or material "alphaCutoff" 0.5))
           (double-sided (bool-or material "doubleSided" #f))
           (ground-layer (bool-or (member-or material "extras") "snailGroundLayer" #f))
@@ -429,11 +439,13 @@
                                             (metallic 0.0)
                                             (roughness 1.0)
                                             (metal-rough-texture -1)
+                                            (occlusion-texture -1)
+                                            (occlusion-strength 1.0)
                                             (normal-texture -1)
                                             (normal-scale 1.0)
                                             (emissive (list 0.0 0.0 0.0))
                                             (emissive-texture -1)
-                                            (alpha 0)
+                                            (alpha (OpaqueMaterial))
                                             (alpha-cutoff 0.5)
                                             (double-sided #f)
                                             (water #f)
@@ -483,13 +495,20 @@
                (any? (lambda (p) (< (● p primitive material) 0)) (● g placed)))
           (append (● g materials) (list default-material))
           (scene-materials g)))
+    (define (drawable-materials (g Gltf)) (→ (List Material)) (model-materials g))
+    (define (placed-center (p Placed)) (→ (List F64))
+      (transform (● p matrix) (map (lambda (pair) (* 0.5 (+ (● pair first) (● pair second))))
+                                   (zip (● p primitive low) (● p primitive high)))))
     (define (shift-material (m Material) (n I64)) (→ Material)
       (let ((shift (lambda ((i I64)) (→ I64) (if (< i 0) i (+ i n)))))
-        (Material-emissive-texture-set
-         (Material-normal-texture-set
-          (Material-metal-rough-texture-set (Material-base-texture-set m (shift (● m base-texture)))
-                                            (shift (● m metal-rough-texture)))
-          (shift (● m normal-texture))) (shift (● m emissive-texture)))))
+        (Material-occlusion-texture-set
+         (Material-emissive-texture-set
+          (Material-normal-texture-set
+           (Material-metal-rough-texture-set
+            (Material-base-texture-set m (shift (● m base-texture)))
+            (shift (● m metal-rough-texture)))
+           (shift (● m normal-texture))) (shift (● m emissive-texture)))
+         (shift (● m occlusion-texture)))))
     (define (shift-primitive (p Primitive) (n I64) (first I64) (count I64)) (→ Primitive)
       (let* ((at (lambda ((a Attribute)) (→ Attribute) (Attribute-offset-set a (+ n (● a offset)))))
              (maybe (lambda ((a (Option Attribute)))

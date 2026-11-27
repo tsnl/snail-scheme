@@ -1,4 +1,4 @@
-;; Render a PNG with the same WebGPU tracer as the browser, without a window.
+;; Render a PNG with the same forward renderer as the browser, without a window.
 ;; ./snail-scheme run --target node tools/render.scm scene=model.glb output=preview.png
 (import
  (snail core base)
@@ -10,12 +10,14 @@
  (snail shell png)
  (snail shell graphics pod)
  (snail shell graphics raster)
- (only (snail shell graphics bvh) ray-size)
- (snail shell graphics environment)
+ (only (snail shell graphics environment) read-hdr)
+ (snail shell graphics forward environment)
  (snail shell graphics gltf)
- (snail shell graphics trace scene)
- (snail shell graphics trace render)
+ (snail shell graphics forward scene)
+ (snail shell graphics forward render)
  (snail shell graphics still)
+ (snail shell graphics scene)
+ (snail shell wire)
  (only (snail shell graphics passes) Photographic)
  (only (snail shell graphics fly) fly-over fly-camera))
 
@@ -44,193 +46,122 @@
        (y (coordinate (list-ref xs 1)))
        (z (coordinate (list-ref xs 2)))))
     (_ (panic "camera positions need x,y,z"))))
-;; Reconstruction inputs and targets share the camera, geometry and frame size.
-;; Preserve the G-buffer's native formats and layer order for tensor consumers.
-(define camera-shape (→ (Shape Camera3D)) (shape))
-(define (capture-guides (gpu Gpu) (fs Fs) (prefix String) (planes (List Plane)) (depth Plane)
-                        (width I32) (height I32)) (→ Unit)
-                        (for-each (lambda (entry)
-                                    (let ((format (● entry second)))
-                                      (write-bytes fs (string-append prefix "." (● format first))
-                                                   (read-plane gpu
-                                                               (● entry first)
-                                                               width
-                                                               height
-                                                               (● format second)))))
-                                  (zip (append planes (list depth))
-                                       (zip (list "normal.rg16f"
-                                                  "emission.rgba16f"
-                                                  "albedo.rgba8srgb"
-                                                  "material.rgba8"
-                                                  "motion.rg16f" "triangle.r32u" "depth.f32")
-                                            (list 4 8 4 4 4 4 4)))))
 
-(define (capture (gpu Gpu)
-                 (fs Fs)
-                 (t Tracer)
-                 (camera Camera3D)
-                 (prefix String)
-                 (samples I64)
-                 (bounces I64)
-                 (seed I64)
-                 (box Bool))
-  (→ Unit)
-  (let* ((w (● t targets width)) (h (● t targets height)) (spread (/ 1.0 (i32->f32 h)))
-         (target (make-plane gpu "capture/display" w h (Rgba8Unorm) (list (RenderAttachment))))
-         (noisy (draw-traced gpu (discard-trace-history t) (● target view)
-                             camera
-                             spread
-                             1.0
-                             bounces
-                             #f
-                             (new TraceSettings (display-width w) (display-height h))))
-         (raster (match (● noisy last) ((Some view) (● view raster))
-                        (_ (panic "capture has no rasterized frame"))))
-         (first (+ (● noisy frame) (i64->i32 seed))))
-    (write-bytes fs (string-append prefix ".noisy.rgba32f") (read-traced-radiance gpu noisy))
-    (write-bytes fs (string-append prefix ".camera") (pod-bytes camera-shape raster))
-    (capture-guides gpu
-                    fs
-                    (string-append prefix ".opaque")
-                    (● t targets planes)
-                    (● t targets depth)
-                    w
-                    h)
-    (match (● t targets blended)
-      ((Some b)
-       (capture-guides gpu fs (string-append prefix ".blended") (● b planes) (● b depth) w h))
-      (_ (unit)))
-    (write-bytes fs (string-append prefix ".reference.rgba32f")
-                 (if box (trace-film gpu noisy camera spread bounces first samples)
-                     (trace-reference gpu noisy raster spread bounces first samples)))
-    (write-file fs (string-append prefix ".json")
-                (string-append "{\"width\":" (show w) ",\"height\":" (show h) ",\"layers\":"
-                               (match (● t targets blended)
-                                 ((Some _) "[\"opaque\",\"blended\"]")
-                                 (_ "[\"opaque\"]"))
-                               ",\"noisySeed\":"
-                               (show (● t frame))
-                               ",\"firstReferenceSeed\":"
-                               (show first)
-                               ",\"referenceSamples\":"
-                               (show samples)
-                               ",\"pixelFilter\":" (if box "\"box\"" "\"fixed\"")
-                               ",\"bounces\":"
-                               (show bounces)
-                               "}"))
-    (release-plane gpu target)))
-
-(define (read-model (gpu Gpu) (fs Fs) (path String) (layers I32)) (→ Scene)
+(define (read-model (gpu Gpu) (fs Fs) (path String)) (→ Scene)
   (match (attempt-reading (lambda ()
                             (load-scene gpu
                                         (lambda (paths) (map (lambda (p) (read-bytes fs p)) paths))
-                                        path layers)))
-    ((Ok scene) scene)
-    ((Err why) (panic why))))
+                                        path)))
+    ((Ok scene) scene) ((Err why) (panic why))))
 
-;; Local solar time in minutes, with an equinox sun at a temperate latitude.
-(define (sun-direction (minute I64)) (→ Vec3f)
-  (let* ((angle (* (/ (- (i64->f64 minute) 360.0) 720.0) pi)) (s (sin angle)) (east (cos angle)))
-    (new Vec3f
-      (x (f64->f32 (- (* 0.9876 east) (* 0.0964 s))))
-      (y (f64->f32 (* 0.79 s)))
-      (z (f64->f32 (+ (* 0.1573 east) (* 0.6047 s)))))))
-
-(define (exposure (sun Vec3f)) (→ F32)
-  (let ((t (max 0.0 (min 1.0 (/ (- 0.20 (f32->f64 (● sun y))) 0.34)))))
-    (f64->f32 (* 1.10 (expt 2.0 (* (* 2.0 (* t t)) (- 3.0 (* 2.0 t))))))))
-
-(define (lighting (gpu Gpu) (fs Fs) (path String) (sun Vec3f)) (→ Environment)
+(define (sky-source (path String) (minute I64)) (→ SkySource)
   (if (string=? path "")
-      (● (make-atmosphere-light gpu
-                                (new Atmosphere
-                                  (sun sun)
-                                  (wind (new Vec2f (x 0.0) (y 0.0)))
-                                  (cover 0.54))
-                                1024)
-         environment)
-      (match (read-hdr (read-bytes fs path))
-        ((Ok hdr) (hdr-environment gpu hdr 4096))
-        ((Err why) (panic why)))))
-;; Wall time through the synchronized linear film readback. Each run starts
-;; with a fresh accumulation on the same resident scene and camera.
-(define (time-film (gpu Gpu) (clock Clock) (fs Fs) (path String) (t Tracer) (camera Camera3D)
-                   (samples I64) (depth I64) (started I64)) (→ Unit)
-                   ((● gpu work-done))
+      (BakedSky
+       (cond ((< minute 300) 3) ((< minute 600) 0) ((< minute 960) 1) ((< minute 1150) 2) (else 3)))
+      (Panorama path)))
+(define (lighting (gpu Gpu) (fs Fs) (sky SkySource)) (→ Environment)
+  (match sky ((BakedSky p) (daylight gpu p))
+         ((Panorama path)
+          (match (read-hdr (read-bytes fs path))
+            ((Ok hdr) (import-hdr gpu hdr))
+            ((Err why) (panic why))))))
+
+(define (real-setting (args Arguments) (key String) (default F64)) (→ F32)
+  (match (string->json (setting args key (show default))) ((Some n) (coordinate n))
+         (_ (panic (string-append key " must be a finite number")))))
+
+;; Each duration ends when the last submitted draw finishes. Readback and
+;; encoding are separate from timing. All iterations reuse the same scene.
+(define (benchmark (gpu Gpu) (r Forward) (view SceneFrame)
+                   (clock Clock) (started I64) (fs Fs) (path String)) (→ Unit)
                    (let* ((now (● clock monotonic-nanoseconds))
-                          (setup (- (now) started))
-                          (spread (/ 1.0 (i32->f32 (● t targets height))))
-                          (run (lambda ((index I64)) (→ F64)
-                                 (let* ((beginning (now))
-                                        (film (trace-film gpu
-                                                          t
-                                                          camera
-                                                          spread
-                                                          depth
-                                                          (i64->i32 (* samples index))
-                                                          samples))
-                                        (seconds (/ (i64->f64 (- (now) beginning)) 1e9)))
-                                   (when (= index 5)
-                                     (write-bytes fs (string-append path ".rgba32f") film))
-                                   seconds))))
-                     (let* ((warmup (run 0))
-                            (times (map (lambda (index) (show (run index))) (list 1 2 3 4 5))))
+                          (frame (lambda () (let ((start (now)))
+                                              (render-scene! gpu r view)
+                                              ((● gpu work-done))
+                                              (/ (i64->f64 (- (now) start)) 1e9)))))
+                     ((● gpu work-done))
+                     (let* ((setup (/ (i64->f64 (- (now) started)) 1e9))
+                            (warmup (frame)) (times (map (lambda (_) (show (frame))) (iota 5))))
                        (write-file fs (string-append path ".json")
                                    (string-append "{\"setupSeconds\":"
-                                                  (show (/ (i64->f64 setup) 1e9))
-                                                  ",\"warmupSeconds\":" (show warmup)
+                                                  (show setup)
+                                                  ",\"warmupSeconds\":"
+                                                  (show warmup)
                                                   ",\"renderSeconds\":["
                                                   (string-join times ",")
                                                   "]}")))))
 
-(define (main (args Arguments) (fs Fs) (out OutputPort) (host Host) (clock Clock)) (→ Unit)
-  (let* ((name (setting args "scene" "")) (path (setting args "output" "render.png"))
-         (width (number args "width" 960 1 16384)) (height (number args "height" 540 1 16384))
-         (w (i64->i32 width)) (h (i64->i32 height)) (aspect (/ (i64->f64 width) (i64->f64 height)))
-         (spp (number args "samples" 16 1 4096)) (depth (number args "bounces" 3 1 most-bounces))
-         (sun (sun-direction (number args "minute" 1040 0 1439)))
-         (layers (i64->i32 (number args "layers" 256 1 4096)))
-         (eye (setting args "eye" "")) (target (setting args "target" "")))
-    (when (string=? name "") (panic "supply scene=PATH to a glTF or GLB file"))
+(define (configured-frame (args Arguments) (scene Scene)) (→ SceneFrame)
+  (let* ((w (i64->i32 (number args "width" 960 1 16384)))
+         (h (i64->i32 (number args "height" 540 1 16384)))
+         (msaa (i64->i32 (number args "msaa" 1 1 4))) (shadows (setting args "shadows" "on"))
+         (eye (setting args "eye" ""))
+         (target (setting args "target" ""))
+         (fov (real-setting args "fov" 0.8))
+         (brdf (setting args "brdf" "pbr")) (aspect (/ (i32->f64 w) (i32->f64 h))))
+    (unless (and (> fov 0.0) (< fov 3.14159)) (panic "invalid field of view"))
     (unless (if (string=? eye "") (string=? target "") (not (string=? target "")))
       (panic "supply eye and target together"))
+    (let* ((camera (if (string=? eye "") (fly-camera (fly-over (● scene low) (● scene high)) aspect)
+                       (camera-3d (point eye)
+                                  (point target)
+                                  (PinholeRange (f32->f64 fov) 0.05 32000.0)
+                                  aspect
+                                  1.0)))
+           (frame (scene-frame camera w h msaa (real-setting args "exposure" 1.0))))
+      (set! (● frame shadows)
+            (cond ((string=? shadows "on") #t)
+                  ((string=? shadows "off") #f)
+                  (else (panic "invalid shadows"))))
+      (set! (● frame shading)
+            (cond ((string=? brdf "pbr") (MetallicRoughness))
+                  ((string=? brdf "blinn-phong") (BlinnPhong))
+                  (else (panic "invalid brdf"))))
+      (set! (● frame cascade) (i64->i32 (number args "cascade" -1 -1 2))) frame)))
+
+(define (main (args Arguments) (fs Fs) (out OutputPort) (host Host) (clock Clock)) (→ Unit)
+  (let* ((replay (setting args "replay" "")) (record (setting args "record" ""))
+         (clip (if (string=? replay "")
+                   (ann (None) (Option SceneRecording))
+                   (Some (deserialize (read-bytes fs replay)))))
+         (source (match clip ((Some c) (● c scene))
+                        (_ (new SceneDescription (model (setting args "scene" ""))
+                                (sky (sky-source (setting args "environment" "")
+                                                 (number args "minute" 1040 0 1439)))
+                                (tone (Photographic))))))
+         (model (setting args "scene" (● source model))) (override (setting args "environment" ""))
+         (sky (if (string=? override "") (● source sky) (Panorama override)))
+         (path (setting args "output" "render.png"))
+         (linear (setting args "linear" ""))
+         (timing (setting args "timing" "")))
+    (when (string=? model "") (panic "supply scene=PATH or replay=RECORDING"))
     (let* ((started ((● clock monotonic-nanoseconds)))
-           (gpu (host-gpu host)) (info ((● gpu request-device))))
-      (unless (<= (* ray-size (* width height)) (i32->i64 (● info storage-binding-size)))
-        (panic "image exceeds the GPU ray-buffer limit; reduce width or height"))
-      (let* ((scene (read-model gpu fs name layers))
-             (sky (lighting gpu fs (setting args "environment" "") sun))
-             (tracer (make-tracer gpu
-                                  scene
-                                  sky
-                                  (Rgba8Unorm)
-                                  w
-                                  h
-                                  layers
-                                  (Photographic)))
-             (camera
-              (if (string=? eye "") (fly-camera (fly-over (● scene low) (● scene high)) aspect)
-                  (camera-3d (point eye)
-                             (point target)
-                             (PinholeRange 0.8 0.05 32000.0)
-                             aspect
-                             1.0)))
-             (prefix (setting args "capture" "")) (timing (setting args "timing" "")))
-        (cond ((not (string=? timing ""))
-               (time-film gpu clock fs timing tracer camera spp depth started))
-              ((string=? prefix "")
-               (let ((draw (render-still gpu tracer camera spp depth (exposure sun))))
-                 (write-bytes fs path (rgba->png w h (● draw second)))
-                 (write-line out (string-append path " · " (show width) "×" (show height) " · "
-                                                (show spp)
-                                                " samples/pixel · "
-                                                (show depth)
-                                                " bounces"))))
-              (else
-               (let ((film (setting args "pixel-filter" "fixed")))
-                 (unless (or (string=? film "fixed") (string=? film "box"))
-                   (panic "pixel-filter must be fixed or box"))
-                 (capture gpu fs tracer camera prefix spp depth (number args "seed" 0 0 2147479550)
-                          (string=? film "box")))
-               (write-line out (string-append prefix ".json · 1 spp input and " (show spp)
-                                              " spp reference"))))))))
+           (gpu (host-gpu host))
+           (_ ((● gpu request-device)))
+           (scene (read-model gpu fs model))
+           (frame (match clip
+                    ((Some c) (recording-frame c (number args "frame" 0 0 2147483647)))
+                    (_ (configured-frame args scene))))
+           (env (lighting gpu fs sky)) (w (● frame width)) (h (● frame height))
+           (r (make-forward gpu scene env w h (● frame samples) (● source tone))))
+      (when (and (>= (● frame cascade) 0) (not (string=? linear "")))
+        (panic "linear output needs a shaded frame"))
+      (if (string=? timing "")
+          (write-bytes fs path (rgba->png w h (read-rgba gpu (render-scene! gpu r frame) w h)))
+          (benchmark gpu r frame clock started fs timing))
+      (unless (string=? linear "") (write-bytes fs linear (read-linear gpu r)))
+      (unless (string=? record "")
+        (write-bytes fs record (serialize (new SceneRecording
+                                            (scene (new SceneDescription
+                                                     (model model)
+                                                     (sky sky)
+                                                     (tone (● source tone))))
+                                            (frames (list frame))))))
+      (release-forward gpu r) (release-environment gpu env) (release-scene gpu scene)
+      (write-line out
+                  (string-append (if (string=? timing "") path (string-append timing ".json"))
+                                 " · "
+                                 (show w)
+                                 "×"
+                                 (show h)
+                                 " · " (show (● frame samples)) "× MSAA")))))

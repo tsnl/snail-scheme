@@ -1,115 +1,51 @@
-# Replacing the path tracer
+# The forward renderer
 
-The proposed shared renderer uses WebGPU rasterization for Willowbank, the
-glTF viewer, headless renders and the white furnace. We built a working
-wavefront path tracer with ReSTIR, SVGF and a scene-linear reference mode
-that we compared against Blender Cycles. We are retiring the tracer
-because of the cost of rendering a moving game on the GPUs we want to
-support. A future renderer can revisit that work. The last working revision
-includes the code, comparison scenes and commands to reproduce the results.
-[PR #947, replace path-tracer with simpler rasterizer](https://github.com/tsnl/snail-scheme/pull/947) · [Archived renderer](https://github.com/tsnl/snail-scheme/tree/07e831337bcedfad9e6763d77a80e3d1abb44ed0/src/snail/shell/graphics/trace) · [Reference renders and furnace measurements](https://github.com/tsnl/snail-scheme/blob/07e831337bcedfad9e6763d77a80e3d1abb44ed0/doc/book/graphics/tracer.md#compare-with-blender-cycles)
+Willowbank, The Last Mile, the glTF viewer, offline stills and the white furnace use the same forward material renderer. Siegework and Hearsay use its color pass, full-resolution output texture and compositor with pipelines suited to their geometry. All application drawing is written in Snail Scheme.
 
-The published measurements explain the decision. At 1600×900, two paths
-per pixel and two bounces, the median Lantern Row frame on an RTX 5090
-spent 10.76 ms on ray traversal out of 15.80 ms of measured GPU work.
-Rasterizing the first hits took 0.21 ms. Better importance sampling can
-reduce noise per ray. Shadow rays and continuation rays still traverse
-the scene. The cost of drawing multiple shadow maps and shading foliage
-on an integrated GPU needs its own measurement. [Riding benchmarks](../games/iygtw.md)
+## A frame
 
-## What to match in Broccoli
+The renderer draws into its own textures. A browser compositor samples the finished RGBA8 texture through a fullscreen triangle in the canvas format. The offline renderer can read that texture directly or export the linear RGBA16F lighting attachment. Changing the presentation format only changes the compositor. This follows the texture-first design of the earlier Python renderer. [Resin compositor](https://github.com/tsnl/resin/blob/966e3a6d4bb5a3b93a4df3d0a2ec0b6f36f9304d/src/zfw/compositor.py#L121-L146).
 
-Broccoli submits indexed mesh instances grouped by material, renders
-directional shadow maps, then shades the meshes forward. This is a good
-fit for the village's short light list. It also makes 4× multisampling
-possible with a single HDR color target and depth. Use a single forward
-renderer first. A deferred lighting pass would become worth measuring if
-overlapping lights come to dominate the frame. [Frame and draws](https://github.com/tsnl/broccoli/blob/55ca4c6ce97940ae4aa4da236189bf13c8ac04cd/src/broccoli/engine/render.cc#L2450-L2461) · [GPU limits and defaults](https://github.com/tsnl/broccoli/blob/55ca4c6ce97940ae4aa4da236189bf13c8ac04cd/src/broccoli/engine/render.cc#L28-L87)
+1. Draw three 1024² directional shadow cascades and the camera depth prepass. Each has a different view-projection. They share the vertex transform, alpha coverage, draw loop and single-sample pipelines. A 4× MSAA camera uses the same shaders compiled for four samples. The GPU clips the submitted triangles for each view.
+2. Shade opaque draws into HDR with depth equality. The depth prepass allows grouping draw calls by material. Each glTF primitive has a vertex and index range and its material has one bind group.
+3. Sort translucent primitives by distance from the eye and blend them back to front with depth writes disabled. For a double-sided convex shell, draw its back faces before its front faces.
+4. Resolve MSAA, tone-map in compute and run FXAA. Both games with a sky render at the canvas’s physical pixel dimensions. The pause menu selects 1× or 4× MSAA. The glTF viewer uses the 1 and 4 keys.
 
-| Feature | Broccoli at the reference revision | First Snail implementation |
+| glTF material | Depth and shadow maps | Forward color |
 | --- | --- | --- |
-| Materials | Blinn–Phong and metallic-roughness PBR with base color, tangent-space normals, metalness and roughness textures. [Shader](https://github.com/tsnl/broccoli/blob/55ca4c6ce97940ae4aa4da236189bf13c8ac04cd/res/shader/3d/ubershader.wgsl#L219-L411) | Match both on a calibration mesh. Use PBR for glTF and honor texture mips, color space, emissive factors, alpha mode and sidedness. |
-| Lights | Up to four directional lights and sixteen point lights. PBR point lights have inverse-square falloff. Ambient is a scalar. | Use explicit lights. Begin with a key directional light and local point lights. The environment bake below supplies ambient illumination. |
-| Shadows | The PBR path compares one depth sample. The directional cascade array is configured for one 2048² map reaching 400 m. Point lights cast no shadows. [Shadow lookup](https://github.com/tsnl/broccoli/blob/55ca4c6ce97940ae4aa4da236189bf13c8ac04cd/res/shader/3d/ubershader.wgsl#L468-L513) | First reproduce one hard directional shadow. Then split the viewing distance into filtered cascades for the sun or moon. |
-| Output | Filmic mapping on the PBR path, 4× MSAA, a bitmap overlay and a shadow-map inspector | Keep exposure, tone mapping and FXAA. Add selectable 1×/4× raster samples and a cascade inspector. The existing DOM supplies the game overlay. |
+| OPAQUE | Vertex-only for single-sided or two-sided geometry | Material group |
+| MASK | The cutoff tests base texture alpha times material alpha, with the same UVs and sidedness as color | Material group |
+| BLEND | No depth writes or shadow casting | Global painter order |
 
-## Order of work
+The debug glTF loader welds seam vertices and checks convexity, winding and connectivity for blended primitives when it creates the mesh. Release builds omit the construction check. Intersecting translucent primitives remain an ordering limitation. Meshes use ordinary indexed draws. [Broccoli reference](https://github.com/tsnl/broccoli).
 
-1. **Draw one frame through the real asset path.** Move glTF geometry,
-   material uploads, texture mips and skinning out of `graphics/trace/scene`.
-   The new draw path should allocate only its vertex, index, material and
-   texture data. Keep one concrete `Renderer`. Its draw function calls the
-   skin, shadow, color and post passes in order. Feed the same deformed
-   positions and alpha cutoffs to shadow and color draws. Start with the
-   courier, Moss, a leaf card and wet road. Inspect unlit albedo before
-   judging the lighting. Our Cycles comparison already found a large
-   canopy albedo difference.
-2. **Add direct light and stable shadows.** Draw opaque and masked meshes
-   into linear HDR, then blend transparent surfaces back to front against
-   the same depth buffer. Tone map once. Start with one depth map, then
-   try three fixed frustum splits. Fit each to the unjittered camera, snap
-   its light-space center to a texel and include casters outside the
-   camera view that can shadow the split. Blend across overlaps. Start
-   with 3×3 percentage-closer filtering (PCF), averaging depth comparisons.
-   Tune bias against tire contact and distant fences. This gives a soft
-   edge of fixed filter width. Keep only the dominant sky light shadowed
-   in the village's first preset. [Cascaded shadow maps and filtering](https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps)
-3. **Bake image-based lighting.** Have a `generate-library` producer read a
-   scene-linear HDR sky, run a pinned filter, and return a library linking
-   the baked resources. Key the bake by its source, filter version and
-   settings so an unrelated Scheme edit can reuse it. For each sky, bake
-   nine RGB diffuse irradiance coefficients and six cubemap faces at each
-   GGX roughness level. Bake
-   one shared 2D BRDF integration lookup for the chosen visibility and
-   Fresnel model. Use the normal for diffuse and the reflected view
-   direction plus roughness for specular. Keep the visible sun or moon
-   disc in the background and omit its direct energy from the lighting
-   bake so the directional light supplies it once. Test cubemap
-   orientation with a single bright patch, roughness with a row of
-   spheres, and diffuse normalization with the white furnace. Acquire
-   the bytes through the existing resource cache. The game only uploads
-   and samples them. For a raw HDR dropped into the viewer, prefilter
-   once on import and cache the result against the same inputs. Local
-   Blender irradiance probes and baked AO can follow when a global sky
-   leaves sheltered areas too bright.
-   [Generated libraries](../snail-scheme/macros.md#generated-libraries) · [Filament's environment filter](https://github.com/google/filament/tree/main/tools/cmgen)
-4. **Move every caller, then delete the tracer.** The viewer should still
-   open a user's glTF and sky. Keep headless PNG and linear HDR readback
-   through the same renderer. Preserve the furnace's numerical readout and
-   use Blender Cycles for path-traced references. Port Willowbank's animated
-   characters, cutout foliage, puddles, tire tracks and four sky settings.
-   Remove path counts and bounce depth from the controls and benchmarks.
-   Load older saves with their ride and resolution intact. Remove the
-   shared path renderer, its ray queues and BVH refits, ReSTIR, SVGF,
-   temporal path reconstruction, volumetric fog and god rays. Audit their
-   imports, GPU fixtures, CLI flags and book links in the same change.
-   Keep depth of field off for the first image comparison.
+## Lights and materials
 
-The WebGPU surface already has per-layer depth views. PCF can start with
-explicit depth loads. Expose cube views for environment mip sampling and
-sample counts and resolve targets for MSAA in the browser and headless
-hosts. Run both hosts on the same small scene to catch descriptor or face
-orientation differences.
+The visible sky, nine diffuse spherical harmonic coefficients and a six-level prefiltered GGX cubemap come from the same environment. A generated library bakes the four times of day and the split-sum BRDF lookup. The directional sun or moon supplies direct light and filtered shadows. Shadow filtering compares neighboring depth texels and blends across cascade boundaries. The viewer can also prefilter a dropped Radiance HDR panorama. Press V to see each cascade’s actual depth texture.
 
-## When to switch the default
+Base color and emissive textures are decoded to linear light. Metallic and roughness use the blue and green channels. glTF occlusion uses red and its strength scales the indirect illumination. A packed ORM texture can supply all three. The city stores stationary point lights by ground cell and updates a separate list of moving headlights and taillights. Each source has a range, intensity and, for spotlights, a direction and cone. The village adds an evolving ground material and animated water normals. Texture compression and local irradiance probes are future work.
 
-A capture of the Willowbank build on port 4193 in Chromium at device
-pixel ratio 2 drew the 900p preset at 1440×900 on a 2880×1800 canvas.
-Its active pipelines included SVGF, mist, depth of field, temporal
-reconstruction and FXAA. There was no scene-outline pass. The cause of
-the reported MacBook silhouette artifact is still open.
+Siegework lights solid instanced meshes in the color pass and then blends its reveal, link and placement overlays. Its depth buffer is enough for these passes. Hearsay draws ordered atlas sprites through an orthographic camera with nearest filtering and pixel-snapped corners. It renders to RGBA8 and presents directly so pixel art keeps its colors. Both paths skip shadow maps and environment baking.
 
-Capture Lantern Row, Mill Bridge and the orchard with the same camera,
-sky, resolution and exposure before and after the switch. Include a ride
-past cutout leaves and a slow pan across a cascade boundary. Inspect a
-native-resolution crop of Moss, the rider and the spokes, with FXAA
-toggled in a diagnostic capture. Record internal pixels, canvas pixels
-and device pixel ratio so a Retina presentation can be reproduced.
+## Measure and inspect
 
-Update `benches/iygtw/ride.mjs` to recognize the new target and report
-skinning, shadow draws, material shading and post separately. Measure
-median and p95 GPU times, CPU submission and uninstrumented frame
-intervals. Keep the player's chosen resolution fixed. The initial target
-is 30 fps with p95 GPU work under 25 ms, leaving room inside a 33.3 ms
-frame. Try 900p on the MacBook Pro and RTX 5090 and 720p on the Radeon
-840M. These are acceptance targets. Only the tracer has timings here.
+The white furnace measures glTF materials under a uniform environment using the same shaders as the games. Its central pixel reports the scene-linear material response and a background reference. A smooth white metal should return close to one. A rough white metal in this single-scattering GGX model returns about 0.307 at normal incidence. [Open the white furnace](../play/furnace/).
+
+Render an asset locally with `./snail-scheme run --target node tools/render.scm scene=model.glb output=preview.png width=960 height=540`. Use `linear=film.rgba32f` for linear values, `cascade=0` through `cascade=2` for the shadow views, or `brdf=blinn-phong` for direct Blinn–Phong shading. The Blender comparison in `benches/render/compare.mjs` reads linear values from the same scene and camera. [Ride benchmark](../games/iygtw.md).
+
+## Record and replay a scene
+
+The application-facing `(snail shell graphics scene)` interface takes a camera, native viewport, material shading mode, exposure, shadows and MSAA in a `SceneFrame`. The browser presents it with `present-scene!`; the offline renderer submits it with `render-scene!` and reads the returned texture. Geometry, node transforms, materials and textures come from the referenced glTF. The description also names the environment and tone curve. GPU handles stay inside the rendering libraries.
+
+With a model open in the viewer, press T to start a recording. Fly the camera, change exposure or inspect a cascade, then press T and download the frame sequence. The recorder stores the frames in order and refers to asset files by name. Keep the same revision of the glTF, its dependencies and any environment map when sharing a recording. For a browser model URL, supply the equivalent local file with `scene=`. A custom panorama can be supplied with `environment=`.
+
+```sh
+./snail-scheme run --target node tools/render.scm scene=model.glb record=shot.snail-scene output=original.png
+./snail-scheme run --target node tools/render.scm replay=shot.snail-scene frame=0 output=replay.png
+```
+
+This captures the glTF viewer and offline renderer. The gameplay simulations, persistent village ground state, orthographic instance batches and sprite atlas still have their own state.
+
+## Why the path tracer was retired
+
+A working wavefront tracer supported ReSTIR, SVGF, emissive triangles, and reference renders compared to Blender Cycles. In the Lantern Row benchmark at 1600×900, two paths per pixel and two bounces, the RTX 5090 spent 10.76 ms of its 15.80 ms median GPU frame traversing rays. The first-hit raster pass took 0.21 ms. Frame time and motion quality on laptop GPUs led us to replace the tracer. A future renderer may revisit it. The pull request and pinned source preserve the implementation and its measurements. [PR #947, replace path-tracer with simpler rasterizer](https://github.com/tsnl/snail-scheme/pull/947) · [Archived tracer](https://github.com/tsnl/snail-scheme/tree/07e831337bcedfad9e6763d77a80e3d1abb44ed0/src/snail/shell/graphics/trace) · [Archived validation and Blender comparisons](https://github.com/tsnl/snail-scheme/blob/07e831337bcedfad9e6763d77a80e3d1abb44ed0/doc/book/graphics/tracer.md).

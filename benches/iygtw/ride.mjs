@@ -5,7 +5,9 @@ import {openBrowser, sleep, until} from '../../tests/browser/chromium.mjs';
 
 const args = process.argv.slice(2);
 const profile = args.includes('--profile');
-const [url = 'http://127.0.0.1:4193/', preset = '1080p', samples = '1', bounces = '2'] = args.filter(arg => arg !== '--profile');
+const [url = 'http://127.0.0.1:4193/', size = '1920x1080', samples = '1'] = args.filter(arg => arg !== '--profile');
+if (!/^\d+x\d+$/.test(size)) throw Error('Expected viewport WIDTHxHEIGHT');
+const [width, height] = size.split('x').map(Number);
 const base = new URL(url.endsWith('/') ? url : url + '/');
 if (profile) base.searchParams.set('profile', '');
 execFileSync('./snail-scheme', ['run', '--target', 'node', 'benches/iygtw/checkpoints.scm'], {stdio: 'inherit'});
@@ -46,7 +48,7 @@ function observeFrames(profile) {
     return result;
   };
   after(GPUDevice, 'createTexture', (_, [desc], texture) => {
-    if (desc.label === 'trace/gbuffer') resolution = [texture.width, texture.height];
+    if (desc.label === 'forward/depth') resolution = [texture.width, texture.height];
   });
   after(GPUCanvasContext, 'getCurrentTexture', (_, args, texture) => surfaces.add(texture));
   after(GPUTexture, 'createView', (texture, args, view) => { if (surfaces.has(texture)) views.add(view); });
@@ -67,7 +69,6 @@ function observeFrames(profile) {
 
 const evaluate = expression => browser.evaluate(expression);
 const key = (key, down) => browser.send('Input.dispatchKeyEvent', {type: down ? 'keyDown' : 'keyUp', key});
-const quality = () => evaluate('document.querySelector(".quality")?.textContent');
 const metres = () => evaluate('Number(document.querySelector(".speed").dataset.metres)');
 async function openRide(place) {
   await browser.navigate(new URL('valley.css', base).href);
@@ -79,7 +80,7 @@ async function openRide(place) {
   if (state !== 'true') throw Error(state);
   await evaluate('document.querySelector(".pause").click()');
   await until(() => evaluate('document.querySelector(".pause-screen")?.hidden === false'), 'pause menu');
-  for (const [selector, value] of [['.resolution', preset], ['.samples', samples], ['.bounces', bounces]]) {
+  for (const [selector, value] of [['.msaa', samples]]) {
     const changed = await evaluate(`(() => {const s=document.querySelector(${JSON.stringify(selector)});
       s.value=${JSON.stringify(value)}; if(s.selectedIndex<0)return false;
       s.dispatchEvent(new Event("change",{bubbles:true}));return true})()`);
@@ -88,7 +89,6 @@ async function openRide(place) {
   }
   await evaluate('document.querySelector(".resume").click()');
   await until(() => evaluate('document.querySelector(".pause-screen")?.hidden'), 'resume');
-  if (await quality() !== preset) throw Error('Resolution did not change');
 }
 
 function percentile(values, fraction, digits = 1) {
@@ -102,7 +102,7 @@ function gpuCosts(frames) {
   const features = frames.map(frame => {
     const totals = {};
     for (const [pass, cost] of Object.entries(frame)) {
-      const name = /^trace\/(opaque_fragment|surface_fragment|blended_fragment)/.test(pass) ? 'G-buffer' : pass.split('/')[0];
+      const name = pass.split('/')[0];
       totals[name] = (totals[name] ?? 0) + cost;
     }
     return totals;
@@ -133,7 +133,7 @@ async function measure(place) {
   await Promise.all([sleep(9000), followLane(place)]);
   const {frames, resolution} = await evaluate('rideFrames()');
   await key('w', false);
-  if (frames.length < 2 || !resolution) throw Error('No traced frames');
+  if (frames.length < 2 || resolution?.[0] !== width || resolution?.[1] !== height) throw Error('Missing native-resolution raster frames');
   const elapsed = frames.at(-1)[0] - frames[0][0], distance = await metres() - from;
   const speed = await evaluate('parseInt(document.querySelector(".speed").textContent, 10)');
   if (distance < 25 || speed < 3) throw Error(place + ' covered ' + distance + ' metres and ended at ' + speed + ' km/h');
@@ -144,13 +144,13 @@ async function measure(place) {
     const times = await until(() => evaluate(`rideProfile(${range})`), 'per-pass GPU timestamps (timestamp-query required)', 5);
     gpu = gpuCosts(times);
   }
-  console.log(JSON.stringify({place, preset, samples, bounces, resolution, adapter, gpu, metres: distance, frames: frames.length,
+  console.log(JSON.stringify({place, samples, resolution, adapter, gpu, metres: distance, frames: frames.length,
     fps: +((frames.length - 1) * 1000 / elapsed).toFixed(2), p95IntervalMs: percentile(intervals, .95),
     p95SubmissionToFinishMs: percentile(frames.map(([end, start]) => end - start), .95)}));
 }
 
 try {
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: '(' + observeFrames.toString() + ')(' + profile + ')'});
-  await browser.send('Emulation.setDeviceMetricsOverride', {width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false});
+  await browser.send('Emulation.setDeviceMetricsOverride', {width, height, deviceScaleFactor: 1, mobile: false});
   for (const place of ['lantern-row', 'mill-bridge', 'orchard']) await measure(place);
 } finally { browser.close(); }

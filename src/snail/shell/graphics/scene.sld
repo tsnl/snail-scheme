@@ -1,0 +1,76 @@
+;; The public mesh frame is ordinary scene data. Recording it does not
+;; retain a device, command encoder, texture, or a closure over the game.
+(define-library (snail shell graphics scene)
+  (export SceneFrame scene-frame render-scene! present-scene!
+          SkySource BakedSky Panorama SceneDescription SceneRecording recording-frame)
+  (import
+   (snail core base)
+   (snail shell wire)
+   (snail shell gpu)
+   (only (snail shell graphics passes) Tone)
+   (only (snail shell graphics raster) Camera3D Plane)
+   (snail shell graphics forward render)
+   (snail shell graphics compositor))
+  (begin
+    (enum SkySource
+      (BakedSky ((period I64)))
+      (Panorama ((file String)))
+      (deriving Serialize Deserialize))
+    (record SceneDescription
+      ((model String)
+       (sky SkySource)
+       (tone Tone))
+      (deriving Serialize Deserialize))
+    (record SceneFrame
+      ((camera Camera3D)
+       (width I32)
+       (height I32)
+       (samples I32)
+       (exposure F32)
+       (shadows Bool)
+       (shading Shading)
+       (cascade I32))
+      (deriving Serialize Deserialize))
+    (record SceneRecording
+      ((scene SceneDescription)
+       (frames (List SceneFrame)))
+      (deriving Serialize Deserialize))
+
+    (define (scene-frame (camera Camera3D) (w I32) (h I32) (samples I32) (exposure F32))
+      (→ SceneFrame)
+      (new SceneFrame (camera camera) (width w) (height h) (samples samples) (exposure exposure)
+           (shadows #t) (shading (MetallicRoughness)) (cascade -1)))
+    (define (recording-frame (recording SceneRecording) (index I64)) (→ SceneFrame)
+      (unless (and (>= index 0) (< index (length (● recording frames))))
+        (panic "frame outside recorded scene"))
+      (list-ref (● recording frames) index))
+
+    (define (encode-frame (gpu Gpu) (encoder GpuCommandEncoder) (r Forward) (frame SceneFrame))
+      (→ Plane)
+      (let ((w (● frame width))
+            (h (● frame height))
+            (samples (● frame samples))
+            (cascade (● frame cascade)))
+        (unless (and (> w 0) (<= w 16384) (> h 0) (<= h 16384) (or (= samples 1) (= samples 4))
+                     (> (● frame exposure) 0.0) (>= cascade -1) (<= cascade 2))
+          (panic "invalid scene frame"))
+        (set! (● r inspect) cascade) (set! (● r shading) (● frame shading))
+        (draw-forward gpu
+                      encoder
+                      (resize-forward gpu r w h samples)
+                      (● frame camera)
+                      (● frame exposure)
+                      (● frame shadows))))
+
+    (define (render-scene! (gpu Gpu) (r Forward) (frame SceneFrame)) (→ Plane)
+      (let* ((encoder ((● gpu create-command-encoder))) (image (encode-frame gpu encoder r frame)))
+        ((● gpu submit) (list ((● gpu finish) encoder))) image))
+    (define (present-scene! (gpu Gpu)
+                            (r Forward)
+                            (frame SceneFrame)
+                            (compositor Compositor)
+                            (surface Image))
+      (→ Unit)
+      (let* ((encoder ((● gpu create-command-encoder))) (image (encode-frame gpu encoder r frame)))
+        (present! gpu compositor encoder (● image view) surface)
+        ((● gpu submit) (list ((● gpu finish) encoder)))))))

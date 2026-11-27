@@ -15,17 +15,13 @@ export const pageLines = [
 ];
 
 export const deviceLines = [
-  'moving shadows: hit open hit open / open hit hit open',
-  'skinned shadows: hit open hit open / open hit hit open',
-  'wide tree: 400 of 400 boxes hit, 400 of 400 gaps open',
-  'reservoirs: weighted draws, capped reuse, visible and blocked light, disocclusion and full coverage',
+  'forward: opaque, masked camera and cascade depth, sorted blend, indirect occlusion and float-to-BGRA presentation',
   'decoded: 255 0 0 255 0 255 0 255',
   'scene: 230 3 3 255 230 3 3 255 153 153 153 255 153 153 153 255',
   // The same light through Hable's curve and sRGB encoding: the grey
   // tile's 0.6 is 159, as the curve computed by hand gives.
   'filmic: 186 0 0 255 186 0 0 255 159 159 159 255 159 159 159 255',
   'photographic: 216 49 49 255 216 49 49 255 194 194 194 255 194 194 194 255',
-  'coastal sky: blue noon, warm sunset, cloud extinction, dark night',
   'squares: 1 4 9 16 10000',
   'water normals: 1 1 1 1',
   'planes: -0.25 -0.0 16777217 -1 0',

@@ -87,6 +87,8 @@
        (wheel F64)
        (stride F64)
        (metres F64)
+       ;; These legacy integers retain the schema of saved rides. The browser
+       ;; always draws at native resolution with the environment and cascades.
        (quality I64)
        (light I64)
        (samples I32)
@@ -105,8 +107,8 @@
              (metres 0.0)
              (quality 4)
              (light 0)
-             (samples 2)
-             (bounces 2)
+             (samples 1)
+             (bounces 1)
              (standing 0.0)
              (soil (fresh-soil))
              (rider (mounted-rider)) (travel (Astride)))))

@@ -17,6 +17,12 @@ const output = target => join(project, 'build', scripts[target][1].replace(/\.sc
 const source = '(import (snail core base) (snail core io) (greeting))\n(define (main (out OutputPort)) (→ Unit) (display out (greeting)))\n';
 
 try {
+  await writeFile(join(project, 'mode.scm'), `(import (snail core base) (snail core io) (snail shell build-mode))
+(define (main (out OutputPort)) (→ Unit) (write-line out (show debug-build?)))`);
+  for (const [flags, expected] of [[[], '#t'], [['--release'], '#f']]) {
+    const run = await execute(join(root, 'snail-scheme'), ['run', ...flags, '--target', 'node', 'mode.scm'], {cwd: project});
+    assert.equal(run.stdout.trim(), expected, 'the chosen build mode reaches imported libraries');
+  }
   await mkdir(join(project, 'src'));
   await mkdir(join(project, 'page/public/nested'), {recursive: true});
   await writeFile(join(project, 'src/greeting.sld'), '(define-library (greeting) (export greeting) (import (snail core base)) (begin (define (greeting) (→ String) "hello project")))');

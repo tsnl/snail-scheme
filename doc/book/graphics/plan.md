@@ -9,6 +9,8 @@ as they are; the [library reference](../libraries/gpu.md) lists each
 library and its entry points. Open work on them is tracked in
 [the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
 
+The game renderers now expose scene-level interfaces. Siegework and Hearsay share the forward color pass and presentation with the glTF renderer. The G-buffer and deferred-light timings below describe the earlier path and its lower-level GPU fixtures. [Current rendering architecture](rasterizer.md).
+
 Device requests, decoding, pipeline creation and readbacks need only ordinary
 functions and the runtime's waits. Those waits are suspensions,
 scheduled in `snail-scheme` ([task operations](../runtimes/tasks.md)), so nothing

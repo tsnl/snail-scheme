@@ -12,6 +12,7 @@
 (import
  (snail core base)
  (snail core io)
+ (snail shell resource)
  (snail shell task)
  (snail shell page)
  (snail shell gpu)
@@ -216,7 +217,8 @@
                    ((Ok _) "found")
                    ((Err message) message))))
 
-(define (main (gpu Gpu) (fetch Fetch) (events Events) (out OutputPort)) (→ Unit)
+(define (main (resources Resources) (gpu Gpu) (fetch Fetch) (events Events) (out OutputPort))
+  (→ Unit)
   (let* ((info ((● gpu request-device))) (p (painting gpu info)))
     (write-line out (string-append "format: " (texture-format-name (● info format))))
     (let ((first-frame (frame gpu p)))
@@ -227,7 +229,7 @@
     (let ((quads (quads-frame gpu)))
       (write-line out (string-append "quads: " (texels (● quads first))))
       (write-line out (string-append "url: " (● quads second))))
-    (device-checks gpu out)
+    (device-checks gpu out resources)
     ((● gpu work-done))
     (write-line out (string-append "fetched: " (fetched fetch)))
     ((● events report-ready)))

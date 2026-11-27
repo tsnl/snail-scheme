@@ -398,17 +398,17 @@
              (encoder ((● gpu create-command-encoder)))
              (pass ((● gpu begin-render-pass) encoder
                     (new RenderPassDescriptor
-                      (colors (list (Some (new ColorAttachment
-                                            (view
-                                             (view-of gpu
-                                                      (● canvas texture)
-                                                      1))
-                                            (load (Clear (new Color
-                                                           (red 0.0)
-                                                           (green 0.0)
-                                                           (blue 0.0)
-                                                           (alpha 1.0))))
-                                            (store #t)))))
+                      (colors (list (Some (new ColorAttachment (resolve (None))
+                                               (view
+                                                (view-of gpu
+                                                         (● canvas texture)
+                                                         1))
+                                               (load (Clear (new Color
+                                                              (red 0.0)
+                                                              (green 0.0)
+                                                              (blue 0.0)
+                                                              (alpha 1.0))))
+                                               (store #t)))))
                       (depth (None))))))
         ((● gpu write-buffer) (● presenter sizes) 0 (floats (list (i32->f64 (● canvas width))
                                                                   (i32->f64 (● canvas height))

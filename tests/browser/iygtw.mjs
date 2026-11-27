@@ -48,7 +48,7 @@ try {
   await ready();
   assert.equal(await text('.place'), 'Lantern Row');
   assert.equal(await text('.surface'), 'Paved lane');
-  assert.equal(await text('.quality'), '900p');
+  assert.equal(await browser.evaluate('Boolean(document.querySelector(".resolution,.quality,.shadows"))'), false);
   assert.equal(fetched, artPaths.size);
   assert.equal(await browser.evaluate('const b=document.querySelector("progress"); b.value===b.max && b.max>0'), true);
 
@@ -89,13 +89,11 @@ try {
 
   await browser.evaluate('document.querySelector(".reset").focus()');
   await tap('Tab');
-  await until(() => browser.evaluate('document.activeElement.matches(".resolution")'), 'wrap focus to resolution');
+  await until(() => browser.evaluate('document.activeElement.matches(".msaa")'), 'wrap focus to MSAA');
   await browser.send('Input.dispatchKeyEvent', {type:'keyDown', key:'Tab', modifiers:8});
   await browser.send('Input.dispatchKeyEvent', {type:'keyUp', key:'Tab', modifiers:8});
   await until(() => browser.evaluate('document.activeElement.matches(".reset")'), 'wrap focus to reset');
-  await choose('.resolution', '360p');
-  await until(async () => await text('.quality') === '360p', 'fixed resolution', 30);
-  await choose('.samples', '4'); await choose('.bounces', '3');
+  await choose('.msaa', '4');
   const stopped = await metres();
   await key('w', true); await new Promise(resolve => setTimeout(resolve, 350)); await key('w', false);
   assert.equal(await metres(), stopped, 'ride advanced while the menu was open');
@@ -131,12 +129,12 @@ try {
   assert.equal(fetched, before, 'reload attempted to download village art again');
   await tap('p');
   await until(async () => await text('.pause') === 'Resume', 'open saved settings');
-  assert.deepEqual(await Promise.all(['.resolution','.samples','.bounces'].map(choice)), ['360p','4','3']);
+  assert.equal(await choice('.msaa'), '4');
   await click('.reset');
   await until(async () => await metres() === 0, 'return to Lantern Row', 25);
   assert.equal(await text('.place'), 'Lantern Row');
   await tap('p');
   await until(async () => await text('.pause') === 'Resume', 'settings after reset');
-  assert.deepEqual(await Promise.all(['.resolution','.samples','.bounces'].map(choice)), ['360p','4','3']);
+  assert.equal(await choice('.msaa'), '4');
   console.log('Willowbank rendered, rode, parked, remounted, walked, ran, changed settings, reset and reloaded on foot offline.');
 } finally { browser.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }

@@ -53,6 +53,25 @@
                                              (show offset)
                                              (show size)))
                                 (make-array (i32->i64 size) (i32->u8 0))))
+                             (create-multisample-texture (lambda (samples desc)
+                                                           (new GpuTexture
+                                                             (id (made! recording
+                                                                        "texture"
+                                                                        (Cons (Word samples)
+                                                                              (texture-fields
+                                                                               desc)))))))
+                             (create-layout (lambda (label groups)
+                                              (new GpuPipelineLayout
+                                                (id (made! recording
+                                                           "pipeline-layout"
+                                                           (layout-binding-fields label groups))))))
+                             (create-raster-pipeline (lambda (layout samples desc)
+                                                       (new GpuRenderPipeline
+                                                         (id (made! recording "render-pipeline"
+                                                                    (Cons (Word (● layout id))
+                                                                          (Cons (Word samples)
+                                                                                (pipeline-fields
+                                                                                 desc))))))))
                              (create-texture
                               (lambda (descriptor)
                                 (new GpuTexture
@@ -344,6 +363,7 @@
 
     (define (object-id (object GpuObject)) (→ I32)
       (match object
+        ((PipelineLayoutObject layout) (● layout id))
         ((BufferObject buffer) (● buffer id))
         ((TextureObject texture) (● texture id))
         ((ViewObject view) (● view id))

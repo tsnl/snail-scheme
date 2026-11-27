@@ -39,7 +39,6 @@
 (define (action! (d Dom) (h Hud) (v Valley) (r Renderer) (c Controls) (s Ride) (key I32)) (→ Ride)
   (case key
     ((108) (Ride-light-set s (modulo (+ (● s light) 1) 4)))
-    ((113) (Ride-quality-set s (modulo (+ (● s quality) 1) 6)))
     ((98) (when (match (● s travel) ((Astride) #t) (_ #f)) (bell! d h)) s)
     ((112 27)
      (set! (● c paused) (not (● c paused)))

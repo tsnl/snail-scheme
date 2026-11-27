@@ -334,16 +334,16 @@
       (let* ((target (layer-view gpu (● atlas texture) page))
              (pass ((● gpu begin-render-pass) encoder
                     (new RenderPassDescriptor
-                      (colors (list (Some (new ColorAttachment
-                                            (view target)
-                                            (load (if clear?
-                                                      (Clear (new Color
-                                                               (red 0.0)
-                                                               (green 0.0)
-                                                               (blue 0.0)
-                                                               (alpha 0.0)))
-                                                      (Keep)))
-                                            (store #t)))))
+                      (colors (list (Some (new ColorAttachment (resolve (None))
+                                               (view target)
+                                               (load (if clear?
+                                                         (Clear (new Color
+                                                                  (red 0.0)
+                                                                  (green 0.0)
+                                                                  (blue 0.0)
+                                                                  (alpha 0.0)))
+                                                         (Keep)))
+                                               (store #t)))))
                       (depth (None))))))
         ((● gpu set-pipeline) pass (● atlas pipeline))
         ((● gpu set-vertex-buffer) pass 0 instances 0)

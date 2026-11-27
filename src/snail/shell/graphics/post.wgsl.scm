@@ -1,10 +1,4 @@
-;; From the frame's light to the screen, two full-screen triangles: tone
-;; mapping by one of tone.wgsl.scm's curves, a fragment entry each
-;; (`tone_fragment` the neutral, `filmic_fragment`,
-;; `photographic_fragment`), then FXAA, which softens the edges of what
-;; was drawn: it finds an edge's direction from the brightness of the
-;; four diagonal neighbors and blends along it (Timothy Lottes's FXAA,
-;; the reduced form many WebGL renderers use).
+;; Scene-linear HDR is tone-mapped in compute, then FXAA filters the display image.
 (var (@group 0) (@binding 0) (light (texture_2d f32)))
 
 (var (@group 0) (@binding 1) (toned (texture_2d f32)))
@@ -18,20 +12,18 @@
     (return (ScreenPoint (vec4f (- (* unit 4.0) 1.0) 0.0 1.0)
                          (vec2f (* 2.0 (get unit x)) (- 1.0 (* 2.0 (get unit y)))))))
 
-(fn screen_light ((position vec4f)) (-> vec3f)
-    (return (get (textureLoad light (vec2i (get position xy)) 0) rgb)))
+(var (@group 0) (@binding 3) (mapped (texture_storage_2d rgba8unorm write)))
 
-(fn (@fragment) tone_fragment (((@builtin position) position vec4f)) (-> (@location 0) vec4f)
-    (return (vec4f (tone_mapped 0u (screen_light position)) 1.0)))
+(fn map_texel ((p vec2u) (curve u32))
+    (if ((any (>= p (textureDimensions mapped))) (return)))
+    (textureStore mapped p (vec4f (tone_mapped curve (get (textureLoad light p 0) rgb)) 1.0)))
 
-(fn (@fragment) filmic_fragment (((@builtin position) position vec4f)) (-> (@location 0) vec4f)
-    (return (vec4f (tone_mapped 1u (screen_light position)) 1.0)))
-
-(fn (@fragment)
-    photographic_fragment
-    (((@builtin position) position vec4f))
-    (-> (@location 0) vec4f)
-    (return (vec4f (tone_mapped 2u (screen_light position)) 1.0)))
+(fn (@compute) (@workgroup_size 8 8) tone_neutral (((@builtin global_invocation_id) p vec3u))
+    (map_texel (get p xy) 0u))
+(fn (@compute) (@workgroup_size 8 8) tone_filmic (((@builtin global_invocation_id) p vec3u))
+    (map_texel (get p xy) 1u))
+(fn (@compute) (@workgroup_size 8 8) tone_photographic (((@builtin global_invocation_id) p vec3u))
+    (map_texel (get p xy) 2u))
 
 (fn luma ((color vec3f)) (-> f32)
     (return (dot color (vec3f 0.299 0.587 0.114))))

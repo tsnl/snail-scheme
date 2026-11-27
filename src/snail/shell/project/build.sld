@@ -466,7 +466,14 @@
                           (target Target)
                           (working String))
       (→ Checked)
-      (let ((directories (● target directories)))
+      (let* ((root (string-append working "/config"))
+             (dir (string-append root "/snail/shell"))
+             (directories (Cons root (● target directories))))
+        (expect-done (make-directories fs dir) dir)
+        (write-file fs (string-append dir "/build-mode.sld")
+                    (string-append "(define-library (snail shell build-mode) (export debug-build?) "
+                                   "(import (snail core base)) (begin (define debug-build? (→ Bool) "
+                                   (match (● builder mode) ((Debug) "#t") ((Release) "#f")) ")))"))
         (producing processes fs builder working directories
                    (lambda ()
                      (source->checked fs directories

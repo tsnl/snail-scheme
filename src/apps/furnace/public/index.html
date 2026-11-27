@@ -16,7 +16,7 @@
     <details>
       <summary>How to read the test</summary>
       <p>Incoming radiance is 1.000 in every channel. The two outlines mark the 16 × 16 pixel patches used by the meters. Each meter gives the mean and its three scene-linear RGB components. The difference view compares each pixel’s mean RGB with 1.000. Its color scale saturates at a difference of one unit in either direction.</p>
-      <p>The renderer traces independent paths with a fixed seed and an eight-bounce limit. In its single-scattering GGX model, a fully rough white metal returns about 0.307 when viewed straight on. The remaining energy would scatter again between microscopic facets. Additional scene bounces cannot recover it.</p>
+      <p>The sphere reflects a uniformly white environment. In the single-scattering GGX model, fully rough white metal viewed straight on returns about 0.307. The remaining energy would scatter between microscopic facets.</p>
     </details>
   </main>
   <script type="module">

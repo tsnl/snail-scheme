@@ -82,8 +82,13 @@ def fingers(pose, side, sign, grip):
         )
 
 
-def arm_pose(rig, standing, steering, brace=0):
-    shift, tilt = torso(0, standing)
+def backing_torso():
+    # Both feet reach the ground while the shoulders stay over the lowered hips.
+    return Vector((0, 0, -0.13)), Quaternion((1, 0, 0), -0.065)
+
+
+def arm_pose(rig, standing, steering, brace=0, backing=False):
+    shift, tilt = backing_torso() if backing else torso(0, standing)
     shift += Vector((0, 0.12 * brace, -0.025 * brace))
     tilt = Quaternion((1, 0, 0), -0.48 * brace) @ tilt
     pelvis, pivot = bone_head(rig, "Body"), bone_head(rig, "Fork")
@@ -139,8 +144,8 @@ def pedal_pose(rig, phase, standing):
 
 def walking_back(rig, phase):
     pose = {}
-    shift = Vector((0.012 * sin(phase), 0, -0.13))
-    pose["Body"] = shift, Quaternion((1, 0, 0), -0.065), 1
+    shift, tilt = backing_torso()
+    pose["Body"] = shift, tilt, 1
     for side, sign in SIDES:
         hip, knee, ankle = [bone_head(rig, side + n) for n in ("Thigh", "Shin", "Foot")]
         planted = sign * sin(phase)
@@ -376,6 +381,7 @@ def main():
             "Brace",
             "Tumble",
             "Walk back",
+            "Backing reach",
         ):
             action = track.strips[0].action
             tracks.remove(track)
@@ -394,6 +400,12 @@ def main():
             name,
             ((i + 1, arm_pose(rig, standing, (i / 8 - 0.5) * 1.20)) for i in range(9)),
         )
+
+    bake(
+        rig,
+        "Backing reach",
+        ((i + 1, arm_pose(rig, 0, (i / 8 - 0.5) * 1.20, backing=True)) for i in range(9)),
+    )
 
     def brace(steer):
         arms = arm_pose(rig, 0, steer, 1)

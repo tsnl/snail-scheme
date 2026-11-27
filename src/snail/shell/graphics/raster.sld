@@ -42,6 +42,7 @@
    release-gbuffer
    Raster
    make-raster
+   make-forward-batches
    write-raster
    begin-gbuffer
    begin-lit
@@ -53,6 +54,7 @@
   (import
    (snail core base)
    (snail shell math)
+   (snail shell wire)
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics mesh)
@@ -81,7 +83,7 @@
        (previous-motion F32)
        (scene-time F32)
        (previous-heading Vec2f))
-      (deriving Pod))
+      (deriving Pod Serialize Deserialize))
 
     ;; Matrices here are 16 numbers, column by column.
 
@@ -363,14 +365,14 @@
          (colors (map (lambda (plane)
                         (match plane
                           ((Some plane)
-                           (Some (new ColorAttachment
-                                   (view (● plane view))
-                                   (load (Clear (new Color
-                                                  (red 0.0)
-                                                  (green 0.0)
-                                                  (blue 0.0)
-                                                  (alpha 0.0))))
-                                   (store #t))))
+                           (Some (new ColorAttachment (resolve (None))
+                                      (view (● plane view))
+                                      (load (Clear (new Color
+                                                     (red 0.0)
+                                                     (green 0.0)
+                                                     (blue 0.0)
+                                                     (alpha 0.0))))
+                                      (store #t))))
                           ((None) (None))))
                       (list (Some (● g albedo))
                             (Some (● g normal))
@@ -393,10 +395,10 @@
       (→ GpuRenderPass)
       ((● gpu begin-render-pass) encoder
        (new RenderPassDescriptor
-         (colors (list (Some (new ColorAttachment
-                               (view canvas)
-                               (load (Clear background))
-                               (store #t)))))
+         (colors (list (Some (new ColorAttachment (resolve (None))
+                                  (view canvas)
+                                  (load (Clear background))
+                                  (store #t)))))
          (depth (Some (new DepthAttachment
                         (view (● g depth view))
                         (load (ReadOnlyDepth))
@@ -410,25 +412,38 @@
     ;; camera. A pipeline's layout is its own, so each pipeline has its own
     ;; camera group.
     (record Raster
-      ((gbuffer-pipeline GpuRenderPipeline)
+      ((opaque-pipeline GpuRenderPipeline)
        (forward-pipeline GpuRenderPipeline)
        (geometry MeshGeometry)
        (camera GpuBuffer)
        (sun GpuBuffer)
-       (gbuffer-camera GpuBindGroup)
+       (opaque-camera GpuBindGroup)
+       (opaque-sun (Option GpuBindGroup))
        (forward-camera GpuBindGroup)
        (forward-sun GpuBindGroup)
        (last (Option Camera3D))))
 
     (define (make-raster (gpu Gpu) (planes Planes) (format TextureFormat)) (→ Raster)
+      (batch-pipelines gpu format (Some planes)))
+
+    (define (make-forward-batches (gpu Gpu) (format TextureFormat)) (→ Raster)
+      (batch-pipelines gpu format (None)))
+
+    (define (batch-pipelines (gpu Gpu) (format TextureFormat) (gbuffer (Option Planes))) (→ Raster)
       (let* ((module ((● gpu create-shader-module)
-                      (new ShaderModuleDescriptor
-                        (label "raster")
-                        (code raster-code))))
-             (gbuffer-pipeline (surface-pipeline gpu module
-                                                 "gbuffer_fragment"
-                                                 (gbuffer-targets planes)
-                                                 #t))
+                      (new ShaderModuleDescriptor (label "raster") (code raster-code))))
+             (opaque-pipeline (match gbuffer
+                                ((Some planes)
+                                 (surface-pipeline gpu
+                                                   module
+                                                   "gbuffer_fragment"
+                                                   (gbuffer-targets planes)
+                                                   #t))
+                                ((None) (surface-pipeline gpu module "forward_fragment"
+                                                          (list (Some (new ColorTarget
+                                                                        (format format)
+                                                                        (blend (None)))))
+                                                          #t))))
              (forward-pipeline (surface-pipeline gpu module
                                                  "forward_fragment"
                                                  (list (Some (new ColorTarget
@@ -437,13 +452,17 @@
                                                  #f))
              (camera (uniform gpu "raster/camera" (stride camera-shape)))
              (sun (uniform gpu "raster/sun" (stride sun-shape))))
+        ((● gpu destroy) (ModuleObject module))
         (new Raster
-          (gbuffer-pipeline gbuffer-pipeline)
+          (opaque-pipeline opaque-pipeline)
           (forward-pipeline forward-pipeline)
           (geometry (make-geometry gpu))
           (camera camera)
           (sun sun)
-          (gbuffer-camera (group gpu "raster/camera" gbuffer-pipeline 0 camera))
+          (opaque-camera (group gpu "raster/camera" opaque-pipeline 0 camera))
+          (opaque-sun (match gbuffer
+                        ((Some _) (None))
+                        ((None) (Some (group gpu "raster/sun" opaque-pipeline 2 sun)))))
           (forward-camera (group gpu "raster/forward/camera" forward-pipeline 0 camera))
           (forward-sun (group gpu "raster/sun" forward-pipeline 2 sun))
           (last (None)))))
@@ -529,7 +548,7 @@
           (style style)
           (uniform buffer)
           (group (group gpu (string-append "raster/" label)
-                        (if translucent (● r forward-pipeline) (● r gbuffer-pipeline))
+                        (if translucent (● r forward-pipeline) (● r opaque-pipeline))
                         1
                         buffer))
           (batch (upload-batch gpu (string-append "mesh/" label) batch)))))
@@ -560,8 +579,11 @@
             ((● gpu set-bind-group) pass 0 (● r forward-camera))
             ((● gpu set-bind-group) pass 2 (● r forward-sun)))
           (begin
-            ((● gpu set-pipeline) pass (● r gbuffer-pipeline))
-            ((● gpu set-bind-group) pass 0 (● r gbuffer-camera))))
+            ((● gpu set-pipeline) pass (● r opaque-pipeline))
+            ((● gpu set-bind-group) pass 0 (● r opaque-camera))
+            (match (● r opaque-sun)
+              ((Some sun) ((● gpu set-bind-group) pass 2 sun))
+              ((None) (unit)))))
       ((● gpu set-bind-group) pass 1 (● surface group))
       (draw-meshes gpu pass (● r geometry) (● surface batch)))
 

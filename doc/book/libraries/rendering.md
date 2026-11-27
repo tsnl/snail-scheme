@@ -5,7 +5,7 @@ are buffers and textures, in WebGPU's own terms. The application decides
 what to pack, when to copy and how to stitch passes together; nothing hides
 behind a renderer object, and a pipeline's interface is a `Pod` record that
 changes when the pipeline does. Hearsay draws 2D quads from an atlas, and
-Siegework a 3D frame of meshes into a G-buffer lit by the sun
+Siegework a 3D frame of instanced meshes lit in a forward pass
 ([WebGPU design](../graphics/plan.md)).
 
 ## `(snail shell graphics atlas)`
@@ -102,6 +102,6 @@ elapsed. It starts back from a scene's box with `fly-over`, or where it is
 put with `fly-at` and `fly-toward`; `fly-eye`, `fly-target`, `fly-fov` and
 `fly-exposure` say where it is and how it sees, and `fly-camera` is the
 rasterizer's camera. `upright` stands a scene whose up is another way. The
-path tracer's viewer and the splats viewer share it.
+glTF viewer and the splats viewer share it.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/fly.sld)
