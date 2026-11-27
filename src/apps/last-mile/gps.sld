@@ -93,19 +93,13 @@
     (define (chart-label (s Sector)) (→ String)
       (string-append "<use href='#street-" (show (● s id)) "'/>"))
     (define (chart-source (g Area)) (→ String)
-      (let ((size (show (* 3 (● g atlas side)))))
-        (data-url "image/svg+xml"
-                  (string->utf8
-                   (string-append "<svg xmlns='http://www.w3.org/2000/svg' width='"
-                                  size
-                                  "' height='"
-                                  size
-                                  "' viewBox='"
-                                  (chart-box g #f)
-                                  "'>"
-                                  (string-join (map (lambda (s) (● s chart)) (● g sectors)) "")
-                                  (string-join (map chart-label (● g sectors)) "")
-                                  "</svg>")))))
+      (let* ((size (show (* 3 (● g atlas side))))
+             (open (string-append "<svg xmlns='http://www.w3.org/2000/svg' width='" size
+                                  "' height='" size "' viewBox='" (chart-box g #f) "'>"))
+             (close (string-append (string-join (map chart-label (● g sectors)) "") "</svg>")))
+        (string-append "data:image/svg+xml;base64," (svg-fragment-base64 (string->utf8 open))
+                       (string-join (map (lambda (s) (● s chart-base64)) (● g sectors)) "")
+                       (base64-text (string->utf8 close)))))
     (define (route-ink (g Area) (r Roads) (gps Gps) (wide Bool)) (→ String)
       (let* ((a (● g atlas)) (coords (map (lambda (n) (coordinate a (node-at r n))) (● gps path)))
              (line (string-join (append coords (list (coordinate a (● gps target point)))) " ")))

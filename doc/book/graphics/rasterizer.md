@@ -46,6 +46,8 @@ In `(snail shell graphics scene)`, a `ModelNode` references a glTF and a `GroupN
 
 The public `Renderer` owns the render context, resident models and environments. `create-scene-node!` returns a model handle. Select it with `use-model!`, supply the environment with `set-sky!`, then call `render!` with a `SceneFrame`. Each frame supplies the camera, viewport, lighting, shading, exposure, shadow selection and MSAA. The result is a texture. `present-render!` can also composite that texture to a surface in the same submission. This arrangement follows the resource and scene managers in [tsnl/graphics](https://github.com/tsnl/graphics/blob/a7ab5c8862c492aac37ce4953d154091d1fbe886/src/lib.rs#L42-L49).
 
+For a world with many static pieces, `create-static-geometry!` uploads the glTF placements in one byte buffer and returns a handle. Each primitive names an opaque or alpha-tested material slot on the model that draws it. `select-static-geometry!` sets that model’s visible handles. The camera depth, shadow and color passes draw the selected buffers alongside the model. Changing the selection reuses those buffers and material bindings. Geometry handles live until the renderer is released. A renderer trace records the placement data and source bytes once and references the handles on later selections.
+
 A renderer accepts an optional ordinary `OutputPort` at construction. A file, an in-memory writer and the browser download adapter all use the port interface from `(snail core io)`. A new renderer can replay the stream from any `InputPort`. Each call returns the number of commands it ran and leaves the port at the next command.
 
 ```scheme

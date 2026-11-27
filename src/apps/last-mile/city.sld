@@ -1,10 +1,10 @@
-;; Each visible sector contributes one immutable vertex buffer. Its centimetre
-;; positions and byte-sized facade UVs unpack directly on the GPU. Materials
-;; and the facade image are shared across the whole neighbourhood.
+;; Each sector is uploaded once and uses the same city material slots.
 (define-library (apps last-mile city)
-  (export city-model city-lights)
+  (export Streets empty-streets load-streets! city-materials nearby-geometry)
   (import
    (snail core base)
+   (snail core table)
+   (prefix (snail shell graphics renderer) api:)
    (snail shell little-endian)
    (snail shell graphics gltf)
    (snail shell graphics forward lights)
@@ -12,6 +12,11 @@
    (snail shell game atlas)
    (snail shell game terrain))
   (begin
+    (record Streets
+      ((handles (Table api:GeometryHandle))
+       (lights (List Punctual))))
+    (define (empty-streets) (→ Streets)
+      (new Streets (handles (empty-table)) (lights (Nil))))
     (define (paint (r F64) (g F64) (b F64) (tex I64) (glow F64)) (→ Material)
       (new Material (base-color (list r g b 1.0)) (base-texture tex) (metallic 0.0) (roughness 0.86)
            (metal-rough-texture -1) (normal-texture -1) (normal-scale 1.0)
@@ -86,8 +91,8 @@
                              (material mat)
                              (low (list 0.0 0.0 0.0))
                              (high (list 25600.0 35000.0 25600.0)))))))
-    (define (add-sector (g Gltf) (s Sector)) (→ Gltf)
-      (let* ((d (● s mesh)) (n (u32 d 0)) (start (● g size)) (ground (● s ground))
+    (define (sector-parts (s Sector) (d Bytes)) (→ (List Placed))
+      (let* ((n (u32 d 0)) (ground (● s ground))
              (m (list 0.01
                       0.0
                       0.0
@@ -104,48 +109,57 @@
                       -12.0
                       (i64->f64 (● ground north))
                       1.0))
-             (base (+ start (+ 4 (* 20 n)))))
-        (new Gltf
-          (buffers (append (● g buffers)
-                           (list (new Buffer
-                                   (source (DataSource d))
-                                   (start start)
-                                   (length (array-length d))))))
-          (size (+ start (array-length d))) (materials (● g materials)) (images (● g images))
-          (placed (append (● g placed) (map (lambda (i) (placed d i base m)) (iota n)))))))
+             (base (+ 4 (* 20 n))))
+        (map (lambda (i) (placed d i base m)) (iota n))))
     ;; The mesh ends in eight-byte fixture records, their count and LIT1.
     ;; Centimetre positions use the same origin as the city vertices.
-    (define (fixture (s Sector) (i I64)) (→ Punctual)
-      (let* ((d (● s mesh))
-             (coordinate (lambda ((at I64) (base I64)) (→ F32)
-                           (f64->f32 (+ (i64->f64 base) (* 0.01 (i64->f64 (u16 d at))))))))
+    (define (fixture (s Sector) (d Bytes) (i I64)) (→ Punctual)
+      (let ((coordinate (lambda ((at I64) (base I64)) (→ F32)
+                          (f64->f32 (+ (i64->f64 base) (* 0.01 (i64->f64 (u16 d at))))))))
         (point-light (new Vec3f (x (coordinate i (● s ground west)))
                           (y (coordinate (+ i 2) -12)) (z (coordinate (+ i 4) (● s ground north))))
                      (new Vec3f (x 26.0) (y (* 26.0 0.72)) (z (* 26.0 0.43))) 26.0)))
-    (define (sector-lights (s Sector)) (→ (List Punctual))
-      (let* ((d (● s mesh)) (end (array-length d)))
+    (define (sector-lights (s Sector) (d Bytes)) (→ (List Punctual))
+      (let ((end (array-length d)))
         (if (or (< end 8) (not (= (u32 d (- end 4)) 827607372))) (Nil)
             (let* ((count (u32 d (- end 8))) (start (- (- end 8) (* count 8))))
               (when (< start 4) (panic "invalid city light table"))
               ;; Older sectors also name shop fixtures (kind 1). Their
               ;; emissive sign geometry now supplies that light.
               (let ((offsets (map (lambda (i) (+ start (* 8 i))) (iota count))))
-                (map (lambda (at) (fixture s at))
+                (map (lambda (at) (fixture s d at))
                      (filter (lambda (at) (= (u8->i32 (array-ref d (+ at 6))) 0)) offsets)))))))
-    (define (city-lights (g Area))
-      (→ (List Punctual))
-      (concatenate (map sector-lights (● g sectors))))
-    (define (city-model (a Area)) (→ Gltf)
-      (fold-left add-sector
-                 (new Gltf
-                   (buffers (Nil))
-                   (size 0)
-                   (images (map FileSource
-                                (list "sf-facade.png"
-                                      "sf-stucco.png"
-                                      "sf-brick.png"
-                                      "sf-works.png"
-                                      "sf-office.png")))
-                   (materials paints)
-                   (placed (Nil)))
-                 (● a sectors)))))
+    (define (load-streets! (streets Streets) (r api:Renderer) (files (List Bytes))
+                           (progress (Fn I64 I64 → Unit))) (→ Atlas)
+                           (read-atlas-with-meshes files
+                                                   (lambda (sector bytes total)
+                                                     (let ((parts (sector-parts sector bytes))
+                                                           (id (● sector id)))
+                                                       (unless (null? parts)
+                                                         (set! (● streets handles)
+                                                               (table-set (● streets handles)
+                                                                          (show id)
+                                                                          (api:create-static-geometry!
+                                                                           r
+                                                                           parts
+                                                                           bytes))))
+                                                       (set! (● streets lights)
+                                                             (append (sector-lights sector bytes)
+                                                                     (● streets lights)))
+                                                       (progress (+ id 1) total)))))
+    (define (nearby-geometry (streets Streets) (g Area)) (→ (List api:GeometryHandle))
+      (fold-right (lambda (s tail) (match (table-ref (● streets handles) (show (● s id)))
+                                     ((Some h) (Cons h tail)) (_ tail)))
+                  (Nil) (● g sectors)))
+    (define (city-materials) (→ Gltf)
+      (new Gltf
+        (buffers (Nil))
+        (size 0)
+        (images (map FileSource
+                     (list "sf-facade.png"
+                           "sf-stucco.png"
+                           "sf-brick.png"
+                           "sf-works.png"
+                           "sf-office.png")))
+        (materials paints)
+        (placed (Nil))))))
