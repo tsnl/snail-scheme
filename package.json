@@ -1,7 +1,7 @@
 {
   "name": "snail-scheme",
   "private": true,
-  "description": "The npm packages the repository's Node runs use, for host/native/gpu.mjs: webgpu, Dawn's binding, for WebGPU on Node, and @napi-rs/canvas, Skia's, which decodes its images. `make fetch` installs them; a Node build's package pins the same versions.",
+  "description": "The npm packages the repository's Node runs use, for host/native/gpu.mjs: webgpu, Dawn's binding, for WebGPU on Node, and @napi-rs/canvas, Skia's, which decodes its images. `npm ci` installs them; a Node build's package pins the same versions.",
   "dependencies": {
     "webgpu": "0.6.2",
     "@napi-rs/canvas": "1.1.1"

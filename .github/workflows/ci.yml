@@ -70,12 +70,8 @@ jobs:
         # Checkout gives unchanged sources new mtimes. The exact content key
         # above proves this command line is current for those sources.
         run: touch build/bootstrap/snail-scheme.wasm
-      - name: Install pinned Rust and fetch locked dependencies
-        shell: nix-shell --run "bash -euo pipefail {0}"
-        run: |
-          # rust-toolchain.toml names the version, its components and target.
-          rustup toolchain install
-          make fetch
+      - name: Install Node dependencies
+        run: nix-shell --run 'npm ci --no-fund --no-audit'
       - name: Check formatting
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
@@ -83,7 +79,7 @@ jobs:
           cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check
       - name: Test Rust support
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline --all-features
+        run: cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --all-features
       - name: Bootstrap the command line
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: ./scripts/bootstrap >/dev/null

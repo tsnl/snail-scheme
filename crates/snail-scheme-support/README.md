@@ -20,7 +20,7 @@ WASI and the browser host in `host/browser/host.mjs` supply the platform
 operations.
 
 ```sh
-cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline
+cargo test --manifest-path crates/snail-scheme-support/Cargo.toml
 cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check
 ```
 
