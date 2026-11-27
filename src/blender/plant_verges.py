@@ -6,6 +6,7 @@ beside a lane. Overlapping ash crowns shelter the mill and the orchard approach.
 The road and water meshes decide where a plant may take root.
 """
 
+from itertools import pairwise
 from math import cos, pi, sin
 from random import Random
 
@@ -25,13 +26,16 @@ def survey(objects):
     return BVHTree.FromPolygons(points, faces, all_triangles=True)
 
 
-def material(name, color):
+def material(name, color, transmission=0):
     mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     mat.use_nodes = True
     surface = mat.node_tree.nodes.get("Principled BSDF")
     surface.inputs["Base Color"].default_value = (*color, 1)
     surface.inputs["Roughness"].default_value = 0.77
     mat.diffuse_color = (*color, 1)
+    if transmission:
+        mat["snailDiffuseTransmission"] = transmission
+        mat.use_backface_culling = False
     return mat
 
 
@@ -227,7 +231,7 @@ def groves(collection, lanes, grounds, excluded):
     ]
     survivors = []
     for section in sections:
-        for start, end in zip(section, section[1:]):
+        for start, end in pairwise(section):
             a, b = Vector(start), Vector(end)
             d = (b - a).normalized()
             n = Vector((-d.y, d.x))
@@ -291,19 +295,19 @@ def main():
         ]
     )
     materials = [
-        material(n, c)
-        for n, c in [
-            ("Sedge • shaded blades", (0.051, 0.105, 0.037)),
-            ("Sedge • fresh blades", (0.115, 0.194, 0.048)),
-            ("Hay • sunlit tips", (0.255, 0.268, 0.093)),
-            ("Dock • glossy leaf", (0.061, 0.151, 0.052)),
-            ("Dock • young leaf", (0.151, 0.232, 0.063)),
+        material(*spec)
+        for spec in [
+            ("Sedge • shaded blades", (0.051, 0.105, 0.037), 0.27),
+            ("Sedge • fresh blades", (0.115, 0.194, 0.048), 0.34),
+            ("Hay • sunlit tips", (0.255, 0.268, 0.093), 0.24),
+            ("Dock • glossy leaf", (0.061, 0.151, 0.052), 0.32),
+            ("Dock • young leaf", (0.151, 0.232, 0.063), 0.43),
             ("Foxglove • rose", (0.51, 0.17, 0.30)),
             ("Foxglove • pale throat", (0.71, 0.57, 0.52)),
             ("Hazel • shoots", (0.16, 0.11, 0.047)),
-            ("Hazel • lower leaves", (0.034, 0.091, 0.028)),
-            ("Hazel • middle leaves", (0.070, 0.152, 0.039)),
-            ("Hazel • spring tips", (0.149, 0.232, 0.064)),
+            ("Hazel • lower leaves", (0.034, 0.091, 0.028), 0.31),
+            ("Hazel • middle leaves", (0.070, 0.152, 0.039), 0.37),
+            ("Hazel • spring tips", (0.149, 0.232, 0.064), 0.46),
         ]
     ]
     rng = Random(43177)

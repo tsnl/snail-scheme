@@ -89,7 +89,7 @@
 
 (fn sky_proposal ((s Surface) (v vec3f) (d vec3f) (pdf f32)) (-> Proposal)
     (var value (vec3f 0.0))
-    (if ((and (> pdf 0.0) (> (dot (get s geometric) d) 0.0))
+    (if ((and (> pdf 0.0) (lit_side s d))
          (= value (* (environment_light d) (evaluated s v d) (balanced pdf (density s v d))))))
     (return (Proposal d pdf value d (sky_key d) 0)))
 
@@ -116,7 +116,7 @@
     (let facing (dot n (- d)))
     (let j (/ (* 0.5 (abs facing)) r2))
     (= (get p direction) d)
-    (if ((or (<= j 0.0) (<= (dot (get s geometric) d) 0.0)) (return p)))
+    (if ((or (<= j 0.0) (not (lit_side s d))) (return p)))
     (let le (get (textureLoad emitter_table cell 0) xyz))
     (= (get p value) (* le (evaluated s v d) j (balanced (get p pdf) (* (density s v d) j))))
     ;; Move the endpoint a few float ulps toward the visible side of the

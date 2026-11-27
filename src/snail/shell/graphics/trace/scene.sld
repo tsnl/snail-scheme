@@ -142,7 +142,8 @@
        (emissive Vec4f)
        (factors Vec4f)
        (textures Vec4i)
-       (flags Vec4i))
+       (flags Vec4i)
+       (optics Vec2f))
       (deriving Pod))
 
     (define material-shape (→ (Shape SurfaceMaterial)) (shape))
@@ -635,6 +636,9 @@
                       (y (i64->i32 (● m metal-rough-texture)))
                       (z (i64->i32 (● m normal-texture)))
                       (w (i64->i32 (● m emissive-texture)))))
+          (optics (new Vec2f
+                    (x (f64->f32 (● m diffuse-transmission)))
+                    (y (f64->f32 (● m fiber-anisotropy)))))
           (flags
            (new Vec4i
              (x (if (● m double-sided) 1 0))

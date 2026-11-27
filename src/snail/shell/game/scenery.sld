@@ -61,7 +61,7 @@
              (alpha-cutoff 0.5)
              (double-sided #t)
              (water #f) (ground-layer #f)
-             (subsurface 0.0))))
+             (subsurface 0.0) (diffuse-transmission 0.0) (fiber-anisotropy 0.0))))
 
     (define (item-pose (part Item)) (→ ObjectPose)
       (let ((p (● part position)) (s (● part scale)) (angle (f32->f64 (● part yaw))))

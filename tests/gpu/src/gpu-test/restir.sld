@@ -322,6 +322,35 @@
                             (new Vec3 (x 2.16) (y 4.0) (z 1.0)) 0.0 0)))
         (upload-scene gpu (lambda (_) (Nil)) (with-shapes empty (list wall blocker sign)) 1)))
 
+    ;; One sheet in a black environment. A lamp behind it can reach the
+    ;; camera only by diffuse transmission. A front lamp checks reflection.
+    (define (thin-sheet (gpu Gpu) (transmission F64)) (→ Scene)
+      (let* ((empty
+              (new Gltf (buffers (Nil)) (size 0) (images (Nil)) (materials (Nil)) (placed (Nil))))
+             (leaf (item (Upright) (new Vec3 (x 0.0) (y -2.0) (z 0.5))
+                         (new Vec3 (x 4.0) (y 4.0) (z 1.0)) 0.0 16777215))
+             (source (with-shapes empty (list leaf)))
+             (surface (list-ref (● source materials)
+                                (● (list-ref (● source placed) 0) primitive material))))
+        (set! (● surface diffuse-transmission) transmission)
+        (upload-lit-scene gpu (lambda (_) (Nil)) source 1 (Nil) 1)))
+
+    (define (check-leaf (gpu Gpu) (t Tracer) (dark Environment)) (→ Tracer)
+      (let* ((camera (looking 4.0 0.5))
+             (opaque (thin-sheet gpu 0.0)) (leaf (thin-sheet gpu 0.48))
+             (measure (lambda ((frame Tracer) (z F32)) (→ F32)
+                        (update-moving-lights! gpu
+                                               (● frame world scene lights)
+                                               (list (lamp 0.0 z 4.0 12.0)))
+                        (mean-red (trace-reference gpu frame camera 0.1 1 31 8))))
+             (a (retrace gpu t opaque dark)) (off (measure a -1.5)) (front (measure a 2.5))
+             (b (retrace gpu a leaf dark)) (on (measure b -1.5)) (reflected (measure b 2.5))
+             (next (retrace gpu b (● t world scene) dark)))
+        (unless (and (< off 0.001) (> on 0.01) (> reflected 0.01) (< reflected front))
+          (panic (string-append "incorrect thin-sheet illumination "
+                                (show off) " " (show on) " " (show reflected) " " (show front))))
+        (release-scene gpu opaque) (release-scene gpu leaf) next))
+
     ;; The sign covers the right half of the center pixel. Opposite Halton
     ;; phases hit either black sky or white emission at the same display pixel.
     (define (check-edge-coverage (gpu Gpu) (t Tracer) (night Environment) (canvas Plane)) (→ Tracer)
@@ -589,7 +618,8 @@
                                 canvas kernel result back))
              (local (local-light-checks gpu (resize-tracer gpu checks 9 9) night draw))
              (mutable (make-sky-light gpu (test-sky 0.0) 128))
-             (sign (rectangle-checks gpu local night canvas kernel result back))
+             (sign
+              (rectangle-checks gpu (check-leaf gpu local night) night canvas kernel result back))
              (room
               (indoor-lighting gpu sign day canvas (lambda (t) (inspect gpu kernel t result back))))
              (edge (check-edge-coverage gpu room night canvas))
