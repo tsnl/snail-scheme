@@ -1,7 +1,7 @@
 //! Prints the expected output of tests/programs/math.sld from the libm
 //! crate, the fdlibm port (snail shell math) follows bit for bit:
 //!
-//!   cargo run -q --offline --manifest-path crates/snail-scheme-support/Cargo.toml \
+//!   cargo run -q --manifest-path crates/snail-scheme-support/Cargo.toml \
 //!     --example math-reference > tests/programs/math.out
 //!
 //! It draws the same inputs as the test: chosen ones, then a sweep.

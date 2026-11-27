@@ -3,7 +3,7 @@
 // does, and the splat renderer's training checks, on the GPU Dawn finds,
 // and WebGPU reports no error. Its build is a package that depends on the
 // webgpu and @napi-rs/canvas packages, and runs as it would be shipped:
-// Node finds both in the repository's node_modules, which `make fetch`
+// Node finds both in the repository's node_modules, which `npm ci`
 // installs. `make test-gpu` runs this, on the machine's GPU, or in CI,
 // which has none, on the CPU through lavapipe (shell.nix).
 //

@@ -52,14 +52,6 @@ runs:
       # Checkout gives unchanged sources new mtimes. The exact content key
       # above proves this command line is current for those sources.
       run: touch build/bootstrap/snail-scheme.wasm
-    - name: Install pinned Rust and fetch locked dependencies
-      if: inputs.compiler == 'true'
-      shell: nix-shell --run "bash -euo pipefail {0}"
-      run: |
-        # rust-toolchain.toml names the version, its components and target.
-        rustup toolchain install
-        make fetch
-    - name: Install the GPU package's Node dependencies
-      if: inputs.compiler != 'true'
+    - name: Install Node dependencies
       shell: nix-shell --run "bash -euo pipefail {0}"
       run: npm ci --no-fund --no-audit

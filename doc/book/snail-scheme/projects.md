@@ -111,7 +111,7 @@ package depends on npm's `webgpu` and `@napi-rs/canvas` packages, at the version
 the repository's `package.json` pins, and loads each when it is first
 needed, at the program's first `request-device` and its first
 `decode-image` ([WebGPU on Node](../graphics/plan.md#webgpu-on-node)).
-Inside the repository, Node finds the copies `make fetch` installed;
+Inside the repository, Node finds the copies `npm ci` installed;
 elsewhere, `npm install` in the package fetches them. Other programs
 depend on nothing.
 
