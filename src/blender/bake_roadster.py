@@ -45,6 +45,43 @@ def torso(phase, standing):
     return shift, Quaternion((1, 0, 0), -0.095 - 0.105 * standing)
 
 
+def palm_frame(direction, dorsal, sign):
+    # The relaxed hand points down (-Z), with its back facing out.
+    z = -direction.normalized()
+    x = (dorsal - z * dorsal.dot(z)).normalized() * sign
+    return Matrix((x, z.cross(x), z)).transposed().to_quaternion()
+
+
+def grip_rotation(sign):
+    # The Roadster's swept grips run nearly fore-and-aft. The knuckles lie
+    # along the cylinder; the fingers hook around its outside and underneath.
+    return palm_frame(
+        Vector((sign * 0.94, 0.33, -0.21)), Vector((sign * 0.28, 0.03, 1)), sign
+    )
+
+
+def fingers(pose, side, sign, grip):
+    for digit, flex in (
+        ("Index", 0.86),
+        ("Middle", 1.05),
+        ("Ring", 1.12),
+        ("Little", 1.19),
+    ):
+        for i, angle in enumerate((0.84, 1.08, 0.61), 1):
+            pose[side + digit + str(i)] = (
+                Vector(),
+                Quaternion((0, 1, 0), sign * angle * flex * grip),
+                1,
+            )
+    # Opposition at the saddle moves the thumb across the palm.
+    for i, angle in enumerate((0.64, 0.56, 0.43), 1):
+        pose[side + "Thumb" + str(i)] = (
+            Vector(),
+            Quaternion((-0.73, sign * 0.68, 0), angle * grip),
+            1,
+        )
+
+
 def arm_pose(rig, standing, steering, brace=0):
     shift, tilt = torso(0, standing)
     shift += Vector((0, 0.12 * brace, -0.025 * brace))
@@ -58,6 +95,10 @@ def arm_pose(rig, standing, steering, brace=0):
         ]
         raised = pelvis + shift + tilt @ (shoulder - pelvis)
         grip = pivot + lock @ (wrist - pivot)
+        # At full lock the far shoulder protracts to retain two rigid links.
+        span = grip - raised
+        reach = (elbow - shoulder).length + (wrist - elbow).length
+        raised += span.normalized() * max(0, span.length - reach + 0.001)
         bent = middle_joint(
             raised,
             grip,
@@ -67,7 +108,9 @@ def arm_pose(rig, standing, steering, brace=0):
         )
         pose[side + "UpperArm"] = link_pose(shoulder, elbow, raised, bent)
         pose[side + "Forearm"] = link_pose(elbow, wrist, bent, grip)
-        pose[side + "Hand"] = grip - wrist, lock, 1
+        palm = grip_rotation(sign)
+        pose[side + "Hand"] = grip - wrist, lock @ palm, 1
+        fingers(pose, side, sign, 1.0)
     return pose
 
 
@@ -199,13 +242,11 @@ def on_foot(rig, cycle, gait):
             )
         )
         pole = (sign * 0.20, -1, -0.45)
-        wrist = Quaternion((1, 0, 0), 0.14 + swing)
-        if not moving and sign > 0:
-            # He hooks a hand over the strap while waiting for Moss. Anchor
-            # the wrist to the jacket so breathing carries the hand with it.
-            hand = base + turn @ tilt @ Vector((0.064, 0.313, 0.260))
-            pole = (0.35, -0.45, -1)
-            wrist = Quaternion((1, 0, 0), 2.94) @ Quaternion((0, 1, 0), -0.20)
+        if not moving:
+            hand.y += 0.036 * sign
+        elbow = middle_joint(shoulder, hand, Vector(pole), 0.267, 0.228)
+        wrist = palm_frame(hand - elbow, Vector((sign, 0, 0)), sign)
+        fingers(pose, side, sign, 0.55 if running else 0.24)
         reach_limb(
             rig,
             pose,
@@ -248,6 +289,7 @@ def cross_saddle(rig, side):
         )
         shoulder = base + tilt @ (bone_head(rig, limb + "UpperArm") - pelvis)
         hand = bone_head(rig, limb + "Hand") + Vector((-side * 0.22, 0, 0.055))
+        fingers(pose, limb, sign, 0.24 if sign != side else 1.0)
         if sign != side:
             hand = shoulder + Vector((sign * 0.26, -0.04, -0.22))
         reach_limb(
@@ -258,7 +300,7 @@ def cross_saddle(rig, side):
             shoulder,
             hand,
             (sign * 0.28, -1, -0.5),
-            Quaternion(),
+            Quaternion() if sign != side else grip_rotation(sign),
         )
     return pose
 

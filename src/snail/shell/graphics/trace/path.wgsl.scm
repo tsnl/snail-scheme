@@ -101,7 +101,10 @@
         (emission vec3f)
         (metallic f32)
         (roughness f32)
-        (f0 f32))
+        (f0 f32)
+        (transmission f32)
+        (anisotropy f32)
+        (fiber vec3f))
 
 (fn unfolded ((e vec2f)) (-> vec3f)
     (var n (vec3f (get e x) (get e y) (- 1.0 (abs (get e x)) (abs (get e y)))))
@@ -119,15 +122,32 @@
     (let clip (* (get camera inverse) (vec4f (get ndc x) (- (get ndc y)) z 1.0)))
     (return (/ (get clip xyz) (get clip w))))
 
+;; Opt-in groom ribbons map V from root to tip. Reconstruct dP/dV from
+;; the deformed triangle so the fiber frame follows the skin even when the
+;; file has no tangent attribute. Its sign is immaterial to a GGX ellipse.
+(fn material_optics ((s (ptr function Surface)) (optics vec2f) (a Vertex) (b Vertex) (c Vertex))
+    (= (get (deref s) transmission) (get optics x))
+    (if ((<= (get optics y) 0.0) (return)))
+    (let ab (- (uv_of b) (uv_of a)))
+    (let ac (- (uv_of c) (uv_of a)))
+    (if ((< (abs (- (* (get ab x) (get ac y)) (* (get ab y) (get ac x)))) 1e-10) (return)))
+    (let dv (- (* (- (get c position) (get a position)) (get ab x))
+               (* (- (get b position) (get a position)) (get ac x))))
+    (let n (get (deref s) normal))
+    (let t (- dv (* n (dot n dv))))
+    (if ((> (dot t t) 1e-14)
+         (= (get (deref s) fiber) (normalize t))
+         (= (get (deref s) anisotropy) (get optics y)))))
+
 ;; The first hit at `pixel`: the depth's point moved onto the plane of the
 ;; triangle drawn there, whose normal, facing the eye, is the geometric
 ;; one; its shading and material from the G-buffer.
 (fn first_surface ((pixel vec2i) (z f32)) (-> Surface)
     (let p (depth_point pixel z))
     (let triangle (get (textureLoad triangles pixel 0) x))
-    (let a (get (corner triangle 0u) position))
-    (var geometric (normalize (cross (- (get (corner triangle 1u) position) a)
-                                     (- (get (corner triangle 2u) position) a))))
+    (let va (corner triangle 0u)) (let vb (corner triangle 1u)) (let vc (corner triangle 2u))
+    (let a (get va position))
+    (var geometric (normalize (cross (- (get vb position) a) (- (get vc position) a))))
     (if ((< (dot geometric (- (get camera eye xyz) p)) 0.0) (= geometric (- geometric))))
     (let m (textureLoad roughness pixel 0))
     (var (s Surface))
@@ -138,6 +158,10 @@
     (= (get s metallic) (get m x))
     (= (get s roughness) (get m y))
     (= (get s f0) (dielectric_f0 (> (get m z) 0.5)))
+    (if ((and (> (get m z) 0.0) (< (get m z) 0.5))
+         (let packed (u32 (round (* (get m z) 255.0))))
+         (let optics (/ (vec2f (f32 (% packed 16u)) (f32 (/ packed 16u))) (vec2f 15.0 7.0)))
+         (material_optics (address-of s) optics va vb vc)))
     (return s))
 
 ;; The texture level a ray cone of width `width` at a hit covers: the
@@ -206,6 +230,7 @@
     (= (get s metallic) (* (get m factors x) (get metal_rough z)))
     (= (get s roughness) rough)
     (= (get s f0) (dielectric_f0 (or water (> film 0.55))))
+    (material_optics (address-of s) (get m optics) a bb c)
     (return s))
 
 ;; The ray leaves `s` from just above its surface, on the side it goes.
@@ -257,24 +282,55 @@
     (let a2 (* alpha alpha))
     (return (/ (* 2.0 nv) (+ nv (sqrt (+ a2 (* (- 1.0 a2) nv nv)))))))
 
-;; The BSDF times the cosine toward `l`.
+;; Stretch the microfacet distribution across the fibers. Its projected
+;; area, masking, sampling and PDF all use this same ellipse.
+(fn fiber_frame ((s Surface)) (-> mat3x3f)
+    (let n (get s normal))
+    (return (mat3x3f (get s fiber) (cross n (get s fiber)) n)))
+
+(fn fiber_widths ((s Surface)) (-> vec2f)
+    (let aspect (sqrt (- 1.0 (* 0.90 (get s anisotropy)))))
+    (return (* (alpha_of s) (vec2f aspect (/ 1.0 aspect)))))
+
+(fn distribution ((s Surface) (h vec3f)) (-> f32)
+    (let nh (max (dot (get s normal) h) 0.0))
+    (if ((<= (get s anisotropy) 0.0) (return (ggx (alpha_of s) nh))))
+    (let widths (fiber_widths s))
+    (let local (* (transpose (fiber_frame s)) h))
+    (let scaled (vec3f (/ (get local xy) widths) nh))
+    (let q (dot scaled scaled))
+    (return (/ 1.0 (* PI (get widths x) (get widths y) q q))))
+
+(fn smith ((s Surface) (d vec3f) (cosine f32)) (-> f32)
+    (if ((<= (get s anisotropy) 0.0) (return (masking (alpha_of s) cosine))))
+    (let local (* (transpose (fiber_frame s)) d))
+    (let slope (* (get local xy) (fiber_widths s)))
+    (return (/ (* 2.0 cosine) (+ cosine (sqrt (+ (* cosine cosine) (dot slope slope)))))))
+
+(fn lit_side ((s Surface) (d vec3f)) (-> bool)
+    (let front (dot (get s geometric) d))
+    (return (or (> front 0.0) (and (< front 0.0) (> (get s transmission) 0.0)))))
+
+;; The artist's transmission divides the diffuse energy between the two
+;; faces of a thin sheet. Specular reflection stays on the incident side.
 (fn evaluated ((s Surface) (v vec3f) (l vec3f)) (-> vec3f)
     (let nl (dot (get s normal) l))
     (let nv (dot (get s normal) v))
-    (if ((or (<= nl 0.0) (<= nv 0.0)) (return (vec3f 0.0))))
+    (if ((<= nv 0.0) (return (vec3f 0.0))))
+    (let base (* (- 1.0 (get s metallic)) (/ (get s albedo) PI)))
+    (if ((<= nl 0.0)
+         (if ((>= (dot (get s geometric) l) 0.0) (return (vec3f 0.0))))
+         (let escape (* (- 1.0 (pow (- 1.0 (min nv 1.0)) 5.0))
+                        (- 1.0 (pow (- 1.0 (min (- nl) 1.0)) 5.0))))
+         (return (* base (- 1.0 (get s f0)) escape (get s transmission) (- nl)))))
+    (if ((<= (dot (get s geometric) l) 0.0) (return (vec3f 0.0))))
     (let h (normalize (+ v l)))
-    (let alpha (alpha_of s))
     (let fresnel (+
                   (reflectance s)
                   (* (- (vec3f 1.0) (reflectance s)) (pow (- 1.0 (max (dot v h) 0.0)) 5.0))))
-    (let specular (/
-                   (* fresnel
-                      (ggx alpha (max (dot (get s normal) h) 0.0))
-                      (masking alpha nv)
-                      (masking alpha nl))
-                   (* 4.0 nv nl)))
-    (let diffuse (* (- (vec3f 1.0) fresnel) (- 1.0 (get s metallic)) (/ (get s albedo) PI)))
-    (return (* (+ diffuse specular) nl)))
+    (let reflection (/ (* fresnel (distribution s h) (smith s v nv) (smith s l nl)) (* 4.0 nv nl)))
+    (let diffuse (* base (- (vec3f 1.0) fresnel) (- 1.0 (get s transmission))))
+    (return (* (+ diffuse reflection) nl)))
 
 ;; At grazing incidence even a dark dielectric carries most of its light
 ;; through reflection. Spend samples in proportion to those lobe energies.
@@ -287,16 +343,16 @@
 (fn density ((s Surface) (v vec3f) (l vec3f)) (-> f32)
     (let nl (dot (get s normal) l))
     (let nv (dot (get s normal) v))
-    (if ((or (<= nl 0.0) (<= nv 0.0)) (return 0.0)))
-    (let h (normalize (+ v l)))
-    (let alpha (alpha_of s))
-    (let reflect (/ (* (ggx alpha (max (dot (get s normal) h) 0.0)) (masking alpha nv)) (* 4.0 nv)))
+    (if ((<= nv 0.0) (return 0.0)))
     (let odds (specular_odds s v))
-    (return (+ (* odds reflect) (* (- 1.0 odds) (/ nl PI)))))
+    (if ((<= nl 0.0) (return (* (- 1.0 odds) (get s transmission) (/ (- nl) PI)))))
+    (let h (normalize (+ v l)))
+    (let reflect (/ (* (distribution s h) (smith s v nv)) (* 4.0 nv)))
+    (return (+ (* odds reflect) (* (- 1.0 odds) (- 1.0 (get s transmission)) (/ nl PI)))))
 
 ;; A visible normal of GGX (Heitz 2018), in the frame where z is n.
-(fn visible_normal ((v vec3f) (alpha f32) (r vec2f)) (-> vec3f)
-    (let vh (normalize (vec3f (* alpha (get v x)) (* alpha (get v y)) (get v z))))
+(fn visible_normal ((v vec3f) (alpha vec2f) (r vec2f)) (-> vec3f)
+    (let vh (normalize (vec3f (* alpha (get v xy)) (get v z))))
     (let lensq (+ (* (get vh x) (get vh x)) (* (get vh y) (get vh y))))
     (let t1 (select
              (vec3f 1.0 0.0 0.0)
@@ -309,21 +365,26 @@
     (let s (* 0.5 (+ 1.0 (get vh z))))
     (let p2 (+ (* (- 1.0 s) (sqrt (- 1.0 (* p1 p1)))) (* s radius (sin phi))))
     (let nh (+ (* t1 p1) (* t2 p2) (* vh (sqrt (max 0.0 (- 1.0 (* p1 p1) (* p2 p2)))))))
-    (return (normalize (vec3f (* alpha (get nh x)) (* alpha (get nh y)) (max 0.0 (get nh z))))))
+    (return (normalize (vec3f (* alpha (get nh xy)) (max 0.0 (get nh z))))))
 
 (fn scattered ((s Surface) (v vec3f) (seed (ptr function u32))) (-> vec3f)
-    (let frame (frame_of (get s normal)))
+    (var frame (frame_of (get s normal)))
     (let r (vec2f (random seed) (random seed)))
     (if ((< (random seed) (specular_odds s v))
+         (var alpha (vec2f (alpha_of s)))
+         (if ((> (get s anisotropy) 0.0) (= frame (fiber_frame s)) (= alpha (fiber_widths s))))
          (let local_v (* (transpose frame) v))
-         (let m (visible_normal local_v (alpha_of s) r))
+         (let m (visible_normal local_v alpha r))
          (return (reflect (- v) (* frame m)))))
     (let radius (sqrt (get r x)))
     (let phi (* 2.0 PI (get r y)))
+    (var face 1.0)
+    (if ((> (get s transmission) 0.0)
+         (= face (select 1.0 -1.0 (< (random seed) (get s transmission))))))
     (return (* frame
                (vec3f (* radius (cos phi))
                       (* radius (sin phi))
-                      (sqrt (max 0.0 (- 1.0 (get r x))))))))
+                      (* face (sqrt (max 0.0 (- 1.0 (get r x)))))))))
 
 ;; Whether every component is a number and not infinite: a NaN fails both
 ;; comparisons.
@@ -370,7 +431,7 @@
     (if ((or (>= d2 (* (get p w) (get p w))) (< d2 1e-8)) (return)))
     (let dist (sqrt d2))
     (let dir (/ delta dist))
-    (if ((<= (dot (get s geometric) dir) 0.0) (return)))
+    (if ((not (lit_side s dir)) (return)))
     (let axis (lamp_word (+ i 2)))
     (var angular 1.0)
     (if ((>= (get axis w) 0.0)
@@ -452,7 +513,7 @@
      (seed (ptr function u32)))
     (let l (scattered s v seed))
     (let p (density s v l))
-    (if ((not (and (> p 1e-6) (finite3 l) (> (dot l (get s geometric)) 0.0))) (return)))
+    (if ((not (and (> p 1e-6) (finite3 l) (lit_side s l))) (return)))
     (var weight (/ (* path_weight (evaluated s v l)) p))
     (if ((not (finite3 weight)) (return)))
     (if ((> (get wave step x) 2)

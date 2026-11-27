@@ -129,7 +129,9 @@
        (double-sided Bool)
        (ground-layer Bool)
        (water Bool)
-       (subsurface F64)))
+       (subsurface F64)
+       (diffuse-transmission F64)
+       (fiber-anisotropy F64)))
 
     ;; A primitive, and the column-major matrix from its mesh to the world.
     (record Placed
@@ -387,6 +389,8 @@
     ;; ---- Materials ----
 
     ;; A texture reference's image, -1 when it has none.
+    (define (surface-weight (m Json) (key String)) (→ F64)
+      (max 0.0 (min 1.0 (number-or (member-or m "extras") key 0.0))))
     (define (material-of (material Json) (images (Array I64))) (→ Material)
       (let* ((pbr (member-or material "pbrMetallicRoughness"))
              (image (lambda ((holder Json) (name String)) (→ I64)
@@ -415,8 +419,9 @@
           (double-sided (bool-or material "doubleSided" #f))
           (ground-layer (bool-or (member-or material "extras") "snailGroundLayer" #f))
           (water (bool-or (member-or material "extras") "snailWater" #f))
-          (subsurface
-           (max 0.0 (min 1.0 (number-or (member-or material "extras") "snailSubsurface" 0.0)))))))
+          (diffuse-transmission (surface-weight material "snailDiffuseTransmission"))
+          (fiber-anisotropy (surface-weight material "snailFiberAnisotropy"))
+          (subsurface (surface-weight material "snailSubsurface")))))
 
     (define default-material (→ Material) (new Material
                                             (base-color (list 1.0 1.0 1.0 1.0))
@@ -433,7 +438,9 @@
                                             (double-sided #f)
                                             (water #f)
                                             (ground-layer #f)
-                                            (subsurface 0.0)))
+                                            (subsurface 0.0)
+                                            (diffuse-transmission 0.0)
+                                            (fiber-anisotropy 0.0)))
     (define (scene-materials (gltf Gltf)) (→ (List Material))
       (if (null? (● gltf materials)) (list default-material) (● gltf materials)))
 

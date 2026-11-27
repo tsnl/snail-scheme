@@ -14,6 +14,12 @@ import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bake_roadster import middle_joint
+from courier_arms import dress_arm
+from groom import Ribbons, tuft_material
+
 TAU = 2 * pi
 NECK = Vector((0, 0.084, 1.493))
 HEAD_SCALE = 0.76
@@ -253,7 +259,7 @@ def paint_eye():
 
 
 def face(source, skin, eye, brow):
-    head, left, right, hand = source
+    head, left, right, body = source
     data = head.data
     shape = []
     for vertex in data.vertices:
@@ -304,10 +310,10 @@ def face(source, skin, eye, brow):
             "Head",
             7,
         )
-    return hand, surface
+    return body, surface
 
 
-def hair_and_cap(surface, hair, gleam, cap, seam):
+def hair_and_cap(surface, hair, cap, seam):
     rng = Random(17)
 
     # Sections of the cropped hair hug the skull; the visible tips separate at the nape.
@@ -345,39 +351,36 @@ def hair_and_cap(surface, hair, gleam, cap, seam):
         for j in range(68)
     ]
     mesh("Chestnut hairline", [p for row in rows for p in row], faces, hair, "Head")
-    for k in range(96):
-        a = TAU * (k + rng.uniform(-0.24, 0.24)) / 96
-        curve = 0.32 + 0.23 * cos(a) + rng.uniform(-0.10, 0.11)
-        end = hairline(a + curve) - rng.uniform(0.002, 0.022)
-        rows = []
-        ridge = []
-        for t, width in (
-            (0, 0.013),
-            (0.18, 0.057),
-            (0.40, 0.060),
-            (0.66, 0.053),
-            (0.84, 0.032),
-            (1, 0.002),
-        ):
-            z = 0.266 + (end - 0.266) * t
-            angle = a + curve * (t * t * (3 - 2 * t))
-            rows.append(
-                [
-                    hairpoint(angle + width * cos(b), z, 0.006 + 0.0035 * sin(b))
-                    for b in (TAU * j / 8 for j in range(8))
-                ]
+    locks = Ribbons()
+    fibers = tuft_material(
+        "Courier | combed chestnut", (0.102, 0.040, 0.020), 0.40, 0.16, 0.86, 17
+    )
+    for k in range(160):
+        a = TAU * (k + rng.uniform(-0.3, 0.3)) / 160
+        curve = 0.34 + 0.22 * cos(a) + rng.uniform(-0.12, 0.12)
+        end = hairline(a + curve) - rng.uniform(0.003, 0.027)
+        points = []
+        for j in range(6):
+            t = j / 5
+            angle = a + curve * t * t * (3 - 2 * t)
+            points.append(
+                hairpoint(angle, 0.263 + (end - 0.263) * t, 0.005 + 0.005 * sin(pi * t))
             )
-            ridge.append(hairpoint(angle - 0.012, z + 0.0002, 0.010))
-        rings("Combed locks", rows, gleam if k % 5 == 1 else hair, "Head")
-        if k % 3 == 0:
-            tube(
-                "Fine hair strand",
-                ridge,
-                [0.0002, 0.00045, 0.00045, 0.0004, 0.0003, 0.00012],
-                gleam,
-                "Head",
-                5,
-            )
+        locks.comb(
+            points,
+            Vector((sin(a), cos(a), 0)),
+            rng.uniform(0.0038, 0.0065),
+            k % 4,
+            {"Head": 1},
+        )
+    mesh(
+        "Combed fringe and nape",
+        locks.vertices,
+        locks.faces,
+        fibers,
+        locks.weights,
+        coords=locks.uv,
+    )
 
     # Six stitched crown panels over a curved, bound bill. The crown slouches to one side.
     def crown(a, t):
@@ -767,29 +770,10 @@ def sleeve_or_trouser(name, landmarks, groups, sections, mat):
                 key: strength * (1 - blend) for key, strength in weights[i].items()
             }
             weights[i]["Body"] = blend
-    if name == "Forearm":
-        # Match the sculpt's 34 × 29 mm wrist opening. The last skin rings
-        # rotate with the palm, leaving one continuous contour on a bent wrist.
-        palm = groups[0][0] + "Hand"
-        for i, (along, width, depth, _) in enumerate(sections):
-            bend = min(1, max(0, (along - 1.82) / 0.18))
-            if bend:
-                height = (2 - along) * (c - b).length
-                rim = [
-                    c
-                    + Vector(
-                        (width * cos(TAU * j / 20), -depth * sin(TAU * j / 20), height)
-                    )
-                    for j in range(20)
-                ]
-                path[i] = [v.lerp(q, bend) for v, q in zip(path[i], rim)]
-                weights[i] = {groups[1]: 1 - bend, palm: bend}
     return rings(name, path, mat, weights)
 
 
-def limbs(hand, coat, hem, pants, leather, sole, thread, skin):
-    coordinates = [(v.co.x, v.co.y, v.co.z) for v in hand.data.vertices]
-    faces = [tuple(f.vertices) for f in hand.data.polygons]
+def limbs(body, coat, hem, pants, leather, sole, thread, skin):
     jacket(
         "Trouser seat",
         [
@@ -801,6 +785,7 @@ def limbs(hand, coat, hem, pants, leather, sole, thread, skin):
         pants,
     )
     for s, sign in (("R", 1), ("L", -1)):
+        dress_arm(RIG, body, s, sign, skin, mesh, middle_joint)
         shoulder, elbow, wrist = [
             RIG.data.bones[s + b].head_local.copy()
             for b in ("UpperArm", "Forearm", "Hand")
@@ -819,10 +804,10 @@ def limbs(hand, coat, hem, pants, leather, sole, thread, skin):
                 (0.88, 0.067, 0.064, 0.08),
                 (0.96, 0.061, 0.055, 0.1),
                 (1.04, 0.062, 0.056, 0.07),
-                (1.16, 0.068, 0.061, 0.09),
-                (1.31, 0.055, 0.052, 0.05),
-                (1.48, 0.050, 0.048, 0.06),
-                (1.52, 0.052, 0.049, 0.07),
+                (1.09, 0.057, 0.054, 0.09),
+                (1.16, 0.052, 0.049, 0.05),
+                (1.24, 0.049, 0.047, 0.06),
+                (1.28, 0.049, 0.048, 0.07),
             ],
             coat,
         )
@@ -831,47 +816,12 @@ def limbs(hand, coat, hem, pants, leather, sole, thread, skin):
             [shoulder, elbow, wrist],
             names,
             [
-                (1.43, 0.052, 0.05, 0.05),
-                (1.47, 0.056, 0.053, 0.05),
-                (1.54, 0.055, 0.051, 0.05),
-                (1.57, 0.047, 0.045, 0.03),
+                (1.22, 0.050, 0.048, 0.05),
+                (1.25, 0.054, 0.051, 0.05),
+                (1.31, 0.053, 0.050, 0.05),
+                (1.34, 0.046, 0.044, 0.03),
             ],
             hem,
-        )
-        sleeve_or_trouser(
-            "Forearm",
-            [shoulder, elbow, wrist],
-            names,
-            [
-                (1.48, 0.045, 0.042, 0),
-                (1.65, 0.043, 0.040, 0),
-                (1.83, 0.030, 0.028, 0),
-                (1.94, 0.022, 0.018, 0),
-                (2.015, 0.0164, 0.0142, 0),
-            ],
-            skin,
-        )
-        # A relaxed half curl. The back of the hand follows the grip when steering.
-        verts = []
-        for x, y, z in coordinates:
-            down = -z * 0.65
-            curl = max(0, down - 0.068)
-            verts.append(
-                wrist
-                + Vector(
-                    (
-                        sign * (-x * 0.62 - 0.32 * curl),
-                        -y * 0.65 + 0.22 * down + 0.5 * curl,
-                        -down + 0.50 * curl,
-                    )
-                )
-            )
-        mesh(
-            "Hands and fingers",
-            verts,
-            [tuple(reversed(f)) for f in faces] if sign < 0 else faces,
-            skin,
-            s + "Hand",
         )
         hip, knee, ankle = [
             RIG.data.bones[s + b].head_local.copy() for b in ("Thigh", "Shin", "Foot")
@@ -977,7 +927,7 @@ def main():
             "GEO-head_stylized",
             "GEO-head_stylized.eye.L",
             "GEO-head_stylized.eye.R",
-            "Hand - Stylized ",
+            "GEO-body_male_stylized",
         ]
     skin = skin_paint()
     eye = paint_eye()
@@ -992,13 +942,12 @@ def main():
     thread = material("Courier | waxed thread", (0.47, 0.33, 0.16), 0.67)
     brass = material("Courier | aged brass", (0.53, 0.31, 0.095), 0.32, 0.69)
     hair = material("Courier | chestnut", (0.058, 0.022, 0.013), 0.44)
-    gleam = material("Courier | auburn locks", (0.097, 0.040, 0.019), 0.48)
     sole = material("Courier | boot soles", (0.037, 0.031, 0.025), 0.77)
-    hand, scalp = face(loaded.objects, skin, eye, hair)
-    hair_and_cap(scalp, hair, gleam, cap, pants)
+    body, scalp = face(loaded.objects, skin, eye, hair)
+    hair_and_cap(scalp, hair, cap, pants)
     wardrobe(coat, hem, shirt, brass, strap, bag, thread)
     neckerchief(fabric("Courier | madder kerchief", (0.58, 0.212, 0.152), 0.74, 8))
-    limbs(hand, coat, hem, pants, strap, sole, thread, plain_skin)
+    limbs(body, coat, hem, pants, strap, sole, thread, plain_skin)
     bpy.ops.object.select_all(action="DESELECT")
     for part in PARTS + [bicycle]:
         part.select_set(True)

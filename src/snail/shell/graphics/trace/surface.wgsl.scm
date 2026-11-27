@@ -9,7 +9,7 @@
 ;;   0 normals, rg16float: the shading normal, octahedral, facing the eye;
 ;;   1 emission, rgba16float, linear RGB and the previous clip-space z;
 ;;   2 albedo, rgba8unorm-srgb, so 8 bits keep its darks;
-;;   3 material, rgba8unorm: metalness, filtered roughness, the water flag and subsurface weight;
+;;   3 material, rgba8unorm: metalness, filtered roughness, the surface class and skin diffusion weight;
 ;;   4 motion, rg16float, in texture coordinates from the last frame;
 ;;   5 triangle, r32uint: the triangle drawn there.
 ;; Depth is depth32float. The tracer places each pixel by its depth, then
@@ -203,10 +203,13 @@
        (vec4f (* (get m emissive xyz) (decoded (get (texel (get m textures w) f) xyz)))
               (get in clip_before z)))
     (= (get out albedo) (vec4f (* tint (get m base_color xyz) (decoded (get base xyz))) alpha))
+    ;; The low seven bits of the UNORM byte share transmission and anisotropy.
+    ;; Water uses 255. Primary shading needs no extra scene storage binding.
+    (let optics (round (* (get m optics) (vec2f 15.0 7.0))))
     (= (get out material)
        (vec4f (* (get m factors x) (get metal_rough z))
               rough
-              (select 0.0 1.0 (or water (> film 0.55)))
+              (select (/ (dot optics (vec2f 1.0 16.0)) 255.0) 1.0 (or water (> film 0.55)))
               (/ (f32 (get m flags z)) 255.0)))
     (let now (/ (get in clip_now xy) (get in clip_now w)))
     (let before (/ (get in clip_before xy) (get in clip_before w)))
