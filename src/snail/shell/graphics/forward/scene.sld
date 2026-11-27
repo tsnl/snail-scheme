@@ -3,7 +3,7 @@
   (export Scene MapImage DrawRange SurfaceMaterial material-shape surface-material
           upload-scene
           read-model-file
-          load-scene
+          drawable
           release-scene
           vertex-stride
           configure-ground-layer!
@@ -134,8 +134,6 @@
 
     (define material-shape (→ (Shape SurfaceMaterial)) (shape))
 
-    (define (load-scene (gpu Gpu) (read (Fn (List String) → (List Bytes))) (path String)) (→ Scene)
-      (upload-scene gpu read (drawable (read-model-file read path))))
     (define (read-model-file (read (Fn (List String) → (List Bytes))) (path String)) (→ Gltf)
       (read-gltf (list-ref (read (list path)) 0) (directory-of path)))
     (define (upload-scene (gpu Gpu) (read (Fn (List String) → (List Bytes))) (gltf Gltf)) (→ Scene)

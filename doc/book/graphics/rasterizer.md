@@ -35,7 +35,7 @@ Render an asset locally with `./snail-scheme run --target node tools/render.scm 
 
 ## Record and replay a scene
 
-In `(snail shell graphics scene)`, a `ModelNode` references a glTF and a `GroupNode` places its children under a local transform. Each model brings its own geometry and materials. Repeated references share the source buffers and material images. For example, a village scene can place two instances of the same tree beside a house.
+In `(snail shell graphics scene)`, a `ModelNode` references a glTF and a `GroupNode` places its children under a local transform. Each model brings its own geometry and materials. Repeated references share the source buffers and material images. `scene-geometry` produces the authored world coordinates. The viewer and offline tool enlarge a scene smaller than one unit as a whole when loading it for inspection. For example, a village scene can place two instances of the same tree beside a house.
 
 ```scheme
 (GroupNode unit-matrix

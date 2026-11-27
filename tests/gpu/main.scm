@@ -63,14 +63,14 @@
   (→ Unit)
   (let ((pass ((● gpu begin-render-pass) encoder
                (new RenderPassDescriptor
-                 (colors (list (Some (new ColorAttachment
-                                       (view view)
-                                       (load (Clear (new Color
-                                                      (red 0.0)
-                                                      (green 0.0)
-                                                      (blue 1.0)
-                                                      (alpha 1.0))))
-                                       (store #t)))))
+                 (colors (list (Some (new ColorAttachment (resolve (None))
+                                          (view view)
+                                          (load (Clear (new Color
+                                                         (red 0.0)
+                                                         (green 0.0)
+                                                         (blue 1.0)
+                                                         (alpha 1.0))))
+                                          (store #t)))))
                  (depth (None))))))
     ((● gpu set-pipeline) pass pipeline)
     ((● gpu set-bind-group) pass 0 group)
@@ -178,14 +178,14 @@
          (readback (buffer-named gpu "quads-readback" 512 (list (MapRead) (CopyDst))))
          (pass ((● gpu begin-render-pass) encoder
                 (new RenderPassDescriptor
-                  (colors (list (Some (new ColorAttachment
-                                        (view (view-of gpu target 1))
-                                        (load (Clear (new Color
-                                                       (red 0.0)
-                                                       (green 0.0)
-                                                       (blue 0.0)
-                                                       (alpha 0.0))))
-                                        (store #t)))))
+                  (colors (list (Some (new ColorAttachment (resolve (None))
+                                           (view (view-of gpu target 1))
+                                           (load (Clear (new Color
+                                                          (red 0.0)
+                                                          (green 0.0)
+                                                          (blue 0.0)
+                                                          (alpha 0.0))))
+                                           (store #t)))))
                   (depth (None))))))
     (draw-quads gpu pass
                 (make-quads gpu "test" (Rgba8Unorm) (● atlas texture))

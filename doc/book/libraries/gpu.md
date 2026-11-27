@@ -6,6 +6,10 @@ S-expressions, and a scan and a sort on the device. The
 [WebGPU design](../graphics/plan.md) explains why the layer is shaped this
 way, and how Node gets a device.
 
+## Application rendering
+
+Use `(snail shell graphics scene)` to describe a scene graph, its lighting and its camera. Its frames can be drawn into a texture, presented on a canvas or recorded for offline replay. The following device APIs are for implementing a renderer, pass or diagnostic. [Scene rendering and replay](../graphics/rasterizer.md#record-and-replay-a-scene).
+
 ## `(snail shell gpu)`
 
 `Gpu`, a record of WebGPU's own operations, so code that uses it reads

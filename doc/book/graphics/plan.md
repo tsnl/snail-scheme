@@ -1,15 +1,8 @@
 # WebGPU design
 
-Applications draw through two layers written in `snail-scheme`: a `Gpu`
-capability that is a thin wrapper around WebGPU, and `(snail shell graphics
-...)` libraries of pipelines and packers on top of it. They replaced a
-fixed JavaScript renderer, `host/browser/renderer.mjs`, and its picture
-store. This chapter explains how the layers work and why they are shaped
-as they are; the [library reference](../libraries/gpu.md) lists each
-library and its entry points. Open work on them is tracked in
-[the graphics issue](https://github.com/tsnl/snail-scheme/issues/463).
+Games and tools describe models, transforms, lights and cameras with Snail Scheme scene values. The glTF viewer records these values and replays them through the same forward renderer as the games. Siegework and Hearsay use the forward color pass and compositor for orthographic meshes and sprites. [Scene graphs, rendering and replay](rasterizer.md).
 
-The game renderers now expose scene-level interfaces. Siegework and Hearsay share the forward color pass and presentation with the glTF renderer. The G-buffer and deferred-light timings below describe the earlier path and its lower-level GPU fixtures. [Current rendering architecture](rasterizer.md).
+The renderer implements that interface on top of the `Gpu` capability. This chapter describes the device operations and includes measurements from the earlier G-buffer pipeline. [GPU library reference](../libraries/gpu.md).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
 functions and the runtime's waits. Those waits are suspensions,
@@ -27,10 +20,11 @@ descriptors, each a field of the `Gpu`:
        (pass ((● gpu begin-render-pass)
               encoder
               (new RenderPassDescriptor
-                (colors (list (new ColorAttachment
+                (colors (list (Some (new ColorAttachment
                                 (view (view-of gpu (● frame texture) 1))
+                                (resolve (None))
                                 (load (Clear (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))))
-                                (store #t))))
+                                (store #t)))))
                 (depth (None))))))
   ((● gpu set-pipeline) pass pipeline)
   ((● gpu set-bind-group) pass 0 group)

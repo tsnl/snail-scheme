@@ -18,7 +18,7 @@
    (only (snail shell graphics gltf) Gltf Gltf-placed-set gltf-transformed append-gltf unreadable)
    (only (snail shell graphics pod) Vec4f Mat4x4f)
    (only (snail shell graphics animation) unit-matrix matrix-product)
-   (only (snail shell graphics forward scene) Scene load-scene read-model-file upload-scene)
+   (only (snail shell graphics forward scene) Scene drawable read-model-file upload-scene)
    (snail shell gpu)
    (only (snail shell graphics passes) Tone)
    (only (snail shell graphics raster) Camera3D Plane)
@@ -43,28 +43,29 @@
                         (list (● m x) (● m y) (● m z) (● m w)))))
     ;; Read each referenced asset once. Repeated placements share its buffers and materials.
     (define (scene-geometry (node SceneNode) (load (Fn String → Gltf))) (→ Gltf)
-      (let* ((items (placements node unit-matrix))
-             (assets (delete-duplicates string=? (map (lambda (p) (● p first)) items)))
-             (models (map (lambda (asset)
-                            (let* ((g (load asset))
-                                   (copies
-                                    (filter (lambda (p) (string=? asset (● p first))) items)))
-                              (Gltf-placed-set g (concatenate (map (lambda (p)
-                                                                     (● (gltf-transformed g
-                                                                                          (columns
-                                                                                           (● p
-                                                                                              second)))
-                                                                        placed))
-                                                                   copies)))))
-                          assets)))
-        (match models ((Nil) (unreadable "the scene has no models"))
-               ((Cons first rest) (fold-left append-gltf first rest)))))
+      (match node
+        ((ModelNode path) (load path))
+        (_
+         (let* ((items (placements node unit-matrix))
+                (assets (delete-duplicates string=? (map (lambda (p) (● p first)) items)))
+                (models (map (lambda (asset)
+                               (let* ((g (load asset))
+                                      (copies
+                                       (filter (lambda (p) (string=? asset (● p first))) items)))
+                                 (Gltf-placed-set g (concatenate (map (lambda (p)
+                                                                        (● (gltf-transformed g
+                                                                                             (columns
+                                                                                              (● p
+                                                                                                 second)))
+                                                                           placed))
+                                                                      copies)))))
+                             assets)))
+           (match models ((Nil) (unreadable "the scene has no models"))
+                  ((Cons first rest) (fold-left append-gltf first rest)))))))
     (define (load-scene-node (gpu Gpu) (read (Fn (List String) → (List Bytes))) (node SceneNode))
       (→ Scene)
-      (match node
-        ((ModelNode path) (load-scene gpu read path))
-        ((GroupNode _ _)
-         (upload-scene gpu read (scene-geometry node (lambda (p) (read-model-file read p)))))))
+      (let ((model (scene-geometry node (lambda (path) (read-model-file read path)))))
+        (upload-scene gpu read (drawable model))))
 
     (enum SkySource
       (BakedSky ((period I64)))
