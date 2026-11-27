@@ -16,7 +16,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Git, a POSIX shell and GNU Make | | The checkout, `./snail-scheme` and the Makefile. |
 | Chez Scheme | 10.4.1 | Running the compiler's source for the first bootstrap, and the build scripts. |
 | Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler/linker. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
-| C compiler, pkg-config and OpenSSL development files | | Building the native Git package helper on Unix. The transport tests also use the OpenSSL command line and OpenSSH tools, including `sshd`. |
+| C compiler, pkg-config and OpenSSL development files | | Building the native Git package helper on Unix. The transport tests use the OpenSSL command line and OpenSSH's key-generation and agent tools. |
 | Node.js | 26 | Running programs under WASI. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |

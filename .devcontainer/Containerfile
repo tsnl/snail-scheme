@@ -21,6 +21,10 @@ COPY npins /opt/snail-scheme/npins
 # image's own git-minimal would collide with the shell's git.
 RUN nix-env --uninstall git-minimal && nix-env --install --from-expression '_: let pkgs = import (import /opt/snail-scheme/npins).nixpkgs { }; in (import /opt/snail-scheme/shell.nix { inherit pkgs; }).nativeBuildInputs ++ [ pkgs.stdenv.cc ]'
 
+# In nix-shell a setup hook exposes OpenSSL's .pc files. Here the tools
+# run directly from the profile, so pkg-config needs its lookup directory.
+ENV PKG_CONFIG_PATH=/nix/var/nix/profiles/default/lib/pkgconfig
+
 # rust-toolchain.toml names the Rust version, its components and target.
 COPY rust-toolchain.toml /opt/snail-scheme/rust-toolchain.toml
 RUN cd /opt/snail-scheme && rustup toolchain install

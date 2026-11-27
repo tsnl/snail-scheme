@@ -55,8 +55,9 @@ pkgs.mkShell {
       npins
       rustup
       pkg-config
-      openssl
-      openssh
+      openssl.dev
+      openssl.bin
+      openssh.out
       nodejs_26
       mdbook
       tree-sitter
