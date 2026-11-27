@@ -85,26 +85,28 @@ For a job whose completion depends on several observations, use the reusable `de
 
 Call `(advance stage observations)` each tick. The first applicable event wins. The taxi’s fare takes a shorter path through waiting, hired and paid. Its payment and receipt update together in the transition to paid.
 
-## Write dialogue in Ink
+## Write dialogue
 
-Edit `src/apps/last-mile/rosa.ink` in a text editor or Inky. Brackets delimit a reply. A divert points to the next knot. The `id` tag gives the passage a stable name in saved games.
+Edit `src/apps/last-mile/lines.sld`, which exports `conversation` as a `Dialogue`. Each `Passage` has a stable ID, spoken lines and ordered replies. Each `Reply` names its destination passage:
 
-```ink
--> passenger
-
-=== passenger ===
-Rosa: Jones Street, please. # id:passenger
-+ [Which turn?] -> directions
-+ [Let's go.] -> END
-
-=== directions ===
-Rosa: Down Lombard, then left on Jones. # id:directions
--> END
+```scheme
+(new Dialogue
+  (start "passenger")
+  (pages
+   (list
+    (new Passage
+      (id "passenger")
+      (lines (list "Rosa: Jones Street, please."))
+      (choices (list (new Reply (text "Which turn?") (next "directions")))))
+    (new Passage
+      (id "directions")
+      (lines (list "Rosa: Down Lombard, then left on Jones."))
+      (choices (Nil))))))
 ```
 
-The `generate-library` recipe in `src/apps/last-mile/lines.sld` calls `ink-library` on `rosa.ink` and exports the resulting `conversation`. A build runs the pinned inklecate compiler and explores choice histories to generate typed Snail data. List relative `INCLUDE` files after the entry filename in the recipe. The game saves only the passage ID and line index.
+The game imports this ordinary library and saves only the passage ID and line index. Keep IDs and line positions stable when editing an existing conversation so saved shifts still point to the same dialogue.
 
-`open-dialogue` opens the cursor, `spoken` reads it, and `replies` gives the available choices. Use `answer-dialogue` with a zero-based index, or `continue-dialogue` to move past a line. This bake supports finite, deterministic conversations. It rejects external calls, random instructions and revisiting an explicitly tagged passage on its own choice path. The default budget is 256 turns. Set `(max-turns 512)` before the entry filename for a larger conversation. [Ink library](../libraries/games.md#dialogue) · [Inklecate release](https://github.com/inkle/ink/releases/tag/v1.2.1)
+`open-dialogue` opens the cursor, `spoken` reads it, and `replies` gives the available choices. Use `answer-dialogue` with a zero-based index, or `continue-dialogue` to move past a line. Continuing past the last line of a passage with no replies ends the conversation. [Dialogue library](../libraries/games.md#dialogue)
 
 ## Swap the art
 
