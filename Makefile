@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-browser test-gpu test-ink bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats last-mile pages
+.PHONY: format check fetch test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats last-mile pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -38,10 +38,6 @@ test-browser:
 # on the CPU through lavapipe where there is none, as in CI (shell.nix).
 test-gpu:
 	node tests/gpu.mjs "$(CURDIR)"
-
-# Rebuild a generated Ink library after changing its inputs.
-test-ink:
-	node tests/ink.mjs "$(CURDIR)"
 
 # Rebuilds the command line from the compiler's source on Chez, then to a
 # fixpoint.

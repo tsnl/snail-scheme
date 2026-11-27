@@ -1,3 +1,0 @@
-=== till ===
-Total {fare}.
--> END
