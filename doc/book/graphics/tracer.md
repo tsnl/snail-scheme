@@ -512,6 +512,45 @@ They carry octahedral normals, emission and previous clip depth, sRGB
 albedo with linear alpha, material factors, UV motion, triangle IDs
 and hardware depth. The `.camera` file contains the actual jittered `Camera3D` Pod bytes. The reference uses that same subpixel position for every independent lighting observation.
 
+### Time the offline renderers
+
+The timing mode runs the same shot through a release build of Snail on Dawn WebGPU and Blender Cycles on a selected backend. Choose a backend supported by your Blender build. Set `BLENDER` to its executable if it differs from the `blender` on the development shell's path. On multi-GPU systems select the intended adapter with the host's driver settings and check both device names in the report.
+
+```sh
+node benches/render/compare.mjs --timing=CUDA
+node benches/render/compare.mjs --village --timing=CUDA
+node benches/render/compare.mjs --village --timing=OPTIX --size=1600x900
+```
+
+Each engine prepares the scene once, makes one complete warm-up render, then renders five fresh 128-spp films with the same eight-bounce limit. Cycles keeps its scene resident between calls. The timers measure wall time through Snail's RGBA32F readback or Cycles' completed Render Result. They exclude process launch, compiling the Snail program, writing images to disk and comparing the results. The setup timing includes Blender authoring and exporting the calibration room or importing the village. The warm-up timing can include first-use driver compilation.
+
+The output directory holds `timing.json` with both device names, each timing, the median, and millions of primary camera samples per second. Actual path lengths depend on the scene and integrator. The last timed film from each renderer is checked for finite, spatially varying radiance. The report includes their mean linear RGB, bias and RMSE. The [riding benchmark](../games/iygtw.md) measures moving actors, temporal reuse, denoising and presentation separately.
+
+These five-render medians were measured on one RTX 5090 with driver 595.104.02, Dawn Vulkan and the upstream Blender 5.2.2 LTS release. The Snail column and radiance comparisons come from the paired OptiX run.
+
+| Static shot | Film | Snail | Cycles CUDA | Cycles OptiX | Snail mean radiance relative to OptiX |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Calibration room | 256×160 | 91 ms | 28 ms | 25 ms | −0.84% |
+| Lantern Row | 256×160 | 332 ms | 125 ms | 65 ms | −7.81% |
+| Lantern Row | 1600×900 | 1.29 s | 2.61 s | 1.22 s | −8.06% |
+
+At 900p Snail traced 143 million primary samples per second and Cycles OptiX traced 152 million. Snail took 6% longer than OptiX on that shot and 5.1 times as long on the small Lantern Row shot. The remaining village radiance difference matters when choosing an offline reference.
+
+## White furnace
+
+A white sphere under constant illumination makes energy errors visible. A perfectly reflecting material should disappear into its surroundings. The furnace uses the production glTF path shader, a unit-radiance environment and independent samples at a fixed camera and seed. It starts at 128 spp and eight bounces. Choose the material, roughness and sample count, then run again to replace the accumulation. [Open the furnace](../play/furnace/).
+
+The outlined 16×16 patches measure the surface center and the surrounding environment before denoising or display conversion. The meters give the mean and each RGB component. The radiance image uses fixed half exposure and the sRGB display curve so that values above one remain distinguishable. The second image shows signed deviation from unit light. Blue indicates a deficit and orange an excess.
+
+The single-scattering GGX shader has a second known answer. For fully rough white metal viewed along the normal, the distribution is `1/π`, Fresnel is one, and the incoming masking factor is `2μ/(1+μ)`, where `μ` is the cosine of the incident angle. Its hemispherical reflectance integrates to `∫₀¹ μ/(1+μ) dμ = 1 − ln(2) ≈ 0.30685`. The small central patch approximates that view. Light missing from the lossless target would scatter between microfacets. Raising the scene bounce limit does not add that process to the material. [Heitz et al., Multiple-Scattering Microfacet BSDFs with the Smith Model](https://jo.dreggn.org/2016_microfacets.pdf).
+
+Build and serve the standalone app locally with the following commands. To regenerate the unit sphere, run `blender -b --factory-startup --python src/blender/furnace.py` from the repository root. Its Blender exporter orders the faces so a rebuild preserves triangle IDs and the linked resource hash.
+
+```sh
+make furnace
+python3 -m http.server 4195 --bind 127.0.0.1 --directory build/src/apps/furnace/main
+```
+
 ## The viewer
 
 ```sh

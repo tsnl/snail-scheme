@@ -1,0 +1,42 @@
+:root { color-scheme: light; font: 16px/1.5 Inter, system-ui, sans-serif; color: #243031; background: #f6f5f0; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 57rem; margin: 0 auto; padding: clamp(1.2rem, 4vw, 3rem) 1.5rem; }
+header { border-bottom: 2px solid #253839; padding-bottom: 1.25rem; }
+h1 { margin: 0; font: 500 clamp(2.6rem, 7vw, 4.6rem)/1.1 "Instrument Serif", Georgia, serif; letter-spacing: -.045em; }
+header p { max-width: 49ch; margin: .65rem 0 0; color: #4c5654; }
+section { display: flex; flex-wrap: wrap; gap: .8rem; align-items: end; padding-top: 1.25rem; }
+label { display: grid; gap: .28rem; font-size: .83rem; font-weight: 600; }
+select, button { font: inherit; font-size: .95rem; border-radius: .35rem; min-height: 2.6rem; padding: .4rem .75rem; }
+select { border: 1px solid #a6afaa; color: inherit; background: #fff; }
+button { border: 1px solid #174442; background: #174442; color: #fff; cursor: pointer; padding-inline: 1.25rem; }
+button:disabled { opacity: .58; cursor: progress; }
+:focus-visible { outline: 3px solid #ce662d; outline-offset: 3px; }
+[role=status] { margin: .9rem 0 .65rem; color: #4c5654; font-size: .9rem; }
+article { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+figure { margin: 0; overflow: hidden; border: 1px solid #b9bdb6; border-radius: .45rem; background: #fff; }
+figure:first-child > div { position: relative; }
+/* The 16 px meter squares in the 192 px film. The outlines sit outside
+   the measured pixels and leave the difference image unobstructed. */
+figure:first-child > div::before, figure:first-child > div::after { content: ""; position: absolute; width: 8.33333%; height: 8.33333%; outline: 1px solid #263e41; box-shadow: 0 0 0 2px #ffffffe0; }
+figure:first-child > div::before { left: 45.83333%; top: 45.83333%; }
+figure:first-child > div::after { left: 4.16667%; top: 4.16667%; }
+img { display: block; width: 100%; height: auto; aspect-ratio: 1; }
+figcaption { border-top: 1px solid #d7dad4; padding: .6rem .85rem; }
+figcaption strong, figcaption span { display: block; }
+figcaption span { font-size: .78rem; color: #58615f; }
+dl { display: grid; grid-template-columns: repeat(3, 1fr); margin: 1.15rem 0; gap: .5rem; }
+dt { font-size: .84rem; color: #4b5552; }
+dd { margin: 0; font: 500 clamp(1.25rem, 4vw, 2.1rem)/1.3 "IBM Plex Mono", ui-monospace, monospace; }
+dd[data-rgb]::after { content: attr(data-rgb); display: block; font: .72rem/1.4 Inter, system-ui, sans-serif; color: #505a58; }
+details { border-top: 1px solid #b9bdb6; margin-top: 1rem; padding-top: .7rem; font-size: .9rem; }
+summary { cursor: pointer; font-weight: 600; }
+details p { max-width: 75ch; }
+#failure { color: #902b1b; }
+@media (max-width: 32rem) {
+  main { padding-inline: .85rem; }
+  article { gap: .45rem; }
+  figcaption { padding: .4rem; }
+  figcaption strong { font-size: .86rem; }
+  dt { font-size: .75rem; }
+}

@@ -152,7 +152,38 @@
       (match (read-hdr (read-bytes fs path))
         ((Ok hdr) (hdr-environment gpu hdr 4096))
         ((Err why) (panic why)))))
-(define (main (args Arguments) (fs Fs) (out OutputPort) (host Host)) (→ Unit)
+;; Wall time through the synchronized linear film readback. Each run starts
+;; with a fresh accumulation on the same resident scene and camera.
+(define (time-film (gpu Gpu) (clock Clock) (fs Fs) (path String) (t Tracer) (camera Camera3D)
+                   (samples I64) (depth I64) (started I64)) (→ Unit)
+                   ((● gpu work-done))
+                   (let* ((now (● clock monotonic-nanoseconds))
+                          (setup (- (now) started))
+                          (spread (/ 1.0 (i32->f32 (● t targets height))))
+                          (run (lambda ((index I64)) (→ F64)
+                                 (let* ((beginning (now))
+                                        (film (trace-film gpu
+                                                          t
+                                                          camera
+                                                          spread
+                                                          depth
+                                                          (i64->i32 (* samples index))
+                                                          samples))
+                                        (seconds (/ (i64->f64 (- (now) beginning)) 1e9)))
+                                   (when (= index 5)
+                                     (write-bytes fs (string-append path ".rgba32f") film))
+                                   seconds))))
+                     (let* ((warmup (run 0))
+                            (times (map (lambda (index) (show (run index))) (list 1 2 3 4 5))))
+                       (write-file fs (string-append path ".json")
+                                   (string-append "{\"setupSeconds\":"
+                                                  (show (/ (i64->f64 setup) 1e9))
+                                                  ",\"warmupSeconds\":" (show warmup)
+                                                  ",\"renderSeconds\":["
+                                                  (string-join times ",")
+                                                  "]}")))))
+
+(define (main (args Arguments) (fs Fs) (out OutputPort) (host Host) (clock Clock)) (→ Unit)
   (let* ((name (setting args "scene" "")) (path (setting args "output" "render.png"))
          (width (number args "width" 960 1 16384)) (height (number args "height" 540 1 16384))
          (w (i64->i32 width)) (h (i64->i32 height)) (aspect (/ (i64->f64 width) (i64->f64 height)))
@@ -163,7 +194,8 @@
     (when (string=? name "") (panic "supply scene=PATH to a glTF or GLB file"))
     (unless (if (string=? eye "") (string=? target "") (not (string=? target "")))
       (panic "supply eye and target together"))
-    (let* ((gpu (host-gpu host)) (info ((● gpu request-device))))
+    (let* ((started ((● clock monotonic-nanoseconds)))
+           (gpu (host-gpu host)) (info ((● gpu request-device))))
       (unless (<= (* ray-size (* width height)) (i32->i64 (● info storage-binding-size)))
         (panic "image exceeds the GPU ray-buffer limit; reduce width or height"))
       (let* ((scene (read-model gpu fs name layers))
@@ -183,20 +215,22 @@
                              (PinholeRange 0.8 0.05 32000.0)
                              aspect
                              1.0)))
-             (prefix (setting args "capture" "")))
-        (if (string=? prefix "")
-            (let ((draw (render-still gpu tracer camera spp depth (exposure sun))))
-              (write-bytes fs path (rgba->png w h (● draw second)))
-              (write-line out (string-append path " · " (show width) "×" (show height) " · "
-                                             (show spp)
-                                             " samples/pixel · "
-                                             (show depth)
-                                             " bounces")))
-            (begin
-              (let ((film (setting args "pixel-filter" "fixed")))
-                (unless (or (string=? film "fixed") (string=? film "box"))
-                  (panic "pixel-filter must be fixed or box"))
-                (capture gpu fs tracer camera prefix spp depth (number args "seed" 0 0 2147479550)
-                         (string=? film "box")))
-              (write-line out (string-append prefix ".json · 1 spp input and " (show spp)
-                                             " spp reference"))))))))
+             (prefix (setting args "capture" "")) (timing (setting args "timing" "")))
+        (cond ((not (string=? timing ""))
+               (time-film gpu clock fs timing tracer camera spp depth started))
+              ((string=? prefix "")
+               (let ((draw (render-still gpu tracer camera spp depth (exposure sun))))
+                 (write-bytes fs path (rgba->png w h (● draw second)))
+                 (write-line out (string-append path " · " (show width) "×" (show height) " · "
+                                                (show spp)
+                                                " samples/pixel · "
+                                                (show depth)
+                                                " bounces"))))
+              (else
+               (let ((film (setting args "pixel-filter" "fixed")))
+                 (unless (or (string=? film "fixed") (string=? film "box"))
+                   (panic "pixel-filter must be fixed or box"))
+                 (capture gpu fs tracer camera prefix spp depth (number args "seed" 0 0 2147479550)
+                          (string=? film "box")))
+               (write-line out (string-append prefix ".json · 1 spp input and " (show spp)
+                                              " spp reference"))))))))
