@@ -26,11 +26,6 @@ on:
     branches: [main]
     paths: *inputs
   workflow_dispatch:
-    inputs:
-      publish:
-        description: Publish the selected ref to the production Cloudflare Pages site
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -56,32 +51,3 @@ jobs:
       - uses: ./.github/actions/ci-shell
       - name: Build the book and its applications
         run: nix-shell --run 'make pages'
-      - name: Pass the built site to the deploy job
-        if: &publish github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: public-site
-          path: build/pages
-          if-no-files-found: error
-          retention-days: 1
-
-  deploy:
-    if: *publish
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: public-site
-          path: site
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version: '24'
-      - name: Deploy the book and its applications
-        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
-        with:
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          wranglerVersion: '4.164.0'
-          command: pages deploy site --project-name=snail-scheme --branch=main --commit-hash=${{ github.sha }}

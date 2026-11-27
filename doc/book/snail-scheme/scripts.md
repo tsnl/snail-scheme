@@ -208,7 +208,9 @@ Serve the generation under any URL prefix. Keep the catalog revalidatable and gi
 
 ### Publishing the book and demos
 
-`make pages` publishes the book and browser builds to `build/pages`. The publisher uses the same Snail blob writer to split oversized ordinary assets such as Wasm, models, or audio. A generated Cloudflare Pages Worker serves their original URLs and MIME types, including HEAD and single HTTP byte-range requests. It can serve a multipart resource at its whole-file digest URL for older readers. Releases containing only small files are entirely static. Use `wrangler pages dev build/pages` to preview a release that uses the Worker.
+`make pages` builds the book and browser demos in `build/pages`. The publisher uses the same Snail blob writer to split oversized ordinary assets such as Wasm, models, or audio. A generated Cloudflare Pages Worker serves their original URLs and MIME types, including HEAD and single HTTP byte-range requests. It can serve a multipart resource at its whole-file digest URL for older readers. Releases containing only small files are entirely static.
+
+To preview or deploy the build with Wrangler, follow the [publishing guide](https://github.com/tsnl/snail-scheme/blob/main/doc/getting-started.md#publishing-the-book-and-browser-demos).
 
 ## Not yet
 

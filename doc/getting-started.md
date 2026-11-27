@@ -114,22 +114,25 @@ introduces the compiler.
 
 ## Publishing the book and browser demos
 
-`make pages` builds the book and the browser demos together in `build/pages`.
-Run `python3 -m http.server 8000 --directory build/pages` to open that site
-locally at `http://localhost:8000/`.
+The Pages workflow checks that the book and browser demos build on pull
+requests and pushes to `main`. To publish a checkout, sign in to Cloudflare
+once on your machine with `npx wrangler@4.164.0 login`. From the repository
+root, build the site and upload it to the project's production branch.
 
-The Pages workflow builds pull requests and publishes changes from `main`
-to Cloudflare Pages. A maintainer can also publish a selected ref with the
-workflow’s **Publish** input. The deploy job receives only the built site.
+```sh
+make pages
+npx wrangler@4.164.0 pages deploy build/pages --project-name=snail-scheme --branch=main
+```
 
-For initial setup, verify the account email and sign in to Wrangler. Create
+To preview the build with its Pages Worker before uploading, run
+`npx wrangler@4.164.0 pages dev build/pages` after `make pages`.
+
+For initial setup in a new account, verify the account email and create
 the Direct Upload project once.
 
 ```sh
-wrangler pages project create snail-scheme --production-branch main --force
+npx wrangler@4.164.0 pages project create snail-scheme --production-branch main --force
 ```
 
 In the pinned Wrangler release, `--force` selects the Pages API for project
 creation. Subsequent uploads target the existing project by name.
-Set the repository Actions variable `CLOUDFLARE_ACCOUNT_ID` and the secret
-`CLOUDFLARE_API_TOKEN` with Cloudflare Pages Edit permission for that account.
