@@ -193,13 +193,13 @@
                                (recompile-cli! root)
                                (rebuild-cli! root)))))
 
-    ;; What scripts/bootstrap prints, a line each: the command line, then
-    ;; the runtime programs link with, then the toolchain's, which the
-    ;; launcher passes it.
+    ;; The launcher caches all four paths, so removing the native Git tool
+    ;; rebuilds it just like removing either Wasm runtime.
     (define (bootstrap root)
       (let* ((runtime (build-runtime root #f)) (toolchain (build-runtime root #t)))
         (for-each (lambda (path) (write-string path) (newline))
-                  (list (current-cli root) runtime toolchain))))
+                  (list (current-cli root) runtime toolchain
+                        (native-tool root "snail-git" "package-git")))))
 
     ;; One compile of the entry by the current command line, linked into
     ;; place; if that command line cannot, the whole fixpoint instead.
@@ -321,22 +321,20 @@
 
     ;; ---- Linking ----
 
-    ;; The support crate's `snail-link`, built for this machine beside the
-    ;; toolchain's runtime: the assembler and linker the command line holds,
-    ;; for linking the command line itself. Cargo decides whether it is
-    ;; stale.
-    (define (linker-binary root)
+    ;; The support crate's native tools live beside the toolchain runtime.
+    ;; Cargo rebuilds only the binary and features requested by the caller.
+    (define (native-tool root name feature)
       (let ((target (runtime-target root #t)))
         (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
-                  "build" "--quiet" "--offline" "--release"
-                  "--bin" "snail-link" "--features" "assembler"
+                  "build" "--quiet" "--locked" "--offline" "--release"
+                  "--bin" name "--features" feature
                   "--manifest-path" (path-join root "crates/snail-scheme-support/Cargo.toml")
                   "--target-dir" target)
-        (path-join target "release/snail-link")))
+        (path-join target (string-append "release/" name))))
 
     ;; Assembles the compiler's text at `wat` and links it with `runtime`.
     (define (link-wat-file root wat output runtime)
-      (run-command (list (linker-binary root) wat runtime output))
+      (run-command (list (native-tool root "snail-link" "assembler") wat runtime output))
       output)
 
     )

@@ -29,12 +29,23 @@ snail-scheme deps
 snail-scheme run --target node src/observatory/main.scm
 ```
 
-`snail-scheme deps [DIRECTORY]` follows transitive dependencies using
-Git's configured credentials, checks the merged source tree and prints
-each package and its checkout. A tag such as `v1.2.0` selects the exact
-`refs/tags/v1.2.0` reference. Lightweight and annotated tags must lead to
-a commit. You can also give the full tag ref. Full commit hashes can be
+`snail-scheme deps [DIRECTORY]` follows transitive dependencies, checks
+the merged source tree and prints each package and its checkout. A tag
+such as `v1.2.0` selects the exact `refs/tags/v1.2.0` reference.
+Lightweight and annotated tags must lead to a commit. You can also give
+the full tag ref. Full commit hashes can be
 40 hexadecimal digits for SHA-1 or 64 for SHA-256.
+
+The Scheme resolver runs one native Rust tool, `snail-git`, for Git
+operations. It uses `git2` (libgit2) for Git and libssh2 for SSH. For a
+private SSH repository, use its SSH username and host in the URL, with
+its port if needed. Trust the host key in `~/.ssh/known_hosts`.
+The client tries your SSH agent,
+then the usual unencrypted `id_ed25519`, `id_ecdsa` and `id_rsa` keys
+in `~/.ssh/`. Load a passphrase-protected or custom key with `ssh-add`.
+OpenSSH host aliases and `ProxyCommand` are specific to the OpenSSH
+client. HTTPS verifies the server certificate and can run a configured
+Git credential helper for authentication.
 
 On the first successful install of a tag, `deps` writes its URL, tag and
 resolved commit to **`package.lock`** in the root workspace. Commit this

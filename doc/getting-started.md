@@ -16,6 +16,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Git, a POSIX shell and GNU Make | | The checkout, `./snail-scheme` and the Makefile. |
 | Chez Scheme | 10.4.1 | Running the compiler's source for the first bootstrap, and the build scripts. |
 | Rustup | Rust 1.95.0 | The runtime services linked into every program, and the assembler/linker. `rust-toolchain.toml` names the version and the `wasm32-wasip1` target, which rustup installs on first use. |
+| C compiler, pkg-config and OpenSSL development files | | Building the native Git package helper on Unix. The transport tests also use the OpenSSL command line and OpenSSH tools, including `sshd`. |
 | Node.js | 26 | Running programs under WASI. |
 | nixfmt | 1.4 | `make check`'s formatting of `shell.nix`. |
 | mdBook | 0.5.4 | `make pages`, the book. |
@@ -25,7 +26,7 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `package.json` pins and `make fetch` installs from npm, for `host/native/gpu.mjs` and `make test-gpu`. On Linux it needs the Vulkan loader and a Vulkan driver for the GPU. |
 | The `@napi-rs/canvas` package | 1.1.1 | Images on Node: a 2D canvas over Skia, which `package.json` pins and `make fetch` installs from npm, for `decode-image` in `host/native/gpu.mjs`. It is MIT, and asks nothing of the system. |
 
-The first four compile and run programs, including the Scheme formatter used
+The first five compile and run programs, including the Scheme formatter used
 by `make check`; the rest format Nix, build or test the site, and test the
 editors' grammar. `CHEZ` can
 name a particular Chez executable; it defaults to `scheme`. The pinned Nix

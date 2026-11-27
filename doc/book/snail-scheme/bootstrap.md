@@ -46,9 +46,10 @@ both outputs run.
 
 `scripts/bootstrap` builds the command line into
 `build/bootstrap/snail-scheme.wasm`, linked with the toolchain runtime, whose
-services include the assembler, and prints it and the two runtimes, plain
-and the toolchain's, a line each, which `./snail-scheme` caches in
-`build/tools.txt`.
+services include the assembler. It also builds the native `snail-git`
+package helper. The launcher caches four paths in `build/tools.txt`,
+one per line, for the command line, plain runtime, toolchain runtime and
+Git helper.
 
 1. A working previous command line produces stage one. For a clean
    bootstrap, Chez executes the compiler's source to produce it instead.

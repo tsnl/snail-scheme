@@ -14,12 +14,23 @@ crate-type = ["rlib"]
 [features]
 rapier = ["dep:rapier3d-f64"]
 assembler = ["dep:wat", "dep:wasm-fuse", "dep:wasm-encoder", "dep:wasmparser"]
+package-git = ["dep:git2", "dep:url"]
 
 # Stage 0's linker, built for this machine: the bootstrap links the command
 # line with it, before there is a command line to link anything.
 [[bin]]
 name = "snail-link"
 required-features = ["assembler"]
+
+[[bin]]
+name = "snail-git"
+required-features = ["package-git"]
+
+# Git transport belongs to the native toolchain. The Wasm scalar libraries
+# shipped to programs have no dependency on TLS or SSH.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+git2 = { version = "0.21", features = ["https", "ssh", "unstable-sha256", "vendored-libgit2"], optional = true }
+url = { version = "2", optional = true }
 
 [dependencies]
 rapier3d-f64 = { version = "=0.36.1", optional = true }
