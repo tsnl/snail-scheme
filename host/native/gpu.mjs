@@ -3,7 +3,7 @@
 // Node binding, dawn.node. Dawn runs in this process and is called
 // directly, where Chromium's runs in a GPU process that every call is sent
 // to. The binding is npm's webgpu package (github.com/dawn-gpu/node-webgpu),
-// which the repository's package.json pins and `make fetch` installs, and
+// which the repository's package.json pins and `npm ci` installs, and
 // which a Node build's package depends on when its program may ask for a
 // device. It loads at the program's first `request-device`, so a program
 // that never asks needs none. Dawn keeps the guards a browser has, which

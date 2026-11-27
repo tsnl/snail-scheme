@@ -328,7 +328,7 @@
     (define (linker-binary root)
       (let ((target (runtime-target root #t)))
         (run-tool "CARGO" "cargo" (string-append "+" (pinned-channel root))
-                  "build" "--quiet" "--offline" "--release"
+                  "build" "--quiet" "--release"
                   "--bin" "snail-link" "--features" "assembler"
                   "--manifest-path" (path-join root "crates/snail-scheme-support/Cargo.toml")
                   "--target-dir" target)
