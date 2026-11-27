@@ -35,6 +35,10 @@
    Shown
    patch-children
    listener-table
+   Root
+   render-root
+   render!
+   root-message
    run-ui)
   (import
    (snail core base)
@@ -103,6 +107,20 @@
                      (children (List (Shown M)))))
       (ShownText ((node Node) (text String))))
 
+    ;; A game owns its event loop. Its root keeps the last view between draws.
+    (record (Root M)
+      ((dom Dom)
+       (parent Node)
+       (shown (List (Shown M)))))
+    (define (render-root (dom Dom) (parent Node)) (→ (Root M)) (∀ (M))
+      (new Root (dom dom) (parent parent) (shown (Nil))))
+    (define (render! (root (Root M)) (children (List (Html M)))) (→ Unit) (∀ (M))
+      (set! (● root shown) (patch-children (● root dom) (● root parent) (● root shown) children)))
+    (define (root-message (root (Root M)) (id I32) (event Event)) (→ (Option M)) (∀ (M))
+      (match (table-ref (listener-table (● root shown)) (show id))
+        ((Some message) (Some (message event)))
+        (_ (None))))
+
     (define (shown-node (shown (Shown M))) (→ Node) (∀ (M))
       (match shown
         ((ShownElement node _ _ _ _) node)
@@ -125,6 +143,7 @@
       (match html
         ((Text text) (ShownText ((● dom create-text) text) text))
         ((Element tag attributes children)
+         (check-keys children)
          (let ((node ((● dom create-element) tag)))
            (for-each (lambda (attribute) (apply-attribute dom node attribute)) attributes)
            (let ((shown (map (lambda (html) (create dom html)) children)))
@@ -153,26 +172,22 @@
 
     ;; ---- Patching ----
 
-    ;; The shown tree changed to what `html` says, in place where the kinds
-    ;; and tags and keys agree, and otherwise by a new subtree; the caller
-    ;; places a new one and removes the old.
-
-    (define (patch (dom Dom) (shown (Shown M)) (html (Html M))) (→ (Shown M)) (∀ (M))
-      (if (matches? shown html)
-          (match (new Pair (first shown) (second html))
-            ((Pair (ShownText node text) (Text updated))
-             (unless (string=? text updated) ((● dom set-text) node updated))
-             (ShownText node updated))
-            ((Pair (ShownElement node tag attributes listeners children)
-                   (Element _ new-attributes new-children))
-             (patch-attributes dom node attributes new-attributes)
-             (ShownElement node
-                           tag
-                           new-attributes
-                           (patch-listeners dom node attributes listeners new-attributes)
-                           (patch-children dom node children new-children)))
-            (_ (panic "internal error: a match of different kinds")))
-          (create dom html)))
+    ;; Tags and keys already match. Keep the DOM handles and install the new
+    ;; message functions even when every visible property is unchanged.
+    (define (patch-matched (dom Dom) (shown (Shown M)) (html (Html M))) (→ (Shown M)) (∀ (M))
+      (match (new Pair (first shown) (second html))
+        ((Pair (ShownText node text) (Text updated))
+         (unless (string=? text updated) ((● dom set-text) node updated))
+         (ShownText node updated))
+        ((Pair (ShownElement node tag attributes listeners children)
+               (Element _ new-attributes new-children))
+         (patch-attributes dom node attributes new-attributes)
+         (ShownElement node
+                       tag
+                       new-attributes
+                       (patch-listeners dom node attributes listeners new-attributes)
+                       (patch-children dom node children new-children)))
+        (_ (panic "internal error: a match of different kinds"))))
 
     (define (matches? (shown (Shown M)) (html (Html M))) (→ Bool) (∀ (M))
       (match (new Pair (first shown) (second html))
@@ -294,11 +309,36 @@
                             (updated (List (Html M))))
       (→ (List (Shown M)))
       (∀ (M))
+      (if (aligned? old updated) (patch-aligned dom old updated)
+          (place-children dom parent old updated)))
+
+    ;; When the same tags and keys occupy the same slots there is no placement
+    ;; work. Diff their properties and descendants without building a key index.
+    (define (aligned? (old (List (Shown M))) (updated (List (Html M)))) (→ Bool) (∀ (M))
+      (match old
+        ((Nil) (null? updated))
+        ((Cons child rest)
+         (match updated ((Cons html tail) (and (matches? child html) (aligned? rest tail)))
+                ((Nil) #f)))))
+    (define (patch-aligned (dom Dom) (old (List (Shown M))) (updated (List (Html M))))
+      (→ (List (Shown M))) (∀ (M))
+      (match old
+        ((Nil) (Nil))
+        ((Cons child rest)
+         (match updated
+           ((Cons html tail) (Cons (patch-matched dom child html) (patch-aligned dom rest tail)))
+           ((Nil) (panic "internal error: missing aligned child"))))))
+
+    (define (place-children (dom Dom)
+                            (parent Node)
+                            (old (List (Shown M)))
+                            (updated (List (Html M))))
+      (→ (List (Shown M))) (∀ (M))
       (let* ((pairs (taking old updated))
              (taken (taken-names pairs))
              (children (map (lambda (pair)
                               (match (● pair first)
-                                ((Some shown) (patch dom shown (● pair second)))
+                                ((Some shown) (patch-matched dom shown (● pair second)))
                                 ((None) (create dom (● pair second)))))
                             pairs)))
         (for-each (lambda (shown)
@@ -316,20 +356,22 @@
     ;; or for a child without one, the next old child without one, when
     ;; it matches.
 
+    (define (check-keys (children (List (Html M)))) (→ Unit) (∀ (M))
+      (let ((keys (filter (lambda (key) (not (string=? key ""))) (map html-key children))))
+        (unless (= (length keys) (length (delete-duplicates string=? keys)))
+          (panic "two children have the same key"))))
     (define (taking (old (List (Shown M))) (updated (List (Html M))))
       (→ (List (Pair (Option (Shown M)) (Html M))))
       (∀ (M))
-      (let ((keys (filter (lambda (key) (not (string=? key ""))) (map html-key updated))))
-        (unless (= (length keys) (length (delete-duplicates string=? keys)))
-          (panic "two children have the same key"))
-        (taking-from (fold-left (lambda (keyed shown)
-                                  (if (string=? (shown-key shown) "")
-                                      keyed
-                                      (table-set keyed (shown-key shown) shown)))
-                                (empty-table)
-                                old)
-                     (filter (lambda (shown) (string=? (shown-key shown) "")) old)
-                     updated)))
+      (check-keys updated)
+      (taking-from (fold-left (lambda (keyed shown)
+                                (if (string=? (shown-key shown) "")
+                                    keyed
+                                    (table-set keyed (shown-key shown) shown)))
+                              (empty-table)
+                              old)
+                   (filter (lambda (shown) (string=? (shown-key shown) "")) old)
+                   updated))
 
     (define (taking-from (keyed (Table (Shown M)))
                          (unkeyed (List (Shown M)))
@@ -612,8 +654,8 @@
     ;; The root's one child, patched, or replaced by a new one.
 
     (define (patch-root (dom Dom) (shown (Shown M)) (html (Html M))) (→ (Shown M)) (∀ (M))
-      (let ((next (patch dom shown html)))
-        (unless (same-node? next shown)
-          ((● dom insert-node) ((● dom document-root)) (shown-node next) (None))
-          ((● dom remove-node) (shown-node shown)))
-        next))))
+      (if (matches? shown html) (patch-matched dom shown html)
+          (let ((next (create dom html)))
+            ((● dom insert-node) ((● dom document-root)) (shown-node next) (None))
+            ((● dom remove-node) (shown-node shown))
+            next)))))

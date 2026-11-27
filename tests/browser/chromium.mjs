@@ -41,14 +41,14 @@ const TRACED = ['blink.user_timing', 'devtools.timeline', 'disabled-by-default-d
 // browser; its page is spoken to through a session attached to it.
 // WebGPU's developer features are on, so the device's timestamps are not
 // rounded to 100 microseconds.
-export async function openBrowser({hardware = false} = {}) {
+export async function openBrowser({hardware = false, vsync = true} = {}) {
   const profile = await mkdtemp(join(tmpdir(), 'snail-page-'));
   const backend = hardware
     ? ['--disable-vulkan-surface', '--use-angle=vulkan', '--enable-gpu', '--ignore-gpu-blocklist']
     : ['--use-vulkan=swiftshader', '--use-angle=swiftshader'];
   const browser = spawn(process.env.CHROMIUM ?? 'chromium', ['--headless=new', '--no-sandbox', '--remote-debugging-pipe',
     `--user-data-dir=${profile}`, '--enable-unsafe-webgpu', '--enable-webgpu-developer-features', '--enable-features=Vulkan',
-    ...backend, '--window-size=1280,800', 'about:blank'], {stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']});
+    ...backend, ...(vsync ? [] : ['--disable-frame-rate-limit', '--disable-gpu-vsync']), '--window-size=1280,800', 'about:blank'], {stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe']});
   const [, , , commands, replies] = browser.stdio;
   process.on('exit', () => {
     browser.kill('SIGKILL');

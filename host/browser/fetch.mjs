@@ -63,7 +63,7 @@ export function createFetch(runtime) {
 
   // A program that starts knows no streams, so they close with the last.
   function reset() {
-    for (const stream of streams?.values() ?? []) stream.source.close();
+    for (const id of streams?.keys() ?? []) close(id);
     streams = new Map();
     received = new Map();
     nextStream = 1;
@@ -134,16 +134,20 @@ export function createFetch(runtime) {
   // The next event, its kind and data, or null once the stream is closed
   // and drained.
   function next(stream, signal) {
+    signal.throwIfAborted();
+    if (stream.messages.length) return stream.messages.shift();
+    if (stream.closed) return null;
     return new Promise((resolve, reject) => {
-      const settle = () => {
-        if (stream.messages.length) resolve(stream.messages.shift());
-        else if (stream.closed) resolve(null);
-        else return;
+      const abort = () => {
         stream.waiter = null;
+        reject(signal.reason);
       };
-      stream.waiter = settle;
-      signal.addEventListener('abort', () => reject(signal.reason), {once: true});
-      settle();
+      stream.waiter = () => {
+        stream.waiter = null;
+        signal.removeEventListener('abort', abort);
+        resolve(stream.messages.shift() ?? null);
+      };
+      signal.addEventListener('abort', abort, {once: true});
     });
   }
   function close(id) {
