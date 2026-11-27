@@ -9,6 +9,8 @@
   (import
    (snail core base)
    (snail core io)
+   (only (snail shell process) Processes)
+   (only (snail shell project submodule) base-checkout-path)
    (only (snail shell compiler read) Loc Syntax Form Ident Atom DString compile-error read-text))
   (begin
 
@@ -52,24 +54,27 @@
     (define (file-loc (path String)) (→ Loc)
       (new Loc (file path) (line 0) (column 0)))
 
-    (define (workspace-directories (fs Fs) (root String) (standard String)) (→ (List String))
+    (define (workspace-directories (processes Processes) (fs Fs) (root String) (standard String))
+      (→ (List String))
       (if (declared? fs root)
           (let ((physical (physical-directory fs "" root (Nil) (file-loc (manifest root)))))
-            (source-directories fs (base-chain fs physical (Nil))))
+            (source-directories fs (base-chain processes fs physical (Nil))))
           (let ((own (string-append root "/src")))
             (if (string=? root standard) (list own) (list own (string-append standard "/src"))))))
 
-    (define (base-chain (fs Fs) (root String) (parents (List String))) (→ (List String))
+    (define (base-chain (processes Processes) (fs Fs) (root String) (parents (List String)))
+      (→ (List String))
       (let ((chain (Cons root parents)) (path (manifest root)))
         (when (member? root parents)
           (compile-error (file-loc path)
                          (string-append "workspace base cycle: "
                                         (string-join (reverse chain) " → "))))
-        (match (read-base fs root path)
-          ((Some base) (base-chain fs base chain))
+        (match (read-base processes fs root path)
+          ((Some base) (base-chain processes fs base chain))
           ((None) (reverse chain)))))
 
-    (define (read-base (fs Fs) (root String) (path String)) (→ (Option String))
+    (define (read-base (processes Processes) (fs Fs) (root String) (path String))
+      (→ (Option String))
       (match (read-text-file fs path 1048576)
         ((Err (ReadFailed (NotFound)))
          (match (source-directory fs root)
@@ -79,18 +84,24 @@
         ((Ok text)
          (match (read-text text path)
            ((Cons (Form (Cons (Ident "workspace" _ _) clauses) loc) (Nil))
-            (workspace-base fs root clauses loc))
+            (workspace-base processes fs root clauses loc))
            (_ (compile-error (file-loc path) "expected one (workspace ...) declaration"))))))
 
-    (define (workspace-base (fs Fs) (root String) (clauses (List Syntax)) (loc Loc))
+    (define (workspace-base (processes Processes)
+                            (fs Fs)
+                            (root String)
+                            (clauses (List Syntax))
+                            (loc Loc))
       (→ (Option String))
       (match clauses
         ((Nil) (None))
-        ((Cons (Form (Cons (Ident "extends" _ _) (Cons (Atom (DString path) at) (Nil))) _) (Nil))
-         (when (or (string=? path "") (member? #\null (string->list path)))
-           (compile-error at "extends needs a nonempty local path without NUL"))
-         (Some (physical-directory fs root path (Nil) at)))
-        (_ (compile-error loc "expected (workspace) or (workspace (extends \"path\"))"))))
+        ((Cons (Form (Cons (Ident "extends" _ _) (Cons (Atom (DString reference) at) (Nil))) _)
+               (Nil))
+         (when (or (string=? reference "") (member? #\null (string->list reference)))
+           (compile-error at "extends needs a nonempty base reference without NUL"))
+         (let ((checkout (base-checkout-path processes fs root reference at)))
+           (Some (physical-directory fs root checkout (Nil) at))))
+        (_ (compile-error loc "expected (workspace) or (workspace (extends \"base\"))"))))
 
     ;; Resolve links before .. so aliases of the same checkout have one
     ;; identity. `links` holds only the targets currently being followed.

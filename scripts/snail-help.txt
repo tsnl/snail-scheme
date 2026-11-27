@@ -5,8 +5,9 @@ Usage: snail-scheme build --target TARGET [--release] FILE
        snail-scheme format [--width N] [--check | --write] [FILE ...]
 
 build compiles FILE for node or browser. The nearest snail-scheme-workspace.datum
-above FILE declares its workspace. (workspace (extends "path")) adds one local
-base workspace to its src/ tree. Without a declaration the nearest folder
+above FILE declares its workspace. (workspace (extends "github.com:OWNER/REPO"))
+uses a checked-out Git submodule as its base. A local path also works.
+Without a declaration the nearest folder
 holding src/ uses the installed standard libraries. The output, build/PATH in the workspace, where PATH is
 FILE's path there without its extension, is a link to a completed
 generation: one module, NAME.wasm, the program linked with its runtime,

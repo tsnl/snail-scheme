@@ -160,6 +160,7 @@
 ;; needs a build to run its producer, so here it fails.
 
 (define (print-wat
+         (processes Processes)
          (fs Fs)
          (environment ProcessEnvironment)
          (out OutputPort)
@@ -168,10 +169,11 @@
   (→ Unit)
   (match (build-flags arguments (None) (Debug))
     ((Pair (Some flags) (Cons file (Nil)))
-     (print-script-wat fs environment out tools flags file))
+     (print-script-wat processes fs environment out tools flags file))
     (_ (panic "usage: snail-scheme wat --target node|browser FILE"))))
 
 (define (print-script-wat
+         (processes Processes)
          (fs Fs)
          (environment ProcessEnvironment)
          (out OutputPort)
@@ -182,7 +184,10 @@
   (let ((script (script-at fs environment file)))
     (match (compiling (lambda ()
                         (source->wat fs
-                                     (workspace-directories fs (● script workspace) (● tools root))
+                                     (workspace-directories processes
+                                                            fs
+                                                            (● script workspace)
+                                                            (● tools root))
                                      (● script file)
                                      (lambda (loading forms)
                                        (panic "wat does not run producers: build the script"))
@@ -303,7 +308,7 @@
      (let ((tools (tools-of environment root runtime toolchain)))
        (cond ((and (string=? action "lsp") (null? arguments))
               (serve-language processes fs clock in out tools))
-             ((string=? action "wat") (print-wat fs environment out tools arguments))
+             ((string=? action "wat") (print-wat processes fs environment out tools arguments))
              (else
               (invoke processes fs clock out (request fs environment tools action arguments))))))
     (_ (panic (usage))))

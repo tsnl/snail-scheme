@@ -6,17 +6,33 @@ of the checkout. This repository declares `(workspace)`. A private app can
 use this declaration to extend a local checkout of it.
 
 ```scheme
-(workspace (extends "vendor/snail-scheme"))
+(workspace (extends "github.com:tsnl/snail-scheme"))
 ```
 
-Each workspace can extend one base. Relative paths start in the workspace
-that declares them. A team can keep shared libraries in a workspace that
-extends the compiler checkout, and each app can extend the team's workspace.
-The tool follows the chain on disk. A sibling checkout works for live
-development. To pin the base for collaborators and CI, commit it as a Git
-submodule and clone with `git clone --recurse-submodules`. Git handles
-credentials during checkout. The manifest selects source trees. Invoke
-the base checkout's `snail-scheme` launcher to use its compiler and runtime.
+Set up the base as a Git submodule once in the app repository. Choose any
+checkout directory. This command uses `tools/snail`.
+
+```sh
+git submodule add https://github.com/tsnl/snail-scheme.git tools/snail
+```
+
+Git records the URL and directory in `.gitmodules` and the commit in the
+parent repository. Commit both, and collaborators can provision the chain
+with `git clone --recurse-submodules` or `git submodule update --init --recursive`.
+Snail runs `git config` on the declaring workspace's `.gitmodules` to find
+the matching checkout. The repository name works with GitHub HTTPS and SSH
+URLs. Builds and editor checks use the files in the checkout, including local edits. Git handles
+authentication when the checkouts are provisioned.
+
+A direct path such as `(workspace (extends "../snail-scheme"))` also works.
+Relative paths start in the workspace that declares them. Use a direct path
+for live development, for a submodule declared with a relative URL or SSH
+host alias, or to select among several checkouts of the same repository.
+Each workspace extends at most one base, so an app can extend a team workspace
+which in turn extends the compiler workspace.
+
+The manifest selects source trees. Invoking the compiler checkout's
+`snail-scheme` launcher uses the compiler and runtime from that checkout.
 
 Libraries keep their ordinary import names. For example, `(team sky)` lives
 at `src/team/sky.sld` in exactly one workspace. Directories can be shared.

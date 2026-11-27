@@ -181,7 +181,7 @@
                           (platform Platform)
                           (mode Mode))
       (→ String)
-      (match (with-builder fs clock (building-script tools script)
+      (match (with-builder processes fs clock (building-script tools script)
                            (● script workspace)
                            mode
                            (lambda (builder)
@@ -275,7 +275,7 @@
                       (workspace String)
                       (target (Fn String → Target)))
       (→ (Result Typed Failure))
-      (with-builder fs clock tools
+      (with-builder processes fs clock tools
                     workspace
                     (Debug)
                     (lambda (builder)
@@ -356,9 +356,15 @@
        (mode Mode)
        (scratch String)))
 
-    (define (workspace-builder (fs Fs) (tools Tools) (root String) (mode Mode) (scratch String))
+    (define (workspace-builder (processes Processes)
+                               (fs Fs)
+                               (tools Tools)
+                               (root String)
+                               (mode Mode)
+                               (scratch String))
       (→ Builder)
-      (let ((directories (compiled (lambda () (workspace-directories fs root (● tools root))))))
+      (let ((directories
+             (compiled (lambda () (workspace-directories processes fs root (● tools root))))))
         (new Builder (tools tools) (workspace root) (directories directories)
              (mode mode) (scratch scratch))))
 
@@ -366,7 +372,7 @@
     ;; the repository's build/snail-run/, removed after; a failure is its
     ;; Result.
 
-    (define (with-builder (fs Fs) (clock Clock) (tools Tools)
+    (define (with-builder (processes Processes) (fs Fs) (clock Clock) (tools Tools)
                           (workspace String)
                           (mode Mode)
                           (work (Fn Builder → T)))
@@ -377,7 +383,12 @@
         ((Err failure) (Err failure))
         ((Ok scratch)
          (let ((result (attempt (lambda ()
-                                  (work (workspace-builder fs tools workspace mode scratch))))))
+                                  (work (workspace-builder processes
+                                                           fs
+                                                           tools
+                                                           workspace
+                                                           mode
+                                                           scratch))))))
            (remove-tree fs scratch)
            result))))
 
