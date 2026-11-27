@@ -1,10 +1,9 @@
 # Getting started
 
-The compiler runs on Linux and macOS. On Windows, use WSL2. There are three
-ways to get the tools:
+The compiler runs on Linux and macOS. On Windows, use WSL2. Choose how
+to install the tools.
 
 - **Nix** gives exactly the tools CI uses.
-- **The devcontainer** packages that same environment for podman.
 - **Your package manager**, with source recipes for the tools it lacks.
 
 Whichever you pick, finish with [the first run](#the-first-run).
@@ -40,24 +39,10 @@ nix-shell
 ```
 
 `shell.nix` takes its nixpkgs from the revision pinned in
-`npins/sources.json`, which CI and the devcontainer also use, and provides
+`npins/sources.json`, which CI also uses, and provides
 every tool above except the GPU's driver, which is the system's, and, on
 macOS, Chromium, which nixpkgs builds for Linux alone. `npins update
 nixpkgs` moves the pin.
-
-## With the devcontainer
-
-`.devcontainer/` builds that environment from the `nixos/nix` image. With rootless podman, the container's root is your own
-user, so files written in the mounted checkout stay yours:
-
-```sh
-podman build -t snail-scheme -f .devcontainer/Containerfile .
-podman run --rm -it -v "$PWD":/project:Z -w /project snail-scheme
-```
-
-An editor that opens devcontainers runs `npm ci` when it creates the
-container. With plain podman, run it yourself once. CI builds the image with
-podman and checks it whenever its inputs change.
 
 ## With a package manager
 

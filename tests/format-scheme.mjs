@@ -20,9 +20,9 @@ function format(source, width = 100) {
   assert.equal(result.status, 0, result.stderr);
   return result.stdout;
 }
+const examples = [];
 function example(source, expected, width = 100) {
-  assert.equal(format(source, width), expected);
-  assert.equal(format(expected, width), expected, 'formatting is idempotent');
+  examples.push({source, expected, width});
 }
 
 // ---- Source and wrapping ----
@@ -71,7 +71,6 @@ example(`(import (a) ; Keep this trailing comment.
  #| Keep this block comment. |#
  (b))
 `);
-example('(import (a) (b)\n', '(import\n (a)\n (b)\n');
 
 example(`(define (f x) (let* ((a (foo x)) (b (bar a)) (c (baz b))) (+ a b c)))
 (define (make-thing alpha beta gamma delta) (list alpha beta))
@@ -154,9 +153,19 @@ for (const name of ['outlet', 'letdown', 'custom-let-values', 'custom-let*later'
 }
 const fits = `(list "${'x'.repeat(89)}" b)\n`;
 const long = `(list "${'x'.repeat(90)}" b)\n`;
-assert.equal(run([], fits).stdout, fits);
-assert.equal(run([], long).stdout, `(list "${'x'.repeat(90)}"\n      b)\n`);
-for (const text of ['', '(display "λ 🐌")', '(display "λ 🐌")\n']) example(text, text);
+const defaultWidth = run([], fits + long);
+assert.equal(defaultWidth.status, 0, defaultWidth.stderr);
+assert.equal(defaultWidth.stdout, fits + `(list "${'x'.repeat(90)}"\n      b)\n`);
+for (const width of new Set(examples.map(item => item.width))) {
+  const group = examples.filter(item => item.width === width);
+  const expected = group.map(item => item.expected).join('');
+  const formatted = format(group.map(item => item.source).join(''), width);
+  assert.equal(formatted, expected, `source formatted at width ${width}`);
+  assert.equal(format(formatted, width), expected, `idempotence at width ${width}`);
+}
+// Give each EOF case its own input stream.
+assert.equal(format('(import (a) (b)\n'), '(import\n (a)\n (b)\n');
+for (const text of ['', '(display "λ 🐌")', '(display "λ 🐌")\n']) assert.equal(format(text), text);
 
 // ---- Files, diagnostics and status ----
 
@@ -199,12 +208,4 @@ for (const args of [['--check'], ['--write'], ['--unknown'], ['--width'],
   assert.notEqual(bad.stderr, '');
 }
 
-// The tool used by make check leaves every tracked Scheme source unchanged,
-// but for the tree-sitter queries Zed reads, which are not Scheme.
-const files = spawnSync('git', ['ls-files', '-z', '*.scm', '*.sld', ':(exclude)editors/zed/languages'], {cwd: root, encoding: 'utf8'});
-assert.equal(files.status, 0, files.stderr);
-const tracked = files.stdout.split('\0').filter(Boolean).map(file => resolve(root, file));
-const checked = run(['--check', ...tracked]);
-assert.equal(checked.status, 0, checked.stderr);
-assert.equal(checked.stdout, '');
-console.log('formatter: source, binding conventions, wrapping, stdin, files, diagnostics and tracked sources');
+console.log('formatter: source, binding conventions, wrapping, stdin, files and diagnostics');

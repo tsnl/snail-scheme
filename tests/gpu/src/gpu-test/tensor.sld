@@ -9,16 +9,10 @@
 ;; caller's pass. Then a line fitted by Adam, its loss read back after 300
 ;; steps of one lowered program.
 (define-library (gpu-test tensor)
-  (export
-   tensor-agreement
-   fused-agreement
-   profiled-steps
-   swapped-params
-   assigned-param
-   bound-param
-   fitted-line)
+  (export tensor-checks)
   (import
    (snail core base)
+   (snail core io)
    (snail core table)
    (only (snail shell gpu)
          Gpu
@@ -36,6 +30,15 @@
    (snail shell tensor lower)
    (snail shell tensor adam))
   (begin
+
+    (define (tensor-checks (gpu Gpu) (out OutputPort)) (→ Unit)
+      (write-line out (string-append "tensor: " (tensor-agreement gpu)))
+      (write-line out (string-append "fused tensor: " (fused-agreement gpu)))
+      (write-line out (string-append "profiled: " (profiled-steps gpu)))
+      (write-line out (string-append "swapped: " (swapped-params gpu)))
+      (write-line out (string-append "assigned: " (assigned-param gpu)))
+      (write-line out (string-append "bound: " (bound-param gpu)))
+      (write-line out (string-append "fitted: " (fitted-line gpu))))
 
     ;; ---- Inputs ----
 

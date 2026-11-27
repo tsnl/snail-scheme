@@ -39,16 +39,15 @@ resolve under the `src/` of the nearest folder above it that holds one:
 ./snail-scheme wat --target node examples/capabilities.sld
 ```
 
-Chibi Scheme, Rust and Node 26.4 or later are required. `shell.nix` provides
-them from the nixpkgs revision CI uses, and `.devcontainer/` packages the
-same tools for podman. [Getting started](doc/getting-started.md) covers
+Chez Scheme, Rust and Node 26.4 or later are required. `nix-shell` loads
+the tools from the same nixpkgs revision as CI. [Getting started](doc/getting-started.md) covers
 both, other package managers and Windows, and the checks. Cargo fetches
 Rust dependencies as needed. Run `npm ci` for GPU and image support on
 Node. A Node build is an npm package, which runs wherever it is copied.
 
 Programs link with Rust scalar services and run under WASI. The
-first run bootstraps the compiler, which takes about a minute: Chibi runs
-its source once, and the compiled compiler then rebuilds itself whenever
+first run bootstraps the compiler in about a minute. Chez runs its source
+once, and the compiled compiler then rebuilds itself whenever
 the source changes.
 
 ## Siegework

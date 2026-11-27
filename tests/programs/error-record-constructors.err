@@ -1,0 +1,8 @@
+duplicate record field: x
+missing record field: y
+unknown record field: z
+expected (field expression)
+construct records with (new Record (field expression) ...)
+construct records with (new Record (field expression) ...)
+not a constructor: Alias
+new requires a record

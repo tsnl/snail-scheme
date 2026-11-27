@@ -151,9 +151,8 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 
 Work inside `nix-shell`, which provides the pinned tools CI uses (`shell.nix`,
 pinned by `npins/`), Binaryen's `wasm-opt` among them. NixOS is the primary
-development platform. On a system without Nix, use the Nix devcontainer
-(`.devcontainer/`) and run `nix-shell` inside it
-([getting started](doc/getting-started.md)).
+development platform. See [getting started](doc/getting-started.md) for the
+pinned shell and platform-specific setup.
 
 Run the relevant checks locally and have them pass before pushing. A local
 run answers in minutes what CI answers in tens of minutes, and it reproduces
