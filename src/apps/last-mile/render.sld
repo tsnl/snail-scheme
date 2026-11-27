@@ -576,7 +576,6 @@
       ;; The last frame's work finishes before this one's is queued, so at
       ;; most one frame waits on the device, and the simulation of this frame
       ;; ran while the device drew the last.
-      ((● gpu work-done))
       (refresh! r gpu (● now game))
       (let* ((w (● now game))
              (canvas ((● gpu current-texture)))

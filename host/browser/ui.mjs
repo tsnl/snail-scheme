@@ -10,7 +10,7 @@ import {startPage, reportApplicationError} from './application.mjs';
 export async function startInterface({url, container, storageKey, session = false}) {
   const load = () => session ? loadSessionSave(storageKey) : loadSave(storageKey);
   const store = bytes => session ? storeSessionSave(storageKey, bytes) : storeSave(storageKey, bytes);
-  const runtime = createRuntime({size: () => [container.clientWidth, container.clientHeight],
+  const runtime = createRuntime({storageKey, size: () => [container.clientWidth, container.clientHeight],
     seed: (Math.random() * 65536) | 0, load, store,
     initial: () => [], reportError: reportApplicationError});
   const dom = createDom(container, runtime), requests = createFetch(runtime);

@@ -8,6 +8,7 @@ import {createCanvas, loadImage} from '@napi-rs/canvas';
 import {promisify} from 'node:util';
 import {openBrowser, sleep, until} from './chromium.mjs';
 import {serve} from './static.mjs';
+import {changeDisplay, checkFreshDisplay} from './game-display.mjs';
 import {blobPartSize, objectPath, partPath} from '../../host/browser/load.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
@@ -244,8 +245,7 @@ try {
   await until(async () => parseInt(await read('.time'), 10) % 12 === (fareHour + 6) % 12, 'time change during the fare');
   await expect('.stage', 'METER RUNNING');
 
-  await tap('1');
-  await expect('.speech', 'Leavenworth');
+  assert.equal(await browser.evaluate('document.querySelectorAll(".dispatch button").length'), 0);
   await until(() => browser.evaluate('document.querySelector(".route").style.backgroundImage.includes("polyline")'), 'GPS polyline');
   if (screenshot) await writeFile(screenshot, await until(visibleStreet, 'occupied taxi'));
   await tap('p');
@@ -253,6 +253,7 @@ try {
   await browser.evaluate("import('./application.mjs').then(({running}) => running[0].runtime.send(12))");
   await sleep(5500);
   assert.equal(await savedShift(), null, 'playing, hiding and changing settings leave the slot empty');
+  await changeDisplay(browser);
   await click('.save-game');
   await expect('.save-status', 'Shift saved.');
   const saved = await savedShift();
@@ -265,13 +266,14 @@ try {
   const before = [...objects];
   await browser.navigate(url);
   await ready();
+  await checkFreshDisplay(browser);
   await expect('.stage', 'PICKUP');
   await pause();
   await expectGraphics(1);
   assert.equal(await selection('#mouse-sensitivity'), 'Medium');
   await click('.load-game');
   await expect('.stage', 'METER RUNNING');
-  await expect('.speech', 'Leavenworth');
+  await expect('.message', 'Rosa');
   await until(visibleStreet, 'cached city, rider and taxi');
   assert.deepEqual([...objects], before);
   assert.ok((await read('.loading-bytes')).includes(totalMiB + ' MiB cached'));
@@ -305,7 +307,7 @@ try {
   await expect('.stage', 'METER RUNNING');
   await expect('.meter', '$4.00');
   await expect('h2', 'Jones Street');
-  await expect('.speech', 'Leavenworth');
+  await expect('.message', 'Rosa');
   await pause();
   await restart(false);
   await expect('.stage', 'SHIFT PAUSED');
@@ -322,6 +324,7 @@ try {
   assert.notDeepEqual(await savedShift(), saved, 'an explicit save replaces the old shift');
   await browser.navigate(url);
   await ready();
+  await checkFreshDisplay(browser);
   await expect('.stage', 'PICKUP');
   await pause();
   await click('.load-game');

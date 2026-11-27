@@ -3,7 +3,7 @@
 // provides, and drives the scheduler. This file holds the page's event
 // queue and its one save; (snail shell task) owns the tasks.
 import {programEntry} from './entry.mjs';
-import {byteSnapshot} from './load.mjs';
+import {byteSnapshot, byteView} from './load.mjs';
 import {createTasks, taskExports} from './tasks.mjs';
 
 export const FRAME = 11, HIDDEN = 12, SAVE = 16;
@@ -78,13 +78,15 @@ export function applicationEntry(program) {
 // Imports stay attached to the application. Async operations capture their
 // run before awaiting.
 export function createRuntime({size = () => [960, 640], seed = 1, load = async () => undefined,
-                               store = async () => {}, frames = null, initial = () => [[RESIZE, ...size()], [FRAME, 0]], reportError = () => {}, warn = console.warn} = {}) {
+                               store = async () => {}, storageKey = null, frames = null, initial = () => [[RESIZE, ...size()], [FRAME, 0]], reportError = () => {}, warn = console.warn} = {}) {
   let current = null;
   const pending = [];
   const run = () => {
     if (!current || current.queue.closed) throw new Error('the application has stopped');
     return current;
   };
+  const decoder = new TextDecoder();
+  const settingKey = address => 'snail:settings:' + JSON.stringify([storageKey, decoder.decode(byteView(run().entry.memory, address))]);
   const imports = {
     'snail.runtime.browser.events': {
       poll() {
@@ -120,6 +122,19 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       },
     },
     'snail.runtime.browser.storage': {
+      'read-setting'(fallback, address) {
+        if (!storageKey) return fallback;
+        try {
+          const text = localStorage.getItem(settingKey(address)), n = Number(text);
+          return text !== null && String(n) === text && (n | 0) === n ? n : fallback;
+        } catch { return fallback; }
+      },
+      'write-setting'(value, address) {
+        if (storageKey) {
+          try { localStorage.setItem(settingKey(address), String(value)); }
+          catch { /* The current session still uses the selected setting. */ }
+        }
+      },
       'start-load'(ticket) {
         const current = run();
         current.tasks.start(Number(ticket), async signal => {

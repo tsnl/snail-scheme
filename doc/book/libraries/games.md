@@ -2,13 +2,26 @@
 
 These libraries run on the CPU. An application chooses a fixed timestep and owns the game world, input, renderer and save.
 
+## Frame pacing
+
+`(snail shell game display)` gives a browser game a refresh divisor and a frame-time graph.
+Construct a `GameDisplay` from its `Clock` and `PageStorage`. Advance the simulation on
+each frame event. `(display-frame! display ms paused redraw)` returns the elapsed
+milliseconds for the camera when a draw is due. A divisor of three draws on every
+third animation callback. A resize or graphics change can request one immediate draw
+even while paused. Call `presented!` just after submitting the frame to the canvas and
+`interrupt-display!` when the page is hidden. The optional HUD shows submitted FPS
+and the longest interval in each quarter second over the last eight seconds.
+The guide marks 16.7 ms. The vertical scale reaches 100 ms and the numeric peak
+continues above it.
+
 ## Quests
 
 `(snail shell game quest)` exports `define-quest`. Supply the stage and event types and one row per transition. The generated function takes a stage and an ordered list of observations. It returns the result of the first applicable transition, or the original stage. Payloads bind in ordinary patterns, so a counted goal can carry its current count. A tick advances at most one stage. The application decides which observations the world supplies. [Quest example](https://github.com/tsnl/snail-scheme/blob/main/tests/programs/game-quest.sld) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/quest.sld)
 
 ## Dialogue
 
-`(snail shell game dialogue)` reads a `Dialogue` made of named passages, lines and ordered replies. Each reply names its destination. Construct the dialogue directly in an application library. The game saves a `Cursor` containing the passage ID and line index. `open-dialogue`, `continue-dialogue` and `answer-dialogue` return an optional cursor. An out-of-range answer keeps the current cursor. [Dialogue authoring](../games/last-mile.md#write-dialogue) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/dialogue.sld)
+`(snail shell game dialogue)` reads a `Dialogue` made of named passages, lines and ordered replies. Each reply names its destination. Construct the dialogue directly in an application library. The game saves a `Cursor` containing the passage ID and line index. `open-dialogue`, `continue-dialogue` and `answer-dialogue` return an optional cursor. An out-of-range answer keeps the current cursor. [Dialogue example](https://github.com/tsnl/snail-scheme/blob/main/tests/programs/game-dialogue.sld) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/dialogue.sld)
 
 ## Movement and boarding
 

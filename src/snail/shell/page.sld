@@ -21,6 +21,7 @@
    run-page)
   (import
    (snail core base)
+   (only (snail shell utf8) string->utf8)
    (only (snail core io) Host)
    (prefix (snail runtime browser events) host-)
    (prefix (snail runtime browser storage) host-)
@@ -61,13 +62,17 @@
 
     ;; One save slot. A store answers whether the transaction committed.
     (record PageStorage
-      ((load-count (Fn → I32))
+      ((read-setting (Fn String I32 → I32))
+       (write-setting (Fn String I32 → Unit))
+       (load-count (Fn → I32))
        (loaded-byte (Fn I32 → U8))
        (store-save (Fn Bytes → Bool))))
 
     ;; The page's saved state, through the browser host.
     (define (host-storage (host Host)) (→ PageStorage)
       (new PageStorage
+        (read-setting (lambda (name fallback) (host-read-setting fallback (string->utf8 name))))
+        (write-setting (lambda (name value) (host-write-setting value (string->utf8 name))))
         (load-count (lambda () (through-host host-start-load host-finish-load)))
         (loaded-byte host-byte)
         (store-save (lambda (bytes)
