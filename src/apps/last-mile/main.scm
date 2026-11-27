@@ -13,6 +13,7 @@
  (snail shell png)
  (snail shell game atlas)
  (snail shell game roads)
+ (only (snail shell game chassis) warm-traffic!)
  (only (snail shell game vehicle) DriverControls neutral-driver)
  (only (snail shell game boarding) aboard?)
  (only (snail shell dom) Dom)
@@ -260,6 +261,7 @@
          (models (map file (list "taxi.glb" "sedan.glb" "crew.glb" "horizon.glb")))
          (w (new-world)) (g (open-area atlas (● (carrier (● w game)) position))))
     (populate! g roads w)
+    (warm-traffic! g sedan (list-ref (● w cars) 0))
     (match (attempt-reading
             (lambda ()
               (make-renderer gpu renderer (lambda (paths) (map file paths)) models streets g w)))

@@ -199,6 +199,11 @@ try {
   assert.equal(await browser.evaluate("document.querySelector('#retry').hidden"), false);
   await click('#retry');
   await until(() => browser.evaluate('document.body && !document.body.dataset.error'), 'fresh retry');
+  await until(() => browser.evaluate(`(() => {
+    const bar = document.querySelector('progress[aria-label="City geometry"]');
+    return bar && bar.value > 0 && bar.value < bar.max;
+  })()`), 'street preparation progress', 90);
+  if (screenshot) await browser.screenshot(screenshot.replace(/\.png$/, '-prepare.png'));
   await ready();
   assert.equal(objects.get('/' + object('sf-1.bin')), 1, 'retry retained the completed transfer');
   assert.equal(objects.get('/' + object(legacyFile)), undefined, 'old IndexedDB bytes avoided a download');
@@ -382,6 +387,14 @@ try {
   assert.deepEqual([...objects], before);
   assert.ok((await read('.loading-bytes')).includes(totalMiB + ' MiB cached'));
   assert.equal(await browser.evaluate('document.body.dataset.error'), undefined);
+  await tap('m');
+  await browser.evaluate('[...document.querySelectorAll(".stand-dot")].find(node => node.title === "Hyde at Lombard").click()');
+  await expect('.picker', 'Hyde at Lombard');
+  await tap('Enter');
+  await expect('.message', 'Hyde at Lombard');
+  await until(async () => (await streetChart())?.box === local.box, 'return to the starting neighborhood');
+  assert.deepEqual(await browser.evaluate('window.visibleStreets'), near, 'the return trip reuses the original buffers');
+  assert.equal(await browser.evaluate('window.streetMeshes'), resident);
   const oldShift = await readFile(join(root, 'tests/programs/data/taxi-v3.save'));
   await browser.evaluate(`import('./storage.mjs').then(m => m.storeSave('last-mile-sf-taxi-v1', Uint8Array.of(${[...oldShift]})))`);
   await pause();
