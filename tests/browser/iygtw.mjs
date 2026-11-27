@@ -7,6 +7,7 @@ import {promisify} from 'node:util';
 import {createCanvas, loadImage} from '@napi-rs/canvas';
 import {openBrowser, until} from './chromium.mjs';
 import {serve} from './static.mjs';
+import {changeDisplay, checkFreshDisplay} from './game-display.mjs';
 import {blobPartSize, objectPath, partPath} from '../../host/browser/load.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
@@ -154,12 +155,14 @@ try {
   await click('.save-game');
   await until(async () => await text('.save-status') === 'Could not save this ride.', 'aborted save reported');
   assert.deepEqual(await browser.evaluate(`import('./storage.mjs').then(async m => [...await m.loadSave('iygtw-willowbank-v1')])`), [255]);
+  await changeDisplay(browser);
   await click('.save-game');
   await until(async () => await text('.save-status') === 'Ride saved.', 'manual save committed');
 
   offline = true; const before = fetched, saved = await metres();
   await browser.navigate('http://127.0.0.1:' + server.address().port);
   await ready();
+  await checkFreshDisplay(browser);
   assert.equal(await metres(), 0);
   assert.equal(await text('.surface'), 'Paved lane');
   await click('.pause');

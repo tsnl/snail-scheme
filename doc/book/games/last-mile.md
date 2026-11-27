@@ -20,14 +20,13 @@ python3 -m http.server 4193 --bind 127.0.0.1 --directory build/src/apps/last-mil
 | Mouse / C | Click to capture and look around, or right-drag. C recentres the driving camera. Escape releases the mouse. |
 | M | Switch between the local minimap and the city map. While waiting, click a cab stand or use [ and ] to select one, then Enter to start there with a stopped cab. |
 | L | Advance six hours during the shift. One real second normally advances the clock one game minute. |
-| 1–9 / T | Choose a dialogue reply or continue. Replies also accept mouse and keyboard focus. |
 | P / Pause | Open the pause menu. Save or load a shift, resume driving, recover the cab, restart or change settings. |
 
-A glowing 5.5-metre ring marks the active stop on the street. It clears when the receipt is paid and follows the next dispatch, including consecutive pickups at the same curb. The local minimap draws street widths, buildings, names, parks and water as vectors from the nine resident sectors. The route and cab marker stay sharp as the map follows the cab. M opens a separate citywide overview. The gold diamond marks the next curb. The traced line and turn instruction follow the directed street graph. The meter charges a fictional $4 flag drop and $0.50 for every 160 metres driven with the passenger aboard. Opening the page starts a fresh shift. In the pause menu, **Save game** records the time, riders, traffic, cab position, dialogue, receipts, earnings and settings in this browser. **Load game** resumes the last saved shift, including saves from earlier versions. You can restart a shift and still load the old one until you choose **Save game** again.
+A glowing 5.5-metre ring marks the active stop on the street. It clears when the receipt is paid and follows the next dispatch, including consecutive pickups at the same curb. The local minimap draws street widths, buildings, names, parks and water as vectors from the nine resident sectors. The route and cab marker stay sharp as the map follows the cab. M opens a separate citywide overview. The gold diamond marks the next curb. The traced line and turn instruction follow the directed street graph. The meter charges a fictional $4 flag drop and $0.50 for every 160 metres driven with the passenger aboard. Opening the page starts a fresh shift. In the pause menu, **Save game** records the time, riders, traffic, cab position, receipts, earnings and settings in this browser. **Load game** resumes the last saved shift, including saves from earlier versions. You can restart a shift and still load the old one until you choose **Save game** again.
 
-The cab renders at the canvas’s full pixel resolution on each browser animation frame while driving. The pause menu redraws the street when the size or MSAA setting changes. In the pause menu choose 1× or 4× MSAA. The dashboard shows the actual dimensions and sample count. Moving headlights and brake lights follow the model sockets. Stationary lights are grouped by street cell, and the sky and shadows follow the shift clock. The city reuses its facade textures while preparing upcoming sectors. [Forward rendering](../graphics/rasterizer.md).
+The cab renders at the canvas’s full pixel resolution. By default it draws on every browser animation frame. **Refresh divisor** in the pause menu accepts a positive whole number. On a 60 Hz display, 2 targets 30 FPS. **FPS and frame times** toggles the eight-second graph in the upper right. The browser remembers these display preferences across shifts. The pause menu redraws the street when the size or MSAA setting changes. In the pause menu choose 1× or 4× MSAA. The dashboard shows the actual dimensions and sample count. Moving headlights and brake lights follow the model sockets. Stationary lights are grouped by street cell, and the sky and shadows follow the shift clock. The city reuses its facade textures while preparing upcoming sectors. [Forward rendering](../graphics/rasterizer.md).
 
-**Recover cab** seats the driver in a stopped cab on a nearby clear lane. The current fare, meter, earnings, dialogue and shift clock carry over. **Restart game** asks for confirmation and starts a new shift at Hyde and Lombard with Rosa waiting and zero earnings. Graphics and mouse settings carry over to the new game. Saves from the earlier driving model resume with their fare and street population.
+**Recover cab** seats the driver in a stopped cab on a nearby clear lane. The current fare, meter, earnings and shift clock carry over. **Restart game** asks for confirmation and starts a new shift at Hyde and Lombard with Rosa waiting and zero earnings. Graphics and mouse settings carry over to the new game. Saves from the earlier driving model resume with their fare and street population.
 
 ## Measure a shift
 
@@ -71,29 +70,6 @@ For a job whose completion depends on several observations, use the reusable `de
 ```
 
 Call `(advance stage observations)` each tick. The first applicable event wins. The taxi’s fare takes a shorter path through waiting, hired and paid. Its payment and receipt update together in the transition to paid.
-
-## Write dialogue
-
-Edit `src/apps/last-mile/lines.sld`, which exports `conversation` as a `Dialogue`. Each `Passage` has a stable ID, spoken lines and ordered replies. Each `Reply` names its destination passage:
-
-```scheme
-(new Dialogue
-  (start "passenger")
-  (pages
-   (list
-    (new Passage
-      (id "passenger")
-      (lines (list "Rosa: Jones Street, please."))
-      (choices (list (new Reply (text "Which turn?") (next "directions")))))
-    (new Passage
-      (id "directions")
-      (lines (list "Rosa: Down Lombard, then left on Jones."))
-      (choices (Nil))))))
-```
-
-The game imports this ordinary library and saves only the passage ID and line index. Keep IDs and line positions stable when editing an existing conversation so saved shifts still point to the same dialogue.
-
-`open-dialogue` opens the cursor, `spoken` reads it, and `replies` gives the available choices. Use `answer-dialogue` with a zero-based index, or `continue-dialogue` to move past a line. Continuing past the last line of a passage with no replies ends the conversation. [Dialogue library](../libraries/games.md#dialogue)
 
 ## Swap the art
 

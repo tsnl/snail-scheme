@@ -52,3 +52,11 @@ body[data-ready] .controls { z-index: 2; }
 .pause-actions button { padding: .55rem .7rem; border: 1px solid #d2cfb57a; border-radius: 3px; }
 .pause-actions .resume { background: #f1ddb0; color: #24372c; border-color: #f1ddb0; }
 body:has(.pause-screen:not([hidden])) :is(.options, .controls) { visibility: hidden; }
+
+.frame-meter { position: fixed; top: 12px; right: 16px; padding: 5px 8px; border-radius: 3px; background: #14201de6; color: #f3f3de; font: 11px/1.25 "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; text-align: right; pointer-events: none; }
+.frame-plot { display: block; width: 128px; height: 22px; margin-top: 3px; background: linear-gradient(to top, transparent 16%, #c0d9c977 16%, #c0d9c977 20%, transparent 20%); }
+.frame-plot i { display: block; height: 100%; background: linear-gradient(to top, #96d6b0 0 32%, #f1c36a 32% 60%, #f09278 60%); }
+.frame-plot i[style=""] { visibility: hidden; }
+body[data-ready]:has(.frame-meter:not([hidden])) .options { top: 66px; right: 16px; }
+.refresh-divisor { width: 5em; font: inherit; color: inherit; background: #293d35; border: 1px solid #a7b6a5; border-radius: 3px; padding: .25em .4em; }
+.refresh-divisor[aria-invalid="true"] { outline: 2px solid #ed996d; }

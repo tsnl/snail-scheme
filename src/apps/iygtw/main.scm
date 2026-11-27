@@ -1,6 +1,7 @@
 (import
  (snail core base)
  (snail core io)
+ (only (snail shell game display) display-frame! presented! interrupt-display! change-display!)
  (snail core table)
  (snail shell wire)
  (snail shell app)
@@ -26,6 +27,7 @@
 (record Controls
   ((keys (List I32))
    (paused Bool)
+   (redraw Bool)
    (captured Bool)
    (yaw F64)
    (pitch F64)
@@ -34,7 +36,7 @@
    (carry I64)
    (seconds F64)))
 (define (controls (r Ride)) (→ Controls)
-  (new Controls (keys (Nil)) (paused #f) (captured #f) (yaw 0.0) (pitch 0.14) (zoom 5.2)
+  (new Controls (keys (Nil)) (paused #f) (redraw #t) (captured #f) (yaw 0.0) (pitch 0.14) (zoom 5.2)
        (before r) (carry 0) (seconds 0.0)))
 (define (held? (c Controls) (a I32) (b I32)) (→ Bool)
   (or (member? a (● c keys)) (member? b (● c keys))))
@@ -43,6 +45,7 @@
 (define (resume-ride! (c Controls) (r Renderer) (s Ride)) (→ Ride)
   (set! (● c keys) (Nil))
   (set! (● c paused) #f)
+  (set! (● c redraw) #t)
   (set! (● c before) s)
   (set! (● c carry) 0)
   (recenter! c)
@@ -69,6 +72,7 @@
 (define (input! (d Dom) (h Hud) (v Valley) (r Renderer) (c Controls) (s Ride) (input Input))
   (→ Ride)
   (match input
+    ((Resize _ _) (set! (● c redraw) #t) s)
     ((KeyDown k _)
      (if (or (member? k (● c keys)) (and (● c paused) (not (member? k (list 112 27 114))))) s
          (begin
@@ -109,20 +113,35 @@
                   (match (next-event events)
                     ((FrameEvent ms)
                      (let* ((next (advance! v r c s ms)) (due (>= (+ since ms) 120)))
-                       (draw! r gpu (● c before) next (/ (i64->f64 (● c carry)) 20.0)
-                              (● c seconds) (● c yaw) (● c pitch) (● c zoom) ms)
+                       (match (display-frame! (● h display) ms (● c paused) (● c redraw))
+                         ((Some elapsed)
+                          (draw! r gpu (● c before) next (/ (i64->f64 (● c carry)) 20.0)
+                                 (● c seconds) (● c yaw) (● c pitch) (● c zoom) elapsed)
+                          (set! (● c redraw) #f)
+                          (unless (● c paused) (presented! (● h display)))
+                          ((● gpu work-done)))
+                         (_ (unit)))
                        (when due (show! d h v next (● c paused))
                              (coast! d
                                      h
                                      (abs (signed-speed (● next bike)))
                                      (and (not (● c paused)) (not (held? c 119 3)))))
-                       ((● events report-ready)) (loop next (if due 0 (+ since ms)))))
-                    ((InputEvent e) (loop (input! d h v r c s e) 200))
+                       ((● events report-ready))
+                       (loop next (if due 0 (+ since ms)))))
+                    ((InputEvent e) (loop (input! d h v r c s e)
+                                          (match e
+                                            ((KeyDown _ _) 200)
+                                            ((PointerLock _) 200)
+                                            (_ since))))
                     ((HudEvent id)
                      (match (root-message (● h view) id (fired-event events))
                        ((Some (RideKey key))
                         (loop (action! d h v r c s key) 200))
+                       ((Some (AdjustDisplay change))
+                        (when (● c paused) (change-display! (● h display) change))
+                        (loop s 200))
                        ((Some (SetSamples samples))
+                        (set! (● c redraw) #t)
                         (loop (Ride-samples-set s samples) 200))
                        ((Some (SaveRide))
                         (when (● c paused)
@@ -133,12 +152,16 @@
                         (loop (if (● c paused) (load-ride! h v r c s storage) s) 200))
                        ((Some (FocusControl target)) (focus-control! d target) (loop s since))
                        (_ (loop s since))))
-                    ((Hidden) (set! (● c keys) (Nil)) (coast! d h 0.0 #f) (loop s 200))
+                    ((Hidden)
+                     (interrupt-display! (● h display))
+                     (set! (● c keys) (Nil))
+                     (coast! d h 0.0 #f)
+                     (loop s 200))
                     (_ (loop s since))))))
 
 ;; ---- One-time village download ----
 
-(define (open-valley (config RendererConfig)
+(define (open-valley (config RendererConfig) (clock Clock)
                      (events Events)
                      (gpu Gpu)
                      (dom Dom)
@@ -156,7 +179,8 @@
                                                                (file "surfaces.bin")
                                                                (file "waymarks.bin"))
                                                   (read-basins (file "basins.bin"))))
-                            (h (make-hud dom (file "freewheel.wav") (file "bell.wav")))
+                            (h
+                             (make-hud dom clock storage (file "freewheel.wav") (file "bell.wav")))
                             (s (start-ride v)))
                        (match (attempt-reading
                                (lambda () (make-renderer gpu config v
@@ -166,7 +190,7 @@
                                                          s)))
                          ((Ok r) (play events gpu dom h v r s storage))
                          ((Err why) (write-line out why) (panic why)))))
-(define (main (events Events)
+(define (main (clock Clock) (events Events)
               (gpu Gpu)
               (dom Dom)
               (fetch Fetch)
@@ -178,7 +202,7 @@
                                     ((Ok catalog) (acquire-files store url catalog progress)))))
                 (match result
                   ((Ok files)
-                   (open-valley (page-renderer-config fetch picker)
+                   (open-valley (page-renderer-config fetch picker) clock
                                 events
                                 gpu
                                 dom

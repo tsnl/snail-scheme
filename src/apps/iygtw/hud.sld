@@ -7,6 +7,7 @@
           SaveRide
           LoadRide
           SetSamples
+          AdjustDisplay
           FocusControl
           focus-control!
           start-sound!
@@ -14,6 +15,9 @@
           coast!)
   (import
    (snail core base)
+   (only (snail core io) Clock)
+   (only (snail shell page) PageStorage)
+   (snail shell game display)
    (snail shell dom)
    (prefix (snail shell ui) ui:)
    (snail shell static-resource)
@@ -51,6 +55,7 @@
         (progress (new StaticProgress (downloaded 0) (cached 0) (total 0))) progress))
 
     (enum HudAction
+      (AdjustDisplay ((change DisplayChange)))
       (RideKey ((key I32)))
       (SaveRide)
       (LoadRide)
@@ -58,16 +63,20 @@
       (FocusControl ((id String))))
     (record Hud
       ((view (ui:Root HudAction))
+       (display GameDisplay)
        (paused Bool)
        (save-status String)
        (hub-url String)
        (bell-url String)
        (hub (Option Node))
        (bell (Option Node))))
-    (define (make-hud (d Dom) (hub Bytes) (bell Bytes)) (→ Hud)
-      (new Hud (view (ui:render-root d ((● d document-root)))) (paused #f) (save-status "")
-           (hub-url (data-url "audio/wav" hub)) (bell-url (data-url "audio/wav" bell))
-           (hub (None)) (bell (None))))
+    (define (make-hud (d Dom) (clock Clock) (storage PageStorage) (hub Bytes) (bell Bytes)) (→ Hud)
+      (new Hud
+        (view (ui:render-root d ((● d document-root))))
+        (display (game-display clock storage))
+        (paused #f) (save-status "")
+        (hub-url (data-url "audio/wav" hub)) (bell-url (data-url "audio/wav" bell))
+        (hub (None)) (bell (None))))
 
     ;; ---- Pause menu ----
 
@@ -103,7 +112,8 @@
                                   (RideKey 114)
                                   "Reset to Lantern Row"
                                   (list (ui:Attr "id" "ride-reset") wrap))))))
-    (define (pause-panel (samples I32) (paused Bool) (status String)) (→ (ui:Html HudAction))
+    (define (pause-panel (samples I32) (paused Bool) (display GameDisplay) (status String))
+      (→ (ui:Html HudAction))
       (let* ((dialog (list (ui:Attr "class" "pause-screen")
                            (ui:Attr "role" "dialog")
                            (ui:Attr "aria-modal" "true")
@@ -111,7 +121,12 @@
                            (ui:FlagProperty "hidden" (not paused))))
              (title (ui:Element "h2" (Nil) (list (ui:Text "Ride paused"))))
              (legend (ui:Element "legend" (Nil) (list (ui:Text "Rendering"))))
-             (settings (ui:Element "fieldset" (Nil) (list legend (sample-picker samples))))
+             (settings (ui:Element "fieldset"
+                                   (Nil)
+                                   (append (list legend (sample-picker samples))
+                                           (display-settings display
+                                                             (lambda (a) (AdjustDisplay a))
+                                                             (RideKey 112)))))
              (panel (ui:Element "div"
                                 (list (ui:Attr "class" "pause-panel"))
                                 (list title settings (pause-actions)
@@ -184,7 +199,8 @@
       (ui:render! (● h view)
                   (list (waymark v s)
                         (ride-buttons v s paused)
-                        (pause-panel (● s samples) paused (● h save-status))))
+                        (pause-panel (● s samples) paused (● h display) (● h save-status))
+                        (meter-view (● h display))))
       (when (if paused (not (● h paused)) (● h paused))
         (unless paused (set! (● h save-status) ""))
         (set! (● h paused) paused)
