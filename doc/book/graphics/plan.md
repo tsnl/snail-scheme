@@ -404,7 +404,7 @@ WebGPU implementation inside Chromium, through Dawn's own Node binding,
 package publishes it prebuilt. The repository's `package.json` pins it and
 `npm ci` installs it; a Node build of a program that may ask for a
 device depends on the same version
-([a Node package](../snail-scheme/projects.md#a-node-package)). On Linux,
+([a Node package](../snail-scheme/workspaces.md#a-node-package)). On Linux,
 Dawn reaches the GPU through Vulkan, opening the loader by name, and the
 loader finds the system's driver. NixOS keeps no loader where the dynamic
 linker looks, so `shell.nix` names nixpkgs' in `LD_LIBRARY_PATH`; outside

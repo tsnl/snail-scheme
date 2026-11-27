@@ -32,6 +32,7 @@ runnable = false
 # Pages that moved, for links and bookmarks to them. The Libraries chapter
 # became the library reference (#903); its sections moved with it.
 [output.html.redirect]
+"/snail-scheme/projects.html" = "workspaces.html"
 "/snail-scheme/libraries.html" = "../libraries/index.html"
 "/snail-scheme/libraries.html#input-and-output-ports" = "../libraries/core.html#ports"
 "/snail-scheme/libraries.html#files-and-directories" = "../libraries/core.html#files-and-directories"

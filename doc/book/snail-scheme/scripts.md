@@ -8,17 +8,17 @@ it. `snail-scheme` behaves like an interpreter first and a compiler second:
 ./snail-scheme build --target browser --release src/apps/siegework/main.scm
 ```
 
-There is no project file, no target registry, no planner and no development
-service: what is built, and for which platform, is on the command line.
-[Workspaces and builds](projects.md) describes the output and how one build
+The command line names the script and target platform.
+[Workspaces and builds](workspaces.md) describes the output and how one build
 embeds another.
 
 ## The workspace
 
-A workspace is a folder that contains `src/`. Every library lives under `src/`,
-at the path its name gives, and every import resolves there. That is the whole
-rule. It is built for this repository's monorepo and nothing more. The editor's
-open folder is the workspace the language server uses.
+The nearest ancestor with `snail-scheme-workspace.datum` is the script's
+workspace. It can extend one local base. Each folder in the chain is a layer
+whose `src/` contributes to the shared library tree for builds and editor
+checks. Standalone trees without a declaration use the nearest `src/` and
+the standard libraries.
 
 A script may sit anywhere in the workspace. Since imports resolve under `src/`,
 an application keeps its script beside its libraries:
@@ -196,7 +196,7 @@ the generation's `store/` holds another name for it, as above
 
 A program that serves another, such as a server shipping its browser
 client, embeds that build through a generated library whose producer builds
-it ([embedding a build](projects.md#embedding-a-build)). A producer that
+it ([embedding a build](workspaces.md#embedding-a-build)). A producer that
 imports the compiler compiles the compiler on every build; that is accepted
 for now.
 
