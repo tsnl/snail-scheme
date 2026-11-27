@@ -46,11 +46,13 @@ On an RTX 5090 with NVIDIA driver 595.104.02, Chromium Vulkan, a 1920×1080 view
 
 | Route | Raster p50 | Ray traversal p50 | Total p50, 2 bounces | Total p95, 2 bounces | Total p50, 1 bounce |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Lantern Row | 0.20 | 10.73 | 15.55 | 17.12 | 9.91 |
-| Mill Bridge | 0.18 | 10.40 | 14.98 | 15.97 | 9.73 |
-| Orchard | 0.17 | 6.65 | 10.84 | 11.42 | 9.06 |
+| Lantern Row | 0.21 | 10.76 | 15.80 | 17.46 | 10.14 |
+| Mill Bridge | 0.19 | 10.53 | 15.22 | 16.14 | 9.82 |
+| Orchard | 0.17 | 6.68 | 10.97 | 11.58 | 9.06 |
 
-With instrumentation off, all three routes averaged 30 completed frames per second. The 95th-percentile interval between completed frames was 34.4–35.8 ms. The game caps presentation at 30 fps.
+With instrumentation off, all three routes averaged 30 completed frames per second. The 95th-percentile interval between completed frames was 34.2–34.8 ms. The game caps presentation at 30 fps.
+
+The exported village, bicycle, rider and dog occupy 133,483,520 bytes of shared vertex storage. On adapters exposing a 128 MiB storage-binding limit, the remaining 734,208 bytes hold 11,472 vertices. That capacity matters separately from rasterization time when adding geometry.
 
 ## Editing Willowbank
 
