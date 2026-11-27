@@ -1,0 +1,20 @@
+Game 1
+[1] Choose: rock (r), paper (p), or scissors (s): Invalid choice, try again
+[2] Choose: rock (r), paper (p), or scissors (s): Invalid choice, try again
+[3] Choose: rock (r), paper (p), or scissors (s): You chose: Paper
+Computer chose: Rock
+Outcome: You won
+Game 2
+[1] Choose: rock (r), paper (p), or scissors (s): You chose: Paper
+Computer chose: Paper
+Outcome: You tied
+Game 3
+[1] Choose: rock (r), paper (p), or scissors (s): You chose: Scissors
+Computer chose: Rock
+Outcome: You lost
+Game 4
+[1] Choose: rock (r), paper (p), or scissors (s): You chose: Rock
+Computer chose: Rock
+Outcome: You tied
+Game 5
+[1] Choose: rock (r), paper (p), or scissors (s): 
