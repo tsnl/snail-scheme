@@ -1,13 +1,14 @@
 ;; Trace a stationary camera into an offscreen RGBA texture. The caller owns
 ;; the tracer, so another view can reuse the pipelines, geometry and BVH.
 (define-library (snail shell graphics still)
-  (export render-still read-rgba read-plane read-traced-radiance trace-reference)
+  (export render-still read-rgba read-plane read-traced-radiance trace-reference trace-film)
   (import
    (snail core base)
    (snail shell gpu)
    (snail shell graphics pod)
    (snail shell graphics kernel)
    (snail shell graphics raster)
+   (only (snail shell graphics upscale) jitter-camera sample-phase)
    (only (snail shell graphics trace shaders) reference-shader)
    (snail shell graphics trace render))
   (begin
@@ -65,54 +66,79 @@
     ;; mapping. The blended first-hit layer, when present, follows the opaque layer.
     (define (trace-reference (gpu Gpu) (t Tracer) (camera Camera3D) (spread F32)
                              (bounces I64) (seed I32) (samples I64)) (→ Bytes)
-                             (unless (and (> samples 0) (<= samples 4096))
-                               (panic "reference samples must be in 1..4096"))
-                             (let* ((n (observations t))
-                                    (sum (storage-buffer gpu
-                                                         "reference/mean"
-                                                         (* 16 n)
-                                                         (list (CopySrc))))
-                                    (scale (uniform-buffer gpu
-                                                           "reference/scale"
-                                                           (pod-bytes f32-shape
-                                                                      (/ 1.0 (i64->f32 samples)))))
-                                    (module
-                                     ((● gpu create-shader-module) (new ShaderModuleDescriptor
-                                                                     (label "reference")
-                                                                     (code reference-shader))))
-                                    (add (compute-kernel gpu module "reference" "accumulate"))
-                                    (group (kernel-group gpu
-                                                         add
-                                                         0
-                                                         "reference"
-                                                         (list
-                                                          (BufferEntry 0 (● t targets radiance) 0 0)
-                                                          (BufferEntry 1 sum 0 0)
-                                                          (BufferEntry 2 scale 0 0)))))
-                               (for-each (lambda (i)
-                                           (let ((encoder ((● gpu create-command-encoder))))
-                                             (encode-trace-observation gpu
-                                                                       encoder
-                                                                       t
-                                                                       camera
-                                                                       spread
-                                                                       bounces
-                                                                       (+ seed (i64->i32 i)))
-                                             (let ((pass ((● gpu begin-compute-pass) encoder)))
-                                               ((● gpu set-compute-pipeline) pass add)
-                                               ((● gpu set-compute-bind-group) pass 0 group)
-                                               (dispatch-items gpu pass n 64)
-                                               ((● gpu end-compute-pass) pass))
-                                             ((● gpu submit) (list ((● gpu finish) encoder)))
-                                             (when (= (modulo i 8) 7) ((● gpu work-done)))))
-                                         (iota samples))
-                               (let ((bytes (read-radiance-buffer gpu sum n)))
-                                 (for-each (lambda (o) ((● gpu destroy) o))
-                                           (list (BufferObject sum)
-                                                 (BufferObject scale)
-                                                 (BindGroupObject group)
-                                                 (ComputePipelineObject add) (ModuleObject module)))
-                                 bytes)))
+                             (average-radiance gpu
+                                               t
+                                               (lambda (_) camera)
+                                               spread
+                                               bounces
+                                               seed
+                                               samples))
+
+    ;; Integrate over a pixel's area as well as light paths. The unjittered
+    ;; camera defines the film center; each sample re-rasterizes visibility.
+    (define (trace-film (gpu Gpu) (t Tracer) (camera Camera3D) (spread F32)
+                        (bounces I64) (seed I32) (samples I64)) (→ Bytes)
+                        (let ((w (● t targets width)) (h (● t targets height)))
+                          (average-radiance gpu
+                                            t
+                                            (lambda (i)
+                                              (jitter-camera camera (sample-phase i) w h))
+                                            spread bounces seed samples)))
+
+    (define (average-radiance (gpu Gpu) (t Tracer) (view (Fn I32 → Camera3D)) (spread F32)
+                              (bounces I64) (seed I32) (samples I64)) (→ Bytes)
+                              (unless (and (> samples 0) (<= samples 4096))
+                                (panic "reference samples must be in 1..4096"))
+                              (let* ((n (observations t))
+                                     (sum (storage-buffer gpu
+                                                          "reference/mean"
+                                                          (* 16 n)
+                                                          (list (CopySrc))))
+                                     (scale (uniform-buffer gpu
+                                                            "reference/scale"
+                                                            (pod-bytes f32-shape
+                                                                       (/ 1.0 (i64->f32 samples)))))
+                                     (module
+                                      ((● gpu create-shader-module) (new ShaderModuleDescriptor
+                                                                      (label "reference")
+                                                                      (code reference-shader))))
+                                     (add (compute-kernel gpu module "reference" "accumulate"))
+                                     (group (kernel-group gpu
+                                                          add
+                                                          0
+                                                          "reference"
+                                                          (list
+                                                           (BufferEntry 0
+                                                                        (● t targets radiance)
+                                                                        0
+                                                                        0)
+                                                           (BufferEntry 1 sum 0 0)
+                                                           (BufferEntry 2 scale 0 0)))))
+                                (for-each (lambda (i)
+                                            (let ((encoder ((● gpu create-command-encoder))))
+                                              (encode-trace-observation gpu
+                                                                        encoder
+                                                                        t
+                                                                        (view (+ seed (i64->i32 i)))
+                                                                        spread
+                                                                        bounces
+                                                                        (+ seed (i64->i32 i)))
+                                              (let ((pass ((● gpu begin-compute-pass) encoder)))
+                                                ((● gpu set-compute-pipeline) pass add)
+                                                ((● gpu set-compute-bind-group) pass 0 group)
+                                                (dispatch-items gpu pass n 64)
+                                                ((● gpu end-compute-pass) pass))
+                                              ((● gpu submit) (list ((● gpu finish) encoder)))
+                                              (when (= (modulo i 8) 7) ((● gpu work-done)))))
+                                          (iota samples))
+                                (let ((bytes (read-radiance-buffer gpu sum n)))
+                                  (for-each (lambda (o) ((● gpu destroy) o))
+                                            (list (BufferObject sum)
+                                                  (BufferObject scale)
+                                                  (BindGroupObject group)
+                                                  (ComputePipelineObject add)
+                                                  (ModuleObject module)))
+                                  bytes)))
 
     (define (render-still (gpu Gpu) (tracer Tracer) (camera Camera3D) (samples I64)
                           (bounces I64) (exposure F32)) (→ (Pair Tracer Bytes))
