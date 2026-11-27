@@ -1,4 +1,4 @@
-step 4
+step 5
 <div><button id="next" @click>next</button><span>two</span><em>tail</em><input .disabled=false></input><ul><li>c</li><li>b</li></ul></div>
 create-element 1 div
 create-element 2 button
@@ -58,4 +58,5 @@ fire next click #2
 remove 13
 remove 19
 insert 9 into 8
+fire next click #2
 close

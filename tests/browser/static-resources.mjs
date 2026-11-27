@@ -96,6 +96,23 @@ try {
   await until(async () => await progress() === '0/8/8' && await result() === '2', 'fully cached reload');
   assert.deepEqual(requests, [first, second, second]);
 
+  // Keep the finished IndexedDB objects alive. Autosave must release its
+  // handlers as soon as the transaction completes, independently of GC.
+  assert.equal(await browser.evaluate(`(async () => {
+    const {storeSave} = await import('./storage.mjs');
+    const open = IDBFactory.prototype.open, transaction = IDBDatabase.prototype.transaction;
+    let request, tx;
+    try {
+      IDBFactory.prototype.open = function(...args) { return request = open.apply(this, args); };
+      IDBDatabase.prototype.transaction = function(...args) { return tx = transaction.apply(this, args); };
+      await storeSave('handler-lifetime-test', new Uint8Array([1]));
+      return [request.onsuccess, request.onerror, request.onupgradeneeded, tx.oncomplete, tx.onabort].every(fn => fn === null);
+    } finally {
+      IDBFactory.prototype.open = open;
+      IDBDatabase.prototype.transaction = transaction;
+    }
+  })()`), true);
+
   const cache = await browser.evaluate(`(async () => {
     const {readLinkedFile, readImmutable} = await import('./storage.mjs');
     const hash = async b => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', b)), n => n.toString(16).padStart(2, '0')).join('');

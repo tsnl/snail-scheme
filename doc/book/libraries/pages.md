@@ -62,10 +62,9 @@ listener's id. A command is work run as a task, whose answer is a message
 posted to the interface's mailbox. The window's listeners are a list the
 model gives, since the window is no node of the tree.
 
-A program with a loop of its own, as a scene's HUD has, shows trees itself:
-`patch-children` keeps a node's children equal to a list of trees, and
-`listener-table` finds the function of a listener that fired
-([document interfaces](../snail-scheme/applications.md#document-interfaces)).
+A game can own its frame loop and use the same reconciler. Create a root once with `(render-root dom parent)`, then call `(render! root children)` with the current view. The root remembers the children it mounted. To unmount them, render an empty list. `(root-message root id event)` dispatches through the current view’s handler for that listener.
+
+Children with matching tags and keys in the same positions compare their properties and descendants directly. Changed sibling lists use the keyed placement pass. A changed label updates its existing text node. A listener keeps its DOM registration while its event, captures and prevention rules agree, including when a later view gives it a new message function. Willowbank uses this path for download progress, ride instruments and pause controls. [Document interfaces](../snail-scheme/applications.md#document-interfaces)
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/ui.sld)
 

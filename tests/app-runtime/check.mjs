@@ -1,11 +1,13 @@
 // Real static and dynamically linked Wasm: a scene script's main as a
 // `snail-scheme` task, its saves, and how a run ends.
 import assert from 'node:assert/strict';
+import {getEventListeners} from 'node:events';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {applicationEntry, createEventQueue, createRuntime, FRAME, HIDDEN} from '../../host/browser/runtime.mjs';
 import {createOverlay, widget, text, fire} from '../document.mjs';
 import {createDom} from '../../host/browser/dom.mjs';
+import {createFetch} from '../../host/browser/fetch.mjs';
 import {createGpu} from '../../host/browser/gpu.mjs';
 import {fakeGpu, fakeCanvas} from '../fake-gpu.mjs';
 import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
@@ -47,6 +49,47 @@ async function checkQueue() {
   abortable.close();
 }
 
+// A delivered stream message must release its waiter's abort listener even
+// if the same run keeps the connection open to receive thousands more.
+async function checkStreamWaits() {
+  let source, pending;
+  const NativeSource = globalThis.EventSource;
+  globalThis.EventSource = class extends EventTarget {
+    constructor() { super(); source = this; }
+    close() {}
+  };
+  try {
+    const controller = new AbortController(), {signal} = controller;
+    const memory = new WebAssembly.Memory({initial: 1});
+    const spec = new TextEncoder().encode('/updates\0message');
+    new DataView(memory.buffer).setUint32(0, spec.length, true);
+    new Uint8Array(memory.buffer, 4, spec.length).set(spec);
+    const tasks = {start(ticket, read) { pending = Promise.resolve(read(signal)); }};
+    const {imports, reset} = createFetch({execution: {entry: {memory}, tasks}});
+    const id = imports['stream-open'](0);
+    const next = () => { imports['stream-start'](1, id); return pending; };
+    const message = () => source.dispatchEvent(new MessageEvent('message', {data: 'one'}));
+    const listeners = () => getEventListeners(signal, 'abort').length;
+    for (let i = 0; i < 4; i++) {
+      const waiting = next();
+      assert.equal(listeners(), 1);
+      message(); assert.equal(await waiting, 'message\0one');
+      message(); assert.equal(await next(), 'message\0one', 'buffered event');
+      assert.equal(listeners(), 0);
+    }
+    const closed = next();
+    reset(); assert.equal(await closed, null); assert.equal(listeners(), 0);
+    const other = imports['stream-open'](0);
+    imports['stream-start'](2, other); controller.abort();
+    await assert.rejects(pending, {name: 'AbortError'});
+    assert.equal(listeners(), 0);
+    reset();
+  } finally {
+    if (NativeSource) globalThis.EventSource = NativeSource;
+    else delete globalThis.EventSource;
+  }
+}
+
 function checkFrames() {
   let next = 0;
   const scheduled = new Map(), cancelled = [];
@@ -69,7 +112,7 @@ function checkFrames() {
     return queue.poll()[1];
   }
   refresh(stamp);
-  for (const hz of [60, 120, 144]) {
+  for (const hz of [60, 120, 144, 240]) {
     let ms = 0;
     for (let i = 1; i <= hz; i++) ms += refresh(stamp + i * 1000 / hz);
     assert.equal(ms, 1000, hz + ' display intervals add up to one second');
@@ -119,8 +162,12 @@ async function checkStartup() {
   await until(() => observed.count === '2');
   runtime.send(HIDDEN);
   await until(() => saves.length === 1);
+  await until(() => run.queue.waiting);
+  assert.equal(getEventListeners(run.tasks.signal, 'abort').length, 0, 'ordinary input waits belong to the queue');
   runtime.close();
   assert.equal(live(run), 0, 'closing discards every task');
+  await run.done;
+  assert.equal(run.queue.waiting, false);
   const later = await application({load: async () => saves[0]});
   assert.equal(await later.runtime.start(later.entry).ready.promise, 1, 'a page with a save restores it');
   assert.equal(later.observed.count, '2', 'the restored count, shown on the first Resize');
@@ -200,6 +247,7 @@ async function checkStorageFailure() {
 }
 
 await checkQueue();
+await checkStreamWaits();
 checkFrames();
 await checkStartup();
 await checkHover();
