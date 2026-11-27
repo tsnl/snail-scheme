@@ -62,6 +62,7 @@
 
 - [Graphics](graphics/index.md)
   - [WebGPU design](graphics/plan.md)
+  - [Replacing the path tracer](graphics/rasterizer.md)
   - [Tensors and training](graphics/tensors.md)
   - [Path tracing primer](graphics/path-tracing.md)
   - [The path tracer](graphics/tracer.md)

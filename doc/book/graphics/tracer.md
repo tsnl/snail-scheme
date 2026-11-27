@@ -8,6 +8,10 @@ The [primer](path-tracing.md) gives the physics; this chapter gives the
 program. `src/apps/viewer` flies through the user's own scenes with it, or
 through Khronos's glTF sample models: **[open the viewer](../play/viewer/)**.
 
+The shared tracer is scheduled for retirement because of its frame cost on
+the game's target GPUs. The [rasterizer transition](rasterizer.md) records the
+decision, the last working source revision and the checks for its replacement.
+
 ## A frame
 
 | Stage | Library | What it does |

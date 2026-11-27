@@ -12,6 +12,9 @@ Splats draws gaussians, sorted on the GPU by a radix sort built on a scan.
   lists them.
 - [Tensors and training](tensors.md) describes the tensor library, its
   gradients, Adam, and the compiler that runs them on the device.
+- [Replacing the path tracer](rasterizer.md) describes the planned shared
+  rasterizer, its Broccoli reference and the tests for moving the games and
+  rendering tools to it.
 - The [path tracing primer](path-tracing.md) explains the physics of the
   light a path tracer computes.
 - [The path tracer](tracer.md) traces glTF scenes with that physics: a
