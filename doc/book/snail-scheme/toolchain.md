@@ -331,6 +331,8 @@ and keep it, so that later measurements see it too.
 `(profile-program gpu program)` (`(snail shell tensor lower)`) is the
 finer tool for a tensor program: it times each step in a pass of its own.
 
+With `?profile` a browser trace additionally separates successive compute pipelines in a pass. WebGPU timestamps delimit the resulting passes. Render passes keep their attachments together, and passes with application-provided queries keep their original boundaries. On devices with timestamp queries the `gpu: …` performance measures carry a presented frame number in `detail.frame`. A zero-duration `gpu: frame complete` measure arrives once all that frame's query readbacks have completed. This lets a benchmark group work before the canvas draw even when different submissions finish reading back out of order. The ordinary `?trace` keeps the application's compute pass boundaries.
+
 ## Process boundaries and future debugging
 
 | Boundary | Information crossing it |
