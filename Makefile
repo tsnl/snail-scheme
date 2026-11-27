@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check fetch test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats last-mile pages
+.PHONY: format check test test-browser test-gpu bootstrap unicode-tables generated-unicode site siegework hearsay viewer splats last-mile pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -7,14 +7,6 @@ NIXFMT ?= nixfmt
 MDBOOK ?= mdbook
 # Tree-sitter's queries under editors/zed are written in .scm files too.
 SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
-
-# Downloads the Rust crates in each Cargo.lock, which the tests and every
-# build then use offline, and the npm packages package-lock.json pins:
-# webgpu, for WebGPU on Node, and @napi-rs/canvas, which decodes its
-# images. Run it once in a new checkout or container.
-fetch:
-	cargo fetch --locked --manifest-path crates/snail-scheme-support/Cargo.toml
-	npm ci --no-fund --no-audit
 
 # The compiler's unit tests, on Chez, then every program and check, built
 # by the command line (tests/run.mjs): the examples and test programs, both
@@ -62,7 +54,7 @@ unicode-tables: generated-unicode
 
 generated-unicode:
 	mkdir -p build
-	cargo run -q --offline --manifest-path crates/snail-scheme-support/Cargo.toml \
+	cargo run -q --manifest-path crates/snail-scheme-support/Cargo.toml \
 	  --example unicode-tables > build/unicode-tables.sld
 	./snail-scheme format < build/unicode-tables.sld > build/unicode.sld
 

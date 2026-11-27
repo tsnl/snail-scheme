@@ -407,7 +407,7 @@ On Node the device is [Dawn](https://dawn.googlesource.com/dawn)'s, the
 WebGPU implementation inside Chromium, through Dawn's own Node binding,
 `dawn.node`, as npm's [`webgpu`](https://github.com/dawn-gpu/node-webgpu)
 package publishes it prebuilt. The repository's `package.json` pins it and
-`make fetch` installs it; a Node build of a program that may ask for a
+`npm ci` installs it; a Node build of a program that may ask for a
 device depends on the same version
 ([a Node package](../snail-scheme/projects.md#a-node-package)). On Linux,
 Dawn reaches the GPU through Vulkan, opening the loader by name, and the
