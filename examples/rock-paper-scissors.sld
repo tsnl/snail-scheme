@@ -1,8 +1,8 @@
+;; Play with ./snail-scheme run --target node examples/rock-paper-scissors.sld
 (import
  (snail core base)
  (snail core io)
- (snail shell random)
- (snail shell text))
+ (snail shell random))
 
 (enum Action
   (Rock)
@@ -14,45 +14,30 @@
   (Tie)
   (Loss))
 
-(instance (Show (!) Action)
+(instance (Show Action)
   (define (show (action Action)) (→ String)
     (match action
       ((Rock) "Rock")
       ((Paper) "Paper")
       ((Scissors) "Scissors"))))
 
-(define (starts-with? (text String) (prefix String)) (→ Bool)
-  (and (<= (string-length prefix) (string-length text))
-       (string=? (substring text 0 (string-length prefix)) prefix)))
-
-(define (string->action (raw-action String)) (→ (Option Action))
-  (let ((raw-action (string-downcase raw-action)))
-    (cond
-     ((starts-with? raw-action "r") (Some (Rock)))
-     ((starts-with? raw-action "p") (Some (Paper)))
-     ((starts-with? raw-action "s") (Some (Scissors)))
-     (else (None)))))
-
-(define (action->string (action Action)) (→ String)
-  (match action
-    ((Rock) "Rock")
-    ((Paper) "Paper")
-    ((Scissors) "Scissors")))
-
-(define (i64->action (raw-action I64)) (→ Action)
-  (match raw-action
-    (0 (Rock))
-    (1 (Paper))
-    (2 (Scissors))
-    (_ (panic "Invalid raw-action in i64->action"))))
+(define (string->action (text String)) (→ (Option Action))
+  (if (= (string-length text) 0)
+      (None)
+      (case (string-ref text 0)
+        ((#\r #\R) (Some (Rock)))
+        ((#\p #\P) (Some (Paper)))
+        ((#\s #\S) (Some (Scissors)))
+        (else (None)))))
 
 (define (random-action (rng Random)) (→ Action)
-  (let* ((action (modulo (random-value rng) 3))
-         (action (i64->action action)))
-    action))
+  (case (modulo (random-value rng) 3)
+    ((0) (Rock))
+    ((1) (Paper))
+    (else (Scissors))))
 
 (define (compute-outcome (player-action Action) (computer-action Action)) (→ Outcome)
-  (match (Pair player-action computer-action)
+  (match (new Pair (first player-action) (second computer-action))
     ((Pair (Rock) (Scissors)) (Win))
     ((Pair (Paper) (Rock)) (Win))
     ((Pair (Scissors) (Paper)) (Win))
@@ -67,53 +52,30 @@
     ((Tie) "You tied")
     ((Loss) "You lost")))
 
-(define (read-action) (→ (Option Action)) (! input-port output-port)
-  (let loop ((i 0))
-    (begin
-      (display "[")
-      (display (+ i 1))
-      (display "]")
-      (display " ")
+(define (read-action (in InputPort) (out OutputPort)) (→ (Option Action))
+  (let loop ((attempt 1))
+    (display out
+             (string-append "[" (show attempt) "] Choose: rock (r), paper (p), or scissors (s): "))
+    (match (read-line in)
+      ((None) (None))
+      ((Some text)
+       (match (string->action text)
+         ((Some action) (Some action))
+         ((None)
+          (write-line out "Invalid choice, try again")
+          (loop (+ attempt 1))))))))
 
-      (display "Choose: rock (r), paper (p), or scissors (s): ")
+(define (report-turn (out OutputPort) (player Action) (computer Action)) (→ Unit)
+  (write-line out (string-append "You chose: " (show player)))
+  (write-line out (string-append "Computer chose: " (show computer)))
+  (write-line out (string-append "Outcome: " (outcome->string (compute-outcome player computer)))))
 
-      (match (read-line)
-        ((None) (None))
-        ((Some raw-action)
-         (match (string->action raw-action)
-           ((None) (begin (display "Invalid choice, try again\n") (loop (+ i 1))))
-           ((Some action) (Some action))))))))
-
-(define (turn (rng Random)) (→ Bool) (! input-port output-port)
-  (match (read-action)
-    ((None) #f)
-    ((Some player-action)
-     (let* ((computer-action (random-action rng))
-            (outcome (compute-outcome player-action computer-action)))
-       (begin
-         (display "You chose: ")
-         (display (action->string player-action))
-         (display "\n")
-
-         (display "Computer chose: ")
-         (display (action->string computer-action))
-         (display "\n")
-
-         (display "Outcome: ")
-         (display (outcome->string outcome))
-         (display "\n")
-
-         #t)))))
-
-(define (main) (→ Unit) (! input-port output-port)
-  (let ((SEED 42))
-    (let loop ((i 0)
-               (rng (make-random SEED)))
-      (begin
-        (display "Game ")
-        (display (+ 1 i))
-        (display "\n")
-
-        (if (turn rng)
-          (loop (+ i 1) (random-next rng))
-          (unit))))))
+(define (main (in InputPort) (out OutputPort)) (→ Unit)
+  (let loop ((game 1)
+             (rng (make-random 42)))
+    (write-line out (string-append "Game " (show game)))
+    (match (read-action in out)
+      ((None) (unit))
+      ((Some player)
+       (report-turn out player (random-action rng))
+       (loop (+ game 1) (random-next rng))))))
