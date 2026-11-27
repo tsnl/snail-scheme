@@ -6,18 +6,27 @@ function open(name, store) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(name, 1);
     request.onupgradeneeded = () => request.result.createObjectStore(store);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = request.onerror = event => {
+      request.onsuccess = request.onerror = request.onupgradeneeded = null;
+      if (event.type === 'success') resolve(request.result);
+      else reject(request.error);
+    };
   });
 }
 
-function transaction(name, store, mode, use) {
-  return open(name, store).then(database => new Promise((resolve, reject) => {
-    const transaction = database.transaction(store, mode);
-    const request = use(transaction.objectStore(store));
-    transaction.oncomplete = () => { database.close(); resolve(request.result); };
-    transaction.onabort = () => { database.close(); reject(transaction.error ?? request.error); };
-  }));
+async function transaction(name, store, mode, use) {
+  const database = await open(name, store);
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = database.transaction(store, mode);
+      const request = use(tx.objectStore(store));
+      tx.oncomplete = tx.onabort = event => {
+        tx.oncomplete = tx.onabort = null;
+        if (event.type === 'complete') resolve(request.result);
+        else reject(tx.error ?? request.error);
+      };
+    });
+  } finally { database.close(); }
 }
 
 export function loadSave(key) {

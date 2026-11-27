@@ -48,12 +48,13 @@ export function createEventQueue(frames = null) {
       if (waiter) throw new Error('an application can have only one event waiter');
       waiter = Promise.withResolvers();
       const pending = waiter;
+      if (!signal) return pending.promise;
       function abort() {
         if (waiter === pending) waiter = null;
         pending.reject(signal.reason);
       }
-      signal?.addEventListener('abort', abort, {once: true});
-      return pending.promise.finally(() => signal?.removeEventListener('abort', abort));
+      signal.addEventListener('abort', abort, {once: true});
+      return pending.promise.finally(() => signal.removeEventListener('abort', abort));
     },
     close() {
       open = false;
@@ -95,7 +96,8 @@ export function createRuntime({size = () => [960, 640], seed = 1, load = async (
       // Waiting for an event is a ticket the queue's next push completes.
       'start-wait'(ticket) {
         const {tasks, queue} = run();
-        tasks.start(Number(ticket), signal => queue.wait(signal), () => 0);
+        // finish() closes this run's queue and rejects its pending wait.
+        tasks.start(Number(ticket), () => queue.wait(), () => 0);
       },
       'finish-wait': ticket => run().tasks.finish(Number(ticket)),
       field: index => run().event[index + 1] ?? 0,

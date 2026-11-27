@@ -16,6 +16,7 @@
  (only (snail shell game boarding) aboard?)
  (only (snail shell dom) Dom)
  (only (snail shell dom page) fired-event)
+ (only (snail shell ui) root-message)
  (only (snail shell gpu) Gpu)
  (only (snail shell graphics gltf) attempt-reading)
  (apps last-mile game)
@@ -32,8 +33,6 @@
    (use Bool)
    (paused Bool)
    (redraw Bool)
-   (next-frame I64)
-   (last-frame I64)
    (locked Bool)
    (yaw F64)
    (pitch F64)
@@ -47,7 +46,7 @@
     (wide #f) (choice (modulo (● w game dispatch) 16))
     (use #f)
     (paused #f)
-    (redraw #t) (next-frame 0) (last-frame -1)
+    (redraw #t)
     (locked #f)
     (yaw 0.0)
     (pitch 0.28)
@@ -171,19 +170,7 @@
 
 ;; ---- Page and save ----
 
-(define frame-period (→ I64) 33333334)
-
-;; Carry the deadline across refresh ticks. Missed slots are skipped. A late
-;; tick cannot start a second frame on the next 60 or 120 Hz refresh.
-(define (present! (c Controls) (clock Clock)) (→ (Option I32))
-  (let* ((now ((● clock monotonic-nanoseconds))) (last (● c last-frame)) (due (● c next-frame)))
-    (if (and (>= last 0) (or (< (+ now 1000000) due) (< (- now last) 32333334))) (None)
-        (begin (set! (● c last-frame) now)
-               (set! (● c next-frame) (if (or (< last 0) (>= (- now due) frame-period))
-                                          (+ now frame-period) (+ due frame-period)))
-               (Some (if (< last 0) 0 (i64->i32 (min 250 (quotient (- now last) 1000000)))))))))
-
-(define (play (events Events) (clock Clock) (gpu Gpu) (dom Dom) (renderer Renderer) (hud Hud)
+(define (play (events Events) (gpu Gpu) (dom Dom) (renderer Renderer) (hud Hud)
               (g Area) (roads Roads) (world Shift) (save (Fn Shift → Unit))) (→ Unit)
               (let ((c (controls world)))
                 (let loop ((s world) (since 100))
@@ -197,38 +184,31 @@
                        (elapsed! g roads c s ms)
                        (unless (● c paused) (prepare-street! gpu renderer (carrier w)))
                        (let ((due (>= (+ since ms) 100)))
-                         (when due (show! dom hud g roads w (● c paused) (● c wide) (● c choice)
+                         (when due (show! dom hud g roads s (● c paused) (● c wide) (● c choice)
                                           (render-resolution renderer)))
                          ;; The pause menu keeps the last presented street on screen. Resize
                          ;; and MSAA changes request a fresh native-resolution frame.
                          (when (or (not (● c paused)) (● c redraw))
-                           (match (present! c clock)
-                             ((Some elapsed) (draw! renderer
-                                                    gpu
-                                                    (● c before)
-                                                    s
-                                                    (/ (i64->f64 (● c carry)) (i64->f64 tick-ms))
-                                                    (● c yaw) (● c pitch) elapsed)
-                              (set! (● c redraw) #f))
-                             ((None) (unit))))
+                           (draw! renderer
+                                  gpu
+                                  (● c before)
+                                  s
+                                  (/ (i64->f64 (● c carry)) (i64->f64 tick-ms))
+                                  (● c yaw) (● c pitch) ms)
+                           (set! (● c redraw) #f))
                          ((● events report-ready)) (loop s (if due 0 (+ since ms)))))
-                      ((InputEvent event)
-                       (let ((paused (● c paused)))
-                         (input! c s event)
-                         (when (if paused (not (● c paused)) (● c paused))
-                           (show-menu! dom hud s (● c paused))))
-                       (loop s 100))
+                      ((InputEvent event) (input! c s event) (loop s 100))
                       ((HudEvent listener)
-                       (match (menu-action hud
-                                           listener
-                                           (● (fired-event events) value)
-                                           (● s graphics))
-                         ((Some action) (let ((next (menu! action dom g roads renderer c s save)))
-                                          (show-menu! dom hud next (● c paused)) (loop next 100)))
-                         (_ (unless (● c paused)
-                              (match (clicked-stand hud listener)
-                                ((Some i) (when (● c wide) (set! (● c choice) i)))
-                                (_ (click-reply! hud w listener)))) (loop s 100))))
+                       (match (root-message (● hud view) listener (fired-event events))
+                         ((Some (Menu action))
+                          (loop (menu! action dom g roads renderer c s save) 100))
+                         ((Some (ChooseStand i))
+                          (when (and (not (● c paused)) (● c wide)) (set! (● c choice) i))
+                          (loop s 100))
+                         ((Some (ChooseReply from index))
+                          (unless (● c paused) (answer! w from index))
+                          (loop s 100))
+                         (_ (loop s since))))
                       ((Hidden) (save s) (pause! c (● c paused)) (loop s 100))
                       ((SaveRequested) (save s) (loop s since)) (_ (loop s since)))))))
 
@@ -248,7 +228,6 @@
 
 (define (drive-city (config RendererConfig)
                     (events Events)
-                    (clock Clock)
                     (gpu Gpu)
                     (dom Dom)
                     (storage PageStorage)
@@ -273,15 +252,15 @@
                                                            models
                                                            g
                                                            w)))
-                    ((Ok renderer) (play events clock gpu dom renderer hud g roads w save))
+                    ((Ok renderer) (play events gpu dom renderer hud g roads w save))
                     ((Err why) (write-line out why) (panic why))))))))
 
-(define (main (events Events) (clock Clock) (gpu Gpu) (dom Dom) (fetch Fetch) (picker FilePicker)
+(define (main (events Events) (gpu Gpu) (dom Dom) (fetch Fetch) (picker FilePicker)
               (store StaticResources) (storage PageStorage) (out OutputPort))
   (→ Unit)
   (match (city-files fetch store dom)
     ((Ok files)
-     (drive-city (page-renderer-config fetch picker) events clock gpu dom storage out files))
+     (drive-city (page-renderer-config fetch picker) events gpu dom storage out files))
     ((Err why)
      ((● dom set-attribute) ((● dom document-root)) "data-load-error" why)
      ((● events report-ready)))))

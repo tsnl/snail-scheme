@@ -12,13 +12,16 @@
 ;; children inserted at the front (1) and in the middle (2), an element
 ;; whose tag changed replaced and a text replaced by an element (2), a
 ;; listener made again when its captures change (3), and keyed children
-;; removed and reordered (4).
+;; removed and reordered (4). In step 5 the view is visually identical.
+;; The same listener calls the new closure without a single DOM operation.
 
 (enum Msg
-  (Next))
+  (Next ((from I64))))
 
 (define (update (step I64) (message Msg)) (→ (Pair I64 (List (Fn → Msg))))
-  (new Pair (first (+ step 1)) (second (Nil))))
+  (match message ((Next from)
+                  (unless (= from step) (panic "listener captured a stale model"))
+                  (new Pair (first (+ from 1)) (second (Nil))))))
 
 (define (view (step I64)) (→ (Html Msg))
   (Element "div"
@@ -28,7 +31,7 @@
                                 (On "click"
                                     (if (>= step 3) (list (Pointer)) (Nil))
                                     (Allow)
-                                    (lambda (event) (Next))))
+                                    (lambda (event) (Next step))))
                           (list (Text "next")))
                  (if (>= step 2)
                      (Element "span" (Nil) (list (Text "two")))
@@ -52,6 +55,7 @@
   (dispatch
    (lambda ()
      (let ((result (with-memory-dom (list (Fire "next" "click" no-event)
+                                          (Fire "next" "click" no-event)
                                           (Fire "next" "click" no-event)
                                           (Fire "next" "click" no-event)
                                           (Fire "next" "click" no-event))

@@ -21,7 +21,7 @@ From the shop awnings on Lantern Row you can follow the paved lane north, cross 
 | Open or close the pause menu | P, Esc, or the pause button |
 | Return to Lantern Row with Moss | R or **Reset to Lantern Row** in the pause menu |
 
-Willowbank’s rideable survey spans 176 × 176 metres. The roadster has a 1.08 m wheelbase. Holding a steering key gradually turns the bars. At higher speeds the same input makes a wider turn, and the rider banks into it. Each metre travelled under power advances the crank and both feet together. At a start or on a climb, the rider rises, shifts weight forward and puts more force into the downstroke. The rider settles back when coasting and puts a foot down at a stop. The camera follows independently of the lean. The game presents up to 30 frames per second and interpolates between 20 ms physics steps.
+Willowbank’s rideable survey spans 176 × 176 metres. The roadster has a 1.08 m wheelbase. Holding a steering key gradually turns the bars. At higher speeds the same input makes a wider turn, and the rider banks into it. Each metre travelled under power advances the crank and both feet together. At a start or on a climb, the rider rises, shifts weight forward and puts more force into the downstroke. The rider settles back when coasting and puts a foot down at a stop. The camera follows independently of the lean. The game draws on each browser animation frame and interpolates between 20 ms physics steps. The display refresh rate determines how often you see the ride.
 
 Press F while moving and the courier brakes before stepping off on the open side of the saddle. Walk away and the bicycle stays put. Turn the camera to choose a new direction, hold Shift to run, and approach the bicycle to ride again. The controller in `(snail shell game locomotion)` sweeps the walker against the village obstacles and advances the stride by the distance actually covered.
 
@@ -31,13 +31,15 @@ A glancing collision can turn the front wheel along a fence. A sharper stop thro
 
 The game renders at the canvas’s physical pixel dimensions. The pause menu sets 1× or 4× MSAA. L cycles through morning, midday, sunset and moonlight. The visible sky and its filtered environment provide reflections and indirect light, while the sun or moon casts cascaded shadows. Skinning moves the hands, grip targets and pedals together, including when walking the bike backwards.
 
-To measure Lantern Row, the mill bridge and the orchard, serve a build locally and run the following command. Omit `--profile` to measure frame intervals without GPU timestamp instrumentation. The game caps presentation at 30 fps.
+To measure Lantern Row, the mill bridge and the orchard, serve a build locally and run the following command. Omit `--profile` to measure frame intervals without GPU timestamp instrumentation. Add `--memory` to sample Chrome’s node and listener counters and collect garbage outside the timed ride. Use `--no-vsync` to measure how fast headless Chromium can submit frames with its display limiter disabled.
 
 ```sh
 node benches/iygtw/ride.mjs http://127.0.0.1:4193/ 1920x1080 1 --profile
 ```
 
-With a native 1920×1080 target, 1× MSAA, Chromium Vulkan and an RTX 5090, the median GPU work was 5.94–5.98 ms across the three routes. Uninstrumented runs of 270 frames each averaged 29.98–29.99 fps. The 95th-percentile frame intervals were 34.1 ms at Lantern Row, 49.8 ms at the bridge and 34.3 ms in the orchard. The GPU work alone does not account for the longer bridge intervals.
+At native 1920×1080 and 1× MSAA on an RTX 5090, the earlier 30 fps limiter submitted every second refresh of Chromium’s 60 Hz display. The three routes now average 60 fps. The profile reports time in the application, time waiting on the GPU queue, and GPU pass timestamps. GPU execution can overlap both the application and the interval before the next refresh.
+
+The village, road surfaces, courier, bicycle and dog load before the first ride. The renderer uploads their model once. Crossing from Lantern Row to Field Road or from Mill Bridge to Foxglove Farm changes the HUD and keeps the same GPU buffers. The benchmark counts mesh uploads and measures the frame interval when the place name changes.
 
 ## Editing Willowbank
 

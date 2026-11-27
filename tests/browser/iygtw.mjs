@@ -66,9 +66,23 @@ try {
   }, 'colours in the WebGPU landscape', 60);
   if (screenshot) await writeFile(screenshot, landscape);
 
+  await browser.evaluate(`(() => {
+    const speed = document.querySelector('.speed'), text = speed.firstChild;
+    const changes = [];
+    const observer = new MutationObserver(records => changes.push(...records.map(r => r.type)));
+    for (const element of document.querySelectorAll('.waymark,.options,.pause-screen'))
+      observer.observe(element, {subtree: true, characterData: true, attributes: true, childList: true});
+    window.rideChanges = () => changes.splice(0);
+    window.endRideChanges = () => { observer.disconnect(); return speed.firstChild === text; };
+  })()`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  assert.deepEqual(await browser.evaluate('rideChanges()'), [], 'resting HUD rewrote the same view');
   await key('w', true);
   try { await until(async () => await metres() >= 3, 'pedalling out of town', 55); }
   finally { await key('w', false); }
+  const moving = await browser.evaluate('rideChanges()');
+  assert.ok(moving.includes('characterData') && !moving.includes('childList'), 'riding should update the existing text');
+  assert.equal(await browser.evaluate('endRideChanges()'), true);
   await key(' ', true);
   try { await until(async () => await text('.speed') === '0 km/h', 'braking to a stop', 45); }
   finally { await key(' ', false); }
