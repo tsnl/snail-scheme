@@ -1,7 +1,6 @@
-// What tests/gpu prints after its format, as tests/browser/gpu.mjs checks
-// it on the page and tests/gpu.mjs on Node: the page's own lines, then the
-// lines of the checks both run ((gpu-test device)), then the page's file
-// read; Node's training checks follow its device checks. The values are SwiftShader's, the software device of headless
+// Readbacks shared by the browser and Node integration programs. The page
+// also tests its canvas and fetch, and Node runs the full training loop.
+// The values are SwiftShader's, the software device of headless
 // Chromium. A GPU may round a texel by a step, or a half float in its
 // last place, so the lines `slack` names may stray that far in each
 // number; every other line must be exact.
@@ -39,11 +38,12 @@ export const deviceLines = [
   // floats, agree with the quads within the same slack.
   'viewed splats: 96 2 0 255 40 209 0 255 8 0 219 255 0 2 0 255',
   'viewed turned: 0 2 0 255 40 209 0 255 0 0 219 255 96 2 0 255',
-  // A render pass timed on the device; a lowered tensor program computes
-  // each of its sinks as the CPU evaluates them, fused or not, and is
-  // profiled; and
-  // Adam fits a line in 1,000 runs of another.
   'timed: a render pass between 0 and 1 seconds',
+];
+
+// Each tensor sink against the CPU, with and without fusion, and Adam
+// fitting a line in 1,000 steps.
+export const tensorLines = [
   'tensor: 28 sinks agree',
   'fused tensor: 28 sinks agree',
   'profiled: a time for each step, between 0 and 1 seconds',
@@ -51,8 +51,9 @@ export const deviceLines = [
   'assigned: 9',
   'bound: 2 4 6 8 / 2 3 4 5',
   'fitted: from above 1 to below 1e-4, b 1.0',
-  // The differentiable splat renderer: a pixel blended as the paper
-  // does, and fused SSIM's gradient against central differences.
+];
+
+export const splatLines = [
   'splat forward: blends as the paper does, for training and for viewing',
   'shared fill: #t',
   'splat tile ranges: 0 2 2 3 3 4',

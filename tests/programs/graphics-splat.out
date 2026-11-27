@@ -21,4 +21,3 @@ degree 3, red: 20.0 23.0 26.0 29.0 32.0 35.0 38.0
 ply: only binary little-endian PLY files are read
 ply: every vertex property must be a float
 ply: a 3D Gaussian Splatting property is missing
-1172 1172 586 2 1 2 586 1172 1172 586 2 1 2 586 1172 1172 586 2 1 2 586 1172 1172 586 2 1 2 586 1172
