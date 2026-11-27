@@ -39,7 +39,7 @@ jobs:
         run: cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --all-features
       - name: Check and test snail-scheme
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: make check test
+        run: make check test-toolchain
       - name: Retain build evidence
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

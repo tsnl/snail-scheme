@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check check-scheme test test-browser test-gpu bootstrap unicode-tables generated-unicode site last-mile siegework hearsay viewer splats furnace iygtw iygtw-art pages
+.PHONY: format check check-scheme test test-toolchain test-pages test-browser test-gpu bootstrap unicode-tables generated-unicode site last-mile siegework hearsay viewer splats furnace iygtw iygtw-art pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -8,14 +8,18 @@ MDBOOK ?= mdbook
 # Tree-sitter's queries under editors/zed are written in .scm files too.
 SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 
-# The compiler's unit tests, on Chez, then every program and check, built
-# by the command line (tests/run.mjs): the examples and test programs, both
-# games' tests, Siegework headless, the build suites and the formatter's.
-# The command line is bootstrapped first.
-test: check-scheme
+test: test-toolchain test-pages
+
+# Run the compiler's unit tests on Chez. The bootstrapped command line
+# builds the examples, programs and applications exercised by tests/run.mjs.
+test-toolchain: check-scheme
 	./scripts/bootstrap >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
 	node tests/run.mjs "$(CURDIR)"
+
+# Exercise the local Pages packer and its Worker against a staged release.
+test-pages:
+	node tests/pages-blobs.mjs "$(CURDIR)"
 
 # Browser interfaces in headless Chromium: the shell's on Linux, or the
 # browser CHROMIUM names. CI does not run them.
