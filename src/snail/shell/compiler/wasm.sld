@@ -25,8 +25,7 @@
          Prepared
          Suspensions
          yields
-         holds-yield-point?
-         may-resume?))
+         holds-yield-point?))
   (begin
 
     ;; ---- Text ----
@@ -164,6 +163,7 @@
        (declared (List String))
        (exports (List Wat))
        (data (List Wat))
+       (resume-code (Table FrameCode))
        (lambdas (Table Wat))
        (helpers (Table String))))
 
@@ -747,6 +747,7 @@
                         (wat* "then" then-code)
                         (wat* "else" else-code)))))
           ((Let name value body) (emit-let fn name value body tail?))
+          ((YieldLet name value after) (emit-yield-let fn name value after tail?))
           ((Seq first rest)
            (let ((first-code (emit1 fn first)))
              (Cons (wat "drop" first-code) (emit fn rest tail?))))
@@ -918,7 +919,7 @@
     (define (hex-char (value I64)) (→ Char)
       (string-ref "0123456789abcdef" value))
 
-    ;; A let whose value may yield tests for the yield before its body.
+    ;; An ordinary let proceeds directly to its body.
 
     (define (emit-let (fn Fn) (name String) (value Expr) (body Expr) (tail? Bool))
       (→ (List Wat))
@@ -927,7 +928,7 @@
                        (emit-let-value fn value)))
              (local (declare-local! fn name (fn-rep fn (● value type)))))
         (Cons (wat "local.set" (id local) code)
-              (let-rest (bind-self fn name value) name value body tail?))))
+              (emit (bind-self fn name value) body tail?))))
 
     ;; ---- Variables ----
 
@@ -2019,34 +2020,24 @@
     (define (may-yield? (fn Fn) (value Expr)) (→ Bool)
       (not (null? (yields (● (● fn module) suspensions) value))))
 
-    ;; Whether nothing resumes what `value` may yield to: a `with-prompt`
-    ;; that catches such a yield is handed a `resume` no value could be
-    ;; given to, and nothing will run what follows the yield.
-
-    (define (aborts? (fn Fn) (value Expr)) (→ Bool)
-      (let ((suspensions (● (● fn module) suspensions)))
-        (not (may-resume? suspensions (yields suspensions value)))))
-
-    ;; The rest of a let after its value. When the value may yield, a test
-    ;; comes first: while the record is set, it saves the let's body as a
-    ;; frame and leaves. In a join function, whose own rest the body is,
-    ;; the body then runs in that frame, by a tail call as the runner would
-    ;; make, so each join holds its body only up to the next yield point.
-    ;; A yield that nothing can resume saves nothing, so its test only
-    ;; leaves, and the body follows in the same function.
-
-    (define (let-rest (fn Fn) (name String) (value Expr) (body Expr) (tail? Bool))
+    ;; Each marked binding holds the decision made in preparation. A normal
+    ;; return runs the body directly. On a resumable yield its frame refers
+    ;; to the shared entry for this site. Inside a join the next such entry
+    ;; ends the current routine; the runner tail-calls it on success.
+    (define (emit-yield-let (fn Fn) (name String) (value Expr) (after AfterCall) (tail? Bool))
       (→ (List Wat))
-      (cond ((not (may-yield? fn value)) (emit fn body tail?))
-            ((aborts? fn value)
-             (Cons (wat "if" (yielding? (● fn module)) (wat "then" (leave fn)))
-                   (emit fn body tail?)))
-            ((match (● fn exit) ((Some (ToRunner)) #t) (_ #f))
-             (continue-in-frame fn name value body))
-            ;; The frame reads the locals declared so far, so it is built
-            ;; before the body declares its own.
-            (else (let ((test (yield-test fn (frame fn name value body))))
-                    (append test (emit fn body tail?))))))
+      (let* ((code (emit-let-value fn value))
+             (local (declare-local! fn name (fn-rep fn (● value type)))))
+        (Cons (wat "local.set" (id local) code)
+              (match after
+                ((Unwind body)
+                 (Cons (wat "if" (yielding? (● fn module)) (wat "then" (leave fn)))
+                       (emit fn body tail?)))
+                ((ResumeAt routine)
+                 (match (● fn exit)
+                   ((Some (ToRunner)) (continue-in-frame fn name routine))
+                   (_ (let ((test (yield-test fn (frame fn name routine))))
+                        (append test (emit fn (● routine body) tail?))))))))))
 
     (define (yield-test (fn Fn) (saved Wat)) (→ (List Wat))
       (let* ((m (● fn module)) (exit (leave fn)))
@@ -2054,14 +2045,14 @@
                    (yielding? m)
                    (wat "then" (wat "call" (id (push-helper m)) saved) exit)))))
 
-    (define (continue-in-frame (fn Fn) (name String) (value Expr) (body Expr))
+    (define (continue-in-frame (fn Fn) (name String) (routine ResumeRoutine))
       (→ (List Wat))
       (let* ((m (● fn module)) (base (frame-type m))
              (temp (declare-temp! fn (Reference base)))
              (saved (wat "local.get" (id temp)))
-             (set (wat "local.set" (id temp) (frame fn name value body)))
+             (set (wat "local.set" (id temp) (frame fn name routine)))
              (test (yield-test fn saved))
-             (argument (box-value m (● value type) (variable fn name unchecked))))
+             (argument (box-value m (● routine argument) (variable fn name unchecked))))
         (Cons set
               (append test (list (wat "return_call" (id (frame-runner m)) saved argument))))))
 
@@ -2143,54 +2134,57 @@
                                      (wat "field" (ref-wat frame))
                                      (wat "field" (ref-wat "$frames")))))))))
 
-    ;; The frame of the let binding `name` to `value`: the join function of
-    ;; its body, and the locals the body reads.
+    ;; Each suspension saves its own values. All visits to the same prepared
+    ;; routine in a specialized definition share the frame type and function.
+    (record FrameCode
+      ((type String)
+       (join String)))
 
-    (define (frame (fn Fn) (name String) (value Expr) (body Expr)) (→ Wat)
-      (let* ((m (● fn module))
-             (captured (filter (lambda (local) (and (not (string=? local name)) (local? fn local)))
-                               (delete-duplicates string=? (expr-references body))))
-             (entries (map (lambda (local) (new Pair (first local) (second (capture-rep fn local))))
-                           captured))
-             (type
-              (capture-type
-               m
-               (frame-type m)
-               (map (lambda (record) (● record second)) entries)))
-             (join
-              (emit-join!
-               (Fn-exit-set (new-fn m) (Some (ToRunner)))
-               name
-               value
-               body
-               entries
-               type)))
+    (define (frame (fn Fn) (name String) (routine ResumeRoutine)) (→ Wat)
+      (let* ((m (● fn module)) (code (frame-code! m name routine)))
         (wat* "struct.new"
-              (append (list (id type) (wat "ref.func" (id join)))
-                      (map (lambda (local) (variable fn local unchecked)) captured)))))
+              (append (list (id (● code type)) (wat "ref.func" (id (● code join))))
+                      (map (lambda (input) (variable fn (● input first) (● input second)))
+                           (● routine captures))))))
+
+    (define (frame-code! (m Module) (name String) (routine ResumeRoutine)) (→ FrameCode)
+      (match (table-ref (● m resume-code) name)
+        ((Some code) code)
+        ((None)
+         (let ((code (emit-frame-code! m name routine)))
+           (put! (● m resume-code) name code)
+           code))))
+
+    (define (emit-frame-code! (m Module) (name String) (routine ResumeRoutine)) (→ FrameCode)
+      (let* ((entries (map (lambda (input)
+                             (new Pair (first (● input first)) (second (rep m (● input second)))))
+                           (● routine captures)))
+             (type (capture-type m (frame-type m) (map (lambda (entry) (● entry second)) entries)))
+             (join
+              (emit-join! (Fn-exit-set (new-fn m) (Some (ToRunner))) name routine entries type)))
+        (new FrameCode (type type) (join join))))
 
     ;; A let's body as a function of its frame and its boxed value: it
     ;; loads the frame's locals and binds the value, runs the body, which a
     ;; yield leaves with null, and boxes the body's value. The body runs to
     ;; the let's end and no further, since the frames outside it continue
     ;; from there, and its tail calls are calls, since their results are
-    ;; boxed. It is named by its text, as a lambda is, so the joins of one
-    ;; let, which the function and the join of the let before it both need,
-    ;; are one function.
+    ;; boxed. Distinct sites with identical emitted bodies can still share
+    ;; a function through the same text interning that lambdas use.
 
     (define (emit-join! (join Fn)
                         (name String)
-                        (value Expr)
-                        (body Expr)
+                        (routine ResumeRoutine)
                         (entries (List (Pair String Rep)))
                         (type String))
       (→ String)
       (let* ((m (● join module))
+             (body (● routine body))
              (loads (capture-loads join entries type))
-             (local (declare-local! join name (fn-rep join (● value type))))
+             (local (declare-local! join name (fn-rep join (● routine argument))))
              (argument (wat "local.set"
                             (id local)
-                            (unbox-value m (● value type) (wat "local.get" (Word "$value")))))
+                            (unbox-value m (● routine argument) (wat "local.get" (Word "$value")))))
              (result (box-value m (● body type) (emit1 join body))))
         (lambda-id m
                    "join"
@@ -3592,12 +3586,17 @@
 
     (define (emit-module (prepared Prepared)) (→ Wat)
       (let ((m (new-module (● prepared declarations) (● prepared suspensions))))
-        (for-each (lambda (definition)
-                    (emit-function! m (● definition name) (● definition value)))
-                  (● prepared definitions))
+        (for-each (lambda (definition) (emit-definition! m definition)) (● prepared definitions))
         (for-each (lambda (item) (emit-exposure! m item)) (● prepared exposed))
         (match (● prepared entry) ((Some name) (emit-main! m name)) (_ (unit)))
         (module-wat m)))
+
+    ;; Resolved binders and preparation's temporaries are unique within one
+    ;; specialized definition, including its nested lambdas and resume entries.
+    ;; Another specialization can use those same names with different types.
+    (define (emit-definition! (m Module) (definition Definition)) (→ Unit)
+      (set! (● m resume-code) (empty-table))
+      (emit-function! m (● definition name) (● definition value)))
 
     (define (new-module (declarations Declarations) (suspensions Suspensions)) (→ Module)
       (new Module (declarations declarations)
@@ -3608,6 +3607,7 @@
            (imports (Nil))
            (globals (Nil))
            (functions (Nil)) (declared (Nil)) (exports (Nil)) (data (Nil))
+           (resume-code (empty-table))
            (lambdas (empty-table)) (helpers (empty-table))))
 
     ;; The entry's start takes the scheduler that main runs on. `main` is
@@ -3687,8 +3687,22 @@
    (snail-tests
     (export test-wasm)
     (import
+     (only (chezscheme) eq?)
+     (only (snail shell compiler check) check-program)
+     (only (snail shell compiler prepare) prepare-program)
      (snail stage0 testing))
     (begin
+      ;; The old emitter could produce identical Wasm after building the
+      ;; same body repeatedly. Both visits must reuse the emission itself.
+      (define (test-resume-sharing)
+        (let* ((prepared (prepare-program (check-program empty-program)))
+               (m (new-module (● prepared declarations) (● prepared suspensions)))
+               (type (TCon "I64" (Nil)))
+               (body (new Expr (term (Var "answer.1" (Nil) (Nil))) (type type) (loc no-loc)))
+               (routine (new ResumeRoutine (argument type) (captures (Nil)) (body body)))
+               (first (frame-code! m "answer.1" routine)))
+          (expect (eq? first (frame-code! m "answer.1" routine)) #t)))
+
       (define (test-loop-arguments)
         (let* ((names (list "$a" "$b" "$same"))
                (slots (map (lambda (name) (new Local (name name) (rep (Scalar "i64")))) names))
@@ -3715,6 +3729,7 @@
       (define test-wasm
         (lambda () (test-loop-arguments)
                 (test-managed-loop-argument)
+                (test-resume-sharing)
                 (expect (mangle "a b,c(d)") "a_b~c<d>")
                 (expect (fill "(call {f} {x})"
                               (list (new Pair (first "f") (second "$g"))

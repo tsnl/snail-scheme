@@ -35,6 +35,15 @@
 (define (answered (body (Fn → A))) (→ A) (∀ (A))
   (with-prompt asking body (lambda (n resume) (resume (* n 10)))))
 
+;; Two specializations resume at the same source sites. The first frame keeps
+;; a pattern binding, and the second keeps the closure that reads it.
+(define (two-reads (item (Option A)) (use (Fn A I64 → String))) (→ String) (∀ (A))
+  (match item
+    ((Some saved)
+     (let* ((first (ask 1)) (finish (lambda (last) (use saved (+ first last)))))
+       (finish (ask 2))))
+    ((None) "missing")))
+
 ;; A prompt carries whatever its type says: records out, strings back.
 (define naming (→ (Prompt Point String)) (make-prompt))
 
@@ -45,6 +54,10 @@
   (write-line out (show ((answered adder) 2)))
   (write-line out (show (answered ratio)))
   (write-line out (show (answered flag)))
+  (write-line out (answered (lambda () (two-reads (Some 3) (lambda (n sum) (show (+ n sum)))))))
+  (write-line out (answered (lambda ()
+                              (two-reads (Some "kept")
+                                         (lambda (s sum) (string-append s " " (show sum)))))))
   ;; A handler that does not resume answers for the whole body.
   (write-line out
               (show (with-prompt asking (lambda () (● (point) x)) (lambda (n resume) (* n 1000)))))
