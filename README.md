@@ -82,7 +82,7 @@ The [typed-state API](doc/book/snail-scheme/state.md) remains under review.
   macros and the standard library as implemented.
 - [The compiler architecture](doc/book/snail-scheme/compilers.md) follows a program
   through the passes, linking and incremental caches.
-- [Workspaces and builds](doc/book/snail-scheme/projects.md) defines workspaces,
+- [Workspaces and builds](doc/book/snail-scheme/workspaces.md) defines workspaces,
   directory outputs and embedding one build in another.
 - [The development toolchain](doc/book/snail-scheme/toolchain.md) explains the
   commands, the language server and the editor grammar.

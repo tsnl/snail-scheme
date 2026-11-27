@@ -889,7 +889,7 @@
     ;; installs them in the package, or Node finds the repository's in a
     ;; folder above. Other programs depend on nothing. An
     ;; executable made of the package, or its publication, is the work of
-    ;; Node's own tools (doc/book/snail-scheme/projects.md, "A Node package").
+    ;; Node's own tools (doc/book/snail-scheme/workspaces.md, "A Node package").
 
     (define node-files (→ (List String))
       (list "native/run-snail.mjs"

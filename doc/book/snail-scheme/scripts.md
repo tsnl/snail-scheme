@@ -9,15 +9,16 @@ it. `snail-scheme` behaves like an interpreter first and a compiler second:
 ```
 
 The command line names the script and target platform.
-[Workspaces and builds](projects.md) describes the output and how one build
+[Workspaces and builds](workspaces.md) describes the output and how one build
 embeds another.
 
 ## The workspace
 
 The nearest ancestor with `snail-scheme-workspace.datum` is the script's
-workspace. Each workspace may extend one local base. Their `src/` directories
-form a single library tree for builds and editor checks. Standalone trees
-without a declaration use the nearest `src/` and the standard libraries.
+workspace. It can extend one local base. Each folder in the chain is a layer
+whose `src/` contributes to the shared library tree for builds and editor
+checks. Standalone trees without a declaration use the nearest `src/` and
+the standard libraries.
 
 A script may sit anywhere in the workspace. Since imports resolve under `src/`,
 an application keeps its script beside its libraries:
@@ -192,7 +193,7 @@ the generation's `store/` holds another name for it, as above
 
 A program that serves another, such as a server shipping its browser
 client, embeds that build through a generated library whose producer builds
-it ([embedding a build](projects.md#embedding-a-build)). A producer that
+it ([embedding a build](workspaces.md#embedding-a-build)). A producer that
 imports the compiler compiles the compiler on every build; that is accepted
 for now.
 

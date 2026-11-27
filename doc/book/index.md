@@ -41,7 +41,7 @@ owes a fare, and Rust runs the vehicle physics.
 - **To find a library**, start at the [library reference](libraries/index.md),
   which lists every one and links its source.
 - **To build something**, read [getting started](https://github.com/tsnl/snail-scheme/blob/main/doc/getting-started.md),
-  then [workspaces and builds](snail-scheme/projects.md) and the
+  then [workspaces and builds](snail-scheme/workspaces.md) and the
   [application model](snail-scheme/applications.md).
 - **To work on the compiler**, read the [compiler architecture](snail-scheme/compilers.md)
   and [bootstrap](snail-scheme/bootstrap.md).

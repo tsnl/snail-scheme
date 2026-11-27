@@ -1,7 +1,7 @@
 # Development toolchain
 
 Every build compiles the whole program to one module and fuses it with the
-runtime ([output directories](projects.md#output-directories)). A release
+runtime ([output directories](workspaces.md#output-directories)). A release
 build, `--release`, also optimizes it with Binaryen's `wasm-opt`. Stage 0
 links a single program into one module the same way.
 
@@ -32,7 +32,7 @@ Node runs the command line and every program it builds
 `snail-scheme` that replaces the launcher is proposed in
 [#562](https://github.com/tsnl/snail-scheme/issues/562).
 
-The [builds chapter](projects.md) defines workspaces, output directories and
+The [builds chapter](workspaces.md) defines workspaces, output directories and
 embedding one build in another.
 
 `snail-scheme run --target node FILE [ARGUMENT ...]` builds the script and
@@ -80,7 +80,7 @@ removing `snail:*` and `diagnostics/*` exports. All other exports survive,
 including GC globals and dynamic functions. A second `wasm-fuse` pass prunes
 unreachable definitions and remaps debug names. Function bodies are not
 optimized here; a release build then runs `wasm-opt -O2` over the linked
-module ([output directories](projects.md#output-directories)). The internal
+module ([output directories](workspaces.md#output-directories)). The internal
 source driver also continues to accept `--release`.
 
 Optimization can be a separate user-owned step, with Binaryen installed

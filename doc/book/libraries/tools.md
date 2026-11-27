@@ -58,7 +58,7 @@ and only those, so earlier outputs stay published. `check-script` and
 `check-library` compile as a build does and write nothing, for the language
 server. A build's `Mode` is `Debug` or `Release`, which also optimizes the
 module with `wasm-opt`; its `Platform` is `Node` or `Browser`
-([workspaces and builds](../snail-scheme/projects.md)).
+([workspaces and builds](../snail-scheme/workspaces.md)).
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/project/build.sld)
 

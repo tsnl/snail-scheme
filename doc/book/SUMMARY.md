@@ -23,7 +23,7 @@
 # Building programs
 
 - [Application model](snail-scheme/applications.md)
-- [Workspaces and builds](snail-scheme/projects.md)
+- [Workspaces and builds](snail-scheme/workspaces.md)
   - [Scripts and targets](snail-scheme/scripts.md)
 - [Development toolchain](snail-scheme/toolchain.md)
 - [Compiler architecture](snail-scheme/compilers.md)

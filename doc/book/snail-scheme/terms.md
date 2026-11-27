@@ -363,7 +363,8 @@ remains proposed.
 
 | Term | Meaning |
 | --- | --- |
-| Workspace | A source tree declared by `snail-scheme-workspace.datum`. It can extend one local base and share its library namespace. |
+| Workspace | A folder that holds `src/`. Its `snail-scheme-workspace.datum` can name one local base. |
+| Layer | One workspace folder in a build's base chain. It contributes its `src/` to the shared library tree. |
 | Script | A source file in a workspace, built for a platform named on the command line. Its build produces one output directory, which may contain multiple files. |
 | Build attempt | One invocation of a script's build, with diagnostics and a success/failure result. |
 | Application process | An OS process running a program. A browser frontend is a client of a server process. |
