@@ -7,8 +7,8 @@ files, including `index.html`; its tests are in `tests/NAME/`. From the
 repository root, `./snail-scheme build --release --target browser
 src/apps/NAME/main.scm` packages it with the shared browser host from
 `host/browser` into `build/src/apps/NAME/main`. `make site` builds the
-applications this way, and `make pages` publishes the book with each of
-them but Train at `play/NAME/`.
+applications this way. `make pages` bundles the book and browser demos in
+`build/pages/`, with each demo except Train at `play/NAME/`.
 
 Any static HTTP server serves an application's output directory. Hearsay's art
 comes from `generate-library` recipes; its producers run in every build.
