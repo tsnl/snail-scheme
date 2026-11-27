@@ -4,9 +4,10 @@ Usage: snail-scheme build --target TARGET [--release] FILE
        snail-scheme lsp
        snail-scheme format [--width N] [--check | --write] [FILE ...]
 
-build compiles the script FILE for TARGET: node or browser. Its
-workspace is the nearest folder above it that holds src/, where every
-import resolves. The output, build/PATH in the workspace, where PATH is
+build compiles FILE for node or browser. The nearest snail-scheme-workspace.datum
+above FILE declares its workspace. (workspace (extends "path")) adds one local
+base workspace to its src/ tree. Without a declaration the nearest folder
+holding src/ uses the installed standard libraries. The output, build/PATH in the workspace, where PATH is
 FILE's path there without its extension, is a link to a completed
 generation: one module, NAME.wasm, the program linked with its runtime,
 and the files it links under store/, shared with every other build through

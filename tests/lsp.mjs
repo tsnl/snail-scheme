@@ -18,7 +18,9 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
 const root = process.argv[2];
-const project = mkdtempSync(join(tmpdir(), 'snail-lsp-'));
+const opened = mkdtempSync(join(tmpdir(), 'snail-lsp-'));
+const project = join(opened, 'app');
+mkdirSync(project);
 const put = (name, text) => {
   mkdirSync(join(project, name, '..'), {recursive: true});
   writeFileSync(join(project, name), text);
@@ -118,12 +120,14 @@ const edited = text => {
 };
 
 try {
-  put('src/demo/twice.sld', library);
+  put('snail-scheme-workspace.datum', '(workspace (extends "base"))');
+  put('base/snail-scheme-workspace.datum', `(workspace (extends ${JSON.stringify(root)}))`);
+  put('base/src/demo/twice.sld', library);
   put('main.scm', program);
 
   // ---- Starting ----
 
-  const initialized = await ask('initialize', {processId: null, rootUri: `file://${project}`, capabilities: {}});
+  const initialized = await ask('initialize', {processId: null, rootUri: `file://${opened}`, capabilities: {}});
   assert.deepEqual(initialized.capabilities, {
     textDocumentSync: {openClose: true, change: 1, save: true},
     documentFormattingProvider: true,
@@ -147,7 +151,7 @@ try {
     value: '```snail\ntwice : (Fn (Fn I64 → I64) I64 → I64)\n```\n\nfrom `demo.twice`',
   });
   assert.deepEqual(await ask('textDocument/definition', at('main.scm', 6, 15)),
-                   {uri: uri('src/demo/twice.sld'), range: range(6, 13, 6, 18)});
+                   {uri: uri('base/src/demo/twice.sld'), range: range(6, 13, 6, 18)});
   // After the snail, `n` is at code unit 48 of its line, its 47th character.
   assert.equal((await ask('textDocument/hover', at('main.scm', 7, 48))).contents.value,
                '```snail\nn : I64\n```');
@@ -212,17 +216,17 @@ try {
   // An open library is checked as the program that imports it; its
   // failure, which the script's check meets too, is reported once.
   send({method: 'textDocument/didOpen',
-        params: {textDocument: {uri: uri('src/demo/twice.sld'), languageId: 'snail-scheme', version: 1, text: library}}});
+        params: {textDocument: {uri: uri('base/src/demo/twice.sld'), languageId: 'snail-scheme', version: 1, text: library}}});
   // The server takes messages in order, so a reply comes after the check.
   await ask('textDocument/hover', at('main.scm', 5, 0));
-  put('src/demo/twice.sld', library.replace('(f (f x))', '(f (f "x"))'));
-  saved('src/demo/twice.sld');
-  const failure = await diagnostics('src/demo/twice.sld');
+  put('base/src/demo/twice.sld', library.replace('(f (f x))', '(f (f "x"))'));
+  saved('base/src/demo/twice.sld');
+  const failure = await diagnostics('base/src/demo/twice.sld');
   assert.equal(failure.length, 1, JSON.stringify(failure));
   assert.equal(failure[0].range.start.line, 7);
-  put('src/demo/twice.sld', library);
-  saved('src/demo/twice.sld');
-  assert.deepEqual(await diagnostics('src/demo/twice.sld'), []);
+  put('base/src/demo/twice.sld', library);
+  saved('base/src/demo/twice.sld');
+  assert.deepEqual(await diagnostics('base/src/demo/twice.sld'), []);
 
   // ---- Ending ----
 
@@ -231,5 +235,5 @@ try {
   assert.equal(await exited, 0);
 } finally {
   server.kill();
-  rmSync(project, {recursive: true, force: true});
+  rmSync(opened, {recursive: true, force: true});
 }

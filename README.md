@@ -31,8 +31,9 @@ Siegework and Hearsay are scripts, `src/apps/NAME/main.scm`, and
 `./snail-scheme lsp` serves an editor that opens the repository: [`editors/zed`](editors/zed) and [`editors/vscode`](editors/vscode)
 are extensions for Zed and VS Code.
 
-A script is a source file run as it is, for an explicit target; its imports
-resolve under the `src/` of the nearest folder above it that holds one:
+A script runs for an explicit target. The tool finds its workspace by looking
+upward for `snail-scheme-workspace.datum`. A workspace can extend a local
+base, and both contribute libraries under `src/`.
 
 ```sh
 ./snail-scheme run --target node examples/fibonacci.sld

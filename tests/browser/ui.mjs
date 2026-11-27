@@ -13,7 +13,7 @@
 //   CHROMIUM=... node tests/browser/ui.mjs ROOT [SCREENSHOT]
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {cp, mkdtemp, readFile, rm} from 'node:fs/promises';
+import {cp, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {basename, extname, join, normalize} from 'node:path';
@@ -66,6 +66,7 @@ function serve(directory) {
 const directory = await mkdtemp(join(tmpdir(), 'snail-ui-'));
 const app = join(directory, 'notes');
 await cp(join(root, 'tests/apps/notes'), app, {recursive: true, filter: path => basename(path) !== 'build'});
+await writeFile(join(app, 'snail-scheme-workspace.datum'), `(workspace (extends ${JSON.stringify(root)}))\n`);
 const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', '--target', 'browser', join(app, 'main.scm')])).stdout.trim();
 const server = await serve(built);
 const browser = await openBrowser();

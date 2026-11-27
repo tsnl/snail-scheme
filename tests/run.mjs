@@ -190,7 +190,7 @@ const checks = () => [
   fixture('socket boundary', 'tests/socket-boundary/main.sld', 'tests/socket-boundary/check.mjs', 'node'),
   fixture('termination', 'tests/termination/main.sld', 'tests/termination/check.mjs', 'node'),
   fixture('app runtime', 'tests/app-runtime/main.sld', 'tests/app-runtime/check.mjs', 'browser'),
-  ...['scripts', 'script-builds', 'script-run', 'script-failures', 'script-resources', 'web-zip', 'embedding', 'launcher', 'lsp',
+  ...['scripts', 'workspaces', 'script-builds', 'script-run', 'script-failures', 'script-resources', 'web-zip', 'embedding', 'launcher', 'lsp',
       'tree-sitter', 'vscode', 'tcp', 'udp', 'sf-relief', 'format-scheme', 'siegework/headless'].map(name => script(name)),
   script('udp', '--test-udp-no-try-send'),
 ];

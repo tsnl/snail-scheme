@@ -1,13 +1,37 @@
 # Workspaces and builds
 
-A workspace is a folder that holds `src/`. Every library lives under `src/`,
-at the path its name gives, and every import resolves there, then in the
-standard libraries. A script is a source file anywhere in a workspace;
-`snail-scheme build --target TARGET FILE` builds it for `node` or
-`browser`, and `snail-scheme run` builds it and becomes its program
-([scripts](scripts.md)). A script's workspace is the nearest folder above it
-that holds `src/`. There is no project file: what is built, and for which
-platform, is on the command line.
+A workspace contributes its `src/` to the tree that scripts and libraries
+import from. Declare it in **`snail-scheme-workspace.datum`** at the root
+of the checkout. This repository declares `(workspace)`. A private app can
+use this declaration to extend a local checkout of it.
+
+```scheme
+(workspace (extends "vendor/snail-scheme"))
+```
+
+Each workspace can extend one base. Relative paths start in the workspace
+that declares them. A team can keep shared libraries in a workspace that
+extends the compiler checkout, and each app can extend the team's workspace.
+The tool follows the chain on disk. A sibling checkout works for live
+development. To pin the base for collaborators and CI, commit it as a Git
+submodule and clone with `git clone --recurse-submodules`. Git handles
+credentials during checkout. The manifest selects source trees. Invoke
+the base checkout's `snail-scheme` launcher to use its compiler and runtime.
+
+Libraries keep their ordinary import names. For example, `(team sky)` lives
+at `src/team/sky.sld` in exactly one workspace. Directories can be shared.
+A duplicate file, or a file where another workspace contributes a directory,
+fails the build and reports both paths, even if nothing imports that file.
+A symbolic link occupies one entry. A workspace containing only scripts
+can omit `src/`. A base cycle is an error.
+
+`build`, `run`, `wat` and the language server look upward from the source
+file for the nearest `snail-scheme-workspace.datum`. Build output belongs to
+that workspace. In a tree without a declaration, the nearest folder holding
+`src/` remains the workspace and imports fall back to the launcher's
+standard libraries. An older checkout with `src/` can also serve as the
+last base in an explicit chain. The chain must supply the standard
+libraries its scripts use.
 
 This repository is one workspace. The applications are scripts
 ([application model](applications.md)):

@@ -30,14 +30,15 @@
    Script
    script-at
    script-file
+   find-script
    script-name
    build-script
    check-script
    check-library
-   workspace-directories
    producer-tools)
   (import
    (snail shell project web-app)
+   (snail shell project workspace)
    (snail core base)
    (snail core io)
    (snail core table)
@@ -102,8 +103,8 @@
               ((Node) "node")
               ((Browser) "browser"))))
 
-    ;; A script: `file`, an absolute path, in `workspace`, the nearest folder
-    ;; above it that holds src/, where every import resolves.
+    ;; A script: `file`, an absolute path, in `workspace`, the workspace
+    ;; discovered from its containing directory.
     (record Script
       ((file String)
        (workspace String)))
@@ -114,9 +115,19 @@
 
     ;; The script at an absolute path.
     (define (script-file (fs Fs) (path String)) (→ Script)
+      (unless (file-exists? fs path) (panic (string-append "there is no script at " path)))
+      (match (find-script fs path)
+        ((Some script) script)
+        ((None)
+         (panic
+          (string-append "no folder above " path " holds src/ or snail-scheme-workspace.datum")))))
+
+    ;; The editor may open documents outside any workspace.
+    (define (find-script (fs Fs) (path String)) (→ (Option Script))
       (let ((file (normalized path)))
-        (unless (file-exists? fs file) (panic (string-append "there is no script at " file)))
-        (new Script (file file) (workspace (workspace-of fs file (directory-of file))))))
+        (match (workspace-above fs (directory-of file))
+          ((Some root) (Some (new Script (file file) (workspace root))))
+          ((None) (None)))))
 
     ;; A path made absolute against the working directory.
 
@@ -142,17 +153,6 @@
                               (Nil)
                               (split-path absolute))))
         (string-append "/" (string-join (reverse parts) "/"))))
-
-    (define (workspace-of (fs Fs) (file String) (directory String)) (→ String)
-      (cond ((file-exists? fs (string-append directory "/src")) directory)
-            ((string=? directory "") (panic (string-append "no folder above " file " holds src/")))
-            (else (workspace-of fs file (directory-of directory)))))
-
-    (define (directory-of (path String)) (→ String)
-      (let loop ((index (- (string-length path) 1)))
-        (cond ((< index 0) "")
-              ((char=? (string-ref path index) #\/) (substring path 0 index))
-              (else (loop (- index 1))))))
 
     ;; The script's path in its workspace, and without its extension, the
     ;; name of its build: build/NAME holds its output.
@@ -189,7 +189,7 @@
                                            fs
                                            clock
                                            builder
-                                           (script-target fs tools script platform))))
+                                           (script-target fs script platform))))
         ((Err failure) (panic (failure->string failure)))
         ((Ok output)
          (match (publish fs (● script workspace) output)
@@ -209,14 +209,13 @@
     ;; The build target a script is: a page, with the public/ folder beside
     ;; the script if there is one, or a program.
 
-    (define (script-target (fs Fs) (tools Tools) (script Script) (platform Platform))
+    (define (script-target (fs Fs) (script Script) (platform Platform))
       (→ Target)
       (new Target
         (name (script-name script))
         (browser? (match platform ((Browser) #t) (_ #f)))
         (platform (Some (platform-library platform)))
         (entry (● script file))
-        (directories (workspace-directories tools (● script workspace)))
         (public (match platform
                   ((Browser) (script-public fs script))
                   (_ (None))))))
@@ -227,13 +226,6 @@
         (if (file-exists? fs (string-append (● script workspace) "/" public))
             (Some public)
             (None))))
-
-    ;; Where a workspace's imports resolve: its src/, then the standard
-    ;; libraries', unless they are the same, as in this repository.
-
-    (define (workspace-directories (tools Tools) (workspace String)) (→ (List String))
-      (let ((own (string-append workspace "/src")) (standard (string-append (● tools root) "/src")))
-        (if (string=? own standard) (list own) (list own standard))))
 
     ;; ---- Checks ----
 
@@ -249,7 +241,7 @@
       (→ (Result Typed Failure))
       (checking processes fs clock (building-script tools script)
                 (● script workspace)
-                (lambda (working) (script-target fs tools script platform))))
+                (lambda (working) (script-target fs script platform))))
 
     ;; The library `name` of `workspace`, checked as the program that
     ;; imports it is, under no target.
@@ -271,7 +263,6 @@
                       (browser? #f)
                       (platform (None))
                       (entry entry)
-                      (directories (workspace-directories tools workspace))
                       (public (None)))))))
 
     ;; The program `target` gives, in a working directory of its own,
@@ -356,14 +347,20 @@
 
     ;; ---- Builders ----
 
-    ;; One build's fixed context: what it runs, the workspace, the mode,
-    ;; and the scratch directory its compiles and producers work in, which
-    ;; no other build shares.
+    ;; One build and its producers share these source directories and tools.
+    ;; Each build owns its scratch directory.
     (record Builder
       ((tools Tools)
        (workspace String)
+       (directories (List String))
        (mode Mode)
        (scratch String)))
+
+    (define (workspace-builder (fs Fs) (tools Tools) (root String) (mode Mode) (scratch String))
+      (→ Builder)
+      (let ((directories (compiled (lambda () (workspace-directories fs root (● tools root))))))
+        (new Builder (tools tools) (workspace root) (directories directories)
+             (mode mode) (scratch scratch))))
 
     ;; `work` with a builder of its own, in a fresh scratch directory under
     ;; the repository's build/snail-run/, removed after; a failure is its
@@ -380,11 +377,7 @@
         ((Err failure) (Err failure))
         ((Ok scratch)
          (let ((result (attempt (lambda ()
-                                  (work (new Builder
-                                          (tools tools)
-                                          (workspace workspace)
-                                          (mode mode)
-                                          (scratch scratch)))))))
+                                  (work (workspace-builder fs tools workspace mode scratch))))))
            (remove-tree fs scratch)
            result))))
 
@@ -396,14 +389,12 @@
 
     ;; What a build makes: its name, whether it is a page, the target
     ;; library its program runs under, if any, its entry program's path,
-    ;; the directories its libraries are found in, and a page's public
-    ;; folder, relative to the workspace.
+    ;; and a page's public folder, relative to the workspace.
     (record Target
       ((name String)
        (browser? Bool)
        (platform (Option (List String)))
        (entry String)
-       (directories (List String))
        (public (Option String))))
 
     ;; A target's generation, not yet published: the target's name and the
@@ -465,7 +456,7 @@
                           (target Target)
                           (working String))
       (→ Checked)
-      (let ((directories (● target directories)))
+      (let ((directories (● builder directories)))
         (producing processes fs builder working directories
                    (lambda ()
                      (source->checked fs directories
@@ -1240,13 +1231,6 @@
     (define (starts-with? (text String) (prefix String)) (→ Bool)
       (and (>= (string-length text) (string-length prefix))
            (string=? (substring text 0 (string-length prefix)) prefix)))
-
-    (define (split-path (path String)) (→ (List String))
-      (match (string-index path #\/)
-        ((Some index)
-         (Cons (substring path 0 index)
-               (split-path (substring path (+ index 1) (string-length path)))))
-        ((None) (list path))))
 
     (define (first-component (path String)) (→ String)
       (match (string-index path #\/)

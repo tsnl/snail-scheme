@@ -29,6 +29,7 @@
  (snail core base)
  (snail core io)
  (snail shell project build)
+ (only (snail shell project workspace) workspace-directories)
  (snail shell lsp)
  (only (snail shell format) format-source format-width)
  (only (snail shell compiler driver) compile-arguments)
@@ -180,7 +181,8 @@
   (→ Unit)
   (let ((script (script-at fs environment file)))
     (match (compiling (lambda ()
-                        (source->wat fs (workspace-directories tools (● script workspace))
+                        (source->wat fs
+                                     (workspace-directories fs (● script workspace) (● tools root))
                                      (● script file)
                                      (lambda (loading forms)
                                        (panic "wat does not run producers: build the script"))

@@ -1,6 +1,6 @@
 ;; `snail-scheme lsp`, the language server editors start: the Language Server
 ;; Protocol over standard input and output, for one workspace, the folder the
-;; editor opened, which holds src/. Zed and VS Code start it through
+;; editor opened. Zed and VS Code start it through
 ;; editors/zed and editors/vscode; any editor that speaks the protocol can.
 ;;
 ;; It answers from checking each document the editor has open, in this
@@ -646,20 +646,22 @@
 
     ;; A .scm file is a script, a page when a public/ folder is beside it;
     ;; an .sld file under its workspace's src/ is the library its path
-    ;; there names. Its workspace is the nearest folder above it that holds
-    ;; src/, as a build's is, which `workspace`, holding src/, bounds.
+    ;; there names. A document uses the same workspace discovery as a build.
 
     (define (document-check (fs Fs) (workspace String) (path String)) (→ (Option Check))
       (if (and (has-prefix? path (string-append workspace "/")) (file-exists? fs path))
-          (let* ((script (script-file fs path)) (src (string-append (● script workspace) "/src/")))
-            (cond ((has-suffix? path ".scm") (Some (ScriptCheck script (platform-beside fs path))))
-                  ((and (has-suffix? path ".sld") (has-prefix? path src))
-                   (Some (LibraryCheck (● script workspace)
-                                       (split-name (substring path
-                                                              (string-length src)
-                                                              (- (string-length path) 4))))))
-                  (else (None))))
+          (match (find-script fs path)
+            ((Some script) (check-in-workspace fs script))
+            ((None) (None)))
           (None)))
+
+    (define (check-in-workspace (fs Fs) (script Script)) (→ (Option Check))
+      (let* ((path (● script file)) (root (● script workspace)) (src (string-append root "/src/")))
+        (cond ((has-suffix? path ".scm") (Some (ScriptCheck script (platform-beside fs path))))
+              ((and (has-suffix? path ".sld") (has-prefix? path src))
+               (Some (LibraryCheck root (split-name (substring path (string-length src)
+                                                               (- (string-length path) 4))))))
+              (else (None)))))
 
     (define (platform-beside (fs Fs) (path String)) (→ Platform)
       (if (file-exists? fs (string-append (parent path) "/public")) (Browser) (Node)))
@@ -718,32 +720,30 @@
       (match (● server workspace)
         ((None) server)
         ((Some workspace)
-         (if (file-exists? fs (string-append workspace "/src"))
-             (let* ((results (map (lambda (document)
-                                    (check-document processes
-                                                    fs
-                                                    clock
-                                                    (● server tools)
-                                                    workspace
-                                                    (● document path)))
-                                  (● server documents)))
-                    (programs (fold-right (lambda (result programs)
-                                            (match (● result second)
-                                              ((Some typed) (Cons typed programs))
-                                              ((None) programs)))
-                                          (Nil)
-                                          results))
-                    (reports (distinct-reports (concatenate (map (lambda (result) (● result first))
-                                                                 results)))))
-               (Server-reported-set (if (null? programs)
-                                        server
-                                        (Server-names-set server (index-programs programs)))
-                                    (publish fs
-                                             out
-                                             (● server documents)
-                                             (● server reported)
-                                             reports)))
-             server))))
+         (let* ((results (map (lambda (document)
+                                (check-document processes
+                                                fs
+                                                clock
+                                                (● server tools)
+                                                workspace
+                                                (● document path)))
+                              (● server documents)))
+                (programs (fold-right (lambda (result programs)
+                                        (match (● result second)
+                                          ((Some typed) (Cons typed programs))
+                                          ((None) programs)))
+                                      (Nil)
+                                      results))
+                (reports (distinct-reports (concatenate (map (lambda (result) (● result first))
+                                                             results)))))
+           (Server-reported-set (if (null? programs)
+                                    server
+                                    (Server-names-set server (index-programs programs)))
+                                (publish fs
+                                         out
+                                         (● server documents)
+                                         (● server reported)
+                                         reports))))))
 
     ;; ---- Requests ----
 

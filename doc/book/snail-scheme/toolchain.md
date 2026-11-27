@@ -129,8 +129,8 @@ language, and its queries live with the extension, under
 
 `snail-scheme lsp` is the command line's `lsp`, `(snail shell lsp)`. It reads
 Content-Length framed JSON-RPC on standard input, answers on standard output,
-and serves the workspace at the root folder the editor opens, which holds
-`src/`. It offers:
+and checks documents under the folder the editor opens. Each document uses
+its own workspace declaration and base chain.
 
 - **Diagnostics.** When a file is opened and on each save, it checks each
   open document as a build would, producers and all, with scratch under

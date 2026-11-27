@@ -20,6 +20,7 @@ async function embedding() {
   const workspace = await mkdtemp(join(tmpdir(), 'snail-embedding-'));
   try {
     await cp(join(root, 'tests/embedding'), workspace, {recursive: true});
+    await writeFile(join(workspace, 'snail-scheme-workspace.datum'), `(workspace (extends ${JSON.stringify(root)}))\n`);
     await mkdir(join(workspace, 'client/public/nested'));
     await writeFile(join(workspace, 'client/public/nested/data.bin'), Buffer.from([65, 0, 255]));
     await mkdir(join(workspace, 'client/main.resources'));
