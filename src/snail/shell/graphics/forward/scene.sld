@@ -1,6 +1,12 @@
 ;; The native vertex and index buffers, texture maps and draw ranges of a glTF scene.
 (define-library (snail shell graphics forward scene)
-  (export Scene MapImage DrawRange SurfaceMaterial material-shape surface-material
+  (export StaticGeometry
+          Unpacker
+          make-unpacker
+          release-unpacker
+          upload-static-geometry
+          release-static-geometry
+          Scene MapImage DrawRange SurfaceMaterial material-shape surface-material
           upload-scene
           model-buffers model-files model-buffer-files upload-resolved release-scene-images
           read-model-file
@@ -55,6 +61,14 @@
     (record SceneImages
       ((maps (Array MapImage))
        (sampler GpuSampler)))
+    ;; A static group borrows material slots from the model that draws it.
+    (record StaticGeometry
+      ((vertices GpuBuffer)
+       (indices GpuBuffer)
+       (draws (List DrawRange))))
+    (record Unpacker
+      ((vertices GpuComputePipeline)
+       (triangles GpuComputePipeline)))
     (record Scene
       ((vertices GpuBuffer)
        (indices GpuBuffer)
@@ -65,6 +79,7 @@
        (lights LightGrid)
        (local-lights Bool)
        (draws (List DrawRange))
+       (static (List StaticGeometry))
        (blend-meshes (List BlendMesh))
        (low (List F64))
        (high (List F64))
@@ -226,7 +241,7 @@
                                  (vertices (● geometry first))
                                  (indices (● geometry second))
                                  (vertex-count (● counts first))
-                                 (draws draws) (blend-meshes meshes)
+                                 (draws draws) (static (Nil)) (blend-meshes meshes)
                                  (materials materials)
                                  (images images)
                                  (owns-images owns)
@@ -607,6 +622,31 @@
     ;; vertex and index buffers.
     (define (unpacked (gpu Gpu) (gltf Gltf) (counts (Pair I64 I64)) (buffers (List Bytes)))
       (→ (Pair GpuBuffer GpuBuffer))
+      (let* ((kernels (make-unpacker gpu))
+             (geometry (unpack-geometry gpu kernels gltf counts buffers)))
+        (release-unpacker gpu kernels) geometry))
+    (define (upload-static-geometry (gpu Gpu)
+                                    (kernels Unpacker)
+                                    (placed (List Placed))
+                                    (bytes Bytes))
+      (→ StaticGeometry)
+      (let* ((size (array-length bytes))
+             (g (new Gltf
+                  (size size)
+                  (buffers (list (new Buffer (source (DataSource bytes)) (start 0) (length size))))
+                  (images (Nil)) (materials (Nil)) (placed placed)))
+             (buffers (unpack-geometry gpu kernels g (placed-counts g) (list bytes))))
+        (new StaticGeometry (vertices (● buffers first)) (indices (● buffers second))
+             (draws (draw-ranges g -1)))))
+    (define (release-static-geometry (gpu Gpu) (group StaticGeometry)) (→ Unit)
+      ((● gpu destroy) (BufferObject (● group vertices)))
+      ((● gpu destroy) (BufferObject (● group indices))))
+    (define (unpack-geometry (gpu Gpu)
+                             (kernels Unpacker)
+                             (gltf Gltf)
+                             (counts (Pair I64 I64))
+                             (buffers (List Bytes)))
+      (→ (Pair GpuBuffer GpuBuffer))
       (let* ((data (storage-buffer gpu "scene/data" (● gltf size) (list (CopyDst))))
              (unpacks (storage-of gpu "scene/unpacks" (pack unpack-shape (unpacks-of gltf))))
              (vertices
@@ -620,7 +660,7 @@
                      (i64->i32 (● laid first start))
                      (padded-bytes (● laid second))))
                   (zip (● gltf buffers) buffers))
-        (run-unpack gpu
+        (run-unpack gpu kernels
                     data
                     unpacks
                     vertices
@@ -636,50 +676,48 @@
       (let ((extra (remainder (- 4 (remainder (array-length bytes) 4)) 4)))
         (if (= extra 0) bytes (array-append bytes (make-array extra (i32->u8 0))))))
 
-    (define (run-unpack (gpu Gpu) (data GpuBuffer)
+    (define (make-unpacker (gpu Gpu)) (→ Unpacker)
+      (let* ((module
+              ((● gpu create-shader-module) (new ShaderModuleDescriptor (label "scene/unpack")
+                                                 (code (string-append (declarations unpack-shape)
+                                                                      unpack-shader)))))
+             (kernels (new Unpacker (vertices (compute-kernel gpu module "scene" "unpack_vertices"))
+                           (triangles (compute-kernel gpu module "scene" "unpack_triangles")))))
+        ((● gpu destroy) (ModuleObject module)) kernels))
+    (define (release-unpacker (gpu Gpu) (kernels Unpacker)) (→ Unit)
+      ((● gpu destroy) (ComputePipelineObject (● kernels vertices)))
+      ((● gpu destroy) (ComputePipelineObject (● kernels triangles))))
+    (define (run-unpack (gpu Gpu) (kernels Unpacker) (data GpuBuffer)
                         (unpacks GpuBuffer)
                         (vertices GpuBuffer)
                         (indices GpuBuffer)
                         (vertex-count I64)
                         (triangle-count I64))
       (→ Unit)
-      (let* ((module ((● gpu create-shader-module) (new ShaderModuleDescriptor
-                                                     (label "scene/unpack")
-                                                     (code
-                                                      (string-append (declarations unpack-shape)
-                                                                     unpack-shader)))))
-             (encoder ((● gpu create-command-encoder)))
+      (let* ((encoder ((● gpu create-command-encoder)))
              (pass ((● gpu begin-compute-pass) encoder))
              (read (list (BufferEntry 0 data 0 0) (BufferEntry 1 unpacks 0 0))))
         (unpack gpu pass
-                module
-                "unpack_vertices"
+                (● kernels vertices)
                 vertex-count
                 (append read (list (BufferEntry 2 vertices 0 0))))
         (unpack gpu pass
-                module
-                "unpack_triangles"
+                (● kernels triangles)
                 triangle-count
                 (append read (list (BufferEntry 3 indices 0 0))))
-        ((● gpu destroy) (ModuleObject module))
         ((● gpu end-compute-pass) pass)
         ((● gpu submit) (list ((● gpu finish) encoder)))))
 
-    ;; One kernel of the unpack over `count` items; its pipeline and group
-    ;; go at the submit.
     (define (unpack (gpu Gpu) (pass GpuComputePass)
-                    (module GpuShaderModule)
-                    (entry String)
+                    (kernel GpuComputePipeline)
                     (count I64)
                     (entries (List BindGroupEntry)))
       (→ Unit)
-      (let* ((kernel (compute-kernel gpu module "scene" entry))
-             (group (kernel-group gpu kernel 0 "scene/unpack" entries)))
+      (let ((group (kernel-group gpu kernel 0 "scene/unpack" entries)))
         ((● gpu set-compute-pipeline) pass kernel)
         ((● gpu set-compute-bind-group) pass 0 group)
         (dispatch-items gpu pass count 256)
-        ((● gpu destroy) (BindGroupObject group))
-        ((● gpu destroy) (ComputePipelineObject kernel))))
+        ((● gpu destroy) (BindGroupObject group))))
 
     (define (storage-of (gpu Gpu) (label String) (bytes Bytes)) (→ GpuBuffer)
       (let ((buffer (storage-buffer gpu label (array-length bytes) (list (CopyDst)))))

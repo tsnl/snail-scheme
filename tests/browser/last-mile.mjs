@@ -146,6 +146,23 @@ async function visibleStreet() {
 
 try {
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: `
+    window.streetMeshes = 0;
+    const streetIds = new WeakMap(), drawn = new Set();
+    const createBuffer = GPUDevice.prototype.createBuffer;
+    GPUDevice.prototype.createBuffer = function(descriptor) {
+      const buffer = createBuffer.call(this, descriptor);
+      if (descriptor.label === 'scene/vertices') streetIds.set(buffer, ++window.streetMeshes);
+      return buffer;
+    };
+    const bind = GPURenderPassEncoder.prototype.setVertexBuffer, submit = GPUQueue.prototype.submit;
+    GPURenderPassEncoder.prototype.setVertexBuffer = function(slot, buffer, ...rest) {
+      if (streetIds.has(buffer)) drawn.add(streetIds.get(buffer));
+      return bind.call(this, slot, buffer, ...rest);
+    };
+    GPUQueue.prototype.submit = function(commands) {
+      if (drawn.size) { window.visibleStreets = [...drawn]; drawn.clear(); }
+      return submit.call(this, commands);
+    };
     const createTexture = GPUDevice.prototype.createTexture;
     GPUDevice.prototype.createTexture = function(descriptor) {
       const texture = createTexture.call(this, descriptor);
@@ -334,6 +351,11 @@ try {
   assert.equal(await selection('#mouse-sensitivity'), 'High');
   await click('.resume-game');
   await expect('.stage', 'PICKUP');
+  const resident = await browser.evaluate('window.streetMeshes');
+  const near = await browser.evaluate('window.visibleStreets');
+  assert.ok(near.length > 0 && near.length <= 9);
+  const city = JSON.parse(await readFile(join(directory, 'geodata/city.json')));
+  assert.equal(resident, city.land_sectors + 1, 'all detailed sectors and the animated scene uploaded before driving');
   await tap('m');
   for (let i = 0; i < 3; i++) await tap('[');
   await expect('.picker', 'Treasure Island');
@@ -344,6 +366,10 @@ try {
     return chart?.paths > 0 && chart.box !== local.box && chart.overview === 'none';
   }, 'island vector chart from the cached city');
   await until(visibleStreet, 'the independently drawn island streets', 65);
+  assert.equal(await browser.evaluate('window.streetMeshes'), resident, 'teleport selected resident geometry');
+  const island = await browser.evaluate('window.visibleStreets');
+  assert.ok(island.length > 0 && island.length <= 9 && island.every(id => !near.includes(id)),
+    'the island draws its own resident neighbors');
   const dayImage = await until(async () => { const image = await streetImage(); return image.colors >= 12 && image; }, "daylight exposure");
   const day = dayImage.luminance;
   await tap('l');

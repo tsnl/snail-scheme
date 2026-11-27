@@ -4,10 +4,8 @@
           Chase
           follow
           make-renderer
-          make-street-renderer
           street-camera
           street-exposure
-          prepare-street!
           draw!
           render-resolution
           reset-view!)
@@ -60,15 +58,12 @@
        (skin SkinLayout)
        (traffic I64)
        (residents I64)))
-    (record Prepared
-      ((sector I64)
-       (stage api:ModelHandle)))
     (record Renderer
       ((ground Area)
        (read (Fn (List String) → (List Bytes)))
        (cast Cast)
        (cast-for (Fn Game → Cast))
-       (pending (Option Prepared))
+       (streets Streets)
        (marked-stand I64)
        (marks (List Mat4x4f))
        (actor Humanoid)
@@ -329,147 +324,98 @@
                                           (map (lambda (_) (● people binding)) actors)))))
         (new Cast (model (Gltf-placed-set all placed)) (skin (pack-skin bindings))
              (traffic (length (● w traffic))) (residents (length (● w residents))))))
-    (define (stage-model (g Area) (horizon Gltf) (cast Cast)) (→ Gltf)
-      (append-gltf (append-gltf horizon (city-model g)) (● cast model)))
-    (define (build-stage (renderer api:Renderer) (read (Fn (List String) → (List Bytes))) (g Area)
+    (define (stage-model (horizon Gltf) (cast Cast)) (→ Gltf)
+      (append-gltf (append-gltf (city-materials) horizon) (● cast model)))
+    (define (build-stage (renderer api:Renderer)
+                         (read (Fn (List String) → (List Bytes)))
+                         (streets Streets)
                          (model Gltf) (cast Cast) (images SceneImages)) (→ api:ModelHandle)
                          (api:create-model! renderer
                                             model
                                             read
                                             (Some images)
                                             (Some (● cast skin))
-                                            (city-lights g)
+                                            (● streets lights)
                                             (* 4 (+ 1 (● cast traffic)))))
     (define (street-samples (g Graphics)) (→ I32) (if (= (● g samples) 4) 4 1))
 
-    (define (make-renderer (gpu Gpu)
-                           (config api:RendererConfig)
-                           (read (Fn (List String) → (List Bytes)))
-                           (models (List Bytes))
-                           (g Area) (s Shift)) (→ Renderer)
-                           ((● gpu request-device))
-                           (let ((canvas ((● gpu current-texture))))
-                             (make-street-renderer gpu config
-                                                   read
-                                                   models
-                                                   g
-                                                   s
-                                                   (● canvas width)
-                                                   (● canvas height))))
-    (define (make-street-renderer (gpu Gpu) (config api:RendererConfig)
-                                  (read (Fn (List String) → (List Bytes)))
-                                  (models (List Bytes))
-                                  (g Area) (s Shift) (width I32) (height I32)) (→ Renderer)
-                                  (let* ((w (● s game))
-                                         (info ((● gpu request-device)))
-                                         (format (● info format))
-                                         (taxi (lit-car (read-gltf (list-ref models 0) "./") #t))
-                                         (car (lit-car (read-gltf (list-ref models 1) "./") #f))
-                                         (brake (brake-model blank-model))
-                                         (marker (with-shapes blank-model
-                                                              (list (Item-glow-set (item (Box)
-                                                                                         (xyz 0.0
-                                                                                              0.0
-                                                                                              0.0)
-                                                                                         (xyz 1.0
-                                                                                              1.0
-                                                                                              1.0)
-                                                                                         0.0
-                                                                                         (rgb 255
-                                                                                              187
-                                                                                              45))
-                                                                                   2.4))))
-                                         (people (read-rigged-gltf (list-ref models 2) "./" read))
-                                         (horizon (read-gltf (list-ref models 3) "./"))
-                                         (actor (crew people))
-                                         (make-cast (lambda ((game Game))
-                                                      (→ Cast)
-                                                      (cast-for taxi car brake marker people game)))
-                                         (cast (make-cast w))
-                                         (model (stage-model g horizon cast))
-                                         (images (load-scene-images gpu read model))
-                                         (renderer (api:make-renderer gpu config))
-                                         (stage (build-stage renderer read g model cast images))
-                                         (light (daylight gpu (sky-period (clock-minute w))))
-                                         (marked (zone-stand w)) (marks (zone-poses g marked))
-                                         (palette (world-palette g actor marks s s 1.0 0.0)))
-                                    (set! (● light sun) (street-sun (clock-minute w)))
-                                    (api:use-model! renderer stage)
-                                    (api:set-sky! renderer light (Photographic))
-                                    (api:pose-model! renderer stage palette)
-                                    (write-lamps! renderer stage palette s)
-                                    (new Renderer
-                                      (ground g)
-                                      (read read)
-                                      (cast cast)
-                                      (cast-for make-cast)
-                                      (pending (None))
-                                      (marks marks)
-                                      (marked-stand marked)
-                                      (actor actor)
-                                      (horizon horizon)
-                                      (stage stage)
-                                      (sector (● g center))
-                                      (images images)
-                                      (minute (clock-minute w))
-                                      (palette palette)
-                                      (time -1.0)
-                                      (compositor (make-compositor gpu format))
-                                      (rig (None))
-                                      (forward-renderer renderer))))
-    (define (discard-pending! (gpu Gpu) (r Renderer)) (→ Unit)
-      (match (● r pending)
-        ((Some old)
-         (api:delete-model! (● r forward-renderer) (● old stage))
-         (set! (● r pending) (None)))
-        (_ (unit))))
-    (define (stage-at (gpu Gpu) (r Renderer) (g Area)) (→ api:ModelHandle)
-      (build-stage (● r forward-renderer)
-                   (● r read)
-                   g
-                   (stage-model g (● r horizon) (● r cast))
-                   (● r cast)
-                   (● r images)))
-    ;; Forecast four seconds of travel, bounded to less than half a sector.
-    ;; Decode and upload one predicted window while the current street stays visible.
-    (define (prepare-street! (gpu Gpu) (r Renderer) (b Body)) (→ Unit)
-      (let* ((p (● b position)) (v (● b velocity)) (speed (distance v (xz 0.0 0.0)))
-             (g (● r ground)) (wanted (focus-sector g p)) (crossed (not (= wanted (● g center))))
-             ;; At a corner or after a U-turn the current road takes priority.
-             ;; The old window covers it while a missed prediction catches up.
-             (ahead (if crossed p (offset p v (min 4.0 (/ 125.0 (max 1.0 speed))))))
-             (id (sector-id (● g atlas) ahead)))
-        (when (and (or crossed (> speed 1.0))
-                   (>= id 0)
-                   (not (= (● g center) id))
-                   (= (● r sector) (● g center)))
-          (match (● r pending)
-            ((Some pending)
-             (if (= id (● pending sector))
-                 (when crossed (focus-area! g p))
-                 (discard-pending! gpu r)))
-            (_ (match (prepare-area! g ahead)
-                 ((Some next) (set! (● r pending)
-                                    (Some (new Prepared
-                                            (sector id)
-                                            (stage (stage-at gpu r next))))))
-                 (_ (unit))))))))
+    (define (make-renderer (gpu Gpu) (renderer api:Renderer)
+                           (read (Fn (List String) → (List Bytes))) (models (List Bytes))
+                           (streets Streets) (g Area) (s Shift)) (→ Renderer)
+                           (let* ((w (● s game))
+                                  (info ((● gpu request-device)))
+                                  (format (● info format))
+                                  (taxi (lit-car (read-gltf (list-ref models 0) "./") #t))
+                                  (car (lit-car (read-gltf (list-ref models 1) "./") #f))
+                                  (brake (brake-model blank-model))
+                                  (marker (with-shapes blank-model
+                                                       (list (Item-glow-set (item (Box)
+                                                                                  (xyz 0.0
+                                                                                       0.0
+                                                                                       0.0)
+                                                                                  (xyz 1.0
+                                                                                       1.0
+                                                                                       1.0)
+                                                                                  0.0
+                                                                                  (rgb 255
+                                                                                       187
+                                                                                       45))
+                                                                            2.4))))
+                                  (people (read-rigged-gltf (list-ref models 2) "./" read))
+                                  (horizon (read-gltf (list-ref models 3) "./"))
+                                  (actor (crew people))
+                                  (make-cast (lambda ((game Game))
+                                               (→ Cast)
+                                               (cast-for taxi car brake marker people game)))
+                                  (cast (make-cast w))
+                                  (model (stage-model horizon cast))
+                                  (images (load-scene-images gpu read model))
+                                  (stage (build-stage renderer read streets model cast images))
+                                  (light (daylight gpu (sky-period (clock-minute w))))
+                                  (marked (zone-stand w)) (marks (zone-poses g marked))
+                                  (palette (world-palette g actor marks s s 1.0 0.0)))
+                             (set! (● light sun) (street-sun (clock-minute w)))
+                             (api:select-static-geometry! renderer
+                                                          stage
+                                                          (nearby-geometry streets g))
+                             (api:use-model! renderer stage)
+                             (api:set-sky! renderer light (Photographic))
+                             (api:pose-model! renderer stage palette)
+                             (write-lamps! renderer stage palette s)
+                             (new Renderer
+                               (ground g)
+                               (read read)
+                               (cast cast)
+                               (cast-for make-cast)
+                               (streets streets)
+                               (marks marks)
+                               (marked-stand marked)
+                               (actor actor)
+                               (horizon horizon)
+                               (stage stage)
+                               (sector (● g center))
+                               (images images)
+                               (minute (clock-minute w))
+                               (palette palette)
+                               (time -1.0)
+                               (compositor (make-compositor gpu format))
+                               (rig (None))
+                               (forward-renderer renderer))))
     (define (refresh! (r Renderer) (gpu Gpu) (w Game)) (→ Unit)
       (when (not (= (● r sector) (● r ground center)))
-        (let* ((old (● r stage)) (id (● r ground center))
-               (changed (or (not (= (● r cast traffic) (length (● w traffic))))
-                            (not (= (● r cast residents) (length (● w residents)))))))
-          (when changed (discard-pending! gpu r) (set! (● r cast) ((● r cast-for) w)))
-          (match (● r pending)
-            ((Some p) (unless (= id (● p sector)) (discard-pending! gpu r)))
-            (_ (unit)))
-          (let ((next
-                 (match (● r pending) ((Some p) (● p stage)) (_ (stage-at gpu r (● r ground))))))
-            (api:use-model! (● r forward-renderer) next)
-            (set! (● r pending) (None))
-            (set! (● r stage) next))
-          (set! (● r marked-stand) -2) (set! (● r sector) id) (set! (● r time) -1.0)
-          (api:delete-model! (● r forward-renderer) old)))
+        (let ((renderer (● r forward-renderer)))
+          (when (or (not (= (● r cast traffic) (length (● w traffic))))
+                    (not (= (● r cast residents) (length (● w residents)))))
+            (let* ((cast ((● r cast-for) w)) (old (● r stage))
+                   (stage (build-stage renderer (● r read) (● r streets)
+                                       (stage-model (● r horizon) cast) cast (● r images))))
+              (api:use-model! renderer stage) (api:delete-model! renderer old)
+              (set! (● r cast) cast) (set! (● r stage) stage)))
+          (api:select-static-geometry! renderer
+                                       (● r stage)
+                                       (nearby-geometry (● r streets) (● r ground)))
+          (set! (● r sector) (● r ground center))
+          (set! (● r marked-stand) -2) (set! (● r time) -1.0)))
       (let ((id (zone-stand w))) (unless (= id (● r marked-stand))
                                    (set! (● r marks) (zone-poses (● r ground) id))
                                    (set! (● r marked-stand) id)))

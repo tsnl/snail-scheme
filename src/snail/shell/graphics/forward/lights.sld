@@ -89,7 +89,7 @@
         (panic "moving lights must fit the texture's first row"))
       (let* ((b (if (null? lights) (v4 0.0 0.0 0.0 0.0) (bounds lights)))
              (span (max (- (● b z) (● b x)) (- (● b w) (● b y))))
-             (side (max 1 (min 48 (f64->i64 (ceiling (/ (f32->f64 span) 24.0))))))
+             (side (max 1 (min 256 (f64->i64 (ceiling (/ (f32->f64 span) 24.0))))))
              (step (max 1.0 (/ span (as-float side)))))
         (upload-grid gpu (v4 (● b x) (● b y) step (as-float side))
                      (array->list (cell-lights lights b step side)) capacity)))

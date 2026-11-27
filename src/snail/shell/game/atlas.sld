@@ -1,5 +1,4 @@
-;; A city's linked bands stay in memory. Only the current neighbourhood's
-;; contact meshes and render buffers are unpacked. No movement performs I/O.
+;; Decode the directory once. A moving area selects neighboring resident records.
 (define-library (snail shell game atlas)
   (export Atlas
           Area
@@ -9,15 +8,17 @@
           open-area
           focus-area!
           focus-sector
-          prepare-area!
+          read-atlas-with-meshes
           area-height
           area-slope
           area-solids
           area-trace-distance
+          svg-fragment-base64
           nearest-sign
           sector-id)
   (import
    (snail core base)
+   (only (snail shell base64) base64-text)
    (snail shell little-endian)
    (snail shell inflate)
    (only (snail shell utf8) utf8->string)
@@ -36,25 +37,19 @@
        (cols I64)
        (rows I64)
        (side I64)
-       (bands (List Band))))
+       (sectors (Array (Option Sector)))))
     (record Sign
       ((position XZ)
        (name String)))
     (record Sector
       ((id I64)
        (ground Terrain)
-       (mesh Bytes)
-       (chart String)
+       (chart-base64 String)
        (signs (List Sign))))
-    (record Neighborhood
-      ((id I64)
-       (remaining (List I64))
-       (sectors (List Sector))))
     (record Area
       ((atlas Atlas)
        (center I64)
-       (sectors (List Sector))
-       (pending (Option Neighborhood))))
+       (sectors (List Sector))))
     (define (band (data Bytes) (reference Bytes)) (→ Band)
       (unless (and (>= (array-length data) 32)
                    (or (= (u32 data 0) 826426963) (= (u32 data 0) 843204179))
@@ -68,6 +63,9 @@
           (panic "invalid city directory"))
         (new Band (bytes data) (lo lo) (hi hi) (start start) (charts (= (u32 data 0) 843204179)))))
     (define (read-atlas (files (List Bytes))) (→ Atlas)
+      (read-atlas-with-meshes files (lambda (_sector _mesh _total) (unit))))
+    (define (read-atlas-with-meshes (files (List Bytes)) (visit (Fn Sector Bytes I64 → Unit)))
+      (→ Atlas)
       (let* ((first (list-ref files 0)) (bands (map (lambda (b) (band b first)) files)))
         (unless (and (> (u32 first 20) 0)
                      (= (fold-left (lambda (lo b)
@@ -76,8 +74,19 @@
                                    0
                                    bands)
                         (u32 first 16))) (panic "incomplete city"))
-        (new Atlas (west (i32-le first 4)) (north (i32-le first 8)) (cols (u32 first 12))
-             (rows (u32 first 16)) (side (u32 first 20)) (bands bands))))
+        (let* ((cols (u32 first 12)) (rows (u32 first 16)) (total (* cols rows))
+               (sectors (make-array total (ann (None) (Option Sector)))))
+          (for-each
+           (lambda (b)
+             (let loop ((id (* cols (● b lo))))
+               (when (< id (* cols (● b hi)))
+                 (match (read-sector b cols id)
+                   ((Some pair) (let ((s (● pair first)))
+                                  (array-set! sectors id (Some s)) (visit s (● pair second) total)))
+                   (_ (unit)))
+                 (loop (+ id 1))))) bands)
+          (new Atlas (west (i32-le first 4)) (north (i32-le first 8)) (cols cols)
+               (rows rows) (side (u32 first 20)) (sectors sectors)))))
     (define (axis (p F64) (origin I64) (side I64)) (→ I64)
       (f64->i64 (floor (/ (- p (i64->f64 origin)) (i64->f64 side)))))
     (define (sector-id (a Atlas) (p XZ)) (→ I64)
@@ -92,29 +101,29 @@
                  (p (xz (i64->f64 (+ (● g west) (i16 raw at)))
                         (i64->f64 (+ (● g north) (i16 raw (+ at 2)))))))
             (Cons (new Sign (position p) (name name)) (signs raw end (- n 1) g)))))
-    (define (unpack (id I64) (raw Bytes) (charts Bool)) (→ Sector)
+    ;; Independent base64 blocks concatenate exactly when each input ends on a
+    ;; three-byte boundary. XML whitespace between elements supplies the padding.
+    (define (svg-fragment-base64 (bytes Bytes)) (→ String)
+      (let ((padding (modulo (- 0 (array-length bytes)) 3)))
+        (base64-text
+         (if (= padding 0) bytes (array-append bytes (make-array padding (i32->u8 32)))))))
+    (define (unpack (id I64) (raw Bytes) (charts Bool)) (→ (Pair Sector Bytes))
       (let* ((header (if charts 16 12)) (at (+ header (u32 raw 0))) (end (+ at (u32 raw 4)))
              (labels (if charts (+ end (u32 raw 12)) end))
              (g (read-terrain (subarray raw header at))))
-        (new Sector
-          (id id)
-          (ground g)
-          (mesh (subarray raw at end))
-          (chart (match (utf8->string (subarray raw end labels))
-                   ((Ok svg) svg)
-                   (_ (panic "invalid street chart"))))
-          (signs (signs raw labels (u32 raw 8) g)))))
-    (define (read-sector (a Atlas) (id I64)) (→ (Option Sector))
-      (let* ((row (quotient id (● a cols)))
-             (b (match (find (lambda (b) (and (<= (● b lo) row) (< row (● b hi)))) (● a bands))
-                  ((Some b) b) (_ (panic "missing city band"))))
-             (d (● b bytes)) (i (+ 32 (* 4 (- id (* (● b lo) (● a cols))))))
+        (new Pair (first (new Sector (id id) (ground g)
+                              (chart-base64 (svg-fragment-base64 (subarray raw end labels)))
+                              (signs (signs raw labels (u32 raw 8) g))))
+             (second (subarray raw at end)))))
+    (define (read-sector (b Band) (cols I64) (id I64)) (→ (Option (Pair Sector Bytes)))
+      (let* ((d (● b bytes)) (i (+ 32 (* 4 (- id (* (● b lo) cols)))))
              (p (+ (● b start) (u32 d i))) (q (+ (● b start) (u32 d (+ i 4)))))
         (cond ((= p q) (None))
               ((or (< (- q p) 5) (> q (array-length d)) (> (u32 d p) 16000000))
                (panic "invalid city sector"))
               (else (match (inflate (subarray d (+ p 4) q) 0 (u32 d p))
-                      ((Ok raw) (Some (unpack id raw (● b charts)))) ((Err why) (panic why)))))))
+                      ((Ok raw) (Some (unpack id raw (● b charts))))
+                      ((Err why) (panic why)))))))
     (define (neighbors (a Atlas) (id I64)) (→ (List I64))
       (let ((i (modulo id (● a cols))) (j (quotient id (● a cols))))
         (fold-right (lambda (d acc)
@@ -129,42 +138,6 @@
              (z (i64->f64 (+ (● a north) (* (quotient id (● a cols)) side)))))
         (and (>= (● p x) (- x margin)) (< (● p x) (+ (+ x (i64->f64 side)) margin))
              (>= (● p z) (- z margin)) (< (● p z) (+ (+ z (i64->f64 side)) margin)))))
-    ;; Keep only the current window and one forecast. Overlap includes known
-    ;; empty ocean sectors. Inflate at most one new sector per preparation step.
-    (define (neighborhood (a Area) (id I64)) (→ Neighborhood)
-      (let* ((atlas (● a atlas)) (ids (neighbors atlas id))
-             (resident (if (< (● a center) 0) (Nil) (neighbors atlas (● a center))))
-             (missing (filter (lambda (i) (not (any? (lambda (k) (= k i)) resident))) ids)))
-        (new Neighborhood (id id) (remaining missing)
-             (sectors (filter (lambda (s) (any? (lambda (i) (= i (● s id))) ids)) (● a sectors))))))
-    (define (pending! (a Area) (id I64)) (→ Neighborhood)
-      (match (● a pending)
-        ((Some n) (if (= id (● n id)) n
-                      (let ((next (neighborhood a id))) (set! (● a pending) (Some next)) next)))
-        (_ (let ((next (neighborhood a id))) (set! (● a pending) (Some next)) next))))
-    (define (unpack-next! (atlas Atlas) (n Neighborhood)) (→ Unit)
-      (match (● n remaining)
-        ((Cons id tail)
-         (match (read-sector atlas id)
-           ((Some sector) (set! (● n sectors) (Cons sector (● n sectors)))) (_ (unit)))
-         (set! (● n remaining) tail))
-        (_ (unit))))
-    (define (ordered-sectors (atlas Atlas) (n Neighborhood)) (→ (List Sector))
-      (fold-right (lambda (i rest)
-                    (match (find (lambda (s) (= (● s id) i)) (● n sectors))
-                      ((Some s) (Cons s rest)) (_ rest)))
-                  (Nil) (neighbors atlas (● n id))))
-    (define (prepare-area! (a Area) (point XZ)) (→ (Option Area))
-      (let* ((atlas (● a atlas)) (id (sector-id atlas point)))
-        (if (or (< id 0) (= id (● a center))) (None)
-            (let ((n (pending! a id)))
-              (if (null? (● n remaining))
-                  (Some (new Area
-                          (atlas atlas)
-                          (center id)
-                          (sectors (ordered-sectors atlas n))
-                          (pending (None))))
-                  (begin (unpack-next! atlas n) (None)))))))
     (define (focus-sector (a Area) (p XZ)) (→ I64)
       (let* ((atlas (● a atlas)) (id (sector-id atlas p)) (current (● a center)))
         (if (or (< id 0) (= id current) (and (>= current 0) (inside-focus? atlas current p)))
@@ -173,13 +146,13 @@
     (define (focus-area! (a Area) (p XZ)) (→ Unit)
       (let* ((atlas (● a atlas)) (id (focus-sector a p)))
         (when (not (= id (● a center)))
-          (let ((n (pending! a id)))
-            (let finish () (unless (null? (● n remaining)) (unpack-next! atlas n) (finish)))
-            (set! (● a sectors) (ordered-sectors atlas n))
-            (set! (● a center) id)
-            (set! (● a pending) (None))))))
+          (set! (● a sectors)
+                (fold-right (lambda (k rest) (match (array-ref (● atlas sectors) k)
+                                               ((Some s) (Cons s rest)) (_ rest)))
+                            (Nil) (neighbors atlas id)))
+          (set! (● a center) id))))
     (define (open-area (atlas Atlas) (p XZ)) (→ Area)
-      (let ((a (new Area (atlas atlas) (center -1) (sectors (Nil)) (pending (None)))))
+      (let ((a (new Area (atlas atlas) (center -1) (sectors (Nil)))))
         (focus-area! a p)
         a))
     (define (area-height (a Area) (p XZ)) (→ F64)
