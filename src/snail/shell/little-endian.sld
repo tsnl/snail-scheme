@@ -1,6 +1,6 @@
 ;; Unsigned and signed scalar fields in little-endian binary files.
 (define-library (snail shell little-endian)
-  (export u16 i16 u32 i32-le)
+  (export u16 i16 u32 i32-le uint-le)
   (import
    (snail core base))
   (begin
@@ -9,5 +9,8 @@
     (define (i16 (b Bytes) (i I64)) (→ I64)
       (let ((n (u16 b i))) (if (< n 32768) n (- n 65536))))
     (define (u32 (b Bytes) (i I64)) (→ I64) (+ (u16 b i) (* 65536 (u16 b (+ i 2)))))
+    (define (uint-le (b Bytes) (at I64) (size I64)) (→ I64)
+      (case size ((1) (byte b at)) ((2) (u16 b at)) ((4) (u32 b at))
+            (else (panic "unsupported unsigned field width"))))
     (define (i32-le (b Bytes) (i I64)) (→ I64)
       (let ((n (u32 b i))) (if (< n 2147483648) n (- n 4294967296))))))

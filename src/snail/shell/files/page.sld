@@ -6,7 +6,8 @@
    page-file-picker)
   (import
    (snail core base)
-   (only (snail core io) Host)
+   (only (snail core io) Host OutputPort)
+   (snail shell utf8)
    (prefix (snail runtime browser files) host-)
    (snail shell files))
   (begin
@@ -19,7 +20,12 @@
                        (host-open-picker (match choice
                                            ((SomeFiles) 0)
                                            ((Folder) 1)))))
-        (chosen-files page-chosen)))
+        (chosen-files page-chosen)
+        (download-text (lambda (name)
+                         (let ((id (host-open-download (string->utf8 name))))
+                           (new OutputPort
+                             (write-string
+                              (lambda (text) (host-write-download id (string->utf8 text))))))))))
 
     ;; The listing is each file's path and address, a NUL after each,
     ;; read as fields from the last back to the first.

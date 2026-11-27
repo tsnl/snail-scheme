@@ -6,14 +6,14 @@
 // between waits, and a dropped connection reconnects, as EventSource does,
 // which a stream that hears "error" hears as an event without data.
 
-import {byteView, objectPath} from './load.mjs';
+import {blobPartSize, legacyPartSize, byteView, objectPath, readBlobParts} from './load.mjs';
 import {readImmutable} from './storage.mjs';
 
 // Count decoded response bytes, the same representation the publisher hashed.
 // The catalog gives the length even when HTTP compresses or omits it.
 export async function downloadStatic(url, size, signal, progress) {
   const response = await fetch(url, {signal, cache: 'no-store'});
-  if (!response.ok) throw new Error(`${response.status} fetching ${url}`);
+  if (!response.ok) throw Object.assign(new Error(`${response.status} fetching ${url}`), {status: response.status});
   const reader = response.body?.getReader();
   const bytes = new Uint8Array(size);
   let received = 0;
@@ -34,6 +34,26 @@ export async function downloadStatic(url, size, signal, progress) {
   }
   if (received !== size) throw new Error(`expected ${size} bytes, received ${received}`);
   return bytes;
+}
+
+// Catalogs describe the whole object. Try its current address first. Only
+// a 404 before any bytes permits an older widthless or whole-object layout.
+async function downloadObject(base, digest, size, signal, progress) {
+  const layouts = size > blobPartSize ? [blobPartSize, legacyPartSize, 0]
+    : size > legacyPartSize ? [0, legacyPartSize] : [0];
+  for (const width of layouts) {
+    let first = true;
+    try {
+      if (width === 0) return await downloadStatic(new URL(objectPath(digest), base), size, signal, progress);
+      return await readBlobParts(digest, size, async (path, length, offset) => {
+        const part = await downloadStatic(new URL(path, base), length, signal, n => progress(offset + n));
+        first = false;
+        return part;
+      }, width);
+    } catch (error) {
+      if (!first || error.status !== 404 || width === layouts.at(-1)) throw error;
+    }
+  }
 }
 
 export function createFetch(runtime) {
@@ -139,7 +159,7 @@ export function createFetch(runtime) {
   // sample it while waiting. finish-request exposes either bytes or an error.
   function startStatic(ticket, size, address) {
     const id = Number(ticket), digest = text(address), counts = received;
-    const url = new URL(objectPath(digest), new URL(parts.url, document.baseURI));
+    const catalog = new URL(parts.url, document.baseURI);
     parts = {method: 'GET', url: '', headers: [], body: ''};
     counts.set(id, 0);
     tasks().start(id, async signal => {
@@ -147,7 +167,7 @@ export function createFetch(runtime) {
       try {
         const body = await readImmutable(digest, size, () => {
           cached = false;
-          return downloadStatic(url, size, signal, n => counts.set(id, n));
+          return downloadObject(catalog, digest, size, signal, n => counts.set(id, n));
         }, signal);
         return {body, cached};
       } catch (error) {

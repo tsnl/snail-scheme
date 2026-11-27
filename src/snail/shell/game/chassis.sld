@@ -9,6 +9,7 @@
           car-step
           step-cars!
           step-traffic!
+          warm-traffic!
           WalkerStep
           walker-step
           walker-body
@@ -141,6 +142,13 @@
           (when (= (i32->i64 (walker-active index)) 1)
             (set! (● s active) #t)
             (read-body! id b)))))
+
+    ;; Exercise the first vehicle/pedestrian contact while the level loads.
+    ;; Both bodies are disposable, including when the real cab came from a save.
+    (define (warm-traffic! (g Area) (size CarDimensions) (cab RigidBody)) (→ Unit)
+      (let ((car (car-step g (copy-rigid cab) (drive 1.0 0.0 #f) (Nil)))
+            (walker (walker-step g (chassis-body cab) (None))))
+        (step-traffic! size (list car) (list walker) 0.05)))
 
     (define (step-cars! (size CarDimensions) (cars (List CarStep)) (seconds F64)) (→ Unit)
       (step-traffic! size cars (Nil) seconds))

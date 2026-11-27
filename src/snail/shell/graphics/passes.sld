@@ -24,11 +24,13 @@
    Filmic
    Photographic
    make-post
-   resize-post
+   resize-post release-post
    draw-post screen-pass screen-group)
   (import
    (snail core base)
+   (snail shell wire)
    (snail shell gpu)
+   (only (snail shell graphics kernel) compute-kernel kernel-group dispatch-texels)
    (snail shell graphics pod)
    (snail shell graphics raster)
    (snail shell graphics shaders))
@@ -114,13 +116,14 @@
     (enum Tone
       (Neutral)
       (Filmic)
-      (Photographic))
+      (Photographic)
+      (deriving Serialize Deserialize))
 
     ;; The tone curve and its pipeline, FXAA's pipeline and sampler, and
     ;; the targets for the canvas's size.
     (record Post
       ((curve Tone)
-       (tone GpuRenderPipeline)
+       (tone GpuComputePipeline)
        (fxaa GpuRenderPipeline)
        (sampler GpuSampler)
        (targets PostTargets)))
@@ -128,7 +131,9 @@
     ;; The light the frame is lit into, the tone-mapped 8-bit target, and
     ;; the groups each pass reads them through.
     (record PostTargets
-      ((light GpuTexture)
+      ((width I32)
+       (height I32)
+       (light GpuTexture)
        (light-view GpuTextureView)
        (toned GpuTexture)
        (toned-view GpuTextureView)
@@ -141,12 +146,11 @@
               ((● gpu create-shader-module)
                (new ShaderModuleDescriptor (label "post")
                     (code (string-append tone-shader post-shader)))))
-             (tone (screen-pipeline gpu module
-                                    (match curve
-                                      ((Neutral) "tone_fragment")
-                                      ((Filmic) "filmic_fragment")
-                                      ((Photographic) "photographic_fragment"))
-                                    (Rgba8Unorm)))
+             (tone (compute-kernel gpu module "post"
+                                   (match curve
+                                     ((Neutral) "tone_neutral")
+                                     ((Filmic) "tone_filmic")
+                                     ((Photographic) "tone_photographic"))))
              (fxaa (screen-pipeline gpu module "fxaa_fragment" format))
              (sampler ((● gpu create-sampler) (new SamplerDescriptor
                                                 (label "post/bilinear")
@@ -154,6 +158,7 @@
                                                 (min-filter (Linear))
                                                 (mipmap-filter (Nearest))
                                                 (address (ClampToEdge))))))
+        ((● gpu destroy) (ModuleObject module))
         (new Post
           (curve curve)
           (tone tone)
@@ -177,34 +182,54 @@
                                         width
                                         height))))
 
-    (define (post-targets (gpu Gpu) (tone GpuRenderPipeline)
+    (define (release-post (gpu Gpu) (post Post)) (→ Unit)
+      (let ((t (● post targets)))
+        (for-each (lambda (obj) ((● gpu destroy) obj))
+                  (list (ComputePipelineObject (● post tone))
+                        (PipelineObject (● post fxaa))
+                        (SamplerObject (● post sampler))
+                        (BindGroupObject (● t tone-group)) (BindGroupObject (● t fxaa-group))
+                        (ViewObject (● t light-view)) (ViewObject (● t toned-view))
+                        (TextureObject (● t light)) (TextureObject (● t toned))))))
+    (define (post-targets (gpu Gpu) (tone GpuComputePipeline)
                           (fxaa GpuRenderPipeline)
                           (sampler GpuSampler)
                           (width I32)
                           (height I32))
       (→ PostTargets)
       (let* ((light (screen-target gpu "post/light" width height light-format))
-             (toned (screen-target gpu "post/toned" width height (Rgba8Unorm)))
+             (toned ((● gpu create-texture)
+                     (new TextureDescriptor (label "post/toned") (width width) (height height)
+                          (layers 1)
+                          (mips 1)
+                          (format (Rgba8Unorm))
+                          (usage (list (StorageBinding) (TextureBinding))))))
              (light-view (view-of gpu light 1))
              (toned-view (view-of gpu toned 1)))
-        (new PostTargets
-          (light light)
-          (light-view light-view)
-          (toned toned)
-          (toned-view toned-view)
-          (tone-group (screen-group gpu "post/tone" tone (list (TextureEntry 0 light-view))))
-          (fxaa-group (screen-group gpu "post/fxaa"
-                                    fxaa
-                                    (list (TextureEntry 1 toned-view) (SamplerEntry 2 sampler)))))))
+        (new PostTargets (width width) (height height)
+             (light light)
+             (light-view light-view)
+             (toned toned)
+             (toned-view toned-view)
+             (tone-group (kernel-group gpu
+                                       tone
+                                       0
+                                       "post/tone"
+                                       (list (TextureEntry 0 light-view)
+                                             (TextureEntry 3 toned-view))))
+             (fxaa-group (screen-group gpu "post/fxaa"
+                                       fxaa
+                                       (list (TextureEntry 1 toned-view)
+                                             (SamplerEntry 2 sampler)))))))
 
     ;; The light tone-mapped, then smoothed into `canvas`.
     (define (draw-post (gpu Gpu) (encoder GpuCommandEncoder) (canvas GpuTextureView) (post Post))
       (→ Unit)
-      (screen-pass gpu
-                   encoder
-                   (● post targets toned-view)
-                   (● post tone)
-                   (● post targets tone-group))
+      (let ((pass ((● gpu begin-compute-pass) encoder)))
+        ((● gpu set-compute-pipeline) pass (● post tone))
+        ((● gpu set-compute-bind-group) pass 0 (● post targets tone-group))
+        (dispatch-texels gpu pass (● post targets width) (● post targets height))
+        ((● gpu end-compute-pass) pass))
       (screen-pass gpu encoder canvas (● post fxaa) (● post targets fxaa-group)))
 
     ;; One triangle over `target`, every pixel of which it writes.
@@ -215,14 +240,14 @@
       (→ Unit)
       (let ((pass ((● gpu begin-render-pass) encoder
                    (new RenderPassDescriptor
-                     (colors (list (Some (new ColorAttachment
-                                           (view target)
-                                           (load (Clear (new Color
-                                                          (red 0.0)
-                                                          (green 0.0)
-                                                          (blue 0.0)
-                                                          (alpha 1.0))))
-                                           (store #t)))))
+                     (colors (list (Some (new ColorAttachment (resolve (None))
+                                              (view target)
+                                              (load (Clear (new Color
+                                                             (red 0.0)
+                                                             (green 0.0)
+                                                             (blue 0.0)
+                                                             (alpha 1.0))))
+                                              (store #t)))))
                      (depth (None))))))
         ((● gpu set-pipeline) pass pipeline)
         ((● gpu set-bind-group) pass 0 group)
@@ -260,7 +285,7 @@
                                 (mips 1)
                                 (format format)
                                 (usage
-                                 (list (RenderAttachment) (TextureBinding) (StorageBinding))))))
+                                 (list (RenderAttachment) (TextureBinding) (TextureCopySrc))))))
 
     (define (screen-group (gpu Gpu) (label String)
                           (pipeline GpuRenderPipeline)

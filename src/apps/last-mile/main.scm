@@ -5,6 +5,9 @@
  (snail shell page)
  (snail core table)
  (snail shell fetch)
+ (only (snail shell files) FilePicker)
+ (only (snail shell graphics api-trace) RendererConfig)
+ (snail shell graphics renderer page)
  (snail shell static-resource)
  (snail shell png)
  (snail shell game atlas)
@@ -149,7 +152,6 @@
                           ((Resume) (pause! c #f) s)
                           ((SetGraphics settings)
                            (set! (● s graphics) settings)
-                           (reset-lighting! renderer)
                            (set! (● c redraw) #t)
                            (save s)
                            s)
@@ -196,9 +198,9 @@
                        (unless (● c paused) (prepare-street! gpu renderer (carrier w)))
                        (let ((due (>= (+ since ms) 100)))
                          (when due (show! dom hud g roads w (● c paused) (● c wide) (● c choice)
-                                          (render-resolution renderer (● s graphics resolution))))
+                                          (render-resolution renderer)))
                          ;; The pause menu keeps the last presented street on screen. Resize
-                         ;; and quality changes request a fresh trace at the chosen dimensions.
+                         ;; and MSAA changes request a fresh native-resolution frame.
                          (when (or (not (● c paused)) (● c redraw))
                            (match (present! c clock)
                              ((Some elapsed) (draw! renderer
@@ -244,7 +246,12 @@
       ((Some bytes) bytes)
       ((None) (panic (string-append "city catalog is missing " name))))))
 
-(define (drive-city (events Events) (clock Clock) (gpu Gpu) (dom Dom) (storage PageStorage)
+(define (drive-city (config RendererConfig)
+                    (events Events)
+                    (clock Clock)
+                    (gpu Gpu)
+                    (dom Dom)
+                    (storage PageStorage)
                     (out OutputPort) (files (Table Bytes)))
   (→ Unit)
   (let* ((file (lambda (name) (city-file files name)))
@@ -260,7 +267,7 @@
                     (populate! g roads w))
                   (ensure-cars! g roads w)
                   (match (attempt-reading (lambda ()
-                                            (make-renderer gpu
+                                            (make-renderer gpu config
                                                            (lambda (paths)
                                                              (map file paths))
                                                            models
@@ -269,11 +276,12 @@
                     ((Ok renderer) (play events clock gpu dom renderer hud g roads w save))
                     ((Err why) (write-line out why) (panic why))))))))
 
-(define (main (events Events) (clock Clock) (gpu Gpu) (dom Dom) (fetch Fetch)
+(define (main (events Events) (clock Clock) (gpu Gpu) (dom Dom) (fetch Fetch) (picker FilePicker)
               (store StaticResources) (storage PageStorage) (out OutputPort))
   (→ Unit)
   (match (city-files fetch store dom)
-    ((Ok files) (drive-city events clock gpu dom storage out files))
+    ((Ok files)
+     (drive-city (page-renderer-config fetch picker) events clock gpu dom storage out files))
     ((Err why)
      ((● dom set-attribute) ((● dom document-root)) "data-load-error" why)
      ((● events report-ready)))))

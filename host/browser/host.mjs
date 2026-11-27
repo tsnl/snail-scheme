@@ -19,7 +19,7 @@ import {startPage, reportApplicationError} from './application.mjs';
 // src/snail/shell/app.sld.
 const KEY_DOWN = 1, KEY_UP = 2, POINTER_DOWN = 3, POINTER_MOVE = 4, POINTER_UP = 5, POINTER_CANCEL = 6;
 const WHEEL = 7, RESIZE = 8, POINTER_DELTA = 18, POINTER_LOCK = 19;
-const namedKeys = {ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3, ArrowDown: 4, Escape: 27, Enter: 13, ' ': 32};
+const namedKeys = {ArrowLeft: 1, ArrowRight: 2, ArrowUp: 3, ArrowDown: 4, Shift: 16, Escape: 27, Enter: 13, ' ': 32};
 
 function keyCode(event) {
   if (event.key in namedKeys) return namedKeys[event.key];

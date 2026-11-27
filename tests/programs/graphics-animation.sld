@@ -68,7 +68,7 @@
                           "\"target\":{\"node\":0,\"path\":\"rotation\"}}],"
                           "\"samplers\":[{\"interpolation\":\"CUBICSPLINE\"}]}]}")
            "unsupported animation interpolation: CUBICSPLINE")
-  (let* ((m (model-at fs "src/apps/last-mile/main.resources/crew.glb"))
+  (let* ((m (model-at fs "tests/programs/data/crew.glb"))
          (rig (● m rig))
          (walk (named-clip m "walk")))
     (check (> (length (● rig joints)) 1) "crew skin")

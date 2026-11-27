@@ -12,14 +12,14 @@
 // at a time.
 
 import {byteSnapshot, byteView} from './load.mjs';
-import {span, spansLater, traced, tracing} from './trace.mjs';
+import {profiling, span, spansLater, traced, tracing} from './trace.mjs';
 
 // The features the graphics libraries need, and those they use when the
 // adapter has them. Phones lack BC compression and SwiftShader, which the
 // tests use, lacks f16 shaders, so both are optional; splat training's
 // backward pass sums over subgroups.
-const REQUIRED = ['indirect-first-instance', 'float32-filterable', 'rg11b10ufloat-renderable'];
-const OPTIONAL = ['texture-compression-bc', 'shader-f16', 'timestamp-query', 'subgroups'];
+const REQUIRED = ['float32-filterable', 'rg11b10ufloat-renderable'];
+const OPTIONAL = ['indirect-first-instance', 'texture-compression-bc', 'shader-f16', 'timestamp-query', 'subgroups'];
 
 // ---- The device ----
 
@@ -84,7 +84,7 @@ export function createGpu(canvas, runtime, open = pageDevice) {
   const objects = new Map();
   let gpu = null, next = 1, reply = [], held = new Uint8Array(), decoded = null, pass = null, queued = [];
   let timestamps = null, timeline = null;
-  let canvasIds = [], retired = [];
+  let canvasIds = [], retired = [], presents = false;
   const memory = () => runtime.execution.entry.memory;
   const tasks = () => runtime.execution.tasks;
   const object = id => objects.get(id);
@@ -173,9 +173,10 @@ export function createGpu(canvas, runtime, open = pageDevice) {
       object(encoder).copyTextureToTexture(copy(source, sourceMip, sx, sy, sourceLayer), copy(destination, mip, x, y, layer), [width, height, 1]);
     },
     // A pass's attachments come first, each its view, load and store.
-    'pass-color'(view, clear, r, g, b, a, store) {
+    'pass-color'(view, clear, r, g, b, a, store, resolve) {
+      if (profiling && canvasIds.includes(view)) presents = true;
       pass ??= {colorAttachments: []};
-      pass.colorAttachments.push({view: object(view), loadOp: clear ? 'clear' : 'load', clearValue: {r, g, b, a},
+      pass.colorAttachments.push({view: object(view), resolveTarget: resolve ? object(resolve) : undefined, loadOp: clear ? 'clear' : 'load', clearValue: {r, g, b, a},
                                   storeOp: store ? 'store' : 'discard'});
     },
     // A location left without an attachment.
@@ -196,11 +197,13 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     },
     'begin-pass'(encoder) {
       const writes = timeline ? timeline.writes(object(encoder), timestamps) : timestamps;
-      const descriptor = {...pass, ...(writes && {timestampWrites: writes})};
+      const label = pass.colorAttachments.length === 0 ? pass.depthStencilAttachment?.view.label : undefined;
+      const descriptor = {...pass, label, ...(writes && {timestampWrites: writes})};
       pass = null;
       timestamps = null;
       const begun = object(encoder).beginRenderPass(descriptor);
-      timeline?.begun(object(encoder), begun, writes, 'render pass');
+      timeline?.begun(object(encoder), begun, writes, label || 'render pass', presents);
+      presents = false;
       return keep(begun);
     },
     'set-pipeline'(pass, pipeline) {
@@ -218,6 +221,7 @@ export function createGpu(canvas, runtime, open = pageDevice) {
     'draw-indexed-indirect'(pass, buffer, offset) { object(pass).drawIndexedIndirect(object(buffer), offset); },
     'end-pass'(pass) { take(pass).end(); },
     'begin-compute'(encoder) {
+      if (profiling && timeline && !timestamps) return keep(profileCompute(object(encoder), timeline));
       const writes = timeline ? timeline.writes(object(encoder), timestamps) : timestamps;
       timestamps = null;
       const begun = object(encoder).beginComputePass(writes ? {timestampWrites: writes} : undefined);
@@ -280,6 +284,35 @@ export function createGpu(canvas, runtime, open = pageDevice) {
 
 // ---- The device's timeline ----
 
+// WebGPU timestamps bracket whole passes. For an opt-in profile, give each
+// consecutive run of a compute pipeline its own pass. Binding state survives
+// a pipeline switch in WebGPU and must be replayed across the new boundary.
+// Render attachments and explicit application queries retain their boundaries.
+function profileCompute(encoder, timeline) {
+  const groups = new Map();
+  let pass, pipeline;
+  function dispatchPass() {
+    if (!pass) {
+      const writes = timeline.writes(encoder);
+      pass = encoder.beginComputePass({timestampWrites: writes});
+      timeline.begun(encoder, pass, writes, 'compute pass');
+      if (pipeline) { pass.setPipeline(pipeline); timeline.uses(pass, pipeline); }
+      for (const [index, group] of groups) pass.setBindGroup(index, group);
+    }
+    return pass;
+  }
+  return {
+    setPipeline(next) {
+      if (next !== pipeline && pass) { pass.end(); pass = undefined; }
+      pipeline = next;
+    },
+    setBindGroup(index, group) { groups.set(index, group); pass?.setBindGroup(index, group); },
+    dispatchWorkgroups(x, y, z) { dispatchPass().dispatchWorkgroups(x, y, z); },
+    dispatchWorkgroupsIndirect(buffer, offset) { dispatchPass().dispatchWorkgroupsIndirect(buffer, offset); },
+    end() { pass?.end(); },
+  };
+}
+
 // While a run is traced (trace.mjs), the host times every pass on a
 // device that can, so that a trace shows the device's work beside the
 // program's. A pass the program times writes the program's queries, and
@@ -298,12 +331,30 @@ export function createGpu(canvas, runtime, open = pageDevice) {
 function createTimeline(device) {
   const encoders = new WeakMap(), passes = new WeakMap(), reads = new WeakMap();
   const timed = encoder => encoders.get(encoder) ?? encoders.set(encoder, {passes: [], own: [], used: 64}).get(encoder);
-  let origin = null, offset = -Infinity;
-  function draw(times, submitted) {
+  let frame = {id: 1, pending: 0}, origin = null, offset = -Infinity;
+  // All buffers up to and including the canvas draw belong to one frame.
+  // A readback can finish before the last submission, or frames out of order.
+  function measure(buffer, time) {
+    const record = reads.get(buffer);
+    if (!record) return;
+    if (!profiling) { spansLater(record.read().then(times => draw(times, time))); return; }
+    const group = frame, detail = {frame: group.id};
+    group.pending++;
+    if (record.presents) { group.end = time; frame = {id: group.id + 1, pending: 0}; }
+    spansLater(record.read().then(times => {
+      if (!times.length) group.incomplete = true;
+      draw(times, time, detail);
+    }, () => { group.incomplete = true; }).finally(() => {
+      if (--group.pending === 0 && group.end !== undefined && !group.incomplete)
+        span('gpu', 'frame complete', group.end, group.end, detail);
+    }));
+  }
+  function draw(times, submitted, detail) {
+    if (!times.length) return;
     origin ??= times[0].begin;
     const ms = time => Number(time - origin) / 1e6;
     offset = Math.max(offset, submitted - Math.min(...times.map(time => ms(time.begin))));
-    for (const {name, begin, end} of times) span('gpu', name, ms(begin) + offset, ms(end) + offset);
+    for (const {name, begin, end} of times) span('gpu', name, ms(begin) + offset, ms(end) + offset, detail);
   }
   return {
     // The program's timestamp writes for a pass of `encoder`, or the
@@ -315,24 +366,27 @@ function createTimeline(device) {
       record.used += 2;
       return {querySet: record.own.at(-1), beginningOfPassWriteIndex: record.used - 2, endOfPassWriteIndex: record.used - 1};
     },
-    begun(encoder, pass, writes, kind) {
+    begun(encoder, pass, writes, kind, presents = false) {
       const record = {writes, kind, pipelines: []};
-      timed(encoder).passes.push(record);
+      const commands = timed(encoder);
+      commands.passes.push(record);
+      if (presents) commands.presents = true;
       passes.set(pass, record);
     },
     uses(pass, pipeline) {
-      const {pipelines} = passes.get(pass);
+      const record = passes.get(pass);
+      if (!record) return; // profileCompute names its real pass at dispatch.
+      const {pipelines} = record;
       if (!pipelines.includes(pipeline.label)) pipelines.push(pipeline.label);
     },
     finish(encoder) {
       const record = encoders.get(encoder), read = record && resolvedTimes(device, encoder, record);
       const buffer = encoder.finish();
-      if (read) reads.set(buffer, read);
+      if (read) reads.set(buffer, {read, presents: record.presents});
       return buffer;
     },
     submitted(buffers, submitted) {
-      for (const buffer of buffers)
-        if (reads.has(buffer)) spansLater(reads.get(buffer)().then(times => times.length && draw(times, submitted)));
+      for (const buffer of buffers) measure(buffer, submitted);
     },
   };
 }
@@ -356,19 +410,24 @@ function resolvedTimes(device, encoder, {passes, own}) {
   }
   const slot = (set, query) => first.get(set) + query;
   return async () => {
-    await readback.mapAsync(GPUMapMode.READ);
-    const times = new BigUint64Array(readback.getMappedRange().slice(0));
-    for (const object of used) object.destroy();
-    return passes.map(({writes, kind, pipelines}) => ({name: passName(kind, pipelines),
-      begin: times[slot(writes.querySet, writes.beginningOfPassWriteIndex)], end: times[slot(writes.querySet, writes.endOfPassWriteIndex)]}))
-      .filter(({begin, end}) => begin > 0n && end >= begin);
+    try {
+      await readback.mapAsync(GPUMapMode.READ);
+      const times = new BigUint64Array(readback.getMappedRange());
+      const measured = passes.map(({writes, kind, pipelines}) => ({name: passName(kind, pipelines),
+        begin: times[slot(writes.querySet, writes.beginningOfPassWriteIndex)],
+        end: times[slot(writes.querySet, writes.endOfPassWriteIndex)]}))
+        .filter(({begin, end}) => begin > 0n && end >= begin);
+      return profiling && measured.length !== passes.length ? [] : measured;
+    } finally {
+      for (const object of used) object.destroy();
+    }
   };
 }
 
 // A pass is named for the first three pipelines it set, and how many
 // more: `splat/fit, scan/scan_tiles, scan/add_sums +2`.
 function passName(kind, pipelines) {
-  if (!pipelines.length) return kind;
+  if (!pipelines.length || (kind !== 'render pass' && kind !== 'compute pass')) return kind;
   const more = pipelines.length - 3;
   return pipelines.slice(0, 3).join(', ') + (more > 0 ? ` +${more}` : '');
 }
@@ -406,28 +465,13 @@ function fields(bytes) {
 // pipeline is of either kind.
 const made = [
   (device, f) => device.createBuffer({label: f.text(), size: f.word(), usage: f.word()}),
-  (device, f) => device.createTexture({label: f.text(), size: [f.word(), f.word(), f.word()], mipLevelCount: f.word(),
-                                       format: f.text(), usage: f.word()}),
+  (device, f) => texture(device, f, 1),
   (device, f) => {
     const label = f.text(), magFilter = f.text(), minFilter = f.text(), mipmapFilter = f.text(), address = f.text();
     return device.createSampler({label, magFilter, minFilter, mipmapFilter, addressModeU: address, addressModeV: address});
   },
   (device, f) => device.createShaderModule({label: f.text(), code: f.text()}),
-  (device, f, object) => {
-    const label = f.text(), module = object(f.word());
-    const vertex = {module, entryPoint: f.text(), buffers: f.list(() => ({
-      arrayStride: f.word(), stepMode: f.text(),
-      attributes: f.list(() => ({format: f.text(), offset: f.word(), shaderLocation: f.word()}))}))};
-    const component = () => ({operation: f.text(), srcFactor: f.text(), dstFactor: f.text()});
-    const fragment = f.flag() ? {module, entryPoint: f.text(), targets: f.list(() => {
-      if (!f.flag()) return null;
-      const format = f.text();
-      return f.flag() ? {format, blend: {color: component(), alpha: component()}} : {format};
-    })} : undefined;
-    const primitive = {topology: f.text(), cullMode: f.text()};
-    const depthStencil = f.flag() ? {format: f.text(), depthWriteEnabled: f.flag(), depthCompare: f.text()} : undefined;
-    return device.createRenderPipeline({label, layout: 'auto', vertex, fragment, primitive, depthStencil});
-  },
+  (device, f, object) => renderPipeline(device, f, object, 'auto', 1),
   (device, f, object) => {
     const label = f.text(), layout = object(f.word()).getBindGroupLayout(f.word());
     const entries = f.list(() => {
@@ -443,11 +487,48 @@ const made = [
     return device.createComputePipeline({label, layout: 'auto', compute: {module, entryPoint: f.text()}});
   },
   (device, f) => device.createQuerySet({label: f.text(), type: 'timestamp', count: f.word()}),
+  (device, f) => texture(device, f, f.word()),
+  (device, f) => {
+    const label = f.text();
+    const bindGroupLayouts = f.list(() => {
+      let binding = 0;
+      return device.createBindGroupLayout({entries: f.list(() => {
+        const kind = f.word(), slot = binding++;
+        if (kind === 0) return {binding: slot, visibility: 3, buffer: {type: 'uniform'}};
+        if (kind === 1) return {binding: slot, visibility: 2, sampler: {type: 'filtering'}};
+        return {binding: slot, visibility: 2, texture: {sampleType: kind === 4 ? 'depth' : kind === 5 ? 'unfilterable-float' : 'float',
+          viewDimension: kind === 3 ? 'cube' : kind === 4 ? '2d-array' : '2d'}};
+      })});
+    });
+    return device.createPipelineLayout({label, bindGroupLayouts});
+  },
+  (device, f, object) => renderPipeline(device, f, object, object(f.word()), f.word()),
 ];
 
 // A view's dimension, first level and count, and first layer and count,
 // 0 meaning the rest.
 function viewOf(texture, f) {
-  return texture.createView({dimension: f.text(), baseMipLevel: f.word(), mipLevelCount: f.word(),
+  return texture.createView({label: texture.label, dimension: f.text(), baseMipLevel: f.word(), mipLevelCount: f.word(),
                              baseArrayLayer: f.word(), arrayLayerCount: f.word() || undefined});
 }
+
+function texture(device, f, sampleCount) {
+  return device.createTexture({label: f.text(), size: [f.word(), f.word(), f.word()], mipLevelCount: f.word(),
+    format: f.text(), usage: f.word(), sampleCount});
+}
+
+function renderPipeline(device, f, object, layout, count) {
+    const label = f.text(), module = object(f.word());
+    const vertex = {module, entryPoint: f.text(), buffers: f.list(() => ({
+      arrayStride: f.word(), stepMode: f.text(),
+      attributes: f.list(() => ({format: f.text(), offset: f.word(), shaderLocation: f.word()}))}))};
+    const component = () => ({operation: f.text(), srcFactor: f.text(), dstFactor: f.text()});
+    const fragment = f.flag() ? {module, entryPoint: f.text(), targets: f.list(() => {
+      if (!f.flag()) return null;
+      const format = f.text();
+      return f.flag() ? {format, blend: {color: component(), alpha: component()}} : {format};
+    })} : undefined;
+    const primitive = {topology: f.text(), cullMode: f.text()};
+    const depthStencil = f.flag() ? {format: f.text(), depthWriteEnabled: f.flag(), depthCompare: f.text()} : undefined;
+    return device.createRenderPipeline({label, layout, vertex, fragment, primitive, depthStencil, multisample: {count}});
+  }

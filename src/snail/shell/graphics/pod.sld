@@ -46,7 +46,8 @@
   (import
    (snail core base)
    (only (snail shell math) half-bits)
-   (snail shell gpu))
+   (snail shell gpu)
+   (snail shell wire))
   (begin
 
     ;; ---- Layouts ----
@@ -267,7 +268,7 @@
     (record Vec2f
       ((x F32)
        (y F32))
-      (deriving Repr))
+      (deriving Repr Serialize Deserialize))
 
     (record Vec3f
       ((x F32)
@@ -280,7 +281,7 @@
        (y F32)
        (z F32)
        (w F32))
-      (deriving Repr))
+      (deriving Repr Serialize Deserialize))
 
     ;; Four floats kept as f16s two to a word, x and y in the first: a
     ;; WGSL `vec2u`, each of whose words `unpack2x16float` reads as two.
@@ -309,7 +310,7 @@
        (y Vec4f)
        (z Vec4f)
        (w Vec4f))
-      (deriving Repr))
+      (deriving Repr Serialize Deserialize))
 
     (define (words (bytes Bytes) (at I64) (values (List I32))) (→ I64)
       (fold-left (lambda (at value) (write-word bytes at value)) at values))

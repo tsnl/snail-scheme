@@ -1,7 +1,28 @@
 ;; Rear-axle kinematic bicycle update from Atsushi Sakai's PythonRobotics,
 ;; PathTracking/stanley_control/stanley_control.py, State.update (MIT).
 ;; Copyright (c) 2016 - now Atsushi Sakai and other contributors.
-;; The full MIT notice ships in src/apps/last-mile/public/CREDITS.txt.
+;; The MIT License (MIT)
+;;
+;; Copyright (c) 2016 - now Atsushi Sakai and other contributors:
+;; https://github.com/AtsushiSakai/PythonRobotics/contributors
+;;
+;; Permission is hereby granted, free of charge, to any person obtaining a copy
+;; of this software and associated documentation files (the "Software"), to deal
+;; in the Software without restriction, including without limitation the rights
+;; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+;; copies of the Software, and to permit persons to whom the Software is
+;; furnished to do so, subject to the following conditions:
+;;
+;; The above copyright notice and this permission notice shall be included in all
+;; copies or substantial portions of the Software.
+;;
+;; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+;; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+;; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+;; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+;; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+;; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+;; SOFTWARE.
 ;; The game supplies pedals, dimensions, speed limits and street footprints.
 (define-library (snail shell game vehicle)
   (export DriverControls
@@ -13,7 +34,7 @@
           parked-footprint
           closing-on-car?
           signed-speed
-          bicycle-step)
+          bicycle-step BicycleContact bicycle-contact)
   (import
    (snail core base)
    (snail shell math)
@@ -112,6 +133,61 @@
                                 (new Body (position (● b position)) (heading yaw)
                                      (velocity (offset (xz 0.0 0.0) axis next-speed)))
                                 (drive-to b size goal next next-speed walls))))
+
+    ;; ---- Bicycle wheel contact ----
+
+    (record BicycleContact
+      ((bike Body)
+       (lost XZ)))
+    (define (wheel-hit (b Body) (goal Body) (axle F64) (radius F64) (walls (List Footprint)))
+      (→ SweepContact)
+      (let ((a (offset (● b position) (forward (● b heading)) axle))
+            (z (offset (● goal position) (forward (● goal heading)) axle)))
+        (first-contact a (xz (- (● z x) (● a x)) (- (● z z) (● a z))) radius walls)))
+    (define (bicycle-contact (b Body) (size CarDimensions) (steer F64) (speed F64)
+                             (walls (List Footprint)) (dt F64)) (→ BicycleContact)
+                             (let* ((goal (bicycle-step b size steer speed (Nil) dt))
+                                    (v (● goal velocity))
+                                    (half (* 0.5 (● size wheelbase)))
+                                    (radius (* 0.5 (● size width)))
+                                    (f (wheel-hit b goal half radius walls))
+                                    (r (wheel-hit b goal (negate half) radius walls))
+                                    (t (min (● f time) (● r time))))
+                               (if (= t 1.0) (new BicycleContact (bike goal) (lost (xz 0.0 0.0)))
+                                   (let* ((at (between-bodies b goal (max 0.0 (- t 0.00001))))
+                                          (blocked-x (or (and (= t (● f time)) (● f block-x))
+                                                         (and (= t (● r time)) (● r block-x))))
+                                          (blocked-z (or (and (= t (● f time)) (● f block-z))
+                                                         (and (= t (● r time)) (● r block-z))))
+                                          (slide (xz (if blocked-x 0.0 (● v x))
+                                                     (if blocked-z 0.0 (● v z))))
+                                          (end (offset (● at position) slide (* dt (- 1.0 t))))
+                                          (axis
+                                           (offset (xz 0.0 0.0) slide (if (< speed 0.0) -1.0 1.0)))
+                                          (align (- (heading-to (xz 0.0 0.0) axis) (● at heading)))
+                                          (yaw (if (> (distance slide (xz 0.0 0.0)) 0.6)
+                                                   (+ (● at heading)
+                                                      (max -0.24
+                                                           (min 0.24
+                                                                (atan2 (sin align) (cos align)))))
+                                                   (● at heading)))
+                                          (candidate
+                                           (new Body (position end) (heading yaw) (velocity slide)))
+                                          (second
+                                           (min (● (wheel-hit at candidate half radius walls) time)
+                                                (●
+                                                 (wheel-hit at candidate (negate half) radius walls)
+                                                 time)))
+                                          (bike (if (< second 1.0)
+                                                    (body (offset (● at position)
+                                                                  slide
+                                                                  (* (* dt (- 1.0 t)) second))
+                                                          (● at heading))
+                                                    candidate)))
+                                     (new BicycleContact
+                                       (bike bike)
+                                       (lost (xz (- (● v x) (● bike velocity x))
+                                                 (- (● v z) (● bike velocity z)))))))))
 
     ;; Expand the street by the chassis before sweeping its center. A car
     ;; that hits a solid stops just before contact and can immediately reverse.
