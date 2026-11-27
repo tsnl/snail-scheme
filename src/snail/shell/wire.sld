@@ -12,6 +12,7 @@
    Decoder
    serialize
    deserialize
+   read-wire
    derive-serialize
    derive-deserialize)
   (import
@@ -38,13 +39,18 @@
       ((bytes Bytes)
        (position I64)))
 
+    (define decoding (→ (Prompt String Never)) (make-prompt))
+
+    (define (bad-wire (why String)) (→ A) (∀ (A))
+      (absurd (suspend decoding why)))
+
     (define (encode-byte (encoder Encoder) (byte U8)) (→ Unit)
       (set! (● encoder bytes) (Cons byte (● encoder bytes))))
 
     (define (decode-byte (decoder Decoder)) (→ U8)
       (let ((position (● decoder position)))
         (when (>= position (array-length (● decoder bytes)))
-          (panic "wire data ended early"))
+          (bad-wire "wire data ended early"))
         (set! (● decoder position) (+ position 1))
         (array-ref (● decoder bytes) position)))
 
@@ -55,15 +61,22 @@
         (encode value encoder)
         (list->array (reverse (● encoder bytes)))))
 
-    ;; Panics if the bytes were not written for this type. The decoder's
-    ;; position is local to this call.
+    ;; Read a whole value, including when the caller selects an older schema.
+    ;; A failed read leaves its caller free to keep the current state.
+    (define (read-wire (bytes Bytes) (read (Fn Decoder → T))) (→ (Result T String)) (∀ (T))
+      (with-prompt decoding
+                   (lambda ()
+                     (let* ((decoder (new Decoder (bytes bytes) (position 0)))
+                            (value (read decoder)))
+                       (if (= (● decoder position) (array-length bytes))
+                           (Ok value)
+                           (Err "wire data has trailing bytes"))))
+                   (lambda (why resume) (Err why))))
 
     (define (deserialize (bytes Bytes)) (→ T) (∀ (T)) (⊨ (Deserialize T))
-      (let* ((decoder (new Decoder (bytes bytes) (position 0)))
-             (value (decode decoder)))
-        (unless (= (● decoder position) (array-length bytes))
-          (panic "wire data has trailing bytes"))
-        value))
+      (match (read-wire bytes decode)
+        ((Ok value) value)
+        ((Err why) (panic why))))
 
     ;; ---- Variable-length integers ----
 
@@ -100,7 +113,7 @@
 
     (define (expect-case-id (decoder Decoder) (id I32)) (→ Unit)
       (unless (= (decode-case-id decoder) id)
-        (panic "wire data has a different schema")))
+        (bad-wire "wire data has a different schema")))
 
     ;; ---- Derived instances ----
 
@@ -143,7 +156,7 @@
                  (cond
                   ((= id (case-id case)) (let* ((field (decode decoder)) ...) (case field ...)))
                   ...
-                  (else (panic "wire data has a different schema"))))))))))
+                  (else (bad-wire "wire data has a different schema"))))))))))
 
     ;; ---- Scalars, text and collections ----
 

@@ -1,7 +1,7 @@
 ;; Dispatch, meter and navigation are projections of the current shift.
 (define-library (apps last-mile hud)
-  (export loading-screen Hud make-hud show! answer! Menu ChooseStand ChooseReply
-          MenuAction Pause Resume Recover Restart SetGraphics SetSensitivity)
+  (export loading-screen Hud make-hud show! answer! reset-route! Menu ChooseStand ChooseReply
+          MenuAction Pause Resume SaveShift LoadShift Recover Restart SetGraphics SetSensitivity)
   (import
    (snail core base)
    (snail shell dom)
@@ -17,7 +17,7 @@
    (apps last-mile district)
    (apps last-mile gps))
   (begin
-    (enum MenuAction (Pause) (Resume) (Recover) (Restart)
+    (enum MenuAction (Pause) (Resume) (SaveShift) (LoadShift) (Recover) (Restart)
           (SetGraphics ((settings Graphics))) (SetSensitivity ((level I64))))
     (enum HudAction
       (Menu ((action MenuAction)))
@@ -34,7 +34,8 @@
        (revision I64)
        (ink String)
        (wide Bool)
-       (paused Bool)))
+       (paused Bool)
+       (save-status String)))
     (define (label (tag String) (class String) (text String)) (→ (ui:Html M)) (∀ (M))
       (ui:Element tag (list (ui:Attr "class" class)) (list (ui:Text text))))
     (define (panel (tag String) (class String) (children (List (ui:Html M))))
@@ -116,7 +117,7 @@
                                             (ui:FlagProperty "selected" (string=? value selected)))
                                            (list (ui:Text value))))
                              choices))))
-    (define (menu-card (s Shift)) (→ (ui:Html HudAction))
+    (define (menu-card (s Shift) (status String)) (→ (ui:Html HudAction))
       (let* ((g (● s graphics))
              (dialog (list (ui:Attr "class" "pause-card") (ui:Attr "role" "dialog")
                            (ui:Attr "aria-modal" "true") (ui:Attr "aria-labelledby" "pause-title")))
@@ -142,15 +143,22 @@
                                          "Resume driving"
                                          (Resume)
                                          (list (ui:Attr "id" "cab-resume")))
+                            (panel "div" "save-actions"
+                                   (list (menu-button "save-game" "Save game" (SaveShift) (Nil))
+                                         (menu-button "load-game" "Load game" (LoadShift) (Nil))))
+                            (ui:Element "p"
+                                        (list (ui:Attr "class" "save-status")
+                                              (ui:Attr "role" "status"))
+                                        (list (ui:Text status)))
                             (menu-button "recover-cab" "Recover cab" (Recover) (Nil))
                             (menu-button "restart-game" "Restart game" (Restart) (Nil)))))
         (ui:Element "section" dialog (Cons title (concatenate (list samples look actions))))))
-    (define (pause-menu (s Shift) (paused Bool)) (→ (List (ui:Html HudAction)))
+    (define (pause-menu (s Shift) (paused Bool) (status String)) (→ (List (ui:Html HudAction)))
       (list (menu-button "pause-toggle" "Pause" (Pause) (list (ui:FlagProperty "hidden" paused)))
             (ui:Element "div"
                         (list (ui:Attr "class" "pause-scrim")
                               (ui:FlagProperty "hidden" (not paused)))
-                        (list (menu-card s)))))
+                        (list (menu-card s status)))))
 
     ;; ---- Instruments ----
 
@@ -172,7 +180,8 @@
            (revision -1)
            (ink "")
            (wide #f)
-           (paused #f)))
+           (paused #f)
+           (save-status "")))
     (define (two (n I64)) (→ String) (if (< n 10) (string-append "0" (show n)) (show n)))
     (define (money (n I64))
       (→ String)
@@ -262,6 +271,10 @@
 
     ;; ---- Navigation ----
 
+    ;; The loaded cab can be on another road at the same tick with the same fare.
+    (define (reset-route! (h Hud)) (→ Unit)
+      (set! (● h gps) (new-gps))
+      (set! (● h revision) -1))
     (define (update-chart! (h Hud) (g Area) (roads Roads) (w Game) (wide Bool)) (→ Unit)
       (let ((gps (● h gps)) (moved (not (= (● h chart-center) (● g center)))))
         (navigate! gps roads (● (carrier w) position) (objective w) (● w tick))
@@ -352,8 +365,9 @@
                                             (dispatch-card w paused)
                                             (dashboard w resolution)
                                             (radar h g roads w wide choice)))
-                          (pause-menu s paused)))
+                          (pause-menu s paused (● h save-status))))
         (when (if paused (not (● h paused)) (● h paused))
+          (unless paused (set! (● h save-status) ""))
           (set! (● h paused) paused)
           (match ((● d element-by-id) (if paused "cab-resume" "cab-instruments"))
             ((Some node) ((● d focus-node) node)) (_ (unit))))))))

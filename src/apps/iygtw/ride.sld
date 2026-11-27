@@ -8,6 +8,7 @@
           Ride-samples-set
           Ride-bounces-set
           restore-ride
+          read-ride
           reset-ride remount-ride Valley-basins-set
           Travel Astride Slowing OnFoot GettingOff GettingOn step-player use-bicycle
           walker-of foot-fraction transition-side nearby-bicycle? player-body
@@ -135,10 +136,14 @@
     ;; The first Willowbank save predates the shorter survey. Its wire tag
     ;; identifies the original field layout, including the two Body records.
     (define (restore-ride (v Valley) (bytes Bytes)) (→ Ride)
-      (let* ((d (new Decoder (bytes bytes) (position 0))) (tag (ann (decode d) I32)))
-        (if (or (= tag -613528936) (or (= tag 1729204534) (= tag -1023836831)))
-            (restore-survey v d tag)
-            (ann (deserialize bytes) Ride))))
+      (match (read-ride v bytes) ((Ok s) s) ((Err why) (panic why))))
+    (define (read-ride (v Valley) (bytes Bytes)) (→ (Result Ride String))
+      (read-wire bytes
+                 (lambda (d)
+                   (let ((tag (ann (decode d) I32)))
+                     (if (or (= tag -613528936) (= tag 1729204534) (= tag -1023836831))
+                         (restore-survey v d tag)
+                         (begin (set! (● d position) 0) (decode d)))))))
 
     (define (resurvey (v Valley) (b Body) (fallback Body)) (→ Body)
       (let* ((where (● b position))
@@ -161,8 +166,6 @@
              (standing (if first 0.0 (ann (decode d) F64)))
              (soil (if mud (ann (decode d) Soil) (fresh-soil)))
              (rider (if mud (ann (decode d) Rider) (mounted-rider))))
-        (unless (= (● d position) (array-length (● d bytes)))
-          (panic "trailing Willowbank save data"))
         (new Ride
           (standing standing) (soil soil) (rider rider) (travel (Astride))
           (bike b)

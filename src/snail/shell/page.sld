@@ -17,6 +17,7 @@
    PageStorage
    host-storage
    load-save
+   read-saved
    run-page)
   (import
    (snail core base)
@@ -58,11 +59,11 @@
 
     ;; ---- Storage ----
 
-    ;; One save, read at boot and replaced by each store.
+    ;; One save slot. A store answers whether the transaction committed.
     (record PageStorage
       ((load-count (Fn → I32))
        (loaded-byte (Fn I32 → U8))
-       (store-save (Fn Bytes → Unit))))
+       (store-save (Fn Bytes → Bool))))
 
     ;; The page's saved state, through the browser host.
     (define (host-storage (host Host)) (→ PageStorage)
@@ -70,8 +71,8 @@
         (load-count (lambda () (through-host host-start-load host-finish-load)))
         (loaded-byte host-byte)
         (store-save (lambda (bytes)
-                      (through-host (lambda (ticket) (host-start-store ticket bytes))
-                                    host-finish-store)))))
+                      (= 1 (through-host (lambda (ticket) (host-start-store ticket bytes))
+                                         host-finish-store))))))
 
     (define (load-save (storage PageStorage)) (→ (Option Bytes))
       (let ((count ((● storage load-count))))
@@ -80,6 +81,15 @@
             (Some
              (array-generate (i32->i64 count)
                              (lambda (index) ((● storage loaded-byte) (i64->i32 index))))))))
+
+    ;; A manual Load returns the decoded value only when the whole save is readable.
+    (define (read-saved (storage PageStorage) (read (Fn Bytes → (Result S String))))
+      (→ (Result S String)) (∀ (S))
+      (match (load-save storage)
+        ((None) (Err "No saved game available."))
+        ((Some bytes) (match (read bytes)
+                        ((Ok state) (Ok state))
+                        ((Err _) (Err "This save is unreadable."))))))
 
     ;; ---- Running a page ----
 
@@ -100,6 +110,6 @@
                       ((Some bytes) (new Pair (first (decode bytes)) (second 1)))
                       ((None) (new Pair (first (initialize)) (second 2))))))
         ((● events report-boot) (● booted second))
-        (run (● booted first) (lambda (state) ((● storage store-save) (encode state))))))
+        (run (● booted first) (lambda (state) ((● storage store-save) (encode state)) (unit)))))
 
     ))

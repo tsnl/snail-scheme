@@ -97,6 +97,10 @@ the first type that changed, instead of being misread. Siegework and Hearsay
 encode their saves this way, and `(snail shell explore)` identifies states
 by their encoding.
 
+`(read-wire bytes reader)` gives `reader` a `Decoder` and returns a
+`Result`. A schema mismatch, truncated field or trailing bytes return
+`Err`. A game can report the error in its pause menu and keep the current state.
+
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/wire.sld)
 
 ## `(snail shell syntax)`
