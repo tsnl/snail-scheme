@@ -105,19 +105,21 @@ make test-browser  # browser interfaces in headless Chromium
 make test-gpu      # the GPU checks on Node, on the machine's GPU or on lavapipe
 ```
 
-CI runs the first three, `make test-gpu` on lavapipe, Mesa's Vulkan on the
-CPU, and `cargo fmt --check` on the crate. A change to
-the compiler also needs `make bootstrap`, a change
+CI runs `make check test-toolchain`, the Rust tests and formatting check,
+and the GPU suite on lavapipe (Mesa's Vulkan on the CPU).
+Local `make test` also runs `make test-pages` to check the site packer and
+its Worker.
+
+A change to the compiler also needs `make bootstrap`, a change
 to the browser host `make test-browser`, and a change to the `Gpu`'s
 hosts or the graphics and tensor libraries both browser and GPU checks. The [tour](book/snail-scheme/compilers.md)
 introduces the compiler.
 
 ## Publishing the book and browser demos
 
-The Pages workflow checks that the book and browser demos build on pull
-requests and pushes to `main`. To publish a checkout, sign in to Cloudflare
-once on your machine with `npx wrangler@4.164.0 login`. From the repository
-root, build the site and upload it to the project's production branch.
+To publish a checkout, sign in to Cloudflare on your machine with
+`npx wrangler@4.164.0 login`. From the repository root, build the book
+and browser demos locally and upload them to the project's production branch.
 
 ```sh
 make pages
