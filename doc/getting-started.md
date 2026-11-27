@@ -22,8 +22,8 @@ Whichever you pick, finish with [the first run](#the-first-run).
 | Binaryen | 132 | `wasm-opt`, which optimizes a release build (`--release`, `make site`). |
 | tree-sitter CLI | 0.26.11 | `make test`'s check of the editors' grammar, which also needs a C compiler. |
 | Chromium | | `make test-browser` and `tests/browser/page.mjs`. The shell provides it on Linux; elsewhere, set `CHROMIUM` to a Chromium or Chrome. |
-| The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `package.json` pins and `make fetch` installs from npm, for `host/native/gpu.mjs` and `make test-gpu`. On Linux it needs the Vulkan loader and a Vulkan driver for the GPU. |
-| The `@napi-rs/canvas` package | 1.1.1 | Images on Node: a 2D canvas over Skia, which `package.json` pins and `make fetch` installs from npm, for `decode-image` in `host/native/gpu.mjs`. It is MIT, and asks nothing of the system. |
+| The `webgpu` package | 0.6.2 | WebGPU on Node: Dawn's `dawn.node`, which `package.json` pins and `npm ci` installs from npm, for `host/native/gpu.mjs` and `make test-gpu`. On Linux it needs the Vulkan loader and a Vulkan driver for the GPU. |
+| The `@napi-rs/canvas` package | 1.1.1 | Images on Node: a 2D canvas over Skia, which `package.json` pins and `npm ci` installs from npm, for `decode-image` in `host/native/gpu.mjs`. It is MIT, and asks nothing of the system. |
 
 The first four compile and run programs, including the Scheme formatter used
 by `make check`; the rest format Nix, build or test the site, and test the
@@ -55,7 +55,7 @@ podman build -t snail-scheme -f .devcontainer/Containerfile .
 podman run --rm -it -v "$PWD":/project:Z -w /project snail-scheme
 ```
 
-An editor that opens devcontainers runs `make fetch` when it creates the
+An editor that opens devcontainers runs `npm ci` when it creates the
 container. With plain podman, run it yourself once. CI builds the image with
 podman and checks it whenever its inputs change.
 
@@ -93,14 +93,15 @@ instructions above. Clone into your Linux home directory, such as
 From the checkout:
 
 ```sh
-make fetch
 ./snail-scheme run --target node examples/fibonacci.sld
 ```
 
-`make fetch` prefetches the Rust crates in `Cargo.lock` and installs the npm
-packages `package-lock.json` pins. Bootstrap fetches missing Rust crates
-automatically, so a changed lockfile needs no separate fetch step before
-bootstrapping. The first run bootstraps the command line, which
+Rustup installs the pinned Rust toolchain on first use, and Cargo fetches
+missing crates automatically. No separate Rust dependency fetch step is
+needed. Run `npm ci` in the checkout for GPU and image support on Node;
+the example above and the Pages build do not need these npm packages.
+
+The first run bootstraps the command line, which
 takes a source compilation with Chez followed by self-compilation, and then
 the command line builds the script into `build/examples/fibonacci` and runs
 it on Node. The command line rebuilds itself whenever its source changes.
@@ -113,7 +114,7 @@ pure compile-time values.
 ```sh
 make test          # the formatter, the compiler, the programs and the games
 make check         # formatting
-cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline
+cargo test --manifest-path crates/snail-scheme-support/Cargo.toml
 make bootstrap     # the compiler rebuilt from Chez alone, to a fixpoint
 make test-browser  # browser interfaces in headless Chromium
 make test-gpu      # the GPU checks on Node, on the machine's GPU or on lavapipe

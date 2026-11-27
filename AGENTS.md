@@ -170,7 +170,7 @@ each pass on the device. Add a span with `span` or `traced`
 and keep it.
 
 Relevant checks are `make test`, `make check`,
-`cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --offline`, and
+`cargo test --manifest-path crates/snail-scheme-support/Cargo.toml`, and
 `cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check`.
 Stage 0 rebuilds the command line whenever its
 source changes; compiler changes must also pass `make bootstrap`, which
