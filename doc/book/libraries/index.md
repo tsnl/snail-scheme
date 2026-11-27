@@ -151,6 +151,7 @@ Three conventions run through the shell:
 | [`(snail shell game humanoid)`, `pedestrian`](games.md#actors-and-scenery) | Character poses and walking behavior |
 | [`(snail shell game drawing)`, `figure`, `scenery`](games.md#actors-and-scenery) | Rigid parts and their placement |
 | [`(snail shell game quest)`](games.md#quests) | Typed stage and event rules |
+| [`(snail shell game display)`](games.md#frame-pacing) | Display refresh divisor, pause settings and frame-time graph |
 | [`(snail shell game dialogue)`](games.md#dialogue) | Spoken lines, branching replies and saved cursors |
 
 ### Tensors

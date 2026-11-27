@@ -1,9 +1,21 @@
 ;; Dispatch, meter and navigation are projections of the current shift.
 (define-library (apps last-mile hud)
-  (export loading-screen Hud make-hud show! answer! reset-route! Menu ChooseStand ChooseReply
+  (export loading-screen
+          Hud
+          make-hud
+          show!
+          answer!
+          reset-route!
+          AdjustDisplay
+          Menu
+          ChooseStand
+          ChooseReply
           MenuAction Pause Resume SaveShift LoadShift Recover Restart SetGraphics SetSensitivity)
   (import
    (snail core base)
+   (only (snail core io) Clock)
+   (only (snail shell page) PageStorage)
+   (snail shell game display)
    (snail shell dom)
    (snail shell static-resource)
    (prefix (snail shell ui) ui:)
@@ -20,11 +32,13 @@
     (enum MenuAction (Pause) (Resume) (SaveShift) (LoadShift) (Recover) (Restart)
           (SetGraphics ((settings Graphics))) (SetSensitivity ((level I64))))
     (enum HudAction
+      (AdjustDisplay ((change DisplayChange)))
       (Menu ((action MenuAction)))
       (ChooseStand ((index I64)))
       (ChooseReply ((from Cursor) (index I64))))
     (record Hud
       ((view (ui:Root HudAction))
+       (display GameDisplay)
        (map-image String)
        (stations (List (ui:Html HudAction)))
        (gps Gps)
@@ -117,7 +131,7 @@
                                             (ui:FlagProperty "selected" (string=? value selected)))
                                            (list (ui:Text value))))
                              choices))))
-    (define (menu-card (s Shift) (status String)) (→ (ui:Html HudAction))
+    (define (menu-card (s Shift) (display GameDisplay) (status String)) (→ (ui:Html HudAction))
       (let* ((g (● s graphics))
              (dialog (list (ui:Attr "class" "pause-card") (ui:Attr "role" "dialog")
                            (ui:Attr "aria-modal" "true") (ui:Attr "aria-labelledby" "pause-title")))
@@ -152,13 +166,22 @@
                                         (list (ui:Text status)))
                             (menu-button "recover-cab" "Recover cab" (Recover) (Nil))
                             (menu-button "restart-game" "Restart game" (Restart) (Nil)))))
-        (ui:Element "section" dialog (Cons title (concatenate (list samples look actions))))))
-    (define (pause-menu (s Shift) (paused Bool) (status String)) (→ (List (ui:Html HudAction)))
+        (ui:Element "section"
+                    dialog
+                    (Cons title
+                          (concatenate (list samples
+                                             (display-settings display
+                                                               (lambda (a) (AdjustDisplay a))
+                                                               (Menu (Resume)))
+                                             look
+                                             actions))))))
+    (define (pause-menu (s Shift) (paused Bool) (display GameDisplay) (status String))
+      (→ (List (ui:Html HudAction)))
       (list (menu-button "pause-toggle" "Pause" (Pause) (list (ui:FlagProperty "hidden" paused)))
             (ui:Element "div"
                         (list (ui:Attr "class" "pause-scrim")
                               (ui:FlagProperty "hidden" (not paused)))
-                        (list (menu-card s status)))))
+                        (list (menu-card s display status)))))
 
     ;; ---- Instruments ----
 
@@ -170,18 +193,21 @@
                           (ui:Attr "style" (map-pin a (● s stop)))
                           (ui:Attr "title" (● s name)) (ui:Attr "aria-label" (● s name))
                           (ui:On "click" (Nil) (Allow) (lambda (_) (ChooseStand i)))) (Nil))))
-    (define (make-hud (d Dom) (a Atlas) (map-image String)) (→ Hud)
-      (new Hud (view (ui:render-root d ((● d document-root)))) (map-image map-image)
-           (stations (map (lambda (i) (stand-marker a i)) (iota 16)))
-           (gps (new-gps))
-           (chart-center -1)
-           (chart "")
-           (placement "")
-           (revision -1)
-           (ink "")
-           (wide #f)
-           (paused #f)
-           (save-status "")))
+    (define (make-hud (d Dom) (clock Clock) (storage PageStorage) (a Atlas) (map-image String))
+      (→ Hud)
+      (new Hud
+        (view (ui:render-root d ((● d document-root))))
+        (display (game-display clock storage))
+        (map-image map-image)
+        (stations (map (lambda (i) (stand-marker a i)) (iota 16)))
+        (gps (new-gps))
+        (chart-center -1)
+        (chart "")
+        (placement "")
+        (revision -1)
+        (ink "")
+        (wide #f)
+        (paused #f) (save-status "")))
     (define (two (n I64)) (→ String) (if (< n 10) (string-append "0" (show n)) (show n)))
     (define (money (n I64))
       (→ String)
@@ -361,11 +387,11 @@
                                             (ui:Attr "id" "cab-instruments")
                                             (ui:Attr "tabindex" "-1")
                                             (ui:FlagProperty "inert" paused))
-                                      (list (mast g w)
+                                      (list (meter-view (● h display)) (mast g w)
                                             (dispatch-card w paused)
                                             (dashboard w resolution)
                                             (radar h g roads w wide choice)))
-                          (pause-menu s paused (● h save-status))))
+                          (pause-menu s paused (● h display) (● h save-status))))
         (when (if paused (not (● h paused)) (● h paused))
           (unless paused (set! (● h save-status) ""))
           (set! (● h paused) paused)

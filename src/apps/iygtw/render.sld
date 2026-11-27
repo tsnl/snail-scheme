@@ -349,7 +349,6 @@
           (forward-renderer renderer))))
     (define (draw! (r Renderer) (gpu Gpu) (before Ride) (s Ride) (t F64) (time F64)
                    (yaw F64) (pitch F64) (boom F64) (elapsed I32)) (→ Unit)
-                   ((● gpu work-done))
                    (paint-road! gpu (● r film) (● r basins) (● s soil))
                    (unless (= (● r light) (● s light))
                      (let ((sky (daylight gpu (● s light))))

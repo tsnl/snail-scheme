@@ -1,5 +1,6 @@
 // One save per application in IndexedDB: the bytes of its serialized state.
 
+import {span} from './trace.mjs';
 import {blobPartSize, legacyPartSize, matchesDigest, readBlobParts} from './load.mjs';
 
 function open(name, store) {
@@ -33,8 +34,10 @@ export function loadSave(key) {
   return transaction('snail-applications', 'saves', 'readonly', store => store.get(key)).catch(() => undefined);
 }
 
-export function storeSave(key, bytes) {
-  return transaction('snail-applications', 'saves', 'readwrite', store => store.put(bytes, key));
+export async function storeSave(key, bytes) {
+  const start = performance.now();
+  try { return await transaction('snail-applications', 'saves', 'readwrite', store => store.put(bytes, key)); }
+  finally { span('wait', 'store save', start); }
 }
 
 // Session saves are isolated by tab and survive navigation on this origin.

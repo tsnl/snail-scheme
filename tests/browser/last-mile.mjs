@@ -8,6 +8,7 @@ import {createCanvas, loadImage} from '@napi-rs/canvas';
 import {promisify} from 'node:util';
 import {openBrowser, sleep, until} from './chromium.mjs';
 import {serve} from './static.mjs';
+import {changeDisplay, checkFreshDisplay} from './game-display.mjs';
 import {blobPartSize, objectPath, partPath} from '../../host/browser/load.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
@@ -253,6 +254,7 @@ try {
   await browser.evaluate("import('./application.mjs').then(({running}) => running[0].runtime.send(12))");
   await sleep(5500);
   assert.equal(await savedShift(), null, 'playing, hiding and changing settings leave the slot empty');
+  await changeDisplay(browser);
   await click('.save-game');
   await expect('.save-status', 'Shift saved.');
   const saved = await savedShift();
@@ -265,6 +267,7 @@ try {
   const before = [...objects];
   await browser.navigate(url);
   await ready();
+  await checkFreshDisplay(browser);
   await expect('.stage', 'PICKUP');
   await pause();
   await expectGraphics(1);
@@ -322,6 +325,7 @@ try {
   assert.notDeepEqual(await savedShift(), saved, 'an explicit save replaces the old shift');
   await browser.navigate(url);
   await ready();
+  await checkFreshDisplay(browser);
   await expect('.stage', 'PICKUP');
   await pause();
   await click('.load-game');

@@ -320,6 +320,13 @@ which reports whether the write committed. **Load game** calls `read-saved`
 with the game's reader and resumes play on success. An empty slot or an
 unreadable save leaves the player in the pause menu with their current game.
 
+For small preferences, `((● storage read-setting) name fallback)` reads a signed
+32-bit integer and `((● storage write-setting) name value)` writes one. The
+browser keeps these values in local storage under the application’s storage
+key. A missing or inaccessible setting returns the fallback. Willowbank and
+The Last Mile read display preferences at startup and write a preference when
+the player edits it in the pause menu.
+
 <a id="proposed-application-processes"></a>
 
 ## Proposed durable state
