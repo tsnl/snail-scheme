@@ -23,7 +23,7 @@ import {join} from 'node:path';
 import {serve} from './static.mjs';
 import {promisify} from 'node:util';
 import {openBrowser, until} from './chromium.mjs';
-import {assertLines, deviceLines, fetchedLine, pageLines} from '../gpu/expected.mjs';
+import {assertLines, deviceLines, fetchedLine, pageLines, splatLines, tensorLines} from '../gpu/expected.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
 const built = (await promisify(execFile)(join(root, 'snail-scheme'), ['build', '--target', 'browser', 'tests/gpu/main.scm'], {cwd: root})).stdout.trim();
@@ -37,7 +37,8 @@ try {
   assert.deepEqual(lines.filter(line => line.startsWith('error:') || line.startsWith('warn:')), [], 'WebGPU reported nothing');
   const printed = lines.filter(line => line.startsWith('log: ')).map(line => line.slice(5));
   assert.match(printed[0], /^format: (bgra8unorm|rgba8unorm)$/);
-  assertLines(printed.slice(1).filter(line => !line.startsWith('url: ')), [...pageLines, ...deviceLines, fetchedLine]);
+  assertLines(printed.slice(1).filter(line => !line.startsWith('url: ')),
+    [...pageLines, ...deviceLines, ...tensorLines, ...splatLines, fetchedLine]);
   // The data URL decodes to the picture: blue for the swapped red, then
   // green.
   const url = lines.find(line => line.startsWith('log: url: ')).slice('log: url: '.length);

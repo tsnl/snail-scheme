@@ -1,1 +1,6 @@
 type mismatch: expected Any, found I64
+type mismatch: expected Any, found (Fn → Unit)
+type mismatch: expected Any, found T
+type mismatch: expected (Fn I64 → I64), found (Fn Any → Any)
+type mismatch: expected (Cell I64), found (Cell Any)
+type mismatch: expected I64, found String

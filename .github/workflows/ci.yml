@@ -31,20 +31,15 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/ci-shell
-      - name: Check formatting
+      - name: Check Rust formatting
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: |
-          make check
-          cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check
+        run: cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check
       - name: Test Rust support
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --all-features
-      - name: Bootstrap the command line
+      - name: Check and test snail-scheme
         shell: nix-shell --run "bash -euo pipefail {0}"
-        run: ./scripts/bootstrap >/dev/null
-      - name: Test snail-scheme
-        shell: nix-shell --run "bash -euo pipefail {0}"
-        run: make test
+        run: make check test
       - name: Retain build evidence
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -63,20 +58,20 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      # Cache the executable, then always run it on today's runner and check
-      # its output. The GPU program imports the Snail libraries and its own
-      # tests/gpu/src tree. Its generated shaders live under those roots too.
-      - name: Restore the GPU test package
+      # Cache the packages, then always run them on today's runner and check
+      # their output. The programs and generated shaders use the libraries in
+      # src/snail and tests/gpu/src.
+      - name: Restore the GPU test packages
         id: gpu-cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: build/ci-gpu
           key: >-
-            gpu-node-v1-${{ runner.os }}-${{ runner.arch }}-${{
+            gpu-node-v2-${{ runner.os }}-${{ runner.arch }}-${{
             hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'package*.json',
-                      'snail-scheme', 'scripts/bootstrap', 'bootstrap/**', 'host/**',
+                      'snail-scheme', 'scripts/bootstrap', 'scripts/build-runtime', 'bootstrap/**', 'host/**',
                       'crates/*/Cargo.*', 'crates/*/src/**', 'src/snail/**',
-                      'tests/gpu/node.scm', 'tests/gpu/src/**', 'tests/gpu/node.resources/**',
+                      'tests/gpu/node*.scm', 'tests/gpu/src/**', 'tests/gpu/node*.resources/**',
                       'tests/gpu/public/**') }}
       - uses: ./.github/actions/ci-shell
         with:
@@ -85,10 +80,13 @@ jobs:
         if: steps.gpu-cache.outputs.cache-hit != 'true'
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: |
-          package=$(./snail-scheme build --target node tests/gpu/node.scm)
-          # The published name is a symlink to a generation. Keep its files.
-          mkdir -p build/ci-gpu
-          cp -R "$package/." build/ci-gpu/
+          for source in tests/gpu/node*.scm; do
+            name=$(basename "$source" .scm)
+            package=$(./snail-scheme build --target node "$source")
+            # The published name is a symlink. Cache the contents of each package.
+            mkdir -p "build/ci-gpu/$name"
+            cp -R "$package/." "build/ci-gpu/$name/"
+          done
       - name: Test the GPU checks on lavapipe
         shell: nix-shell --run "bash -euo pipefail {0}"
         run: node tests/gpu.mjs "$PWD" "$PWD/build/ci-gpu"
