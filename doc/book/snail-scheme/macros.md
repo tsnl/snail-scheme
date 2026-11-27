@@ -61,7 +61,7 @@ producer's `main` asks its target for each
 compile-time declarations. Recipe inputs, failures and cycles are tracked
 by the [compiler input protocol](compilers.md#compiler-inputs).
 
-A native producer can also run a build tool. The Ink recipe links its sources, asks for `Processes` to run inklecate, and returns ordinary dialogue definitions. Both browser and Node builds use that producer. [Compiling Ink](../libraries/games.md#compiling-ink)
+A native producer can also ask for `Processes` to run a build tool. Both browser and Node builds run producers on the native target.
 
 `link-file` resolves relative to the recipe's own file.
 The first embeds a dependency as a literal; the second makes a linked resource

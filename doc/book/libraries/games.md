@@ -8,11 +8,7 @@ These libraries run on the CPU. An application chooses a fixed timestep and owns
 
 ## Dialogue
 
-`(snail shell game dialogue)` reads a `Dialogue` made of named passages, lines and ordered replies. Each reply names its destination. The game saves a `Cursor` containing the passage ID and line index. Import a baked Ink library or construct a dialogue directly. `open-dialogue`, `continue-dialogue` and `answer-dialogue` return an optional cursor. An out-of-range answer keeps the current cursor. [Ink authoring](#compiling-ink) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/dialogue.sld)
-
-## Compiling Ink
-
-`(snail shell game ink)` supplies `ink-library` for a `generate-library` recipe. Its first filename is the Ink entry point. Each additional filename links a source used by an `INCLUDE`. At build time the producer calls inklecate and returns a library exporting `conversation` as a `Dialogue`. Games import that generated library. `make test-ink` builds an independent project, edits its story and included knot, and exercises failed generations. [Example recipe and Ink files](https://github.com/tsnl/snail-scheme/tree/main/tests/ink/src/radio) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/ink.sld)
+`(snail shell game dialogue)` reads a `Dialogue` made of named passages, lines and ordered replies. Each reply names its destination. Construct the dialogue directly in an application library. The game saves a `Cursor` containing the passage ID and line index. `open-dialogue`, `continue-dialogue` and `answer-dialogue` return an optional cursor. An out-of-range answer keeps the current cursor. [Dialogue authoring](../games/last-mile.md#write-dialogue) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/dialogue.sld)
 
 ## Movement and boarding
 

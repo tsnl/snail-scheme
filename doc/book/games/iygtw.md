@@ -37,6 +37,8 @@ To measure Lantern Row, the mill bridge and the orchard, serve a build locally a
 node benches/iygtw/ride.mjs http://127.0.0.1:4193/ 1920x1080 1 --profile
 ```
 
+With a native 1920×1080 target, 1× MSAA, Chromium Vulkan and an RTX 5090, the median GPU work was 5.94–5.98 ms across the three routes. Uninstrumented runs of 270 frames each averaged 29.98–29.99 fps. The 95th-percentile frame intervals were 34.1 ms at Lantern Row, 49.8 ms at the bridge and 34.3 ms in the orchard. The GPU work alone does not account for the longer bridge intervals.
+
 ## Editing Willowbank
 
 Open `src/apps/iygtw/art/Willowbank.blend` in Blender to edit the level. The collections group the village, water, roads, farms and distant hills. The road meshes supply the visible surface and wheel contact. Their survey curves record the alignments. Edit the mesh when changing the riding surface. A mesh tagged `iy_surface` supplies the surface type and wheel height. The exporter projects the `iy_solid` and `iy_fence` meshes into obstacle spans. The `iy_waymark` empties name places, and marker zero sets the starting position.

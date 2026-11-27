@@ -152,7 +152,6 @@ Three conventions run through the shell:
 | [`(snail shell game drawing)`, `figure`, `scenery`](games.md#actors-and-scenery) | Rigid parts and their placement |
 | [`(snail shell game quest)`](games.md#quests) | Typed stage and event rules |
 | [`(snail shell game dialogue)`](games.md#dialogue) | Spoken lines, branching replies and saved cursors |
-| [`(snail shell game ink)`](games.md#compiling-ink) | Generate a dialogue library from linked Ink sources |
 
 ### Tensors
 
@@ -208,6 +207,7 @@ Three conventions run through the shell:
 Each application keeps its libraries beside its scripts, under
 `src/apps/NAME/`:
 
+- `(apps last-mile …)` holds the San Francisco cab shift, GPS, dialogue and renderer. [Last Mile Taxi](../games/last-mile.md)
 - `(apps siegework …)`: the colony game's land, rules, siege, view and HUD
   ([Siegework](../games/siegework.md)).
 - `(apps hearsay …)`: the rumor mill and the favor ledger, their screens
