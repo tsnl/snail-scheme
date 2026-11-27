@@ -1,8 +1,10 @@
-"""Author one glTF fixture and render the same shot twice in scene-linear Cycles."""
+"""Prepare the shared shot and capture scene-linear Cycles films or render timings."""
 
+import argparse
 import json
 import math
 import sys
+import tempfile
 from pathlib import Path
 from time import perf_counter
 
@@ -124,19 +126,21 @@ def leaf_materials():
         tree.links.new(closure, output.inputs["Surface"])
 
 
+def export_linear(exr, raw):
+    image = bpy.data.images.load(str(exr), check_existing=False)
+    width, height = image.size
+    pixels = np.empty(width * height * 4, np.float32)
+    image.pixels.foreach_get(pixels)
+    pixels.reshape(height, width, 4)[::-1].astype("<f4").tofile(raw)
+    bpy.data.images.remove(image)
+
+
 def render_linear(scene, path):
     scene.render.filepath = str(path.with_suffix(".exr"))
     start = perf_counter()
     bpy.ops.render.render(write_still=True)
     elapsed = perf_counter() - start
-    image = bpy.data.images.load(scene.render.filepath, check_existing=False)
-    width, height = image.size
-    pixels = np.empty(width * height * 4, np.float32)
-    image.pixels.foreach_get(pixels)
-    pixels.reshape(height, width, 4)[::-1].astype("<f4").tofile(
-        path.with_suffix(".rgba32f")
-    )
-    bpy.data.images.remove(image)
+    export_linear(scene.render.filepath, path.with_suffix(".rgba32f"))
     return elapsed
 
 
@@ -175,7 +179,44 @@ def first_hit_colors(scene, out):
     scene.cycles.samples = 128
 
 
-def main(out, village):
+def timing_device(scene, backend):
+    if backend == "CPU":
+        return {"backend": backend, "name": "CPU", "threads": scene.render.threads}
+    preferences = bpy.context.preferences.addons["cycles"].preferences
+    preferences.compute_device_type = backend
+    preferences.refresh_devices()
+    devices = [device for device in preferences.devices if device.type == backend]
+    if len(devices) != 1:
+        raise RuntimeError(f"Expected one {backend} device, found {[d.name for d in devices]}")
+    for device in preferences.devices:
+        device.use = device.id == devices[0].id
+    scene.cycles.device = "GPU"
+    return {"backend": backend, "name": devices[0].name, "id": devices[0].id}
+
+
+def time_renders(scene, started, backend, out):
+    device = timing_device(scene, backend)
+    scene.render.use_persistent_data = True
+    setup = perf_counter() - started
+    times = []
+    for index in range(6):
+        seed = index * scene.cycles.samples
+        scene.cycles.seed = seed
+        before = perf_counter()
+        if "FINISHED" not in bpy.ops.render.render():
+            raise RuntimeError("Cycles did not finish the film")
+        times.append(perf_counter() - before)
+    # Loading an EXR changes Blender's dependency graph. Export the last
+    # completed film for comparison only after collecting every timing.
+    with tempfile.TemporaryDirectory() as tmp:
+        path = str(Path(tmp) / "finished.exr")
+        bpy.data.images["Render Result"].save_render(path)
+        export_linear(path, out / "cycles-timing.rgba32f")
+    return dict(device=device, setupSeconds=setup, warmupSeconds=times[0], renderSeconds=times[1:])
+
+
+def main(out, village, backend, size):
+    started = perf_counter()
     out.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     if village:
@@ -203,7 +244,7 @@ def main(out, village):
     scene.camera.rotation_euler = (target - eye).to_track_quat("-Z", "Y").to_euler()
     camera.sensor_fit = "VERTICAL"
     camera.lens = camera.sensor_height / (2 * math.tan(0.8 / 2))
-    width, height = 256, 160
+    width, height = size
     scene.render.engine = "CYCLES"
     scene.cycles.samples = 128
     scene.cycles.use_adaptive_sampling = False
@@ -228,13 +269,18 @@ def main(out, village):
     scene.view_settings.view_transform = "Standard"
     scene.render.threads_mode = "FIXED"
     scene.render.threads = 8
-    first_hit_colors(scene, out)
+    if not backend:
+        first_hit_colors(scene, out)
     if village:
         leaf_materials()
-    captures = []
-    for seed in (0, 128):
-        scene.cycles.seed = seed
-        captures.append(render_linear(scene, out / f"cycles-{seed}"))
+    if backend:
+        measurements = {"timing": time_renders(scene, started, backend, out)}
+    else:
+        captures = []
+        for seed in (0, 128):
+            scene.cycles.seed = seed
+            captures.append(render_linear(scene, out / f"cycles-{seed}"))
+        measurements = {"cyclesSeconds": captures}
 
     def gltf(p):
         return [float(p.x), float(p.z), float(-p.y)]
@@ -250,7 +296,7 @@ def main(out, village):
                 "eye": gltf(eye),
                 "target": gltf(target),
                 "blender": bpy.app.version_string,
-                "cyclesSeconds": captures,
+                **measurements,
             }
         )
         + "\n"
@@ -258,5 +304,11 @@ def main(out, village):
 
 
 if __name__ == "__main__":
-    args = sys.argv[sys.argv.index("--") + 1 :]
-    main(Path(args[0]).resolve(), "village" in args[1:])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("out", type=Path)
+    parser.add_argument("scene", choices=["room", "village"], default="room", nargs="?")
+    parser.add_argument("--timing")
+    parser.add_argument("--size", default="256x160")
+    args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
+    main(args.out.resolve(), args.scene == "village", args.timing,
+         tuple(map(int, args.size.split("x"))))

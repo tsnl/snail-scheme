@@ -1,24 +1,61 @@
-// Two independent 128-spp estimates from each renderer. Run in the repo's nix-shell.
+// Compare two independent 128-spp films from each renderer, or benchmark
+// resident-scene throughput with --timing=OPTIX (or another Cycles backend).
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
+import {parseArgs} from 'node:util';
 import {createCanvas, GlobalFonts} from '@napi-rs/canvas';
 
-const village = process.argv.includes('--village');
-const out = resolve(process.argv.slice(2).find(arg => arg !== '--village') ??
-  (village ? 'build/cycles-village' : 'build/cycles-reference'));
+const {values: {village, timing, size}, positionals} = parseArgs({allowPositionals: true,
+  options: {village: {type: 'boolean'}, timing: {type: 'string'}, size: {type: 'string'}}});
+assert.ok(positionals.length <= 1, 'Expected at most one output directory');
+if (timing) assert.ok(['CPU', 'CUDA', 'OPTIX', 'HIP', 'METAL', 'ONEAPI'].includes(timing), 'Unknown Cycles backend');
+if (size) assert.ok(timing && /^[1-9]\d*x[1-9]\d*$/.test(size) && size.split('x').every(n => Number(n) <= 16384),
+  '--size=WIDTHxHEIGHT applies to timing runs, with sides up to 16384');
+const out = resolve(positionals[0] ?? ('build/cycles-' + (village ? 'village' : 'reference') +
+  (timing ? '-timing-' + timing.toLowerCase() + (size ? '-' + size : '') : '')));
 mkdirSync(out, {recursive: true});
 execFileSync(process.env.BLENDER ?? 'blender', ['-noaudio', '-b', '--factory-startup', '--python-exit-code', '1',
-  '--python', 'benches/render/cycles.py', '--', out, ...(village ? ['village'] : [])], {stdio: 'inherit', env: {...process.env, ALSOFT_DRIVERS: 'null'}});
+  '--python', 'benches/render/cycles.py', '--', out, ...(village ? ['village'] : []),
+  ...(timing ? ['--timing=' + timing] : []), ...(size ? ['--size=' + size] : [])],
+  {stdio: 'inherit', env: {...process.env, ALSOFT_DRIVERS: 'null'}});
 const shot = JSON.parse(readFileSync(join(out, 'shot.json')));
 const {width, height, samples, bounces} = shot;
+const cameraArgs = ['scene=' + shot.scene, 'environment=' + join(out, 'studio.hdr'),
+  'eye=' + shot.eye, 'target=' + shot.target, 'width=' + width, 'height=' + height,
+  'layers=' + (village ? 512 : 256), 'samples=' + samples, 'bounces=' + bounces];
+if (timing) {
+  const {create} = await import('webgpu');
+  const dawn = create(['disable-dawn-features=timestamp_quantization']);
+  const adapter = await dawn.requestAdapter() ?? await dawn.requestAdapter({powerPreference: 'high-performance'});
+  assert.ok(adapter, 'No WebGPU adapter');
+  const {vendor, device, description, architecture, isFallbackAdapter} = adapter.info;
+  if (timing !== 'CPU') assert.ok(!isFallbackAdapter, 'WebGPU selected a software adapter');
+  const prefix = join(out, 'snail-timing');
+  execFileSync('./snail-scheme', ['run', '--release', '--target', 'node', 'tools/render.scm',
+    ...cameraArgs, 'timing=' + prefix], {stdio: 'inherit'});
+  const snail = {...JSON.parse(readFileSync(prefix + '.json')), device: {vendor, device, description, architecture, isFallbackAdapter}};
+  const cycles = shot.timing;
+  function summarize(result) {
+    assert.equal(result.renderSeconds.length, 5);
+    assert.ok(result.renderSeconds.every(t => Number.isFinite(t) && t > 0));
+    result.medianSeconds = [...result.renderSeconds].sort((a, b) => a - b)[2];
+    result.millionCameraSamplesPerSecond = width * height * samples / (1e6 * result.medianSeconds);
+  }
+  summarize(snail); summarize(cycles);
+  const film = compareTimedFilms(image('snail-timing.rgba32f'), image('cycles-timing.rgba32f'));
+  const result = {scene: shot.scene, blender: shot.blender, width, height, samples, bounces, snail, cycles, film,
+    snailOverCycles: snail.medianSeconds / cycles.medianSeconds};
+  const report = JSON.stringify(result, null, 2);
+  writeFileSync(join(out, 'timing.json'), report + '\n');
+  console.log(report);
+  process.exit(0);
+}
 for (const seed of [0, 128]) {
   const prefix = join(out, 'snail-' + seed);
   execFileSync('./snail-scheme', ['run', '--target', 'node', 'tools/render.scm',
-    'scene=' + shot.scene, 'environment=' + join(out, 'studio.hdr'),
-    'eye=' + shot.eye, 'target=' + shot.target, 'width=' + width, 'height=' + height,
-    'layers=' + (village ? 512 : 256), 'pixel-filter=box', 'samples=' + samples, 'bounces=' + bounces, 'seed=' + seed, 'capture=' + prefix], {stdio: 'inherit'});
+    ...cameraArgs, 'pixel-filter=box', 'seed=' + seed, 'capture=' + prefix], {stdio: 'inherit'});
   const metadata = JSON.parse(readFileSync(prefix + '.json'));
   assert.equal(metadata.referenceSamples, samples);
   assert.equal(metadata.bounces, bounces);
@@ -32,6 +69,19 @@ function image(path) {
   const floats = new Float32Array(data.buffer, data.byteOffset, data.length / 4);
   assert.ok(floats.every(Number.isFinite), 'Non-finite radiance in ' + path);
   return floats;
+}
+// Validate the last timed frames after the timers stop. Only RGB carries light.
+function compareTimedFilms(a, b) {
+  let sa = 0, sb = 0, square = 0, aMin = Infinity, aMax = -Infinity, bMin = Infinity, bMax = -Infinity;
+  for (let i = 0; i < a.length; i += 4) for (let c = 0; c < 3; c++) {
+    const x = a[i + c], y = b[i + c];
+    aMin = Math.min(aMin, x); aMax = Math.max(aMax, x);
+    bMin = Math.min(bMin, y); bMax = Math.max(bMax, y);
+    sa += x; sb += y; square += (x - y) ** 2;
+  }
+  assert.ok(aMax - aMin > 0.01 && bMax - bMin > 0.01 && sa > 0 && sb > 0, 'Empty benchmark film');
+  const n = width * height * 3;
+  return {snailMean: sa / n, cyclesMean: sb / n, biasPercent: 100 * (sa / sb - 1), rmse: Math.sqrt(square / n)};
 }
 const [s0, s1, c0, c1] = ['snail-0.reference', 'snail-128.reference', 'cycles-0', 'cycles-128']
   .map(name => image(name + '.rgba32f'));

@@ -17,6 +17,7 @@ Splats draws gaussians, sorted on the GPU by a radix sort built on a scan.
 - [The path tracer](tracer.md) traces glTF scenes with that physics: a
   BVH, a wavefront of kernels, environment light and SVGF, flown through
   by `src/apps/viewer`.
+- Measure the light returned by a white metal or dielectric under uniform illumination in the [white furnace](../play/furnace/).
 - **[Open Splats](../play/splats/)** in a browser with WebGPU: rings of
   gaussians, or a trained scene's `.ply` dropped on the page with its
   COLMAP `images.bin`.
