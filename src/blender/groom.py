@@ -56,7 +56,7 @@ class Ribbons:
     def __init__(self):
         self.vertices, self.faces, self.uv, self.weights = [], [], [], []
 
-    def comb(self, points, normal, radius, tile, weights):
+    def comb(self, points, normal, radius, tile, weights, tip_width=0.41):
         start = len(self.vertices)
         for j, p in enumerate(points):
             t = j / (len(points) - 1)
@@ -64,7 +64,7 @@ class Ribbons:
                 points[min(j + 1, len(points) - 1)] - points[max(j - 1, 0)]
             ).normalized()
             across = flow.cross(normal).normalized()
-            width = radius * (0.73 + 0.27 * sin(pi * t) - 0.32 * t)
+            width = radius * (0.73 + 0.27 * sin(pi * t) - (0.73 - tip_width) * t)
             for k in range(3):
                 self.vertices.append(
                     p + (k - 1) * width * across + (k % 2) * width * 0.15 * normal
