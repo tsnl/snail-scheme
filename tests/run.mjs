@@ -214,7 +214,7 @@ async function runAll(cases) {
 for (const output of ['build/examples', 'build/tests', 'build/tools', 'tests/programs/build', 'tests/host-boundary/build']) {
   await rm(join(root, output), {recursive: true, force: true});
 }
-const suites = (await Promise.all(['examples', 'tests/programs', 'tests/siegework', 'tests/hearsay'].map(programs))).flat();
+const suites = (await Promise.all(['examples', 'tests/programs', 'tests/siegework'].map(programs))).flat();
 const cases = [...suites, ...(selected.length ? [] : checks())];
 const passed = await runAll(cases);
 console.log(`${passed}/${cases.length} passed`);

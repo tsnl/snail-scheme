@@ -28,7 +28,7 @@
 ;; A Frame's items are mesh instances in batches, rasterized into a
 ;; color target with directional and ambient lighting
 ;; (`(snail shell graphics raster)`). A 2D scene with pictures draws them
-;; as quads from an atlas (`(snail shell graphics quad)`), as Hearsay does.
+;; as quads from an atlas (`(snail shell graphics quad)`).
 (define-library (snail shell app)
   (export
    Input

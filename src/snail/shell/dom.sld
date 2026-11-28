@@ -47,14 +47,6 @@
    alt-key
    meta-key
    Dom
-   InstallationStatus InstallUnavailable InstallAvailable AppInstalled
-   InstallResult
-   InstallAccepted
-   InstallDismissed
-   InstallNotAvailable
-   GestureRequired
-   InstallFailed
-   InstallAlreadyInstalled
    capture-bits)
   (import
    (snail core base))
@@ -182,15 +174,6 @@
        (client-height F64)
        (line-height F64)))
 
-    ;; ---- Window applications ----
-
-    ;; A browser offer is opaque and single use. Acceptance of its prompt
-    ;; precedes the distinct appinstalled event. An expired activation does
-    ;; not consume the offer; another explicit click can try again.
-    (enum InstallationStatus (InstallUnavailable) (InstallAvailable) (AppInstalled))
-    (enum InstallResult (InstallAccepted) (InstallDismissed) (InstallNotAvailable)
-          (GestureRequired) (InstallFailed) (InstallAlreadyInstalled))
-
     ;; ---- The capability ----
 
     ;; An attribute set to "" is removed. A property is the node's own
@@ -237,8 +220,6 @@
        (focus-node (Fn Node → Unit))
        (window-node (Fn → Node))
        (confirm (Fn String → Bool))
-       (installation-status (Fn → InstallationStatus))
-       (install-app (Fn → InstallResult))
        (fullscreen? (Fn → Bool))
        (set-fullscreen (Fn Bool → Bool))
        (element-by-id (Fn String → (Option Node)))

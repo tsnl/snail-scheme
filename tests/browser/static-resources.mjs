@@ -8,7 +8,7 @@ import {join} from 'node:path';
 import {promisify} from 'node:util';
 import {openBrowser, until} from './chromium.mjs';
 import {serve} from './static.mjs';
-import {blobPartSize, legacyPartSize, objectPath, partPath} from '../../host/browser/load.mjs';
+import {blobPartSize, partPath} from '../../host/browser/load.mjs';
 
 const [root] = process.argv.slice(2);
 const {stdout} = await promisify(execFile)(join(root, 'snail-scheme'),
@@ -24,8 +24,6 @@ const large = Buffer.alloc(blobPartSize + 3, 23);
 large.set([10, 11, 12], blobPartSize);
 const sha = createHash('sha256').update(large).digest('hex');
 const largeCatalog = {sha256: sha, size: large.length};
-const between = large.subarray(0, legacyPartSize + 9);
-const betweenSha = createHash('sha256').update(between).digest('hex');
 let transfer;
 const server = await serve(directory, async (path, response) => {
   if (path === '') {
@@ -39,15 +37,11 @@ const server = await serve(directory, async (path, response) => {
   if (path.startsWith('store/')) requests.push(path);
   if (transfer && path === 'resources.json') {
     response.setHeader('Content-Type', 'application/json');
-    const file = transfer === 'between' ? {sha256: betweenSha, size: between.length} : largeCatalog;
-    response.end(JSON.stringify({'big.bin': file, 'alias.bin': file}));
+    response.end(JSON.stringify({'big.bin': largeCatalog, 'alias.bin': largeCatalog}));
     return true;
   }
-  if (transfer === 'between' && path === partPath(betweenSha, 0, legacyPartSize)) { response.end(between.subarray(0, legacyPartSize)); return true; }
-  if (transfer === 'between' && path === partPath(betweenSha, 1, legacyPartSize)) { response.end(between.subarray(legacyPartSize)); return true; }
   if (transfer && path === partPath(sha, 0)) {
-    if (transfer === 'legacy' || transfer === 'decimal') response.writeHead(404).end();
-    else response.end(large.subarray(0, blobPartSize));
+    response.end(large.subarray(0, blobPartSize));
     return true;
   }
   if (transfer && path === partPath(sha, 1)) {
@@ -57,9 +51,6 @@ const server = await serve(directory, async (path, response) => {
     else { await lastPart.promise; response.end(large.subarray(blobPartSize)); }
     return true;
   }
-  if (transfer === 'decimal' && path === partPath(sha, 0, legacyPartSize)) { response.end(large.subarray(0, legacyPartSize)); return true; }
-  if (transfer === 'decimal' && path === partPath(sha, 1, legacyPartSize)) { response.end(large.subarray(legacyPartSize)); return true; }
-  if (transfer === 'legacy' && path === objectPath(sha)) { response.end(large); return true; }
   if (path === first && requests.length === 1) {
     const bytes = await readFile(join(directory, path));
     response.writeHead(200, {'content-type': 'application/octet-stream', 'x-content-type-options': 'nosniff'});
@@ -164,53 +155,13 @@ try {
     return [!!await c.match(key), ...await Promise.all(['/0','/1'].map(async p => (await (await c.match(key+'/' + ${blobPartSize} + p)).arrayBuffer()).byteLength))];
   })()`);
   assert.deepEqual(sizes, [false, blobPartSize, 3]);
-  // An evicted tail makes the cache a miss. The legacy whole-file HTTP response repairs it.
+  // An evicted tail makes the cache a miss, and the parts are fetched again.
   await browser.evaluate(`caches.open('snail-static-resources-v1').then(c => c.delete(${JSON.stringify(key + '/' + blobPartSize + '/1')}))`);
   await browser.send('Network.setBlockedURLs', {urls: []});
   requests.length = 0;
-  transfer = 'legacy';
   await browser.navigate(url);
-  await until(async () => await result() === '2', 'older single-file publisher');
-  assert.deepEqual(requests, [partPath(sha, 0), partPath(sha, 0, legacyPartSize), objectPath(sha)]);
-  await browser.evaluate(`caches.open('snail-static-resources-v1').then(c => c.delete(${JSON.stringify(key + '/' + blobPartSize + '/0')}))`);
-  requests.length = 0;
-  transfer = 'decimal';
-  await browser.navigate(url);
-  await until(async () => await result() === '2', 'older widthless multipart publisher');
-  assert.deepEqual(requests, [partPath(sha, 0), partPath(sha, 0, legacyPartSize), partPath(sha, 1, legacyPartSize)]);
-  const migrated = await browser.evaluate(`(async () => {
-    const c = await caches.open('snail-static-resources-v1'), key = ${JSON.stringify(key)};
-    const body = await import('./storage.mjs');
-    const bytes = await body.readLinkedFile('${sha}', () => { throw Error('should be cached'); });
-    await c.put(key, new Response(bytes));
-    const versioned = key+'/' + ${blobPartSize};
-    await c.delete(versioned+'/0'); await c.delete(versioned+'/1');
-    const old = await body.readLinkedFile('${sha}', () => { throw Error('should migrate offline'); });
-    return [old.length, !!await c.match(key), !!await c.match(versioned+'/0'), !!await c.match(versioned+'/1')];
-  })()`);
-  assert.deepEqual(migrated, [large.length, false, true, true]);
-  transfer = 'between';
-  requests.length = 0;
-  await browser.navigate(url);
-  await until(async () => await result() === '2', 'widthless publisher between old and new cutoffs');
-  assert.deepEqual(requests, [objectPath(betweenSha), partPath(betweenSha, 0, legacyPartSize), partPath(betweenSha, 1, legacyPartSize)]);
-  // Older releases used widthless decimal parts. Both sides of the new
-  // cutoff must be readable with no network and migrate to their new shape.
-  for (const length of [legacyPartSize + 7, blobPartSize + 7]) {
-    const checks = await browser.evaluate(`(async () => {
-      const bytes = new Uint8Array(${length}).fill(61);
-      const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), n => n.toString(16).padStart(2,'0')).join('');
-      const key = '/.snail/sha256/' + digest, c = await caches.open('snail-static-resources-v1');
-      await c.put(key+'/1', new Response(bytes.subarray(${legacyPartSize})));
-      await c.put(key+'/0', new Response(bytes.subarray(0, ${legacyPartSize}), {headers:{'x-snail-blob-size': String(bytes.length)}}));
-      const {readImmutable} = await import('./storage.mjs');
-      const read = () => readImmutable(digest, bytes.length, () => { throw Error('offline'); });
-      const first = await read(), again = await read();
-      return [first.length, again[again.length-1], !!await c.match(key+'/0'), !!await c.match(key),
-        !!await c.match(key+'/' + ${blobPartSize} + '/0')];
-    })()`);
-    assert.deepEqual(checks, [length, 61, false, length <= blobPartSize, length > blobPartSize]);
-  }
+  await until(async () => await result() === '2', 'evicted tail fetched again');
+  assert.deepEqual(requests, [partPath(sha, 0), partPath(sha, 1)]);
   console.log('Static resources verify multipart transfers, report progress, retry and reuse complete files offline');
 } finally {
   held.resolve();

@@ -9,7 +9,6 @@
 // and a read of one answers "" or 0.
 
 import {byteView} from './load.mjs';
-import {webAppImports} from './install.mjs';
 
 // The kinds of event an interface is fired, after the host's own 11 to 13
 // (runtime.mjs), and the bits of `capture-bits` and the modifier keys.
@@ -17,6 +16,18 @@ export const FIRED = 14, WAKE = 15;
 const VALUE = 1, KEY = 2, POINTER = 4, SCROLL = 8, SELECTION = 16, CHECKED = 32;
 const CONTROL = 1, SHIFT = 2, ALT = 4, META = 8;
 const ALLOW = 0, CHORDS = 2;
+
+// A browser request itself cannot be cancelled, but a stopped task must stop
+// waiting for it. The eventual browser outcome retains no Wasm task state.
+function whileRunning(signal, pending, stopped) {
+  return new Promise(resolve => {
+    const finish = value => { signal.removeEventListener('abort', abort); resolve(value); };
+    const abort = () => finish(stopped);
+    signal.addEventListener('abort', abort, {once: true});
+    pending.then(finish, () => finish(stopped));
+    if (signal.aborted) abort();
+  });
+}
 
 // The runtime gives the running program's memory, to read a string argument
 // from staging, and the event it last polled, whose numbers and texts the
@@ -131,9 +142,20 @@ export function createDom(container, runtime) {
 
   // A property is set only when it differs, so setting an input's value to
   // what the user typed leaves the caret where it is.
+  const tasks = () => runtime.execution.tasks;
   const imports = {
-    ...webAppImports(runtime),
     root: () => 0,
+    'fullscreen': () => document.fullscreenElement ? 1 : 0,
+    'start-fullscreen'(ticket, enter) {
+      tasks().start(Number(ticket), signal => {
+        if (signal.aborted) return 0;
+        try {
+          const pending = enter ? document.documentElement.requestFullscreen() : document.exitFullscreen();
+          return whileRunning(signal, Promise.resolve(pending).then(() => 1, () => 0), 0);
+        } catch { return 0; }
+      }, result => result);
+    },
+    'finish-fullscreen': ticket => tasks().finish(Number(ticket)),
     'create-element': address => made(document.createElement(text(address))),
     'create-text': address => made(document.createTextNode(text(address))),
     'set-attribute'(handle, address) {

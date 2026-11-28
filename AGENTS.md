@@ -96,6 +96,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   whose construction establishes the required invariants. Carry that evidence
   forward instead of returning a Boolean and repeatedly checking the same raw
   data. Keep unsafe assumptions explicit at the boundary that introduces them.
+- Keep nothing for legacy. `snail-scheme` is early and in active
+  development, and a breaking change is better than a compatibility path:
+  no migrations of old saves or stores, no readers of earlier layouts or
+  ABIs, no fallbacks to what a change replaced, no deprecated aliases.
+  A change deletes what it supersedes and updates its callers.
 - Prefer threading pass state through functions and returning the new value.
   No signature says whether a function mutates its arguments, so the
   convention has to carry it: callers share mutable objects, and a function
@@ -199,8 +204,8 @@ output directory, `build/src/apps/NAME/main`, with any static HTTP server; point
 `tests/browser/page.mjs` at it to see a change. Edit in any editor; in Zed,
 install `editors/zed` as a dev extension for `snail-scheme lsp`'s diagnostics
 of each open script and library, formatting, hover and definitions. Each build first runs the
-producers of the `generate-library` recipes it reaches, so Hearsay builds
-too; its producers run every time. What matters when writing code:
+producers of the `generate-library` recipes it reaches; they run every
+time. What matters when writing code:
 
 - Keep what should survive a page reload in the application's Save.
 - A dataset is a library to import, such as `(datasets mipnerf360 bicycle)`:

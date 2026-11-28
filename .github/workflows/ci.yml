@@ -32,13 +32,13 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/ci-shell
       - name: Check Rust formatting
-        shell: nix-shell --run "bash -euo pipefail {0}"
+        shell: nix-shell --arg withBlender false --run "bash -euo pipefail {0}"
         run: cargo fmt --manifest-path crates/snail-scheme-support/Cargo.toml --all -- --check
       - name: Test Rust support
-        shell: nix-shell --run "bash -euo pipefail {0}"
+        shell: nix-shell --arg withBlender false --run "bash -euo pipefail {0}"
         run: cargo test --manifest-path crates/snail-scheme-support/Cargo.toml --all-features
       - name: Check and test snail-scheme
-        shell: nix-shell --run "bash -euo pipefail {0}"
+        shell: nix-shell --arg withBlender false --run "bash -euo pipefail {0}"
         run: make check test-toolchain
       - name: Retain build evidence
         if: failure()
@@ -78,7 +78,7 @@ jobs:
           compiler: ${{ steps.gpu-cache.outputs.cache-hit != 'true' }}
       - name: Compile the GPU checks
         if: steps.gpu-cache.outputs.cache-hit != 'true'
-        shell: nix-shell --run "bash -euo pipefail {0}"
+        shell: nix-shell --arg withBlender false --run "bash -euo pipefail {0}"
         run: |
           for source in tests/gpu/node*.scm; do
             name=$(basename "$source" .scm)
@@ -88,7 +88,7 @@ jobs:
             cp -R "$package/." "build/ci-gpu/$name/"
           done
       - name: Test the GPU checks on lavapipe
-        shell: nix-shell --run "bash -euo pipefail {0}"
+        shell: nix-shell --arg withBlender false --run "bash -euo pipefail {0}"
         run: node tests/gpu.mjs "$PWD" "$PWD/build/ci-gpu"
 
   tests:

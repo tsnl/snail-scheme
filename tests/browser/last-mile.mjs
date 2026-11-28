@@ -27,10 +27,6 @@ const assetPaths = new Set(Object.values(catalog).flatMap(paths));
 const held = Promise.withResolvers();
 let hold = true, fail = true;
 const server = await serve(directory, async (path, response) => {
-  if (path === 'seed.html') {
-    response.writeHead(200, {'content-type': 'text/html'}).end('<title>Prior install</title>');
-    return true;
-  }
   if (path === object('sf-1.bin') && hold) {
     hold = false;
     const bytes = await readFile(join(directory, path));
@@ -171,21 +167,6 @@ try {
       return texture;
     };`});
   await browser.send('Emulation.setDeviceMetricsOverride', {width: 900, height: 600, deviceScaleFactor: 0.6, mobile: false});
-  // Seed a real prior-version IndexedDB entry before the new app runs.
-  const legacyFile = 'Textures/colormap.png', legacyHash = catalog[legacyFile].sha256;
-  await browser.navigate(url + 'seed.html');
-  await until(() => browser.evaluate('location.pathname.endsWith("seed.html")'), 'fixture origin');
-  const legacyBytes = await readFile(join(directory, object(legacyFile)));
-  assert.equal(await browser.evaluate(`new Promise((resolve, reject) => {
-    const open = indexedDB.open('snail-linked-files', 1);
-    open.onupgradeneeded = () => open.result.createObjectStore('objects');
-    open.onsuccess = () => {
-      const tx = open.result.transaction('objects', 'readwrite');
-      tx.objectStore('objects').put(Uint8Array.from(atob('${legacyBytes.toString('base64')}'), c => c.charCodeAt(0)), '${legacyHash}');
-      tx.oncomplete = () => { open.result.close(); resolve(true); };
-      tx.onabort = reject;
-    };
-  })`), true);
   await browser.navigate(url);
   const prior = Object.keys(catalog).slice(0, Object.keys(catalog).indexOf('sf-1.bin'))
     .reduce((n, name) => n + catalog[name].size, 0);
@@ -206,9 +187,6 @@ try {
   if (screenshot) await browser.screenshot(screenshot.replace(/\.png$/, '-prepare.png'));
   await ready();
   assert.equal(objects.get('/' + object('sf-1.bin')), 1, 'retry retained the completed transfer');
-  assert.equal(objects.get('/' + object(legacyFile)), undefined, 'old IndexedDB bytes avoided a download');
-  assert.ok(await browser.evaluate(`(async () => !!await (await caches.open('snail-static-resources-v1'))
-    .match('/.snail/sha256/${legacyHash}'))()`), 'old bytes were promoted to Cache Storage');
   await expect('.stage', 'PICKUP');
   await expect('h2', 'Rosa');
   await expect('.time', 'PM');
@@ -280,7 +258,7 @@ try {
   await expect('.save-status', 'Shift saved.');
   const saved = await savedShift();
   assert.ok(saved?.length);
-  assert.equal(objects.size, assetPaths.size - 1);
+  assert.equal(objects.size, assetPaths.size);
   for (const [path, count] of objects)
     assert.equal(count, path === '/' + object('sf-2.bin') ? 2 : 1, path);
   await browser.send('Network.enable');
@@ -395,12 +373,6 @@ try {
   await until(async () => (await streetChart())?.box === local.box, 'return to the starting neighborhood');
   assert.deepEqual(await browser.evaluate('window.visibleStreets'), near, 'the return trip reuses the original buffers');
   assert.equal(await browser.evaluate('window.streetMeshes'), resident);
-  const oldShift = await readFile(join(root, 'tests/programs/data/taxi-v3.save'));
-  await browser.evaluate(`import('./storage.mjs').then(m => m.storeSave('last-mile-sf-taxi-v1', Uint8Array.of(${[...oldShift]})))`);
-  await pause();
-  await click('.load-game');
-  await expect('.stage', 'METER RUNNING');
-  await expect('.total', '$12.34');
   console.log(`Rosa boarded, recovered with her fare, and restarted a shift with all ${assetPaths.size} city object URLs blocked. Treasure Island daylight/night luminance: ${day.toFixed(1)} / ${night.luminance.toFixed(1)}.`);
 } finally {
   held.resolve();

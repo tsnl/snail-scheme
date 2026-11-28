@@ -1,8 +1,8 @@
 # WebGPU design
 
-Games and tools describe models, transforms, lights and cameras with Snail Scheme scene values. A renderer can record resource creation, updates and draws from any of the forward-rendered applications. Siegework and Hearsay use its orthographic mesh and sprite paths. [Scene graphs, rendering and replay](rasterizer.md).
+Games and tools describe models, transforms, lights and cameras with Snail Scheme scene values. A renderer can record resource creation, updates and draws from any of the forward-rendered applications. Siegework uses its orthographic mesh path, and 2D scenes its sprite path. [Scene graphs, rendering and replay](rasterizer.md).
 
-The renderer implements that interface on top of the `Gpu` capability. This chapter describes the device operations and includes measurements from the earlier G-buffer pipeline. [GPU library reference](../libraries/gpu.md).
+The renderer implements that interface on top of the `Gpu` capability. This chapter describes the device operations. [GPU library reference](../libraries/gpu.md).
 
 Device requests, decoding, pipeline creation and readbacks need only ordinary
 functions and the runtime's waits. Those waits are suspensions,
@@ -144,22 +144,16 @@ strip, one run a frame. The vertex shader snaps each corner to the
 target's pixels (`quad.wgsl.scm`). Both shaders are printed by the recipe
 `(snail shell graphics shaders)`.
 
-Hearsay draws this way (`src/apps/hearsay/drawing.sld`). Its shapes are
-pictures too, white texels and a hexagon drawn by the program as PNGs, so
-each frame is one run of quads in the old renderer's order: ties, markers
-and rings, bases, figures from far to near, then pips. Its frames match
-the old renderer's within a pixel along edges. On headless Chromium's
-software WebGPU, both keep 60 frames a second, and the page's main thread
-spends 58 to 60 ms a second in tasks against the old renderer's 47 to 48:
-Hearsay rebuilds and packs its quads every frame, where the old renderer
-kept batches by version. An atlas composes one picture a call, so a frame
-decodes one character's sheets, each 4.4 MB once decoded.
+A program's shapes can be pictures too, such as white texels or a hexagon
+it draws as a PNG, so a frame is one run of quads in the order it draws
+them. An atlas composes one picture a call, so a frame that dresses an LPC
+character decodes its sheets, each 4.4 MB once decoded.
 
 Slots have transparent gutters, not repeated edge texels: pixel art
 samples nearest, which never reads past a slot's edge, so gutters of
 repeated texels wait for filtered textures, with mips.
 
-## Meshes, the G-buffer and the sun
+## Meshes and the sun
 
 `(snail shell graphics mesh)` holds eight shapes, each standing on y = 0
 within the unit cell, in one geometry table written once. `meshes` packs a
@@ -167,38 +161,20 @@ batch's `Instance` records grouped by shape, with one `DrawArgs` per
 shape, so a batch is one `drawIndexed` per populated shape from its own first
 instance. An instance carries where it is and where it was, its yaw, scale,
 glow, color and whether it turns to face the camera. Its `material` is a
-`Vec2f` holding metalness and roughness. Its `id` is an `I32` for picking.
+`Vec2f` holding metalness and roughness.
 
 `(snail shell graphics raster)` keeps what a scene draws with. A program
-makes its `Raster` once: the G-buffer's and the translucent pipelines, the
-geometry, and the camera's and sun's uniforms with their bind groups; a
-`GBuffer` for the canvas's size, made again when it changes; and a
-`Surface` for each batch, its style's uniform and bind group and its
-instance buffer and CPU draw ranges, made again when the batch changes. A frame
-writes the camera and the sun, and draws. A `Camera3D` carries its
-view-projection and its inverse, computed in closed form for a pinhole or
-parallel lens, so the sun pass recovers each pixel's position from its
-depth. A solid surface writes albedo, normal, material (metalness,
-roughness, glow) and depth; a revealed batch discards outside its disc.
-
-The `Raster` and the `GBuffer` are made for the same `Planes`, which may
-add two more. Motion, `rg16float`, is the screen motion in texture
-coordinates from where the pixel's surface was in the last frame:
-`write-raster` returns the raster with the frame's camera kept, so the
-next frame's vertices are placed under both cameras. An upright sprite
-faces each frame's viewing direction when computing its motion. The `r32uint` plane
-holds all 32 bits of each instance's `id` field, with 0 where nothing
-is drawn. `read-id` returns those bits as an `I32` for picking. A plane
-left out has no target in the pipeline and no attachment in the pass,
-WebGPU's null target, so the shader's output there costs nothing. Siegework draws with
-`color-planes`, the four without motion or ids.
-A second pass, `begin-lit`, clears the target to the background and holds
-the G-buffer's depth read-only, so the pass can both sample it and test
-against it. In it, `draw-sun` of `(snail shell graphics passes)`, through
-its `Sunlight` (the pipeline, and a bind group over the G-buffer), lights
-each surface by Cook-Torrance under the sun and the ambient light
-(`lighting.wgsl.scm`). Translucent surfaces are then drawn over it, lit by
-the same function, tested against the G-buffer's depth.
+makes its `Raster` once (`make-forward-batches`): the opaque and the
+translucent pipelines, the geometry, and the camera's and sun's uniforms
+with their bind groups; and a `Surface` for each batch, its style's
+uniform and bind group and its instance buffer and CPU draw ranges, made
+again when the batch changes. A frame writes the camera and the sun, then
+draws in one pass with a depth target: each surface is lit as it is drawn
+by Cook-Torrance under the sun and the ambient light
+(`lighting.wgsl.scm`), the solid ones first and the translucent ones
+blended over them. A `Camera3D` carries its view-projection and its
+inverse, computed in closed form for a pinhole or parallel lens. A
+revealed batch discards outside its disc.
 
 The lit pass draws into a light target of `light-format`, `rgba16float`,
 so a highlight may be brighter than 1. `draw-post`, through a `Post` made
@@ -216,18 +192,8 @@ neighbors' brightness shows.
 
 `(snail shell app)`'s `draw-frame` draws Siegework's `Frame` this way,
 keeping each batch's surface until the batch's version changes, so a still
-frame writes only the camera and the sun. Siegework's frames keep the old
-renderer's shading below the tone curve's knee, with smoothed edges. On an
-RTX 5090, through headless Chromium on Vulkan, the page's main thread
-spends 0.28 to 0.35 ms a frame at 60 frames a second, against the old
-renderer's 0.24. Per frame the program makes one object, the canvas's
-view, writes the camera and the sun, and draws over four passes: the
-G-buffer, the lit pass, tone mapping and FXAA. On Chromium's software
-WebGPU, three passes and finding every
-object by path each frame cost 31 to 33 ms a second of tasks, and 48 to 52
-when descriptors crossed as JSON, against the old renderer's 20 to 21.
-Textured meshes and sprites are gone from `Frame`; pictures are drawn as
-quads from an atlas.
+frame writes only the camera and the sun. Textured meshes and sprites are
+gone from `Frame`; pictures are drawn as quads from an atlas.
 
 ## Scans, sorts and gaussian splats
 
@@ -507,8 +473,7 @@ lacks, `timestamp-query`, for profiling, and `subgroups`, which splat
 training's backward pass sums over; `request-device` answers which it got.
 Raised limits, as far as the adapter allows: buffer and storage-binding
 sizes of 1 GiB, 16384-texel textures, 64 bytes of color attachments per
-sample, since a full G-buffer fills the default 32, and 32 KiB of
-workgroup memory. Texture
+sample, and 32 KiB of workgroup memory. Texture
 heaps start uncompressed; a later `reset` may choose BC.
 
 ## Design choices

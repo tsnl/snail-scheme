@@ -58,8 +58,6 @@
         (focus-node (lambda (node) (host-focus (● node handle))))
         (window-node (lambda () (new Node (handle -1))))
         (confirm (lambda (question) (= (host-confirm (string->utf8 question)) 1)))
-        (installation-status page-installation-status)
-        (install-app page-install)
         (fullscreen? (lambda () (= 1 (host-fullscreen))))
         (set-fullscreen (lambda (enter)
                           (= 1
@@ -79,17 +77,6 @@
         (measure (lambda (node) (measure-node (● node handle))))
         (wake (lambda () (host-wake)))
         (next-event (lambda () (page-delivery events)))))
-
-    ;; ---- Window applications ----
-
-    (define (page-installation-status) (→ InstallationStatus)
-      (case (host-installation-status)
-        ((1) (InstallAvailable)) ((2) (AppInstalled)) (else (InstallUnavailable))))
-
-    (define (page-install) (→ InstallResult)
-      (case (through-host host-start-install host-finish-install)
-        ((0) (InstallAccepted)) ((1) (InstallDismissed)) ((2) (InstallNotAvailable))
-        ((3) (GestureRequired)) ((5) (InstallAlreadyInstalled)) (else (InstallFailed))))
 
     ;; ---- Deliveries ----
 

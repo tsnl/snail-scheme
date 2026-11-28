@@ -29,8 +29,8 @@ same program gives the same bits on Node, on a page and on stage 0.
 A SplitMix64 generator as a value: `make-random` from a seed, and
 `random-next`, the generator after it. `random-value` is a generator's
 number and `random-below` that number below a bound. Nothing is global, so
-a program that threads its generator replays exactly, as Hearsay's games
-and casts do, and as the trainer picks the order of its photographs.
+a program that threads its generator replays exactly, as the trainer
+picks the order of its photographs.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/random.sld)
 
@@ -93,9 +93,8 @@ record or enum makes both instances; `serialize` writes a value and
 Each record and enum case has a 32-bit TypeId hashed from its library, its
 name and its fields' schema, and a value is written as its case's TypeId
 followed by its fields. So data written for another schema fails to read at
-the first type that changed, instead of being misread. Siegework and Hearsay
-encode their saves this way, and `(snail shell explore)` identifies states
-by their encoding.
+the first type that changed, instead of being misread. The games encode
+their saves this way.
 
 `(read-wire bytes reader)` gives `reader` a `Decoder` and returns a
 `Result`. A schema mismatch, truncated field or trailing bytes return

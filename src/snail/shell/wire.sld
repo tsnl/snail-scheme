@@ -61,7 +61,7 @@
         (encode value encoder)
         (list->array (reverse (● encoder bytes)))))
 
-    ;; Read a whole value, including when the caller selects an older schema.
+    ;; Read a whole value with `read`.
     ;; A failed read leaves its caller free to keep the current state.
     (define (read-wire (bytes Bytes) (read (Fn Decoder → T))) (→ (Result T String)) (∀ (T))
       (with-prompt decoding

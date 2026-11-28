@@ -72,9 +72,9 @@ first slot reports zero. A long stall skips missed slots. Simulation can still
 advance on every refresh. The browser derives elapsed milliseconds from
 successive rounded display timestamps so fractional intervals add up.
 
-A scene draws with the [graphics libraries](../graphics/plan.md). Hearsay
-composes the pictures it needs into an atlas and draws its map as one run
-of quads ([Atlas and quads](../graphics/plan.md#atlas-and-quads)).
+A scene draws with the [graphics libraries](../graphics/plan.md). A 2D
+scene composes the pictures it needs into an atlas and draws them as one
+run of quads ([Atlas and quads](../graphics/plan.md#atlas-and-quads)).
 `(snail shell sprite)` picks the cell a spritebook of any sheet shows for a
 motion, heading and moment, which a quad then draws, and `src/lpc` uses it
 for the Liberated Pixel Cup character art.
@@ -98,14 +98,12 @@ differs from the one before, so an element keeps its node while its key
 stays, and with it hover and focus. A button's listeners make the presses
 and hovering the scene's `update` takes as input; a button removed while the
 pointer is over it reports the pointer gone. An image shows the image the
-scene's `image-url` gives the address of; Hearsay's portraits are regions
-of its atlas read back as PNG data URLs. `recognize` turns raw pointer events into points, taps, drags
+scene's `image-url` gives the address of, such as a region of an atlas
+read back as a PNG data URL. `recognize` turns raw pointer events into points, taps, drags
 and pinches.
 
 [Siegework](https://github.com/tsnl/snail-scheme/tree/main/src/apps/siegework)
-is the complete example, and
-[Hearsay](https://github.com/tsnl/snail-scheme/tree/main/src/apps/hearsay)'s
-prototypes draw their residents as LPC characters on a 2D map.
+is the complete example.
 
 ## Document interfaces
 
@@ -159,29 +157,21 @@ asks the person a question and answers whether they agreed. When the view
 gives a field a new value, as when another view of its text changed it,
 the field keeps its selection and scroll as far as the new text reaches.
 
-Browser installation and fullscreen are shared `snail-scheme` capabilities. Any
-application holding the page's `Dom` can invoke them. Every browser target
-also receives the default manifest and icons during packaging, unless it
-supplies its own manifest. An application chooses its own installation button
-or command; the packager does not inject controls into it.
+Fullscreen is a shared `snail-scheme` capability: any application holding
+the page's `Dom` can ask for it. Every browser target also receives the
+default manifest and icons during packaging, unless it supplies its own
+manifest.
 
 The scalar declarations in `(snail runtime browser dom)` define the browser
-boundary. `(snail shell dom page)` converts their results into typed values and
-task completions; `host/browser/install.mjs` retains the browser's opaque offer
-and calls its native APIs. Scheme code owns application behavior, and Chromium
-tests cover the browser decisions that the memory DOM cannot make.
+boundary, and `(snail shell dom page)` converts their results into typed
+values and task completions. Scheme code owns application behavior, and
+Chromium tests cover the browser decisions that the memory DOM cannot make.
 
-The same `Dom` exposes browser window capabilities. `installation-status`
-reports an available installation offer, an installed/standalone app, or no offer.
-`install-app` awaits a single-use offer and returns accepted, dismissed,
-unavailable, expired activation, failed, or already installed. Acceptance does not
-mean the later `appinstalled` event has arrived. The host retains the opaque offer
-across application generations; an expired activation leaves it available for a
-new explicit click. `fullscreen?` reads the current mode, and `set-fullscreen`
-awaits entering or leaving it, returning whether the request succeeded. Both
-requests use task tickets, with no suspended Wasm stack. Stopping a generation
-releases its wait even if the browser dialog remains open. The memory `Dom`
-reports unavailable installation and refuses fullscreen.
+`fullscreen?` reads the current mode, and `set-fullscreen` awaits entering
+or leaving it, returning whether the request succeeded. The request uses a
+task ticket, with no suspended Wasm stack. Stopping a generation releases
+its wait even if the browser's transition is still under way. The memory
+`Dom` refuses fullscreen.
 
 `with-memory-dom` from `(snail shell dom memory)` hands its work a `Dom` over a
 document in memory, delivering a script of cues (events fired at elements
