@@ -1,12 +1,13 @@
 // The published walking study runs the same controller as the headless trials.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
-import {join} from 'node:path';
+import {join, resolve} from 'node:path';
 import {promisify} from 'node:util';
 import {openBrowser, until} from './chromium.mjs';
 import {serve} from './static.mjs';
 
-const [root, screenshot] = process.argv.slice(2);
+const [directory, screenshot] = process.argv.slice(2);
+const root = resolve(directory);
 const {stdout} = await promisify(execFile)(join(root, 'snail-scheme'),
   ['build', '--target', 'browser', 'src/apps/iygtw/main.scm'], {cwd: root});
 const server = await serve(stdout.trim());

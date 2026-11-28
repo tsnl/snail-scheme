@@ -41,6 +41,8 @@ continues above it.
 
 ## Actors and scenery
 
+`(snail shell game biped)` simulates one articulated walker per Wasm instance. `start-biped!` installs a sampled ground profile and seeds the pelvis and limbs from a reference stride. `drive-biped!` takes six angles in radians, ordered hip, knee and ankle, right leg first. It advances four 120 Hz Rapier steps. The caller can read each link's position and pitch, measure pelvis speed and release the trial with `end-biped!`. [Walking study](../games/iygtw.md).
+
 `(snail shell game humanoid)` blends idle, stride, upper-body action and riding clips on a generic rig. Distance walked advances stride. `(snail shell game pedestrian)` follows waypoints and resumes them after fleeing a nearby disturbance. [Humanoid](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/humanoid.sld) · [Pedestrian](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/pedestrian.sld)
 
 `(snail shell game scenery)` places the mesh shapes into a glTF scene and builds matrices for moving them. [Scenery](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/scenery.sld)

@@ -1,5 +1,5 @@
 (define-library (apps iygtw walking reference)
-  (export Stride read-stride reference-pose)
+  (export Stride read-stride decode-stride reference-pose)
   (import
    (snail core base)
    (snail shell math)
@@ -14,8 +14,9 @@
        (length F64)
        (samples (Array F64))))
     (define (read-stride (resources Resources)) (→ Stride)
-      (let* ((b (read-resource resources (link-file "stride.bin")))
-             (n (if (>= (array-length b) 12) (u16 b 4) (panic "truncated walking reference")))
+      (decode-stride (read-resource resources (link-file "stride.bin"))))
+    (define (decode-stride (b Bytes)) (→ Stride)
+      (let* ((n (if (>= (array-length b) 12) (u16 b 4) (panic "truncated walking reference")))
              (duration (* 0.000001 (i64->f64 (u32 b 6))))
              (length (* 0.001 (i64->f64 (u16 b 10)))))
         (unless (and (= (u32 b 0) 827018327) (> n 1) (> duration 0.0) (> length 0.0)

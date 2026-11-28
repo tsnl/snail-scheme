@@ -1,4 +1,4 @@
-"""Pack the pinned DeepMimic humanoid3d_walk clip into the game's sagittal rig."""
+"""Pack a captured DeepMimic stride or a generated SOMA walking cycle."""
 import hashlib
 import json
 import math
@@ -50,17 +50,26 @@ def frame(f):
             *arm(25), *arm(39))
 
 
-def pack(source):
+def encode(frames, duration, stride):
+    header = struct.pack("<4sHIH", b"WLK1", len(frames), round(duration*1e6), round(stride*1000))
+    return header + b"".join(struct.pack("<12h", *(round(v*1000) for v in row)) for row in frames)
+
+
+def deepmimic(source):
     if hashlib.sha256(source).hexdigest() != DIGEST:
         raise ValueError("expected DeepMimic humanoid3d_walk.txt at the documented revision")
     frames = json.loads(source)["Frames"]
     # The last frame repeats the first pose one stride forward, with zero duration.
     duration = sum(f[0] for f in frames)
     stride = frames[-1][1] - frames[0][1]
-    header = struct.pack("<4sHIH", b"WLK1", len(frames)-1, round(duration*1e6), round(stride*1000))
-    return header + b"".join(struct.pack("<12h", *(round(v*1000) for v in frame(f)))
-                             for f in frames[:-1])
+    return encode([frame(f) for f in frames[:-1]], duration, stride)
 
 
 if __name__ == "__main__":
-    Path(sys.argv[2]).write_bytes(pack(Path(sys.argv[1]).read_bytes()))
+    if len(sys.argv) == 5 and sys.argv[1] == "kimodo":
+        from soma_stride import project
+        Path(sys.argv[4]).write_bytes(encode(*project(sys.argv[2], int(sys.argv[3]))))
+    elif len(sys.argv) == 3:
+        Path(sys.argv[2]).write_bytes(deepmimic(Path(sys.argv[1]).read_bytes()))
+    else:
+        sys.exit("usage: pack-walk.py CLIP.txt OUT.bin | kimodo SOMA.npz CYCLE OUT.bin")

@@ -147,6 +147,7 @@ Three conventions run through the shell:
 | --- | --- |
 | [`(snail shell game physics)`, `terrain`, `vehicle`, `boarding`](games.md#movement-and-boarding) | CPU movement, vehicle kinematics and riders |
 | [`(snail shell game humanoid)`, `pedestrian`](games.md#actors-and-scenery) | Character poses and walking behavior |
+| [`(snail shell game biped)`](games.md#actors-and-scenery) | Torque-driven walking on sampled terrain |
 | [`(snail shell game scenery)`](games.md#actors-and-scenery) | Mesh shapes placed in a glTF scene |
 | [`(snail shell game display)`](games.md#frame-pacing) | Display refresh divisor, pause settings and frame-time graph |
 
