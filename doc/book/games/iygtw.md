@@ -1,54 +1,69 @@
 # If You’re Going That Way
 
-From the shop awnings on Lantern Row you can follow the paved lane north, cross Mill Bridge and climb to Foxglove Farm. The first dirt turning on the left climbs through the orchard. The right-hand turn leads past Reedwater, where a footbridge takes you around the millpond. Moss follows the courier by bicycle and on foot. Each visit starts a fresh ride. Open the pause menu and choose **Save game** to keep your position, parked bicycle, distance and settings in this browser. **Load game** resumes the last saved ride, including saves from earlier versions. [Ride through Willowbank](../play/iygtw/).
+Choose a target speed and watch the walker cross a section of Willowbank. The hips, knees and ankles follow a captured stride through powered joints. The two colours distinguish the near and far limbs. Change pace during a trial, switch courses, or restart after a fall. [Open the walking study](../play/iygtw/).
 
-![A cyclist and Moss on the approach to Mill Bridge in morning mist](willowbank.jpg)
+![The trained walker taking several steps uphill on Lantern Row](walking-study.webp)
 
-| Action | Control |
-| --- | --- |
-| Get off or mount a nearby bicycle | F or the bicycle button |
-| Walk relative to the camera | W, A, S, D or the arrow keys |
-| Run | Hold Shift while walking |
-| Pedal and steer | W, A, D or the arrow keys |
-| Coast | Release the pedals |
-| Brake and hold on a hill | Space |
-| Stop, then walk the bicycle backwards | Hold S or Down |
-| Get back on after a fall | E, once the rider settles |
-| Ring the bell | B |
-| Orbit the rider and zoom | Click the view, move the mouse, scroll |
-| Centre the camera | C |
-| Set the time of day | L or the light button |
-| Open or close the pause menu | P, Esc, or the pause button |
-| Return to Lantern Row with Moss | R or **Reset to Lantern Row** in the pause menu |
+## The first controller
 
-Willowbank’s rideable survey spans 176 × 176 metres. The roadster has a 1.08 m wheelbase. Holding a steering key gradually turns the bars. At higher speeds the same input makes a wider turn, and the rider banks into it. Each metre travelled under power advances the crank and both feet together. At a start or on a climb, the rider rises, shifts weight forward and puts more force into the downstroke. The rider settles back when coasting and puts a foot down at a stop. The camera follows independently of the lean. The game interpolates between 20 ms physics steps. By default it draws on every browser animation frame. In the pause menu, **Refresh divisor** sets how many refreshes to allow per draw. At 120 Hz, for example, 3 targets 40 FPS. **FPS and frame times** toggles the eight-second graph in the upper right. The browser remembers both choices across visits.
+The simulation uses the same Rapier runtime as the game's vehicles. The trunk and two three-link legs have mass and inertia. Six torque-limited hinge motors act between bodies. Foot contact, friction and gravity determine how far the walker travels. The pelvis can pitch, rise and fall freely in a vertical plane. The arms follow the capture for display. Each trial begins mid-stride with the velocities estimated from the capture.
 
-Press F while moving and the courier brakes before stepping off on the open side of the saddle. Walk away and the bicycle stays put. Turn the camera to choose a new direction, hold Shift to run, and approach the bicycle to ride again. The controller in `(snail shell game locomotion)` sweeps the walker against the village obstacles and advances the stride by the distance actually covered.
+The policy runs at 30 Hz and Rapier takes four steps between decisions. The requested forward speed sets the reference cadence. Both legs share 15 feedback gains. The policy observes pitch, pitch rate, speed error, foot placement and terrain height. The lower ankle relative to its local surface gets more of the balance correction. Motor targets can depart from the reference to keep the walker upright.
 
-The shallow puddles on Lantern Row are visible from the shop. Take the first dirt turn to the left and ride a figure eight to see the two tyre paths diverge. On soft ground each pass presses a groove, up to 3.5 cm deep. The wheels settle into existing grooves. Turning through a pool pushes water aside and sends a ripple out from the tyre. Runoff seeps back over seconds, and undisturbed tracks soften over roughly three minutes of riding time. Pause freezes that clock. A saved ride includes the marked ground. Returning to Lantern Row also keeps the current tracks.
+The training courses are Lantern Row, Orchard Rise and Lower Fields. Each course samples a straight section of Willowbank’s checked-in collision survey at half-metre intervals. The resulting strip supplies the triangles the feet actually contact. This first study covers forward walking on height profiles. Lateral balance, turning and the village’s obstacle geometry are outside the trial.
 
-A glancing collision can turn the front wheel along a fence. A sharper stop throws the rider forward against the bars. A hard, square hit separates the rider from the bicycle. The torso tumbles under gravity, the limbs draw in, and the bicycle tips onto its side. Once the rider settles, E gets them back on beside the obstacle. Hold S or Down to walk clear, including uphill.
+## Train and replay
 
-The game renders at the canvas’s physical pixel dimensions. The pause menu sets 1× or 4× MSAA. L cycles through morning, midday, sunset and moonlight. The visible sky and its filtered environment provide reflections and indirect light, while the sun or moon casts cascaded shadows. Skinning moves the hands, grip targets and pedals together, including when walking the bike backwards.
-
-To measure Lantern Row, the mill bridge and the orchard, serve a build locally and run the following command. Omit `--profile` to measure frame intervals without GPU timestamp instrumentation. Add `--memory` to sample Chrome’s node and listener counters and collect garbage outside the timed ride. Use `--no-vsync` to measure how fast headless Chromium can submit frames with its display limiter disabled.
+From the repository root in the pinned shell, run the following commands. The trainer uses the CPU implementation of the Snail tensor library. The output file contains the learned gains as little-endian floats.
 
 ```sh
-node benches/iygtw/ride.mjs http://127.0.0.1:4193/ 1920x1080 1 --profile
+./snail-scheme run --target node benches/iygtw/train-walk.scm train 224 3271 build/walk.bin
+./snail-scheme run --target node benches/iygtw/train-walk.scm eval build/walk.bin
+./snail-scheme run --target node benches/iygtw/train-walk.scm baseline
 ```
 
-At native 1920×1080 and 1× MSAA on an RTX 5090, the earlier 30 fps limiter submitted every second refresh of Chromium’s 60 Hz display. The three routes now average 60 fps. The profile reports time in the application, time waiting on the GPU queue, and GPU pass timestamps. GPU execution can overlap both the application and the interval before the next refresh.
+The evolution strategy samples 32 children from six surviving policies. A tensor graph gathers parent rows and applies Gaussian perturbations to their gains. Every candidate in a generation receives the same trials. Speed agreement and joint-angle agreement earn reward, and a fall ends the return. Ranking combines the mean and the worst course. Training starts on level ground and introduces the measured grades in two stages. It keeps only the population and scalar returns.
 
-The village, road surfaces, courier, bicycle and dog load before the first ride. The renderer uploads their model once. Crossing from Lantern Row to Field Road or from Mill Bridge to Foxglove Farm changes the HUD and keeps the same GPU buffers. The benchmark counts mesh uploads and measures the frame interval when the place name changes.
+Evaluation runs for eight seconds per course with a speed change at four seconds. The report includes distance, mean speed during each half, speed error, joint tracking error and upright ticks. A fall contributes zero further distance and the remaining requested speed counts as error. Joint RMS is measured while the trial is live. Two more trials use the same level surface and initial pose at different constant commands.
 
-## Editing Willowbank
+The shipped checkpoint stayed upright for all eight seconds on Mill Bridge (4.62 m), Foxglove Farm (5.39 m) and High Meadow (9.17 m). The initial gains fell within 0.9 seconds on each. On level ground the trained walker averaged 0.87 m/s at a 0.8 m/s command and 0.92 m/s at a 1.2 m/s command. It changes pace, but it undershoots the faster command.
 
-Open `src/apps/iygtw/art/Willowbank.blend` in Blender to edit the level. The collections group the village, water, roads, farms and distant hills. The road meshes supply the visible surface and wheel contact. Their survey curves record the alignments. Edit the mesh when changing the riding surface. A mesh tagged `iy_surface` supplies the surface type and wheel height. The exporter projects the `iy_solid` and `iy_fence` meshes into obstacle spans. The `iy_waymark` empties name places, and marker zero sets the starting position.
+To open the trained walker locally, run `make iygtw` and serve `build/src/apps/iygtw/main/`. The earlier cycling prototype has its own entry and art guide. [Willowbank prototype](willowbank.md).
 
-`Roadster.blend` contains the weighted bicycle and courier. The seated and standing pedal actions share a crank phase. Two steering actions keep the hands on the grips in either posture. The rig includes bracing, tumbling and walking the bicycle backwards. On foot, the idle, walk, run and two saddle-crossing poses animate the courier independently of the parked bicycle. With the file open in Blender, `src/blender/bake_roadster.py` rebuilds these actions from the rest rig.
+## Motion and skeleton
 
-The courier's head, eyes and continuous forearm and hand meshes use Blender Studio’s CC0 Human Base Meshes. The jacket, cap, hair and post bag are authored for Willowbank. To rebuild the character mesh in Blender, run `src/blender/dress_courier.py` with the roadster file open and the extracted human base mesh file after `--`. The arm fit uses the shared wrist loop of the sculpt and three articulated joints per digit. The seated and standing actions orient the knuckles along the swept grips. Run the action bake after redressing the character. The finished roadster packs all its textures. The source material retains the scattering weight authored in Blender.
+The reference is one 1.27-second stride from DeepMimic's generic humanoid. Its 15-joint skeleton specifies parentage, segment lengths, masses and joint limits. The game projects the leg and arm rotations into the walking plane and retains the pelvis height and pitch. The 38 poses and their timing and stride length occupy 924 bytes. The source clip repeats its first pose one stride ahead at its last timestamp. The packed loop interpolates across this seam. [Humanoid skeleton](https://github.com/xbpeng/DeepMimic/blob/1f915c52fcd4b95b5f5f15b759ae91bd81e9a801/data/characters/humanoid3d.txt) · [Walking capture](https://github.com/xbpeng/DeepMimic/blob/1f915c52fcd4b95b5f5f15b759ae91bd81e9a801/data/motions/humanoid3d_walk.txt) · [License and credits](../play/iygtw/CREDITS.txt).
 
-The editable hollows in the level’s **Road drainage** collection set the pool centres and radii. In the level file, `src/blender/plant_verges.py` replants the sedges, dock, foxgloves, hazel and ash canopy along the lanes. `Moss.blend` contains the dog's rig and trot. Run `src/blender/groom_moss.py` with the dog open to comb its coat. The dog and courier keep an opaque undercoat or hairline under skinned, alpha-tested ribbons. Each ribbon carries a painted comb of individual fibers. Both actors use the shared skinning pass.
+To reproduce the packed reference, download the single 36,185-byte clip at the linked revision. The packer verifies its SHA-256 before projecting it.
 
-After an art edit, run `make iygtw-art` with Blender on the path. Check in the source and its exports together. A normal `make iygtw` uses the checked-in exports. The browser downloads the nine files in `main.resources` with progress, caches them locally and reuses them on subsequent visits. Tree sprays, grass blades, gravel, plaster, timber and other material scans are credited in the game. [Willowbank art credits](../play/iygtw/CREDITS.txt).
+```sh
+python3 benches/iygtw/pack-walk.py humanoid3d_walk.txt build/stride.bin
+cmp build/stride.bin src/apps/iygtw/walking/stride.bin
+```
+
+Bandai Namco’s BVH collection also has small, individually downloadable walking takes. Dataset 1 includes a neutral walk (238 KiB), an active walk (179 KiB) and a tired walk (300 KiB). Bandai Namco distributes these under CC BY-NC 4.0. Adobe's Mixamo terms prohibit using its assets to train or test machine-learning models. The shipped walker uses the DeepMimic reference. [Neutral](https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/blob/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_normal_001.bvh) · [Active](https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/blob/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_active_001.bvh) · [Tired](https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset/blob/74ead3ba1ae4696404e6086233779f60de8bf9ef/dataset/Bandai-Namco-Research-Motiondataset-1/data/dataset-1_walk_tired_001.bvh) · [Bandai Namco license](https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset#license) · [Mixamo terms](https://wwwimages2.adobe.com/content/dam/cc/en/legal/servicetou/Mixamo-Addl-Terms-en_US-20210623.pdf).
+
+## Synthetic walking references
+
+Kimodo can generate walking references offline. Its human SOMA model accepts text and timed ground-plane waypoints. Specifying 4.8 metres of travel over six seconds gives the generator a target of 0.8 m/s. Label each resulting stride by its measured speed. NVIDIA lists synthetic data and game animation as intended uses of Kimodo-SOMA-RP-v1.2. Its Open Model License permits commercial use and NVIDIA claims no ownership of generated outputs. [Model card](https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.2) · [License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/).
+
+To try it with little disk, download `motion.npz` from one of NVIDIA’s published examples. Cycle 0 of the slow path walk gives a 900-byte stride at 1.03 m/s on our rig. The casual walk gives an 828-byte stride at 1.44 m/s. The converter requires NumPy. Rapier and the Snail trainer consume only the packed file. [Slow path walk](https://github.com/nv-tlabs/kimodo/tree/e1c219c99b4b94ba48be1fb6a1cbc64ecee4c954/kimodo/assets/demo/examples/kimodo-soma-rp/05_root_path) · [Casual walk](https://github.com/nv-tlabs/kimodo/tree/e1c219c99b4b94ba48be1fb6a1cbc64ecee4c954/kimodo/assets/demo/examples/kimodo-soma-rp/02_multi_text_prompt).
+
+```sh
+python3 benches/iygtw/pack-walk.py kimodo motion.npz 0 build/synthetic-stride.bin
+./snail-scheme run --target node benches/iygtw/train-walk.scm \
+  --reference build/synthetic-stride.bin train 224 3271 build/synthetic-policy.bin
+./snail-scheme run --target node benches/iygtw/train-walk.scm \
+  --reference build/synthetic-stride.bin eval build/synthetic-policy.bin
+```
+
+Each cycle starts and ends on a right heel strike. The packer uses the SOMA joint positions and rotations to measure leg, trunk and arm angles, then scales lengths to the game's legs. It reports how closely the end pose matches the start and how fast a labelled planted toe moves. Turning strides and large discontinuities are rejected. Ground contact and the rewards during training come from the simulation.
+
+With 224 generations and seed 3271 for each reference, the casual-walk policy crossed 8.42 m on High Meadow and fell on the other two held-out courses. The slow-walk policy fell on all three. The captured-stride policy completed all three. These trials establish that the trainer can use generated motion. Whether adding synthetic strides improves the mocap-trained walker is still open.
+
+To make a new clip on a machine with Kimodo installed, run the command below and pass `walk.npz` to the same packer. Add `--constraints PATH` for timed waypoints. The v1.2 motion weights alone occupy 1.13 GB, in addition to the text encoder. [Generation CLI](https://research.nvidia.com/labs/sil/projects/kimodo/docs/user_guide/cli.html) · [Model files](https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.2/tree/main).
+
+```sh
+kimodo_gen "A person walks steadily forward." --model Kimodo-SOMA-RP-v1.2 \
+  --duration 6 --num_samples 1 --seed 42 --output walk
+```

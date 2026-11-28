@@ -1,39 +1,25 @@
-If You’re Going That Way
-Willowbank art credits
+Walking reference and humanoid skeleton from DeepMimic by Xue Bin Peng and collaborators.
+https://github.com/xbpeng/DeepMimic/tree/1f915c52fcd4b95b5f5f15b759ae91bd81e9a801/data
+The walking reference has been projected onto six leg and four arm joints.
 
-Willowbank, the bicycle, the courier’s wardrobe and hair, Moss, animation
-and sound were authored for this game.
+MIT License
 
-Blender Studio and the Blender community
-  Human Base Meshes v1.4.1, stylized head and eyes, forearms and hands from the stylized body (CC0)
-  https://www.blender.org/download/demo-files/#assets
+Copyright (c) 2018 Xue Bin Peng
 
-The following CC0 scans supply surface and foliage detail.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Rico Cilliers, Poly Haven
-  Tree Small 02, leaf sprays       https://polyhaven.com/a/tree_small_02
-  Grass Medium 02, grass blades    https://polyhaven.com/a/grass_medium_02
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-Rob Tuytel, Poly Haven
-  Bark Brown 02, tree trunks       https://polyhaven.com/a/bark_brown_02
-  Grass Path 3, lane and gravel    https://polyhaven.com/a/grass_path_3
-  Brown Mud Dry, cultivated soil   https://polyhaven.com/a/brown_mud_dry
-  Aerial Grass Rock, rock and bank https://polyhaven.com/a/aerial_grass_rock
-  Cobblestone Floor 08, mill deck  https://polyhaven.com/a/cobblestone_floor_08
-
-Stephan Seeliger, Poly Haven
-  Roof Tiles                       https://polyhaven.com/a/roof_tiles
-
-Amal Kumar, Poly Haven
-  Plastered Wall                   https://polyhaven.com/a/plastered_wall
-
-Dimitrios Savva and Dario Barresi, Poly Haven
-  Weathered Planks, timber         https://polyhaven.com/a/weathered_planks
-
-ambientCG
-  Grass 004, meadow floor          https://ambientcg.com/view?id=Grass004
-
-Public-domain dedication and source licensing
-  https://creativecommons.org/publicdomain/zero/1.0/
-  https://polyhaven.com/license
-  https://docs.ambientcg.com/license/
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

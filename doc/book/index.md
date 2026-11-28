@@ -51,7 +51,7 @@ owes a fare, and Rust runs the vehicle physics.
 - **[Play Siegework](play/siegework/)**: explore a seeded map, wire an
   energy network across it, and destroy three nests.
 - **[Play The Last Mile](play/last-mile/)** and drive a cab through San Francisco. [Driver’s guide](games/last-mile.md).
-- **[Play If You’re Going That Way](play/iygtw/)** and explore a farming village by bicycle with Moss. [Rider’s guide](games/iygtw.md).
+- Watch a motion-captured walk adapt to Willowbank under physical control. [Play If You’re Going That Way](play/iygtw/) · [Walking study](games/iygtw.md).
 - **[Open the viewer](play/viewer/)** and drop a `.glb` on it, or pick a
   sample to inspect its materials and shadows. [Forward renderer](graphics/rasterizer.md).
 - **[Open Splats](play/splats/)** and drop a trained scene's `.ply` on it.

@@ -513,12 +513,13 @@
     ;; ---- Programs ----
 
     ;; The runtime's Cargo features a program needs, by the libraries it
-    ;; reaches: a chassis uses Rapier, the text library ICU4X's Unicode data
+    ;; reaches. The chassis and biped use Rapier, the text library ICU4X's Unicode data
     ;; and a tool that assembles the assembler, each in the same Wasm
     ;; instance as the GC program.
     (define runtime-features
       (→ (List (Pair String String)))
       (list (new Pair (first "snail.shell.game.chassis") (second "rapier"))
+            (new Pair (first "snail.shell.game.biped") (second "rapier"))
             (new Pair (first "snail.shell.text") (second "unicode"))
             (new Pair (first "snail.shell.assembler") (second "assembler"))))
 
@@ -528,9 +529,11 @@
     (define (program-runtime (processes Processes) (builder Builder) (libraries (List String)))
       (→ String)
       (let ((tools (● builder tools))
-            (features (map (lambda (entry) (● entry second))
-                           (filter (lambda (entry) (member? (● entry first) libraries))
-                                   runtime-features))))
+            (features (delete-duplicates string=? (map (lambda (entry) (● entry second))
+                                                       (filter (lambda (entry)
+                                                                 (member? (● entry first)
+                                                                          libraries))
+                                                               runtime-features)))))
         (match features
           ((Nil) (● tools runtime))
           ((Cons "assembler" (Nil)) (● tools toolchain))

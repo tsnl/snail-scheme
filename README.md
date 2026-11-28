@@ -72,7 +72,7 @@ The [typed-state API](doc/book/snail-scheme/state.md) remains under review.
 
 ## If You’re Going That Way
 
-Pedal out of Lantern Row with Moss, cross the millpond, and take the orchard road home. Willowbank is a hand-built Blender village running in the browser’s WebGPU forward renderer. [Ride through Willowbank](https://snail-scheme.pages.dev/play/iygtw/) · [Rider’s guide](doc/book/games/iygtw.md).
+Choose a pace and watch a humanoid follow a captured walk across sections of Willowbank. A small policy trained with Snail tensors drives physical leg joints in Rapier. [Open the walking study](https://snail-scheme.pages.dev/play/iygtw/) · [Training and motion data](doc/book/games/iygtw.md).
 
 ## The Last Mile
 

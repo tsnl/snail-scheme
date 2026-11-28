@@ -220,7 +220,7 @@ def main(out, village, backend, size):
     out.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     if village:
-        scene_file = Path("src/apps/iygtw/main.resources/willowbank.glb").resolve()
+        scene_file = Path("src/apps/iygtw/willowbank/main.resources/willowbank.glb").resolve()
         bpy.ops.import_scene.gltf(filepath=str(scene_file))
         eye, target = Vector((-7, -47, 7.48)), Vector((-7, -26, 8.4))
     else:
