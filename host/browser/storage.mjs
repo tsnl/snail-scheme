@@ -1,7 +1,7 @@
 // One save per application in IndexedDB: the bytes of its serialized state.
 
 import {span} from './trace.mjs';
-import {blobPartSize, legacyPartSize, matchesDigest, readBlobParts} from './load.mjs';
+import {blobPartSize, matchesDigest, readBlobParts} from './load.mjs';
 
 function open(name, store) {
   return new Promise((resolve, reject) => {
@@ -53,12 +53,10 @@ export function storeSessionSave(key, bytes) {
 }
 
 // Immutable bodies share a digest key across applications on this origin.
-// Only complete, verified bytes enter Cache Storage. Older builds kept the
-// same bytes under the same digest in IndexedDB.
+// Only complete, verified bytes enter Cache Storage.
 const downloading = new Map();
 const objects = 'snail-static-resources-v1';
 const sizeHeader = 'x-snail-blob-size';
-const legacy = (mode, use) => transaction('snail-linked-files', 'objects', mode, use);
 
 async function verified(bytes, digest, size) {
   if (!(bytes instanceof Uint8Array) || (size !== undefined && bytes.length !== size)) return false;
@@ -81,7 +79,7 @@ async function put(cache, key, bytes) {
   catch { return false; } // Quota and private-mode failures leave the bytes usable.
 }
 
-async function cachedParts(cache, key, digest, size, width) {
+async function cachedParts(cache, key, digest, size) {
   const first = await cache?.match(key + '/0');
   if (!first) return;
   const length = Number(first.headers.get(sizeHeader));
@@ -91,7 +89,7 @@ async function cachedParts(cache, key, digest, size, width) {
         const part = index === 0 ? first : await cache.match(key + '/' + index);
         if (!part) throw new Error('cached part missing');
         return new Uint8Array(await part.arrayBuffer());
-      }, width);
+      });
       if (await matchesDigest(bytes, digest)) return bytes;
     }
   } catch { /* A missing or truncated part makes the set a cache miss. */ }
@@ -103,37 +101,17 @@ async function cachedBytes(cache, key, digest, size) {
     const response = await cache?.match(key);
     if (response) {
       const bytes = new Uint8Array(await response.arrayBuffer());
-      if (await verified(bytes, digest, size)) {
-        if (bytes.length > blobPartSize && await put(cache, key, bytes)) await cache.delete(key).catch(() => {});
-        return bytes;
-      }
+      if (await verified(bytes, digest, size)) return bytes;
       await cache.delete(key);
     }
-    if (size === undefined || size > blobPartSize) {
-      const bytes = await cachedParts(cache, key + '/' + blobPartSize, digest, size, blobPartSize);
-      if (bytes) return bytes;
-    }
-    if (size === undefined || size > legacyPartSize) {
-      const bytes = await cachedParts(cache, key, digest, size, legacyPartSize);
-      if (bytes) {
-        if (await put(cache, key, bytes)) {
-          for (let i = 0; i * legacyPartSize < bytes.length; i++) await cache.delete(key + '/' + i).catch(() => {});
-        }
-        return bytes;
-      }
-    }
+    if (size === undefined || size > blobPartSize) return await cachedParts(cache, key + '/' + blobPartSize, digest, size);
   } catch { /* Storage may have been evicted or disabled. */ }
-  const old = await legacy('readonly', store => store.get(digest)).catch(() => undefined);
-  if (!old) return;
-  const valid = await verified(old, digest, size);
-  if (!valid || await put(cache, key, old))
-    await legacy('readwrite', store => store.delete(digest)).catch(() => {});
-  if (valid) return old;
 }
 
 export async function readImmutable(digest, size, read, signal) {
-  // Legacy linked files can still run over plain HTTP. Verified acquisition
-  // requires Web Crypto. Insecure origins never commit unchecked objects.
+  // Linked files, which carry no size, can still run over plain HTTP.
+  // Verified acquisition requires Web Crypto. Insecure origins never commit
+  // unchecked objects.
   if (!globalThis.crypto?.subtle) {
     if (size !== undefined) throw new Error('verified resources need HTTPS or localhost');
     return read();

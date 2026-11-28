@@ -8,12 +8,8 @@
           (rename CabGame Game)
           (rename DrivingShift Shift)
           Graphics
-          Graphics-resolution-set
           Graphics-samples-set
-          Graphics-bounces-set
-          render-resolutions
-          bounce-counts
-          preset-graphics
+          default-graphics
           Knockdown
           fall-at
           ensure-cars!
@@ -43,7 +39,6 @@
           current-drop)
   (import
    (snail core base)
-   (only (snail core forms) case-id)
    (snail shell wire)
    (snail shell math)
    (snail shell game physics)
@@ -56,7 +51,6 @@
    (snail shell game humanoid)
    (snail shell game pedestrian)
    (snail shell game boarding)
-   (only (snail shell game dialogue) Cursor)
    (apps last-mile district))
   (begin
     (enum Fare (Waiting) (Hired) (Paid ((until I64) (cents I64))) (deriving Serialize Deserialize))
@@ -80,16 +74,11 @@
       ((motion RigidBody)
        (rest F64))
       (deriving Serialize Deserialize))
-    ;; Older saves carry resolution and bounce settings. The rasterizer uses samples.
+    ;; The rasterizer's samples a pixel, 1 or 4 (MSAA).
     (record Graphics
-      ((resolution I32)
-       (bounces I64)
-       (samples I32))
+      ((samples I32))
       (deriving Serialize Deserialize))
-    (define (render-resolutions) (→ (List I32)) (list 240 360 480 720 1080))
-    (define (bounce-counts) (→ (List I64)) (map (lambda (n) (+ n 1)) (iota 8)))
-    (define (preset-graphics (lines I32)) (→ Graphics)
-      (new Graphics (resolution lines) (bounces (if (<= lines 360) 1 2)) (samples 1)))
+    (define default-graphics (→ Graphics) (new Graphics (samples 1)))
 
     ;; Driver, fare and then residents have stable slots for the lifetime of a cast.
     (record DrivingShift
@@ -131,94 +120,13 @@
              (passenger (waiting-rider s))
              (passenger-gait resting)
              (cab (at-rank s)) (residents (Nil)) (traffic (Nil)))))
-    (define (new-world) (→ DrivingShift) (fresh-shift (initial-game) (preset-graphics 720) 1))
+    (define (new-world) (→ DrivingShift) (fresh-shift (initial-game) default-graphics 1))
     (define (restart-shift (old DrivingShift)) (→ DrivingShift)
       (fresh-shift (initial-game) (● old graphics) (● old sensitivity)))
     (define (save-game (s DrivingShift)) (→ Bytes) (serialize s))
     (define (restore-game (data Bytes)) (→ DrivingShift)
       (match (read-shift data) ((Ok s) s) ((Err why) (panic why))))
-    ;; ---- Published saves ----
-
-    ;; Case IDs include the declaring library, record name and nested field schemas.
-    ;; These four layouts read shifts written before the current CabGame. The saved
-    ;; conversation cursor is consumed here when upgrading a fare.
-    (record Game
-      ((tick I64)
-       (clock-offset I64)
-       (dispatch I64)
-       (rides I64)
-       (bank I64)
-       (metres F64)
-       (fare Fare)
-       (driver Rider)
-       (gait Gait)
-       (passenger Rider)
-       (passenger-gait Gait)
-       (talk (Option Cursor))
-       (cab Body)
-       (residents (List Pedestrian))
-       (traffic (List Motor)))
-      (deriving Deserialize))
-    (record Shift
-      ((game Game)
-       (cars (List RigidBody))
-       (resolution I32)
-       (sensitivity I64))
-      (deriving Deserialize))
-    (record CabShift
-      ((game Game)
-       (cars (List RigidBody))
-       (resolution I32)
-       (sensitivity I64)
-       (falls (List (Option Knockdown)))
-       (braking (List Bool)))
-      (deriving Deserialize))
-    (record TaxiShift
-      ((game Game)
-       (cars (List RigidBody))
-       (graphics Graphics)
-       (sensitivity I64)
-       (falls (List (Option Knockdown)))
-       (braking (List Bool)))
-      (deriving Deserialize))
-    (define (restore-cab (w Game)) (→ CabGame)
-      (new CabGame (tick (● w tick)) (clock-offset (● w clock-offset))
-           (dispatch (● w dispatch)) (rides (● w rides)) (bank (● w bank)) (metres (● w metres))
-           (fare (● w fare)) (driver (● w driver)) (gait (● w gait))
-           (passenger (● w passenger)) (passenger-gait (● w passenger-gait)) (cab (● w cab))
-           (residents (● w residents)) (traffic (● w traffic))))
-    (define (read-shift (data Bytes))
-      (→ (Result DrivingShift String))
-      (read-wire data decode-shift))
-    (define (saved-graphics (g Graphics)) (→ Graphics)
-      (if (and (member? (● g resolution) (render-resolutions))
-               (member? (● g bounces) (bounce-counts))
-               (member? (● g samples) (list 1 2 4))) g (preset-graphics 720)))
-    (define (decode-shift (d Decoder)) (→ DrivingShift)
-      (let ((kind (ann (decode d) I32)))
-        (set! (● d position) 0)
-        (cond
-         ((= kind (case-id Game)) (fresh-shift (restore-cab (decode d)) (preset-graphics 720) 1))
-         ((= kind (case-id Shift))
-          (let ((old (ann (decode d) Shift)))
-            (DrivingShift-cars-set
-             (fresh-shift (restore-cab (● old game))
-                          (preset-graphics (● old resolution))
-                          (● old sensitivity))
-             (● old cars))))
-         ((= kind (case-id CabShift))
-          (let ((old (ann (decode d) CabShift)))
-            (new DrivingShift (game (restore-cab (● old game))) (cars (● old cars))
-                 (graphics (preset-graphics (● old resolution))) (sensitivity (● old sensitivity))
-                 (falls (● old falls)) (braking (● old braking)))))
-         ((= kind (case-id TaxiShift))
-          (let ((old (ann (decode d) TaxiShift)))
-            (new DrivingShift (game (restore-cab (● old game))) (cars (● old cars))
-                 (graphics (saved-graphics (● old graphics))) (sensitivity (● old sensitivity))
-                 (falls (● old falls)) (braking (● old braking)))))
-         (else
-          (let ((shift (ann (decode d) DrivingShift)))
-            (DrivingShift-graphics-set shift (saved-graphics (● shift graphics))))))))
+    (define (read-shift (data Bytes)) (→ (Result DrivingShift String)) (read-wire data decode))
 
     ;; ---- Dispatch and street life ----
 
@@ -254,8 +162,8 @@
                            ((Deliver) (● (current-drop w) stop)) (_ (● w cab position)))))))
     (define (on-foot-walls (g Area) (w CabGame) (p XZ) (reach F64)) (→ (List Footprint))
       (Cons (parked-footprint (● w cab) sedan) (area-solids g p reach)))
-    ;; A legacy save may be moving without a saved fleet. Restore only cars
-    ;; with a safe lane behind it. Keep a smaller fleet if no lane qualifies.
+    ;; A cab may be moving without a fleet. Restore only cars with a safe
+    ;; lane behind it. Keep a smaller fleet if no lane qualifies.
     (define (initial-traffic (g Area) (r Roads) (b Body) (occupied (List XZ))) (→ (List Motor))
       (if (< (distance (● b velocity) (xz 0.0 0.0)) 1.0)
           (map (lambda (i) (seed-motor r (● b position) i)) (iota 5))

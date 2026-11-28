@@ -102,7 +102,7 @@
                            (- carry 20))))))))
 (define (load-ride! (h Hud) (v Valley) (r Renderer) (c Controls) (s Ride) (storage PageStorage))
   (→ Ride)
-  (match (read-saved storage (lambda (bytes) (read-ride v bytes)))
+  (match (read-saved storage (lambda (bytes) (ann (read-wire bytes decode) (Result Ride String))))
     ((Err why) (set! (● h save-status) why) s)
     ((Ok loaded) (resume-ride! c r loaded))))
 

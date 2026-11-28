@@ -11,7 +11,7 @@ import tempfile
 from urllib.parse import quote
 
 
-STORED_PART = re.compile(r"(.*)/store/chunks/(?:(\d+)/)?([0-9a-f]{2})/([0-9a-f]{64})/(0|[1-9][0-9]*)")
+STORED_PART = re.compile(r"(.*)/store/chunks/(\d+)/([0-9a-f]{2})/([0-9a-f]{64})/(0|[1-9][0-9]*)")
 RESERVED = {"_worker.js", "_routes.json", "_snail_parts"}
 
 
@@ -55,7 +55,7 @@ def publish_assets(source, site):
     addresses = {path: "/" + path.relative_to(source).as_posix() for path in files}
     parts = {p: m for p, url in addresses.items() if (m := STORED_PART.fullmatch(url)) and m[3] == m[4][:2]}
     layout = store_assets(site, [str(p) for p in files if p not in parts])
-    width, legacy = layout["partSize"], layout["legacyPartSize"]
+    width = layout["partSize"]
     routes, groups = {}, {}
     for file in layout["files"]:
         path = Path(file["path"])
@@ -65,9 +65,9 @@ def publish_assets(source, site):
             continue
         if path in parts:
             store, tag, shard, digest, index = parts[path].groups()
-            if tag is not None and tag != str(width):
+            if tag != str(width):
                 raise ValueError(f"unknown blob layout at {url}")
-            key = (url.rsplit("/", 1)[0], legacy if tag is None else width, f"{store}/store/sha256/{shard}/{digest}", digest)
+            key = (url.rsplit("/", 1)[0], width, f"{store}/store/sha256/{shard}/{digest}", digest)
             groups.setdefault(key, {})[int(index)] = path.stat().st_size
         dest = site / path.relative_to(source)
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +77,7 @@ def publish_assets(source, site):
         if raw.exists():
             if raw.stat().st_size != blob[0] or hashlib.sha256(raw.read_bytes()).hexdigest() != blob[1]:
                 raise ValueError(f"conflicting resource layouts at {url}")
-        elif url not in routes or blob[4] == width:
+        else:
             routes[url] = blob
     return width, routes
 

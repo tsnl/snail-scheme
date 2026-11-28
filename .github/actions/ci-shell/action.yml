@@ -53,5 +53,5 @@ runs:
       # above proves this command line is current for those sources.
       run: touch build/bootstrap/snail-scheme.wasm
     - name: Install Node dependencies
-      shell: nix-shell --run "bash -euo pipefail {0}"
+      shell: nix-shell --arg withBlender false --run "bash -euo pipefail {0}"
       run: npm ci --no-fund --no-audit

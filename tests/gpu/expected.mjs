@@ -23,8 +23,6 @@ export const deviceLines = [
   'photographic: 216 49 49 255 216 49 49 255 194 194 194 255 194 194 194 255',
   'squares: 1 4 9 16 10000',
   'water normals: 1 1 1 1',
-  'planes: -0.25 -0.0 16777217 -1 0',
-  'billboard: 73 stationary',
   // An exclusive scan of i mod 3 over three levels of tiles, checked at
   // every index; a stable sort of 5,000 keys; and splats: red at the
   // left, green over red at the center, blue over red's edge at the
@@ -75,7 +73,7 @@ export const trainingLines = [
 // The page's own first bytes, and the server's 404 for a file it lacks.
 export const fetchedLine = 'fetched: <!doctype 404 fetching missing.bin';
 
-const slack = {scene: 2, filmic: 2, photographic: 2, splats: 2, turned: 2, 'viewed splats': 2, 'viewed turned': 2, planes: 1e-3};
+const slack = {scene: 2, filmic: 2, photographic: 2, splats: 2, turned: 2, 'viewed splats': 2, 'viewed turned': 2};
 
 // The printed lines, each as its expected line says.
 export function assertLines(printed, expected) {

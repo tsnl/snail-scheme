@@ -3,6 +3,10 @@
 {
   sources ? import ./npins,
   pkgs ? import sources.nixpkgs { },
+  # Blender exports If You're Going That Way's art (`make iygtw-art`) from
+  # the .blend files in src/apps/iygtw/art. No check runs it, and it is the
+  # shell's largest package, so CI leaves it out (`--arg withBlender false`).
+  withBlender ? true,
 }:
 
 let
@@ -58,5 +62,6 @@ pkgs.mkShell {
       tree-sitter
       binaryen
     ]
-    ++ lib.optionals linux [ chromium ];
+    ++ lib.optionals linux [ chromium ]
+    ++ lib.optionals (linux && withBlender) [ blender ];
 }

@@ -56,21 +56,6 @@ nix-shell -E 'let p = import (import ./npins).nixpkgs {}; in p.mkShell { package
 make last-mile
 ```
 
-## Write a quest
-
-For a job whose completion depends on several observations, use the reusable `define-quest` macro. Payloads can carry a count between stages.
-
-```scheme
-(enum Job (Waiting) (Collecting ((have I64))) (Paid) (Cancelled))
-(enum Notice (Hire) (Crate ((count I64))) (Quit))
-(define-quest (advance Job Notice)
-  ((Waiting) (Hire) (Collecting 0))
-  ((Collecting n) (Crate k) (if (>= (+ n k) 3) (Paid) (Collecting (+ n k))))
-  ((Collecting _) (Quit) (Cancelled)))
-```
-
-Call `(advance stage observations)` each tick. The first applicable event wins. The taxi’s fare takes a shorter path through waiting, hired and paid. Its payment and receipt update together in the transition to paid.
-
 ## Swap the art
 
 The browser catalog publishes the cab, civilian sedan, shared palette, facades and rig from `src/apps/last-mile/main.resources/`. Keep their filenames and local axes when swapping a model. The credits in the app identify the asset and map sources.

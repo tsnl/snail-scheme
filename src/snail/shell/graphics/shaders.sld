@@ -22,9 +22,6 @@
                                             (first "raster-shader")
                                             (second (link-file "raster.wgsl.scm")))
                                           (new Pair
-                                            (first "sun-shader")
-                                            (second (link-file "sun.wgsl.scm")))
-                                          (new Pair
                                             (first "tone-shader")
                                             (second (link-file "tone.wgsl.scm")))
                                           (new Pair (first "post-shader")

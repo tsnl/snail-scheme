@@ -3,7 +3,6 @@
 (define-library (snail shell compiler blob)
   (export
    blob-part-size
-   legacy-part-size
    blob-parts-prefix
    blob-raw-path
    blob-directory
@@ -16,8 +15,6 @@
    (snail core base))
   (begin
     (define blob-part-size (→ I64) (* 25 1048576))
-    ;; The widthless paths and two-field Wasm imports of the first publisher.
-    (define legacy-part-size (→ I64) 25000000)
 
     ;; The width is part of the address. An immutable part URL always names
     ;; the same bytes, including alongside older generations in one store.

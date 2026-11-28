@@ -4,10 +4,9 @@
 character art and the libraries that draw from them: bodies and heads from
 the character bases, hair, and garments from the clothing updates and
 wulax's sprites. A program dresses its characters from the catalog, and a
-generated library embeds exactly the sheets they wear, with their credits,
-as `(apps hearsay art)` does for
-[Hearsay](https://github.com/tsnl/snail-scheme/blob/main/src/apps/hearsay/README.md)'s
-cast.
+generated library embeds exactly the sheets they wear, with their credits
+([the LPC test](https://github.com/tsnl/snail-scheme/blob/main/tests/programs/lpc.sld)
+does this for a small cast).
 
 ## `(lpc layout)`
 

@@ -1,6 +1,6 @@
 # The forward renderer
 
-Willowbank, The Last Mile, the glTF viewer, offline stills and the white furnace use the same forward material renderer. Siegework and Hearsay use its color pass, full-resolution output texture and compositor with pipelines suited to their geometry. All application drawing is written in Snail Scheme.
+Willowbank, The Last Mile, the glTF viewer, offline stills and the white furnace use the same forward material renderer. Siegework and 2D sprite scenes use its color pass, full-resolution output texture and compositor with pipelines suited to their geometry. All application drawing is written in Snail Scheme.
 
 ## A frame
 
@@ -25,7 +25,7 @@ The visible sky, nine diffuse spherical harmonic coefficients and a six-level pr
 
 Base color and emissive textures are decoded to linear light. Metallic and roughness use the blue and green channels. glTF occlusion uses red and its strength scales the indirect illumination. A packed ORM texture can supply all three. The city stores stationary point lights by ground cell and updates a separate list of moving headlights and taillights. Each source has a range, intensity and, for spotlights, a direction and cone. The village adds an evolving ground material and animated water normals. Texture compression and local irradiance probes are future work.
 
-Siegework lights solid instanced meshes in the color pass and then blends its reveal, link and placement overlays. Its depth buffer is enough for these passes. Hearsay draws ordered atlas sprites through an orthographic camera with nearest filtering and pixel-snapped corners. It renders to RGBA8 and presents directly so pixel art keeps its colors. Both paths skip shadow maps and environment baking.
+Siegework lights solid instanced meshes in the color pass and then blends its reveal, link and placement overlays. Its depth buffer is enough for these passes. Sprites draw from an atlas in order through an orthographic camera with nearest filtering and pixel-snapped corners. It renders to RGBA8 and presents directly so pixel art keeps its colors. Both paths skip shadow maps and environment baking.
 
 ## Measure and inspect
 
@@ -59,7 +59,7 @@ A renderer accepts an optional ordinary `OutputPort` at construction. A file, an
 ((● renderer replay) input (None))
 ```
 
-Open the viewer, Willowbank, The Last Mile, Siegework, Hearsay or the furnace with `?trace=1`. Click **Download renderer.jsonl** to take a snapshot of all renderer operations so far. Capture uses extra memory and may stall a frame while reading back newly painted mud tiles or composed sprites. Recording stays disabled on the usual URL. The same API works offline.
+Open the viewer, Willowbank, The Last Mile, Siegework or the furnace with `?trace=1`. Click **Download renderer.jsonl** to take a snapshot of all renderer operations so far. Capture uses extra memory and may stall a frame while reading back newly painted mud tiles or composed sprites. Recording stays disabled on the usual URL. The same API works offline.
 
 ```sh
 ./snail-scheme run --target node tools/render.scm scene=model.glb record=ride.jsonl output=original.png

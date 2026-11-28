@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check check-scheme test test-toolchain test-pages test-browser test-gpu bootstrap unicode-tables generated-unicode site last-mile siegework hearsay viewer splats furnace iygtw iygtw-art pages
+.PHONY: format check check-scheme test test-toolchain test-pages test-browser test-gpu bootstrap unicode-tables generated-unicode site last-mile siegework viewer splats furnace iygtw iygtw-art pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -71,7 +71,7 @@ generated-unicode:
 
 # Each application is a script, src/apps/NAME/main.scm, built into
 # build/src/apps/NAME/main.
-site: last-mile siegework hearsay viewer splats iygtw furnace
+site: last-mile siegework viewer splats iygtw furnace
 
 BLENDER ?= blender
 
@@ -87,9 +87,6 @@ last-mile:
 siegework:
 	./snail-scheme build --release --target browser src/apps/siegework/main.scm
 
-hearsay:
-	./snail-scheme build --release --target browser src/apps/hearsay/main.scm
-
 viewer:
 	./snail-scheme build --release --target browser src/apps/viewer/main.scm
 
@@ -102,16 +99,13 @@ splats:
 # The public site in build/pages contains the book and each published
 # application at play/NAME/. The glTF viewer and Splats ship no scene:
 # the viewer's samples are links to where they are published, and Splats
-# opens on procedural rings until given a trained scene's files. Hearsay
-# carries its LPC art's credits, read from the packs when it is built,
-# and shows them from its menu.
+# opens on procedural rings until given a trained scene's files.
 # Train stays unpublished: its page trains on a dataset served beside it.
-PAGES_APPS = last-mile siegework viewer splats hearsay iygtw furnace
+PAGES_APPS = last-mile siegework viewer splats iygtw furnace
 
 pages: $(PAGES_APPS)
 	$(RM) -r build/pages-input
 	"$(MDBOOK)" build --dest-dir build/pages-input
-	cp host/cloudflare/_redirects build/pages-input/_redirects
 	for app in $(PAGES_APPS); do \
 	  mkdir -p build/pages-input/play/$$app && \
 	  cp -R build/src/apps/$$app/main/. build/pages-input/play/$$app/ && \

@@ -6,7 +6,7 @@ import {mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile} from 'node:fs/pr
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {promisify} from 'node:util';
-import {blobPartSize, legacyPartSize, objectPath, partPath} from '../host/browser/load.mjs';
+import {blobPartSize, objectPath, partPath} from '../host/browser/load.mjs';
 
 const root = process.argv[2], dir = await mkdtemp(join(tmpdir(), 'snail-pages-blobs-'));
 const input = join(dir, 'input'), site = join(dir, 'site');
@@ -27,9 +27,6 @@ try {
   await pack();
   assert.deepEqual((await readdir(site)).sort(), ['exact.bin', 'small.txt']);
   await write(loose, binary);
-  const old = binary.subarray(0, legacyPartSize + 7), oldHash = hash(old);
-  await write('app/' + partPath(oldHash, 0, legacyPartSize), old.subarray(0, legacyPartSize));
-  await write('app/' + partPath(oldHash, 1, legacyPartSize), old.subarray(legacyPartSize));
   await write('app/' + partPath(digest, 0), large.subarray(0, blobPartSize));
   await write('app/' + partPath(digest, 1), large.subarray(blobPartSize));
   await pack();
@@ -48,8 +45,8 @@ try {
   const worker = (await import('data:text/javascript;base64,' + (await readFile(join(site, '_worker.js'))).toString('base64'))).default;
   const get = (path, options) => worker.fetch(new Request(new URL(path, 'https://snail.test'), options), {ASSETS: assets});
   assert.equal(await (await get('/small.txt')).text(), 'small');
-  for (const [url, bytes, type, width] of [[loose, binary, 'application/wasm', blobPartSize],
-    [stored, large, 'application/octet-stream', blobPartSize], ['/app/' + objectPath(oldHash), old, 'application/octet-stream', legacyPartSize]]) {
+  const width = blobPartSize;
+  for (const [url, bytes, type] of [[loose, binary, 'application/wasm'], [stored, large, 'application/octet-stream']]) {
     const head = await get(url, {method: 'HEAD'});
     assert.equal(head.status, 200);
     assert.equal(head.headers.get('Content-Length'), String(bytes.length));

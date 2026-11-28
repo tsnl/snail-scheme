@@ -1,4 +1,4 @@
-# Game simulation and stories
+# Game simulation
 
 These libraries run on the CPU. An application chooses a fixed timestep and owns the game world, input, renderer and save.
 
@@ -14,14 +14,6 @@ even while paused. Call `presented!` just after submitting the frame to the canv
 and the longest interval in each quarter second over the last eight seconds.
 The guide marks 16.7 ms. The vertical scale reaches 100 ms and the numeric peak
 continues above it.
-
-## Quests
-
-`(snail shell game quest)` exports `define-quest`. Supply the stage and event types and one row per transition. The generated function takes a stage and an ordered list of observations. It returns the result of the first applicable transition, or the original stage. Payloads bind in ordinary patterns, so a counted goal can carry its current count. A tick advances at most one stage. The application decides which observations the world supplies. [Quest example](https://github.com/tsnl/snail-scheme/blob/main/tests/programs/game-quest.sld) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/quest.sld)
-
-## Dialogue
-
-`(snail shell game dialogue)` reads a `Dialogue` made of named passages, lines and ordered replies. Each reply names its destination. Construct the dialogue directly in an application library. The game saves a `Cursor` containing the passage ID and line index. `open-dialogue`, `continue-dialogue` and `answer-dialogue` return an optional cursor. An out-of-range answer keeps the current cursor. [Dialogue example](https://github.com/tsnl/snail-scheme/blob/main/tests/programs/game-dialogue.sld) · [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/dialogue.sld)
 
 ## Movement and boarding
 
@@ -51,4 +43,4 @@ continues above it.
 
 `(snail shell game humanoid)` blends idle, stride, upper-body action and riding clips on a generic rig. Distance walked advances stride. `(snail shell game pedestrian)` follows waypoints and resumes them after fleeing a nearby disturbance. [Humanoid](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/humanoid.sld) · [Pedestrian](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/pedestrian.sld)
 
-`(snail shell game drawing)` places rigid parts relative to a model. `(snail shell game figure)` assembles figures from these parts. `(snail shell game scenery)` places the same shapes into a glTF scene and builds matrices for moving them. [Drawing](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/drawing.sld) · [Figure](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/figure.sld) · [Scenery](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/scenery.sld)
+`(snail shell game scenery)` places the mesh shapes into a glTF scene and builds matrices for moving them. [Scenery](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/game/scenery.sld)

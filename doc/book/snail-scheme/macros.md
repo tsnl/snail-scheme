@@ -73,8 +73,8 @@ there is no dynamic Scheme datum conversion layer.
 
 A build runs every producer it reaches, every time, and keeps none of
 their output, so no build is handed a library made from inputs that have
-since changed. Running one again is cheap: a build of Hearsay, its three
-producers among its work, takes about four seconds. Nor could a build
+since changed. Running one again is cheap next to the
+rest of a build. Nor could a build
 tell when a kept output had gone stale: a recipe reads files through
 `Fs`, runs processes and reaches the web, and nothing records what it
 read. A cache keyed by the recipe's text would serve the LPC art as it

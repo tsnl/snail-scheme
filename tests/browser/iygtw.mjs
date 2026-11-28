@@ -184,11 +184,5 @@ try {
   assert.equal(await choice('.msaa'), '4');
   await click('.load-game');
   await until(async () => await text('.surface') === 'On foot' && await metres() >= saved, 'reset kept the saved ride');
-  const oldRide = await readFile(join(root, 'tests/programs/data/willowbank-before-walking.ride'));
-  await browser.evaluate(`import('./storage.mjs').then(m => m.storeSave('iygtw-willowbank-v1', Uint8Array.of(${[...oldRide]})))`);
-  await click('.pause');
-  await until(async () => await text('.pause') === 'Resume', 'pause to load an older ride');
-  await click('.load-game');
-  await until(async () => await text('.surface') === 'E · Get back on', 'loaded the earlier ride after a fall');
   console.log('Willowbank rendered, rode, parked, remounted, walked, ran, changed settings, saved from the pause menu and loaded the on-foot ride offline.');
 } finally { browser.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }

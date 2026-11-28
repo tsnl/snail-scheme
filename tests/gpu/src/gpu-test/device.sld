@@ -43,8 +43,6 @@
                                                        "water_main"
                                                        4
                                                        1))))
-      (write-line out (string-append "planes: " (planes-frame gpu)))
-      (write-line out (string-append "billboard: " (billboard-motion gpu)))
       (write-line out (string-append "scan: " (scan-frame gpu)))
       (write-line out (string-append "sort: " (sort-frame gpu)))
       (let ((splatted (splat-frames gpu)))
@@ -177,7 +175,7 @@
     ;; The edge between them is straight down the texture, along which FXAA
     ;; blends nothing.
 
-    (define (tile (x F32) (color Vec4f) (glow F32) (id I32)) (→ (Pair Mesh Instance))
+    (define (tile (x F32) (color Vec4f) (glow F32)) (→ (Pair Mesh Instance))
       (new Pair
         (first (Tile))
         (second (new Instance
@@ -185,8 +183,7 @@
                   (scale (new Vec4f (x 1.0) (y 1.0) (z 2.0) (w glow)))
                   (color color)
                   (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
-                  (material (new Vec2f (x 0.0) (y 1.0)))
-                  (id id)))))
+                  (material (new Vec2f (x 0.0) (y 1.0)))))))
 
     (define (tiles (gpu Gpu) (r Raster)) (→ Surface)
       (make-surface gpu r
@@ -194,8 +191,8 @@
                     #f
                     solid
                     (meshes
-                     (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0 16777217)
-                           (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0 -1)))))
+                     (list (tile -0.5 (new Vec4f (x 1.0) (y 0.0) (z 0.0) (w 1.0)) 1.0)
+                           (tile 0.5 (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 1.0)) 0.0)))))
 
     (define (looking-down (x F32)) (→ Camera3D)
       (camera-3d (new Vec3f (x x) (y 5.0) (z 0.0))
@@ -207,124 +204,33 @@
     (define (scene-frame (gpu Gpu) (curve Tone)) (→ Bytes)
       (let* ((target (texture-named gpu "scene" 4 4))
              (readback (buffer-named gpu "scene-readback" 1024 (list (MapRead) (CopyDst))))
-             (r (make-raster gpu color-planes light-format))
-             (g (make-gbuffer gpu color-planes 4 4))
-             (light (make-sunlight gpu light-format g r))
+             (r (make-forward-batches gpu light-format))
+             (depth (make-plane gpu "scene-depth" 4 4 (Depth24Plus) (list (RenderAttachment))))
              (post (make-post gpu (Rgba8Unorm) 4 4 curve))
              (tiles (tiles gpu r))
              (encoder ((● gpu create-command-encoder))))
         (write-raster gpu r (looking-down 0.0) overhead)
-        (let ((pass (begin-gbuffer gpu encoder g)))
+        (let ((pass ((● gpu begin-render-pass) encoder
+                     (new RenderPassDescriptor
+                       (colors (list (Some (new ColorAttachment
+                                             (view (● post targets light-view))
+                                             (resolve (None))
+                                             (load (Clear black))
+                                             (store #t)))))
+                       (depth (Some (new DepthAttachment
+                                      (view (● depth view))
+                                      (load (ClearDepth 1.0))
+                                      (store #f))))))))
           (draw-surface gpu pass r tiles)
-          ((● gpu end-pass) pass))
-        (let ((pass (begin-lit gpu encoder
-                               (● post targets light-view)
-                               (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
-                               g)))
-          (draw-sun gpu pass light)
           ((● gpu end-pass) pass))
         (draw-post gpu encoder (view-of gpu target 1) post)
         ((● gpu copy-texture-to-buffer) encoder (whole-texture target) readback 0 256 4 4)
         ((● gpu submit) (list ((● gpu finish) encoder)))
         ((● gpu read-buffer) readback 0 16)))
 
-    ;; Render one surface and read the motion plane at the given pixel.
-
-    (define (surface-motion (gpu Gpu) (r Raster) (g GBuffer) (surface Surface) (x I32) (y I32))
-      (→ Bytes)
-      (let* ((readback (buffer-named gpu "motion-readback" 4 (list (MapRead) (CopyDst))))
-             (encoder ((● gpu create-command-encoder))))
-        (let ((pass (begin-gbuffer gpu encoder g)))
-          (draw-surface gpu pass r surface)
-          ((● gpu end-pass) pass))
-        (match (● g motion)
-          ((Some plane)
-           ((● gpu copy-texture-to-buffer) encoder
-            (new TextureCopy
-              (texture (● plane texture))
-              (mip 0)
-              (x x)
-              (y y)
-              (layer 0))
-            readback 0 256 1 1))
-          ((None) (panic "missing motion plane")))
-        ((● gpu submit) (list ((● gpu finish) encoder)))
-        (let ((motion ((● gpu read-buffer) readback 0 4)))
-          ((● gpu destroy) (BufferObject readback))
-          motion)))
-
-    ;; The camera moved half a tile right, so the scene moved a quarter of the
-    ;; texture left. Read the motion and the ids on each tile and past them.
-    (define (planes-frame (gpu Gpu)) (→ String)
-      (let* ((all (new Planes (motion #t) (ids #t)))
-             (r (make-raster gpu all light-format))
-             (g (make-gbuffer gpu all 4 4))
-             (r (write-raster gpu (write-raster gpu r (looking-down 0.0) overhead)
-                              (looking-down 0.5)
-                              overhead))
-             (motion (surface-motion gpu r g (tiles gpu r) 0 0)))
-        (string-join (list (show (half motion 0))
-                           (show (half motion 2))
-                           (id-text (read-id gpu g 0 0))
-                           (id-text (read-id gpu g 2 0))
-                           (id-text (read-id gpu g 3 0)))
-                     " ")))
-
-    ;; A stationary sprite faces an orbiting camera in both frames. A pixel
-    ;; near its left edge keeps the same screen position through a quarter turn.
-    (define (billboard-motion (gpu Gpu)) (→ String)
-      (let* ((all (new Planes (motion #t) (ids #t)))
-             (r (make-raster gpu all light-format))
-             (g (make-gbuffer gpu all 8 8))
-             (one (new Vec4f (x 1.0) (y 1.0) (z 1.0) (w 0.0)))
-             (instance (new Instance
-                         (place (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 0.0)))
-                         (scale one)
-                         (color one)
-                         (from (new Vec4f (x 0.0) (y 0.0) (z 0.0) (w 1.0)))
-                         (material (new Vec2f (x 0.0) (y 1.0)))
-                         (id 73)))
-             (sprite (make-surface gpu r
-                                   "sprite"
-                                   #f
-                                   solid
-                                   (meshes (list (new Pair (first (Upright)) (second instance))))))
-             (camera (lambda (x z)
-                       (camera-3d (new Vec3f (x x) (y 0.5) (z z))
-                                  (new Vec3f (x 0.0) (y 0.5) (z 0.0)) (Parallel 2.0) 1.0 1.0)))
-             (r (write-raster gpu
-                              (write-raster gpu r (camera 0.0 5.0) overhead)
-                              (camera 5.0 0.0)
-                              overhead))
-             (motion (surface-motion gpu r g sprite 2 3)))
-        (string-append (id-text (read-id gpu g 2 3)) " "
-                       (if (and (< (abs (half motion 0)) 0.001) (< (abs (half motion 2)) 0.001))
-                           "stationary"
-                           (string-append (show (half motion 0)) " " (show (half motion 2)))))))
-
     (define overhead
       (→ Sun)
       (new Sun (direction (new Vec4f (x 0.0) (y 1.0) (z 0.0) (w 0.0))) (ambient 0.6)))
-
-    (define (id-text (id (Option I32))) (→ String)
-      (match id
-        ((Some id) (show id))
-        ((None) "none")))
-
-    ;; The half float at `at`, little-endian.
-    (define (half (bytes Bytes) (at I64)) (→ F64)
-      (let* ((bits (+ (u8->i32 (array-ref bytes at)) (* 256 (u8->i32 (array-ref bytes (+ at 1))))))
-             (sign (if (>= bits 32768) -1.0 1.0))
-             (exponent (remainder (quotient bits 1024) 32))
-             (fraction (i32->f64 (remainder bits 1024))))
-        (if (= exponent 0)
-            (* sign (* fraction (power-of-two -24)))
-            (* sign (* (+ 1.0 (/ fraction 1024.0)) (power-of-two (- exponent 15)))))))
-
-    (define (power-of-two (n I32)) (→ F64)
-      (cond ((> n 0) (* 2.0 (power-of-two (- n 1))))
-            ((< n 0) (/ (power-of-two (+ n 1)) 2.0))
-            (else 1.0)))
 
     ;; 1 to 100, squared by 64-wide workgroups, two of them, and the first
     ;; four and the last read back.

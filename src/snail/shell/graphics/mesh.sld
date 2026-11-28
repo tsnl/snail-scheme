@@ -267,14 +267,13 @@
 
     ;; Where an instance is and its yaw, its scale and glow, its color, where
     ;; it was and 1 when it turns to face the camera, and its metalness and
-    ;; roughness. The picking id travels as a 32-bit integer to the G-buffer.
+    ;; roughness.
     (record Instance
       ((place Vec4f)
        (scale Vec4f)
        (color Vec4f)
        (from Vec4f)
-       (material Vec2f)
-       (id I32))
+       (material Vec2f))
       (deriving Pod))
 
     ;; CPU-known ranges for one indexed draw per shape.

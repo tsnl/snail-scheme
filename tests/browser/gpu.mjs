@@ -4,9 +4,8 @@
 // over a blue clear, and the two texels of a PNG it decoded, and finds every
 // object by its path in a second frame. It composes the PNG into an atlas
 // with a color swapped, draws it as quads, and reads both the quads' texels
-// and the picture as a PNG data URL. It rasterizes two tiles into a
-// G-buffer and lights them, one glowing red and one white under ambient
-// light. It squares numbers in a compute pass, scans and sorts on the GPU,
+// and the picture as a PNG data URL. It rasterizes two tiles lit by the
+// sun, one glowing red and one white under ambient light. It squares numbers in a compute pass, scans and sorts on the GPU,
 // splats gaussians under a transforms table it then changes, as quads
 // and tile by tile, times a
 // render pass, and runs lowered tensor programs, checked against their CPU
@@ -51,7 +50,7 @@ try {
     return [...context.getImageData(0, 0, 2, 1).data];
   })()`), [0, 0, 255, 255, 0, 255, 0, 255]);
   if (screenshot) await browser.screenshot(screenshot);
-  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, a lit, tone-mapped and smoothed G-buffer, motion and ids, a compute pass, a scan, a sort, splats as quads and tile by tile, a timed pass, tensor programs and their profile, fused SSIM, densification, a wait and a file read as bytes on a real device passed');
+  console.log('gpu: drawing, readback, decoding, objects kept across frames, atlas composition, quads, lit, tone-mapped and smoothed batches, a compute pass, a scan, a sort, splats as quads and tile by tile, a timed pass, tensor programs and their profile, fused SSIM, densification, a wait and a file read as bytes on a real device passed');
 } finally {
   browser.close();
   server.close();
