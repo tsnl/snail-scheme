@@ -17,10 +17,9 @@ distributes such a build must credit the art as these licenses require.
 paths a program embeds, builds a library of their credits, read from the
 packs' credit files named below, and fails when a path has none. A credit
 gives the part's title as its pack names it, its authors and what each
-changed, its licenses and its sources. Hearsay shows its credits on a
-screen of its own, with links to each license; a program that embeds LPC
-sheets should show its credits likewise, where its players can find them,
-and share what it composes from them under CC-BY-SA 3.0.
+changed, its licenses and its sources. A program that embeds LPC
+sheets should show its credits where its players can find them, with links
+to each license, and share what it composes from them under CC-BY-SA 3.0.
 
 | Folder | Pack | License | Credits |
 | --- | --- | --- | --- |

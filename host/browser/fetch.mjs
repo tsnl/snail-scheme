@@ -6,7 +6,7 @@
 // between waits, and a dropped connection reconnects, as EventSource does,
 // which a stream that hears "error" hears as an event without data.
 
-import {blobPartSize, legacyPartSize, byteView, objectPath, readBlobParts} from './load.mjs';
+import {blobPartSize, byteView, objectPath, readBlobParts} from './load.mjs';
 import {readImmutable} from './storage.mjs';
 
 // Count decoded response bytes, the same representation the publisher hashed.
@@ -36,24 +36,12 @@ export async function downloadStatic(url, size, signal, progress) {
   return bytes;
 }
 
-// Catalogs describe the whole object. Try its current address first. Only
-// a 404 before any bytes permits an older widthless or whole-object layout.
-async function downloadObject(base, digest, size, signal, progress) {
-  const layouts = size > blobPartSize ? [blobPartSize, legacyPartSize, 0]
-    : size > legacyPartSize ? [0, legacyPartSize] : [0];
-  for (const width of layouts) {
-    let first = true;
-    try {
-      if (width === 0) return await downloadStatic(new URL(objectPath(digest), base), size, signal, progress);
-      return await readBlobParts(digest, size, async (path, length, offset) => {
-        const part = await downloadStatic(new URL(path, base), length, signal, n => progress(offset + n));
-        first = false;
-        return part;
-      }, width);
-    } catch (error) {
-      if (!first || error.status !== 404 || width === layouts.at(-1)) throw error;
-    }
-  }
+// Catalogs describe the whole object: one file up to the part size, and
+// numbered parts beyond it.
+function downloadObject(base, digest, size, signal, progress) {
+  if (size <= blobPartSize) return downloadStatic(new URL(objectPath(digest), base), size, signal, progress);
+  return readBlobParts(digest, size, (path, length, offset) =>
+    downloadStatic(new URL(path, base), length, signal, n => progress(offset + n)));
 }
 
 export function createFetch(runtime) {

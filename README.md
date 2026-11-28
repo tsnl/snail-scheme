@@ -26,7 +26,7 @@ nix-shell
 ./snail-scheme build --target browser src/apps/siegework/main.scm
 ```
 
-Siegework and Hearsay are scripts, `src/apps/NAME/main.scm`, and
+Siegework and the other applications are scripts, `src/apps/NAME/main.scm`, and
 `./snail-scheme lsp` serves an editor that opens the repository: [`editors/zed`](editors/zed) and [`editors/vscode`](editors/vscode)
 are extensions for Zed and VS Code.
 
@@ -64,8 +64,7 @@ make siegework
 python3 -m http.server 4191 --directory build/src/apps/siegework/main
 ```
 
-Rebuild with `make siegework` and reload the page to see a change;
-`build/src/apps/hearsay/main` serves Hearsay the same way. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
+Rebuild with `make siegework` and reload the page to see a change. In Zed, the extension in [`editors/zed`](editors/zed) highlights,
 indents and formats `snail-scheme`, and `snail-scheme lsp` reports each saved build's
 diagnostics where they arise and gives a name's type and definition.
 

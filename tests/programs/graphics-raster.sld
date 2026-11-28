@@ -1,7 +1,7 @@
 ;; A scene's objects, made once, and its frame through the recording
-;; handler: the G-buffer pass, then the lit pass, the sun and a translucent
-;; surface over the G-buffer's read-only depth. A camera's inverse undoes
-;; its view-projection for either lens.
+;; handler: one forward pass drawing an opaque surface, then a translucent
+;; one blended over it. A camera's inverse undoes its view-projection for
+;; either lens.
 (import
  (snail core base)
  (snail core io)
@@ -10,8 +10,7 @@
  (snail shell gpu record)
  (snail shell graphics pod)
  (snail shell graphics mesh)
- (snail shell graphics raster)
- (snail shell graphics passes))
+ (snail shell graphics raster))
 
 (define (column (m Mat4x4f) (c I64)) (→ (List F64))
   (let ((v (list-ref (list (● m x) (● m y) (● m z) (● m w)) c)))
@@ -58,8 +57,7 @@
       (scale one)
       (color one)
       (from (new Vec4f (x x) (y 0.0) (z 0.0) (w 0.0)))
-      (material (new Vec2f (x 0.0) (y 1.0)))
-      (id 0))))
+      (material (new Vec2f (x 0.0) (y 1.0))))))
 
 ;; A created object's kind, id and label, and a pass's id and encoder,
 ;; without their descriptors.
@@ -91,9 +89,8 @@
 
 (define (frame (gpu Gpu)) (→ Unit)
   ((● gpu request-device))
-  (let* ((r (make-raster gpu color-planes (Bgra8Unorm)))
-         (g (make-gbuffer gpu color-planes 640 480))
-         (light (make-sunlight gpu (Bgra8Unorm) g r))
+  (let* ((r (make-forward-batches gpu (Bgra8Unorm)))
+         (depth (make-plane gpu "depth" 640 480 (Depth24Plus) (list (RenderAttachment))))
          (ground (make-surface gpu r "ground" #f solid (instances (Tile) 0.0)))
          (water (make-surface gpu r
                               "water"
@@ -105,14 +102,22 @@
     (write-raster gpu r
                   (camera (Parallel 20.0))
                   (new Sun (direction (new Vec4f (x 0.3) (y 1.0) (z 0.5) (w 0.8))) (ambient 0.3)))
-    (let ((pass (begin-gbuffer gpu encoder g)))
+    (let ((pass ((● gpu begin-render-pass) encoder
+                 (new RenderPassDescriptor
+                   (colors (list (Some (new ColorAttachment
+                                         (view canvas)
+                                         (resolve (None))
+                                         (load (Clear (new Color
+                                                        (red 0.0)
+                                                        (green 0.0)
+                                                        (blue 0.0)
+                                                        (alpha 1.0))))
+                                         (store #t)))))
+                   (depth (Some (new DepthAttachment
+                                  (view (● depth view))
+                                  (load (ClearDepth 1.0))
+                                  (store #f))))))))
       (draw-surface gpu pass r ground)
-      ((● gpu end-pass) pass))
-    (let ((pass (begin-lit gpu encoder
-                           canvas
-                           (new Color (red 0.0) (green 0.0) (blue 0.0) (alpha 1.0))
-                           g)))
-      (draw-sun gpu pass light)
       (draw-surface gpu pass r water)
       ((● gpu end-pass) pass))
     ((● gpu submit) (list ((● gpu finish) encoder)))))

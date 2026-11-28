@@ -191,13 +191,3 @@ establishes that contract. `run-export` calls a scalar export by name
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/wasm.sld)
 
-## `(snail shell explore)`
-
-Bounded model checking of a total state machine: from an initial state,
-`explore` applies every move each state allows, breadth first up to a
-depth, and answers the first state that breaks the invariant as a
-`Violation`, with the moves that reach it. States are identified by their
-wire encoding (`(snail shell wire)`), so each is checked once and the path
-reported is a shortest one.
-
-[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/explore.sld)

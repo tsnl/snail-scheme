@@ -1,5 +1,5 @@
-// The games share the forward color pass and compositor. Their orthographic
-// draws retain per-instance lighting and atlas transparency, respectively.
+// Siegework shares the forward color pass and compositor. Its orthographic
+// draws retain per-instance lighting.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {join} from 'node:path';
@@ -49,31 +49,25 @@ const temp = await mkdtemp(join(tmpdir(), 'snail-ortho-'));
 try {
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: '(' + observeOutput.toString() + ')()'});
   await browser.send('Page.addScriptToEvaluateOnNewDocument', {source: '(' + observe.toString() + ')()'});
-  for (const name of ['siegework', 'hearsay']) {
+  for (const name of ['siegework']) {
     const dir = execFileSync(join(root, 'snail-scheme'), ['build', '--target', 'browser', 'src/apps/' + name + '/main.scm'], {cwd: root, encoding: 'utf8'}).trim();
     const server = await serve(dir);
     try {
       await browser.send('Emulation.setDeviceMetricsOverride', {width: 560, height: 360, deviceScaleFactor: 1, mobile: false});
       await browser.navigate('http://127.0.0.1:' + server.address().port + '/?trace=1');
-      if (name === 'hearsay') {
-        await until(() => browser.evaluate('!!document.querySelector("[data-key=scenario-0]")'), 'rumor mill');
-        await browser.evaluate('document.querySelector("[data-key=scenario-0]").click()');
-      }
-      const expected = name === 'siegework' ? 'raster/forward_fragment' : 'quad';
-      await until(() => browser.evaluate('window.drawPipelines.has(' + JSON.stringify(expected) + ') && window.drawPipelines.has("compositor/blit")'), name + ' forward draws', 90);
-      await until(async () => await imageColors() > 12, name + ' visible geography or sprites', 45);
+      await until(() => browser.evaluate('window.drawPipelines.has("raster/forward_fragment") && window.drawPipelines.has("compositor/blit")'), name + ' forward draws', 90);
+      await until(async () => await imageColors() > 12, name + ' visible geography', 45);
       await browser.send('Emulation.setDeviceMetricsOverride', {width: 360, height: 236, deviceScaleFactor: 2, mobile: false});
       await until(() => browser.evaluate('window.frameTextures["forward/output"]?.join() === "720,472"'), name + ' native-pixel resize');
       const textures = await browser.evaluate('Object.keys(window.frameTextures)');
-      assert.ok(!textures.some(t => t.startsWith('shadow/') || t.startsWith('gbuffer/')), name + ' allocated unused passes');
-      assert.equal(textures.includes('forward/batch-depth'), name === 'siegework');
+      assert.ok(!textures.some(t => t.startsWith('shadow/')), name + ' allocated unused passes');
+      assert.ok(textures.includes('forward/batch-depth'));
       assert.deepEqual(await browser.evaluate('window.validation'), []);
       const snapshot = await captureFrame(browser);
       const trace = join(temp, name + '.jsonl'), png = join(temp, name + '.png');
       const headers = snapshot.trace.trimEnd().split('\n').map(l => JSON.parse(l)).filter(l => typeof l === 'object');
-      const upload = name === 'siegework' ? 'setBatch' : 'updateAtlas';
-      assert.ok(headers.some(c => c.op === upload && c.bytes[0] > 0), 'inline geometry or atlas texels');
-      assert.ok(headers.some(c => c.op === (name === 'siegework' ? 'renderBatches' : 'renderSprites')));
+      assert.ok(headers.some(c => c.op === 'setBatch' && c.bytes[0] > 0), 'inline geometry');
+      assert.ok(headers.some(c => c.op === 'renderBatches'));
       await writeFile(trace, snapshot.trace);
       execFileSync(join(root, 'snail-scheme'), ['run', '--target', 'node', 'tools/render.scm', 'replay=' + trace, 'output=' + png], {cwd: root});
       await assertMatches(snapshot.image, await readFile(png));

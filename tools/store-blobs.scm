@@ -4,7 +4,6 @@
  (snail core base)
  (snail core io)
  (snail shell blob-store)
- (only (snail shell compiler blob) legacy-part-size)
  (snail shell json)
  (snail shell json read))
 
@@ -41,6 +40,5 @@
      (let ((files (concatenate (map (lambda (p) (store-file fs root p)) (input-paths in)))))
        (write-line out (json->string
                         (JsonObject (list (field "partSize" (JsonInteger blob-part-size))
-                                          (field "legacyPartSize" (JsonInteger legacy-part-size))
                                           (field "files" (JsonArray files))))))))
     (_ (panic "expected a destination object store"))))

@@ -25,9 +25,6 @@
    unlisten
    focus
    confirm
-   installation-status
-   start-install
-   finish-install
    fullscreen
    start-fullscreen
    finish-fullscreen
@@ -79,12 +76,6 @@
             (Fn I32 I32 Bytes → Unit))
     (extern unlisten "snail.runtime.browser.dom" "unlisten" (Fn I32 → Unit))
     (extern focus "snail.runtime.browser.dom" "focus" (Fn I32 → Unit))
-    (extern installation-status
-            "snail.runtime.browser.dom"
-            "installation-status"
-            (Fn → I32))
-    (extern start-install "snail.runtime.browser.dom" "start-install" (Fn I64 → Unit))
-    (extern finish-install "snail.runtime.browser.dom" "finish-install" (Fn I64 → I32))
     (extern fullscreen "snail.runtime.browser.dom" "fullscreen" (Fn → I32))
     (extern start-fullscreen
             "snail.runtime.browser.dom"

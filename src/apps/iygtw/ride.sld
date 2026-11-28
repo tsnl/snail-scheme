@@ -3,12 +3,8 @@
 (define-library (apps iygtw ride)
   (export Valley read-valley start-ride Ride step-ride surface-at place-at
           surface-name
-          Ride-quality-set
           Ride-light-set
           Ride-samples-set
-          Ride-bounces-set
-          restore-ride
-          read-ride
           reset-ride remount-ride Valley-basins-set
           Travel Astride Slowing OnFoot GettingOff GettingOn step-player use-bicycle
           walker-of foot-fraction transition-side nearby-bicycle? player-body
@@ -88,12 +84,8 @@
        (wheel F64)
        (stride F64)
        (metres F64)
-       ;; These legacy integers retain the schema of saved rides. The browser
-       ;; always draws at native resolution with the environment and cascades.
-       (quality I64)
        (light I64)
        (samples I32)
-       (bounces I64)
        (standing F64)
        (soil Soil)
        (rider Rider)
@@ -106,19 +98,15 @@
         (new Ride (bike (body p 0.0)) (dog (body (offset p (xz 1.0 0.0) 1.15) 0.0))
              (steer 0.0) (lean 0.0) (crank 0.0) (wheel 0.0) (stride 0.0)
              (metres 0.0)
-             (quality 4)
              (light 0)
              (samples 1)
-             (bounces 1)
              (standing 0.0)
              (soil (fresh-soil))
              (rider (mounted-rider)) (travel (Astride)))))
 
     (define (reset-ride (v Valley) (s Ride)) (→ Ride)
       (let ((r (Ride-soil-set (start-ride v) (clear-wheel-contact (● s soil)))))
-        (Ride-bounces-set (Ride-samples-set (Ride-quality-set (Ride-light-set r (● s light))
-                                                              (● s quality)) (● s samples))
-                          (● s bounces))))
+        (Ride-samples-set (Ride-light-set r (● s light)) (● s samples))))
 
     (define (remount-ride (v Valley) (s Ride)) (→ Ride)
       (if (not (can-remount? (● s rider))) s
@@ -133,49 +121,6 @@
             (Ride-soil-set (Ride-rider-set (Ride-lean-set (Ride-bike-set s (body at yaw)) 0.0)
                                            (mounted-rider)) (clear-wheel-contact (● s soil))))))
 
-    ;; The first Willowbank save predates the shorter survey. Its wire tag
-    ;; identifies the original field layout, including the two Body records.
-    (define (restore-ride (v Valley) (bytes Bytes)) (→ Ride)
-      (match (read-ride v bytes) ((Ok s) s) ((Err why) (panic why))))
-    (define (read-ride (v Valley) (bytes Bytes)) (→ (Result Ride String))
-      (read-wire bytes
-                 (lambda (d)
-                   (let ((tag (ann (decode d) I32)))
-                     (if (or (= tag -613528936) (= tag 1729204534) (= tag -1023836831))
-                         (restore-survey v d tag)
-                         (begin (set! (● d position) 0) (decode d)))))))
-
-    (define (resurvey (v Valley) (b Body) (fallback Body)) (→ Body)
-      (let* ((where (● b position))
-             (p (xz (/ (* 2.0 (● where x)) 3.0) (/ (* 2.0 (● where z)) 3.0))))
-        (if (clear? p 0.44 (nearby-solids (● v ground) p 2.0)) (body p (● b heading)) fallback)))
-
-    (define (restore-survey (v Valley) (d Decoder) (tag I32)) (→ Ride)
-      (let* ((first (= tag -613528936))
-             (mud (= tag -1023836831))
-             (r (start-ride v))
-             (raw (ann (decode d) Body))
-             (pet (ann (decode d) Body))
-             (b (if first (resurvey v raw (● r bike)) raw))
-             (dog (if first (resurvey v pet (body (● b position) (● b heading))) pet))
-             (steer (ann (decode d) F64)) (lean (ann (decode d) F64))
-             (crank (ann (decode d) F64)) (wheel (ann (decode d) F64)) (stride (ann (decode d) F64))
-             (metres (ann (decode d) F64)) (q (ann (decode d) I64)) (light (ann (decode d) I64))
-             (samples (if first (if (>= q 3) 2 1) (ann (decode d) I32)))
-             (bounces (if first (if (< q 2) 1 2) (ann (decode d) I64)))
-             (standing (if first 0.0 (ann (decode d) F64)))
-             (soil (if mud (ann (decode d) Soil) (fresh-soil)))
-             (rider (if mud (ann (decode d) Rider) (mounted-rider))))
-        (new Ride
-          (standing standing) (soil soil) (rider rider) (travel (Astride))
-          (bike b)
-          (dog dog)
-          (steer steer)
-          (lean lean)
-          (crank crank)
-          (wheel wheel)
-          (stride stride) (metres metres) (quality q) (light light)
-          (samples samples) (bounces bounces))))
     (define (mix (a F64) (b F64) (t F64)) (→ F64) (+ a (* (- b a) t)))
     (define (toward (a F64) (b F64) (amount F64)) (→ F64)
       (+ a (max (negate amount) (min amount (- b a)))))
@@ -262,8 +207,7 @@
                           (* (* 2.0 pi) 0.355))))
              (stride
               (+ (● r stride) (/ (min 0.30 (distance (● r dog position) (● dog position))) 0.85)))
-             (metres (+ (● r metres) length)) (quality (● r quality)) (light (● r light))
-             (samples (● r samples)) (bounces (● r bounces))
+             (metres (+ (● r metres) length)) (light (● r light)) (samples (● r samples))
              (standing (settle (● r standing) (standing-effort (abs s) grade driving) 0.065)))))
 
     ;; ---- Parking and walking ----

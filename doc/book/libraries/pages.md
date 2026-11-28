@@ -38,7 +38,7 @@ record of how to rebuild it.
 A scene draws through its `Gpu`, itself or as a 3D `Frame` of mesh `Item`s
 in batches, which `draw-frame` rasterizes and lights
 (`(snail shell graphics raster)`), as Siegework does; a 2D scene draws
-pictures as quads from an atlas, as Hearsay does. `recognize` turns pointer
+pictures as quads from an atlas. `recognize` turns pointer
 events into `Gesture`s (tap, drag, pinch), and `pointer-ray`,
 `screen-axes` and `ground-point` map the pointer into the scene. The HUD is
 changed through the page's document only where it differs after each input,

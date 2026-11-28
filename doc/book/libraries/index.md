@@ -84,7 +84,6 @@ Three conventions run through the shell:
 | [`(snail shell web)`](system.md#snail-shell-web) | The length of the file at a URL, and parts of it, on Node |
 | [`(snail shell web zip)`](system.md#snail-shell-web-zip) | Zip archives on the web, pinned, their members kept in the machine's cache |
 | [`(snail shell wasm)`](system.md#snail-shell-wasm) | Compiling, linking and calling WebAssembly modules |
-| [`(snail shell explore)`](system.md#snail-shell-explore) | Bounded model checking of a state machine |
 
 ### Pages, documents and interfaces
 
@@ -118,7 +117,7 @@ Three conventions run through the shell:
 | [`(snail shell graphics atlas)`](rendering.md#snail-shell-graphics-atlas) | Pictures composed into texture-array pages |
 | [`(snail shell graphics quad)`](rendering.md#snail-shell-graphics-quad) | 2D quads from those pages, one instanced draw a run |
 | [`(snail shell graphics mesh)`](rendering.md#snail-shell-graphics-mesh) | Meshes as geometry and instance tables |
-| [`(snail shell graphics raster)`](rendering.md#snail-shell-graphics-raster) | A G-buffer, and translucent surfaces over it |
+| [`(snail shell graphics raster)`](rendering.md#snail-shell-graphics-raster) | Batches of mesh instances, lit by the sun as they are drawn |
 | [`(snail shell graphics passes)`](rendering.md#snail-shell-graphics-passes) | The sun, tone mapping and FXAA |
 | [`(snail shell graphics fly)`](rendering.md#snail-shell-graphics-fly) | A camera that flies |
 
@@ -143,16 +142,14 @@ Three conventions run through the shell:
 | `(snail shell graphics forward environment)` | Prefiltered sky and directional lighting |
 | `(snail shell graphics forward frame)`, `(snail shell graphics compositor)` | Open a color pass and present its output |
 
-### Game simulation and stories
+### Game simulation
 
 | Library | For |
 | --- | --- |
 | [`(snail shell game physics)`, `terrain`, `vehicle`, `boarding`](games.md#movement-and-boarding) | CPU movement, vehicle kinematics and riders |
 | [`(snail shell game humanoid)`, `pedestrian`](games.md#actors-and-scenery) | Character poses and walking behavior |
-| [`(snail shell game drawing)`, `figure`, `scenery`](games.md#actors-and-scenery) | Rigid parts and their placement |
-| [`(snail shell game quest)`](games.md#quests) | Typed stage and event rules |
+| [`(snail shell game scenery)`](games.md#actors-and-scenery) | Mesh shapes placed in a glTF scene |
 | [`(snail shell game display)`](games.md#frame-pacing) | Display refresh divisor, pause settings and frame-time graph |
-| [`(snail shell game dialogue)`](games.md#dialogue) | Spoken lines, branching replies and saved cursors |
 
 ### Tensors
 
@@ -211,8 +208,6 @@ Each application keeps its libraries beside its scripts, under
 - `(apps last-mile …)` holds the San Francisco cab shift, GPS and renderer. [Last Mile Taxi](../games/last-mile.md)
 - `(apps siegework …)`: the colony game's land, rules, siege, view and HUD
   ([Siegework](../games/siegework.md)).
-- `(apps hearsay …)`: the rumor mill and the favor ledger, their screens
-  and their LPC cast ([Hearsay's README](https://github.com/tsnl/snail-scheme/blob/main/src/apps/hearsay/README.md)).
 - `(apps train …)`: 3D Gaussian Splatting training, on a page or on Node
   ([training on photographs](../graphics/tensors.md#training-on-photographs)).
 - `(apps splats rings)`: the cloud the splat viewer opens on

@@ -1,6 +1,6 @@
 # Rasterized graphics
 
-Games and tools use `(snail shell graphics renderer)` to manage models, scenes, environments and frame output. Supplying an output port in `RendererConfig` records commands that another renderer can replay. The same renderer supports glTF meshes, Siegework's lit instances and Hearsay's orthographic sprites. Its component libraries below expose vertex formats, passes, atlas composition and presentation. [Forward rendering and API tracing](../graphics/rasterizer.md).
+Games and tools use `(snail shell graphics renderer)` to manage models, scenes, environments and frame output. Supplying an output port in `RendererConfig` records commands that another renderer can replay. The same renderer supports glTF meshes, Siegework's lit instances and orthographic sprites. Its component libraries below expose vertex formats, passes, atlas composition and presentation. [Forward rendering and API tracing](../graphics/rasterizer.md).
 
 ## `(snail shell graphics atlas)`
 
@@ -40,39 +40,30 @@ commands run, and its instance buffer grows in powers of two.
 The geometry table holds eight shapes (`Box`, `Pyramid`, `Prism`, `Sphere`, `Tile`, `Tetrahedron`, `Octahedron` and `Upright`). Each stands on y = 0 in the unit cell. `make-geometry` uploads the shared vertex and index buffers once. `upload-batch` groups instances by shape and uploads the instance buffer. The draw ranges stay on the CPU. `draw-meshes` issues one direct indexed draw per populated shape with its first instance and count. `release-batch` frees the instance buffer.
 
 An instance carries where it is and where it was, for motion, its yaw,
-scale, glow, color, metalness and roughness, whether it turns to face the
-camera, and an id for picking.
+scale, glow, color, metalness and roughness, and whether it turns to face
+the camera.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/mesh.sld)
 
 ## `(snail shell graphics raster)`
 
-Mesh instances rasterized into a G-buffer, and translucent ones lit at once
-over it. A program makes its `Raster` once (`make-raster`: pipelines,
-geometry, and the camera's and sun's uniforms), a `GBuffer` for the
-canvas's size, and a `Surface` for each batch, remade when the batch
-changes. A frame writes the camera and the sun (`write-raster`), draws the
-G-buffer (`begin-gbuffer`, `draw-surface`), then opens the lit pass
-(`begin-lit`), where `(snail shell graphics passes)` lights it and
-translucent surfaces are drawn over it.
-
-The G-buffer holds each pixel's albedo, normal, material (metalness,
-roughness and glow) and depth, and, when its `Planes` ask, the screen
-motion since the last frame and the id of the instance drawn there, which
-`read-id` reads back to pick what a tap is on. A plane left out has no
-target and costs nothing. A `Camera3D` carries its view-projection and its
-inverse, in closed form for a `Pinhole` or `Parallel` lens, so the lighting
-recovers each pixel's position from its depth
-([meshes, the G-buffer and the sun](../graphics/plan.md#meshes-the-g-buffer-and-the-sun)).
+Batches of mesh instances, each lit at once by the frame's sun as it is
+drawn. A program makes its `Raster` once (`make-forward-batches`:
+pipelines, geometry, and the camera's and sun's uniforms) and a `Surface`
+for each batch, remade when the batch changes. A frame writes the camera
+and the sun (`write-raster`), then draws its opaque surfaces and its
+translucent ones over them (`draw-surface`) in one pass with a depth
+target. A `Camera3D` carries its view-projection and its inverse, in
+closed form for a `Pinhole` or `Parallel` lens
+([meshes and the sun](../graphics/plan.md#meshes-and-the-sun)). `Plane`,
+a texture with its view, is shared with the forward renderer.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/graphics/raster.sld)
 
 ## `(snail shell graphics passes)`
 
-Full-screen passes over a G-buffer. `draw-sun`, through a `Sunlight` made
-once and relit when the G-buffer is remade, lights each pixel by
-Cook-Torrance under the frame's sun, with the same lighting translucent
-surfaces get. The lit pass draws into a `light-format` target, `rgba16float`,
+Full-screen passes after a frame is lit. A frame draws into a
+`light-format` target, `rgba16float`,
 so a highlight can be brighter than 1, and `draw-post`, through a `Post`
 made for the canvas's format and size, brings it to the screen: tone mapping
 by a `Tone`, then FXAA. `Neutral` leaves a color whose largest channel is

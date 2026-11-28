@@ -30,7 +30,7 @@ owes a fare, and Rust runs the vehicle physics.
 - **Runtimes**: tasks scheduled in `snail-scheme`, with Node and the
   browser completing what they wait on ([runtimes](runtimes/index.md)).
 - **Applications**, in `src/apps/`: [Siegework](games/siegework.md), a
-  colony game; Hearsay's two prototypes; a forward-lit glTF viewer; a
+  colony game; two driving and riding games; a forward-lit glTF viewer; a
   Gaussian splat viewer; and a trainer that fits splats to photographs
   ([tensors and training](graphics/tensors.md)).
 
@@ -55,7 +55,6 @@ owes a fare, and Rust runs the vehicle physics.
 - **[Open the viewer](play/viewer/)** and drop a `.glb` on it, or pick a
   sample to inspect its materials and shadows. [Forward renderer](graphics/rasterizer.md).
 - **[Open Splats](play/splats/)** and drop a trained scene's `.ply` on it.
-- **[Play Hearsay](play/hearsay/)**: the rumor mill and the favor ledger.
 
 The book describes what is implemented and marks proposals explicitly.
 Source lives in the [repository](https://github.com/tsnl/snail-scheme), and
