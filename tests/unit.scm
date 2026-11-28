@@ -1,6 +1,6 @@
 ;; The compiler's unit tests: the Tests section of each of its modules, and
 ;; of stage 0's own, run from their source on Chez. The programs and every
-;; other check are tests/run.mjs's, built by the command line.
+;; other check are tests/run.scm's, built by the command line.
 ;;
 ;;   scheme --script host/chez/load.scm ROOT test
 (import

@@ -41,7 +41,7 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   wraps it in an npm package, and making an executable of that is left to
   Node's tools.
   Stage 0 does nothing else: the test suite builds its programs with the
-  command line (`tests/run.mjs`), and only the compiler's unit tests run on
+  command line (`tests/run.scm`, itself a `snail-scheme` program), and only the compiler's unit tests run on
   Chez (`tests/unit.scm`).
 
 - Every record is a heap object and every field is mutable. Primitive

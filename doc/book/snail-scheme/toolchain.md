@@ -49,11 +49,13 @@ the cold builder's synchronous behavior.
 ## Contributor checks
 
 `make test` runs the compiler's unit tests on Chez (`tests/unit.scm`), then
-`tests/run.mjs`: every program fixture, built by `./snail-scheme build` as a
-user's is and run on its host, and the host, build and application checks.
+`tests/run.scm`, a `snail-scheme` program: every program fixture, built by
+`./snail-scheme build` as a user's is and run on its host, and the host,
+build and application checks.
 A fixture `NAME.sld` must print `NAME.out`, or fail to build with each line
 of `NAME.err`. Each build has private scratch and its own output, so eight
-run at once. A fixture folder with libraries of its own, as
+run at once, each a task waiting on its child processes. `./snail-scheme run
+--target node tests/run.scm ROOT NAME ...` runs only the programs named. A fixture folder with libraries of its own, as
 `tests/programs`, is a workspace: they live under its `src/`.
 
 CI reports formatting, both Rust crates, tool building and the `snail-scheme` suite

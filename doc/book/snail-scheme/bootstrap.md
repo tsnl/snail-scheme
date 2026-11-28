@@ -74,7 +74,7 @@ Set `CHEZ` to the Chez `scheme` executable when it is not on `PATH`.
 
 `make test` runs the compiler's unit tests from source on Chez
 (`tests/unit.scm`), then builds every test program with the command line,
-as a user's is built, and runs it (`tests/run.mjs`). Stage 0 compiles
+as a user's is built, and runs it (`tests/run.scm`). Stage 0 compiles
 nothing but the command line: that Chez and the compiled compiler agree is
 the fixpoint's check, on the compiler's own source. `make check` verifies
 source formatting. There is no Chibi test or bootstrap path.

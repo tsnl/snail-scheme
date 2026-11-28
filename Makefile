@@ -11,11 +11,12 @@ SCHEME_SOURCES = '*.scm' '*.sld' '*.sls' ':(exclude)editors/zed/languages'
 test: test-toolchain test-pages
 
 # Run the compiler's unit tests on Chez. The bootstrapped command line
-# builds the examples, programs and applications exercised by tests/run.mjs.
+# builds the examples, programs and applications exercised by tests/run.scm,
+# which is itself a snail-scheme program.
 test-toolchain: check-scheme
 	./scripts/bootstrap >/dev/null
 	"$(CHEZ)" --script host/chez/load.scm "$(CURDIR)" test
-	node tests/run.mjs "$(CURDIR)"
+	./snail-scheme run --target node tests/run.scm "$(CURDIR)"
 
 # Exercise the local Pages packer and its Worker against a staged release.
 test-pages:
