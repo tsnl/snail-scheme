@@ -347,20 +347,26 @@ pub extern "C" fn write_text(mode: i32, count: u32) -> i32 {
 
 // ---- Replies ----
 
-// An operation that finds text, a directory's names or a link's target,
-// leaves it here as scalars and answers their count; `snail-scheme` reads them
-// one at a time before it performs another path operation. Like `datum`'s
-// real text, the reply is scratch owned by the runtime instance, with no
+// An operation that finds text, a directory's names, a link's target or a
+// string's case mapping, leaves it here as scalars and answers their count;
+// `snail-scheme` reads them one at a time before it performs another such
+// operation. The reply is scratch owned by the runtime instance, with no
 // handle and no cleanup, and the next reply replaces it.
 thread_local! {
     static REPLY: RefCell<Vec<char>> = const { RefCell::new(Vec::new()) };
 }
 
-fn reply(text: &str) -> Result<i32, PathError> {
+/// Leave `text` as the reply and answer its count of scalars, or `None` when
+/// there are more than an `i32` counts.
+pub(crate) fn set_reply(text: &str) -> Option<i32> {
     let scalars: Vec<char> = text.chars().collect();
-    let count = i32::try_from(scalars.len()).map_err(|_| PathError::Other)?;
+    let count = i32::try_from(scalars.len()).ok()?;
     REPLY.set(scalars);
-    Ok(count)
+    Some(count)
+}
+
+fn reply(text: &str) -> Result<i32, PathError> {
+    set_reply(text).ok_or(PathError::Other)
 }
 
 #[unsafe(export_name = "snail:io/reply-character")]

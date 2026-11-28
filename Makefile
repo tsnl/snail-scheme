@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := check
-.PHONY: format check check-scheme test test-toolchain test-pages test-browser test-gpu bootstrap unicode-tables generated-unicode site last-mile siegework viewer splats furnace iygtw iygtw-art pages
+.PHONY: format check check-scheme test test-toolchain test-pages test-browser test-gpu bootstrap site last-mile siegework viewer splats furnace iygtw iygtw-art pages
 
 CHEZ ?= scheme
 export CHEZ
@@ -55,19 +55,6 @@ check-scheme:
 
 check: check-scheme
 	$(NIXFMT) --check shell.nix benches/*/*.nix
-	$(MAKE) generated-unicode
-	cmp build/unicode.sld src/snail/shell/text/unicode.sld
-
-# (snail shell text)'s tables, generated from Rust's Unicode properties
-# into build/unicode.sld, which `check` compares with the checked-in copy.
-unicode-tables: generated-unicode
-	cp build/unicode.sld src/snail/shell/text/unicode.sld
-
-generated-unicode:
-	mkdir -p build
-	cargo run -q --manifest-path crates/snail-scheme-support/Cargo.toml \
-	  --example unicode-tables > build/unicode-tables.sld
-	./snail-scheme format < build/unicode-tables.sld > build/unicode.sld
 
 # Each application is a script, src/apps/NAME/main.scm, built into
 # build/src/apps/NAME/main.
