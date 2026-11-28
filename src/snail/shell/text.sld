@@ -1,6 +1,7 @@
-;; Unicode character properties and case mapping, read from the tables of
-;; (snail shell text unicode), which Rust's Unicode properties generate
-;; (crates/snail-scheme-support/examples/unicode-tables).
+;; Unicode character properties and case mapping, as ICU4X computes them in
+;; the runtime (crates/snail-scheme-support/src/text.rs). A program that
+;; imports this library is linked with the runtime's `unicode` feature
+;; ((snail shell project build), "Programs").
 (define-library (snail shell text)
   (export
    char-upcase
@@ -16,110 +17,68 @@
    string-downcase
    string-foldcase)
   (import
-   (snail core base)
-   (snail shell text unicode))
+   (snail core base))
   (begin
 
-    ;; ---- Records ----
+    ;; ---- The runtime's services ----
 
-    ;; A scalar's record holds its properties. Its block, the scalar
-    ;; shifted right, names a run of record numbers, which blocks with the
-    ;; same records share; its place in the block picks its record.
-
-    (define (record (char Char)) (→ I64)
-      (let* ((point (char->integer char))
-             (shift unicode-shift)
-             (block (u8->i64
-                     (constant-array-ref unicode-blocks (i64-shift-right/logical point shift))))
-             (place (i64-and point (- (i64-shift-left 1 shift) 1))))
-        (u8->i64 (constant-array-ref unicode-runs (+ (i64-shift-left block shift) place)))))
-
-    (define (u8->i64 (byte U8)) (→ I64)
-      (i32->i64 (u8->i32 byte)))
-
-    (define (flag? (char Char) (bit I64)) (→ Bool)
-      (not (= (i64-and (u8->i64 (constant-array-ref unicode-flags (record char))) bit) 0)))
-
-    ;; A scalar moved by the delta its record holds for the mapping `table`.
-
-    (define (mapped (char Char) (table (ConstantArray I32))) (→ Char)
-      (integer->char (+ (char->integer char) (i32->i64 (constant-array-ref table (record char))))))
+    (extern char-upcase "snail.core.support" "snail:text/simple-upper" (Fn Char → Char))
+    (extern char-downcase "snail.core.support" "snail:text/simple-lower" (Fn Char → Char))
+    (extern char-foldcase "snail.core.support" "snail:text/simple-fold" (Fn Char → Char))
+    (extern properties "snail.core.support" "snail:text/properties" (Fn Char → I32))
+    (extern digit-value "snail.core.support" "snail:text/digit-value" (Fn Char → I32))
+    (extern upcase "snail.core.support" "snail:text/upcase" (Fn String → I32))
+    (extern downcase "snail.core.support" "snail:text/downcase" (Fn String → I32))
+    (extern foldcase "snail.core.support" "snail:text/foldcase" (Fn String → I32))
+    (extern reply-character "snail.core.support" "snail:io/reply-character" (Fn I32 → Char))
 
     ;; ---- Properties ----
 
+    ;; The binary properties are bits of one answer: 1 Alphabetic,
+    ;; 2 White_Space, 4 Lowercase and 8 Uppercase.
+
+    (define (property? (char Char) (bit I32)) (→ Bool)
+      (not (= (i32-and (properties char) bit) 0)))
+
     (define (char-unicode-alphabetic? (char Char)) (→ Bool)
-      (flag? char 1))
+      (property? char 1))
 
     (define (char-unicode-whitespace? (char Char)) (→ Bool)
-      (flag? char 2))
+      (property? char 2))
 
     (define (char-lower-case? (char Char)) (→ Bool)
-      (flag? char 4))
+      (property? char 4))
 
     (define (char-upper-case? (char Char)) (→ Bool)
-      (flag? char 8))
+      (property? char 8))
 
-    ;; A decimal digit's value in any script, or nothing for anything else;
-    ;; the table holds -1 for anything else.
+    ;; A decimal digit's value in any script, or nothing for anything else.
 
     (define (char-digit-value (char Char)) (→ (Option I64))
-      (let ((value (i32->i64 (constant-array-ref unicode-digits (record char)))))
-        (if (< value 0) (None) (Some value))))
+      (let ((value (digit-value char)))
+        (if (< value 0) (None) (Some (i32->i64 value)))))
 
     (define (char-unicode-numeric? (char Char)) (→ Bool)
       (match (char-digit-value char)
         ((Some _) #t)
         ((None) #f)))
 
-    ;; ---- Case ----
+    ;; ---- Strings ----
 
-    ;; Simple case mapping, one scalar to one scalar.
-
-    (define (char-upcase (char Char)) (→ Char)
-      (mapped char unicode-upper))
-
-    (define (char-downcase (char Char)) (→ Char)
-      (mapped char unicode-lower))
-
-    (define (char-foldcase (char Char)) (→ Char)
-      (mapped char unicode-fold))
+    ;; Full case mapping, which may expand one scalar into several, as "ß"
+    ;; into "SS"; folded strings compare equal ignoring case. The runtime
+    ;; answers a mapping's length and holds its scalars until the next.
 
     (define (string-upcase (text String)) (→ String)
-      (string-generate (string-length text) (lambda (index) (char-upcase (string-ref text index)))))
+      (reply (upcase text)))
 
     (define (string-downcase (text String)) (→ String)
-      (string-generate (string-length text)
-                       (lambda (index) (char-downcase (string-ref text index)))))
-
-    ;; Full case folding, which may expand one scalar into several, as "ß"
-    ;; into "ss"; folded strings compare equal ignoring case. A scalar whose
-    ;; full folding is not its simple one is among the sorted fold points,
-    ;; with its scalars from its start to the next.
+      (reply (downcase text)))
 
     (define (string-foldcase (text String)) (→ String)
-      (string-concatenate (map full-fold (string->list text))))
+      (reply (foldcase text)))
 
-    (define (full-fold (char Char)) (→ String)
-      (match (fold-point (char->integer char) 0 (constant-array-length unicode-fold-points))
-        ((Some index)
-         (let ((start (i32->i64 (constant-array-ref unicode-fold-starts index)))
-               (end (i32->i64 (constant-array-ref unicode-fold-starts (+ index 1)))))
-           (string-generate (- end start)
-                            (lambda (offset)
-                              (integer->char
-                               (i32->i64
-                                (constant-array-ref unicode-fold-scalars (+ start offset))))))))
-        ((None) (make-string 1 (char-foldcase char)))))
-
-    ;; The index of `point` among the fold points from `low` up to `high`.
-
-    (define (fold-point (point I64) (low I64) (high I64)) (→ (Option I64))
-      (if (>= low high)
-          (None)
-          (let* ((middle (quotient (+ low high) 2))
-                 (at (i32->i64 (constant-array-ref unicode-fold-points middle))))
-            (cond ((= at point) (Some middle))
-                  ((< at point) (fold-point point (+ middle 1) high))
-                  (else (fold-point point low middle))))))
+    (define (reply (count I32)) (→ String)
+      (string-generate (i32->i64 count) (lambda (index) (reply-character (i64->i32 index)))))
 
     ))

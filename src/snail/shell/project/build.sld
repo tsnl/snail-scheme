@@ -512,23 +512,38 @@
 
     ;; ---- Programs ----
 
-    ;; A chassis uses Rapier in the same Wasm instance as the GC program.
-    ;; Cargo caches that runtime independently of plain and assembler-only builds.
+    ;; The runtime's Cargo features a program needs, by the libraries it
+    ;; reaches: a chassis uses Rapier, the text library ICU4X's Unicode data
+    ;; and a tool that assembles the assembler, each in the same Wasm
+    ;; instance as the GC program.
+    (define runtime-features
+      (→ (List (Pair String String)))
+      (list (new Pair (first "snail.shell.game.chassis") (second "rapier"))
+            (new Pair (first "snail.shell.text") (second "unicode"))
+            (new Pair (first "snail.shell.assembler") (second "assembler"))))
+
+    ;; The plain and assembler-only runtimes are built with the command
+    ;; line; any other set of features is built here, once, in a Cargo
+    ;; target of its own, which Cargo then keeps up to date.
     (define (program-runtime (processes Processes) (builder Builder) (libraries (List String)))
       (→ String)
-      (let ((tools (● builder tools)) (assembler? (member? "snail.shell.assembler" libraries)))
-        (cond ((member? "snail.shell.game.chassis" libraries)
-               (let* ((features (if assembler? "rapier,assembler" "rapier"))
-                      (target (string-append (● tools root) "/build/wasm-support-" features)))
-                 (run-command processes
-                              (new Command
-                                (program (string-append (● tools root) "/scripts/build-runtime"))
-                                (arguments (list target "--features" features))
-                                (directory (● tools root)))
-                              "build Rapier runtime")
-                 (string-append target "/wasm32-wasip1/release/snail_scheme_support.wasm")))
-              (assembler? (● tools toolchain))
-              (else (● tools runtime)))))
+      (let ((tools (● builder tools))
+            (features (map (lambda (entry) (● entry second))
+                           (filter (lambda (entry) (member? (● entry first) libraries))
+                                   runtime-features))))
+        (match features
+          ((Nil) (● tools runtime))
+          ((Cons "assembler" (Nil)) (● tools toolchain))
+          (_
+           (let* ((joined (string-join features ","))
+                  (target (string-append (● tools root) "/build/wasm-support-" joined)))
+             (run-command processes
+                          (new Command
+                            (program (string-append (● tools root) "/scripts/build-runtime"))
+                            (arguments (list target "--features" joined))
+                            (directory (● tools root)))
+                          (string-append "build the runtime with " joined))
+             (string-append target "/wasm32-wasip1/release/snail_scheme_support.wasm"))))))
 
     ;; The program at `entry`, compiled in this process to one module and
     ;; linked with the runtime into `output`; the files it links ship beside

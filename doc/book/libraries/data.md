@@ -39,11 +39,14 @@ picks the order of its photographs.
 Unicode character properties and case mapping: `char-upcase`,
 `char-downcase` and `char-foldcase`, the `char-unicode-…?` and
 `char-…-case?` tests, `char-digit-value`, and `string-upcase`,
-`string-downcase` and `string-foldcase`. They read the constant arrays of
-`(snail shell text unicode)`, which `make unicode-tables` generates from
-Rust's Unicode 17.0.0 properties
-(`crates/snail-scheme-support/examples/unicode-tables`); do not edit that
-file, and `make check` fails when it falls behind its generator.
+`string-downcase` and `string-foldcase`. A character maps to one
+character; a string's mapping is the full one, so `(string-upcase "ß")` is
+`"SS"`. The runtime computes them with
+[ICU4X](https://icu4x.unicode.org)'s compiled Unicode data
+(`crates/snail-scheme-support/src/text.rs`, under the
+[Unicode License](https://github.com/tsnl/snail-scheme/blob/main/doc/unicode-license.txt)),
+and a program that imports the library is linked with the runtime's
+`unicode` feature.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/text.sld)
 

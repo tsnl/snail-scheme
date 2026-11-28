@@ -146,6 +146,12 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
 - Keep GC and slot-lifetime invariants beside the code that relies on them.
   Wasm engines trace managed references. Rust scalar providers own external resources
   behind explicit handles. Resource cleanup must not retain its managed wrapper.
+- Write core runtime functionality in Rust, in `crates/snail-scheme-support`,
+  and use crates.io's libraries rather than porting them: a `snail-scheme`
+  library wraps the runtime's exports with `extern`s, as `(snail shell text)`
+  wraps ICU4X. A service a few programs need is a Cargo feature, which the
+  builder selects by the libraries a program reaches
+  (`(snail shell project build)`, "Programs").
 - Chez is stage 0 of the bootstrap: it must keep running the compiler's
   source, so the compiler avoids behavior the two hosts would disagree on,
   such as integer overflow and the order of table keys. Chez evaluates a

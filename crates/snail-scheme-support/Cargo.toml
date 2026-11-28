@@ -13,6 +13,7 @@ crate-type = ["rlib"]
 # runtime whole, so the plain runtime leaves it out.
 [features]
 rapier = ["dep:rapier3d-f64"]
+unicode = ["dep:icu_casemap", "dep:icu_locale_core", "dep:icu_properties"]
 assembler = ["dep:wat", "dep:wasm-fuse", "dep:wasm-encoder", "dep:wasmparser"]
 
 # Stage 0's linker, built for this machine: the bootstrap links the command
@@ -23,6 +24,9 @@ required-features = ["assembler"]
 
 [dependencies]
 rapier3d-f64 = { version = "=0.36.1", optional = true }
+icu_casemap = { version = "=2.4.0", optional = true }
+icu_locale_core = { version = "=2.4.0", optional = true }
+icu_properties = { version = "=2.4.0", optional = true }
 wat = { version = "1.262.0", default-features = false, optional = true }
 wasm-fuse = { version = "4.0.0", default-features = false, optional = true }
 wasm-encoder = { version = "0.256.0", features = ["wasmparser"], optional = true }
