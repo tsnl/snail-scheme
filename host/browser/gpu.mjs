@@ -495,6 +495,7 @@ const made = [
       return device.createBindGroupLayout({entries: f.list(() => {
         const kind = f.word(), slot = binding++;
         if (kind === 0) return {binding: slot, visibility: 3, buffer: {type: 'uniform'}};
+        if (kind === 6) return {binding: slot, visibility: 3, buffer: {type: 'read-only-storage'}};
         if (kind === 1) return {binding: slot, visibility: 2, sampler: {type: 'filtering'}};
         return {binding: slot, visibility: 2, texture: {sampleType: kind === 4 ? 'depth' : kind === 5 ? 'unfilterable-float' : 'float',
           viewDimension: kind === 3 ? 'cube' : kind === 4 ? '2d-array' : '2d'}};

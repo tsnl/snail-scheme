@@ -69,6 +69,13 @@
     (record View
       ((buffer GpuBuffer)
        (group GpuBindGroup)))
+    ;; The instances a frame draws: their bones, the material frames they
+    ;; index, and a record each. Bone 0 is the identity and frame 0 changes
+    ;; nothing, so record 0 is a static scene's one instance.
+    (record Placements
+      ((bones GpuBuffer)
+       (frames GpuBuffer)
+       (records GpuBuffer)))
     (record Targets
       ((w I32)
        (h I32)
@@ -83,6 +90,7 @@
        (env Environment)
        (module GpuShaderModule)
        (layouts (List GpuPipelineLayout))
+       (placements Placements)
        (camera View)
        (shadow-cameras (List View))
        (shadow GpuTexture)
@@ -116,7 +124,7 @@
       ((● gpu create-bind-group) (new BindGroupDescriptor (pipeline (RenderPipeline pipe))
                                       (group index) (label label) (entries items))))
     (define (layouts (gpu Gpu)) (→ (List GpuPipelineLayout))
-      (let* ((camera (list (UniformBinding)))
+      (let* ((camera (list (UniformBinding) (ReadStorage) (ReadStorage)))
              (material (list (UniformBinding) (FilterSampler) (FloatTexture) (FloatTexture)
                              (FloatTexture) (FloatTexture) (FloatTexture)))
              (light (list (UniformBinding) (DepthArray) (CubeTexture) (FloatTexture) (FilterSampler)
@@ -127,12 +135,16 @@
                           (UnfilterableTexture))))
         (map (lambda (groups) ((● gpu create-layout) "forward/layout" groups))
              (list (list camera) (list camera material) (list camera material light)))))
+    ;; A mesh's vertices, then each instance's record.
     (define (attributes) (→ (List VertexBufferLayout))
       (list (new VertexBufferLayout (stride 48) (step (PerVertex))
                  (attributes (map (lambda (i) (new VertexAttribute (format (Float32x4))
                                                    (location (i64->i32 i))
                                                    (offset (i64->i32 (* 16 i)))))
-                                  (iota 3))))))
+                                  (iota 3))))
+            (new VertexBufferLayout (stride (i64->i32 (stride placing-shape))) (step (PerInstance))
+                 (attributes
+                  (list (new VertexAttribute (format (Uint32x2)) (location 3) (offset 0)))))))
     ;; Depth pipelines depend only on vertex layout, coverage, culling, and
     ;; sample count. Camera and light views bind the same geometry and uniforms.
     (define (depth-pipelines (gpu Gpu) (module GpuShaderModule) (ls (List GpuPipelineLayout))
@@ -201,11 +213,37 @@
                            (back (pipe "transparent-back" "mesh_vertex" "shade" (CullFront) #t))
                            (front (pipe "transparent-front" "mesh_vertex" "shade" (CullBack) #t))
                            (sky (pipe "sky" "background_vertex" "background" (CullNone) #f)))))
-    (define (make-view (gpu Gpu) (pipe GpuRenderPipeline)) (→ View)
+    (define (make-view (gpu Gpu) (pipe GpuRenderPipeline) (placements Placements)) (→ View)
       (let ((b (uniform gpu "forward/view" (stride camera-shape))))
         (new View
           (buffer b)
-          (group (group gpu pipe 0 "forward/view" (list (BufferEntry 0 b 0 0)))))))
+          (group (group gpu pipe 0 "forward/view"
+                        (list (BufferEntry 0 b 0 0)
+                              (BufferEntry 1 (● placements bones) 0 0)
+                              (BufferEntry 2 (● placements frames) 0 0)))))))
+    ;; A static scene's placements: one identity bone, the frame that
+    ;; changes nothing, and the record that names both.
+    (define (static-placements (gpu Gpu)) (→ Placements)
+      (let ((filled (lambda ((label String) (bytes Bytes) (usage BufferUsage))
+                      (→ GpuBuffer)
+                      (let ((b ((● gpu create-buffer)
+                                (new BufferDescriptor
+                                  (label label)
+                                  (size (i64->i32 (array-length bytes)))
+                                  (usage (list usage (CopyDst)))))))
+                        ((● gpu write-buffer) b 0 bytes)
+                        b))))
+        (new Placements
+          (bones (filled "forward/bones"
+                         (pod-bytes (ann (shape) (Shape Mat4x4f)) identity-bone)
+                         (Storage)))
+          (frames (filled "forward/frames" (pod-bytes frame-shape default-frame) (Storage)))
+          (records
+           (filled "forward/records" (pod-bytes placing-shape (new Placing (bone 0) (frame 0)))
+                   (Vertex))))))
+    (define (release-placements (gpu Gpu) (p Placements)) (→ Unit)
+      (for-each (lambda (b) ((● gpu destroy) (BufferObject b)))
+                (list (● p bones) (● p frames) (● p records))))
     (define (map-entry (s Scene) (slot I32) (index I64)) (→ BindGroupEntry)
       (let ((i (if (< index 0) (- (array-length (● s images maps)) 1) index)))
         (TextureEntry slot (● (array-ref (● s images maps) i) view))))
@@ -288,12 +326,14 @@
                           (let* ((module ((● gpu create-shader-module)
                                           (new ShaderModuleDescriptor (label "forward/material")
                                                (code (string-append (declarations camera-shape)
+                                                                    (declarations frame-shape)
                                                                     (declarations material-shape)
                                                                     (declarations light-shape)
                                                                     forward-shader
                                                                     ground-layer-shader
                                                                     water-shader)))))
                                  (ls (layouts gpu)) (one (depth-pipelines gpu module ls 1))
+                                 (placements (static-placements gpu))
                                  (p (pipelines gpu module ls one samples))
                                  (mats (make-materials gpu scene (● p color)))
                                  (shadow ((● gpu create-texture)
@@ -322,9 +362,10 @@
                               (env env)
                               (module module)
                               (layouts ls)
-                              (camera (make-view gpu (● one solid)))
+                              (placements placements)
+                              (camera (make-view gpu (● one solid) placements))
                               (shadow-cameras
-                               (map (lambda (_) (make-view gpu (● one solid))) (iota 3)))
+                               (map (lambda (_) (make-view gpu (● one solid) placements)) (iota 3)))
                               (shadow shadow)
                               (shadow-view sv)
                               (shadow-layers
@@ -438,6 +479,7 @@
     (define (bind-mesh (gpu Gpu) (pass GpuRenderPass) (r Forward) (view View)) (→ Unit)
       ((● gpu set-bind-group) pass 0 (● view group))
       ((● gpu set-vertex-buffer) pass 0 (● r scene vertices) 0)
+      ((● gpu set-vertex-buffer) pass 1 (● r placements records) 0)
       ((● gpu set-index-buffer) pass (● r scene indices) (Uint32Index) 0))
     (define (draw-mesh (gpu Gpu) (pass GpuRenderPass) (range DrawRange)) (→ Unit)
       ((● gpu draw-indexed) pass (● range count) 1 (● range first) 0 0))
@@ -581,6 +623,7 @@
     ;; A renderer may keep the last completed color image after deleting the model.
     (define (release-forward-context (gpu Gpu) (r Forward)) (→ Unit)
       (release-pipes gpu (● r pipes) (● r target samples)) (release-depth gpu (● r depth-1x))
+      (release-placements gpu (● r placements))
       (release-depth-targets gpu (● r target)) (release-post gpu (● r target post))
       (release-plane gpu (● r lut))
       (for-each (lambda (v) ((● gpu destroy) (ViewObject v))) (● r shadow-layers))
