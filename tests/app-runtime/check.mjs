@@ -10,7 +10,7 @@ import {createDom} from '../../host/browser/dom.mjs';
 import {createFetch} from '../../host/browser/fetch.mjs';
 import {createGpu} from '../../host/browser/gpu.mjs';
 import {fakeGpu, fakeCanvas} from '../fake-gpu.mjs';
-import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports} from '../../host/browser/load.mjs';
 
 const path = resolve(process.argv[2]);
 const turn = () => new Promise(setImmediate);
@@ -262,5 +262,5 @@ console.log('app runtime: the scene as a task, storage by ticket, queued input, 
 // whose every function fails if it is called.
 function portable(module) {
   const unread = file => { throw new Error(`this test reads no linked file ${file}`); };
-  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null)};
+  return linkedFileImports(unread, module);
 }

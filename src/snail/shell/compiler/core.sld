@@ -200,7 +200,6 @@
 
     (define builtin-types (→ (List (Pair String I64)))
       (list (new Pair (first "Any") (second 0))
-            (new Pair (first "Funcref") (second 0))
             (new Pair (first "U8") (second 0))
             (new Pair (first "I32") (second 0))
             (new Pair (first "I64") (second 0))

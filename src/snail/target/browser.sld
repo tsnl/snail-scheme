@@ -10,7 +10,6 @@
 ;; - OutputPort, the console;
 ;; - Clock, the monotonic clock;
 ;; - Resources, the files the program links;
-;; - Wasm, the host's WebAssembly engine;
 ;;
 ;; and the page's:
 ;;
@@ -30,7 +29,6 @@
    provide-output-port
    provide-clock
    provide-resources
-   provide-wasm
    provide-events
    provide-storage
    provide-gpu
@@ -43,7 +41,6 @@
    (snail core io)
    (only (snail shell task) Scheduler dispatch-in)
    (only (snail shell resource) Resources host-resources)
-   (only (snail shell wasm) Wasm host-wasm)
    (only (snail shell page) Events PageStorage host-events host-storage)
    (only (snail shell gpu) Gpu host-gpu)
    (only (snail shell dom) Dom)
@@ -82,8 +79,6 @@
     (define (provide-resources) (→ Resources)
       (host-resources root))
 
-    (define (provide-wasm) (→ Wasm)
-      (host-wasm root))
 
     ;; ---- The page ----
 

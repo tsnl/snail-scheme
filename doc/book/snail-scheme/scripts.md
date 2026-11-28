@@ -104,7 +104,6 @@ library that asks only for these runs anywhere.
 | `OutputPort` | `(snail core io)` | standard output | the console |
 | `Clock` | `(snail core io)` | the monotonic clock | the monotonic clock |
 | `Resources` | `(snail shell resource)` | files beside the module | files fetched beside the module |
-| `Wasm` | `(snail shell wasm)` | Node's WebAssembly | the page's WebAssembly |
 
 Tasks need no capability: any code may wait
 ([suspension](suspension.md), [tasks](../runtimes/tasks.md)).

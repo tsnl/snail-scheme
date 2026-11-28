@@ -31,10 +31,8 @@ compiler is itself a linked Wasm program. Most passes thread state through
 pure functions. The emitter uses a locally owned mutable `Module` to collect
 Wasm declarations and intern types. Neither representation requires `Ref`.
 A global or data segment that a module declares once, such as a string
-literal's, comes from a function wrapped in `cache` and held
-in a top-level value: its key is the module and the text that names the
-item, so a second use skips the declaration. Those caches live as long as
-the compiler process, and so does each module they were asked about.
+literal's, is recorded in the module by the text that names it
+(`declare-once!`), so a second use skips the declaration.
 
 Every build compiles the whole program to one module and links it with
 the Rust scalar services, as stage 0 does the command line.
@@ -193,15 +191,6 @@ allowing recursive object graphs. Finite budgets diagnose expanding type or
 specialization families instead of exhausting the host. Ordinary recursive
 nominal types reuse their existing type entry.
 
-The `cache` and `lru-cache` primitives preserve their callback's parameter
-types and result type. The checker requires a known function
-signature at final inferred types, including when a primitive is used as a
-function value.
-Preparation rejects raw `Funcref` keys. The Wasm
-backend builds an ordinary closure capturing its callback and a private typed
-hash table; no module globals are involved. The Chez adapter implements the same wrapper and key
-semantics. See [cached functions](terms.md#cached-functions).
-
 ### Suspension and frames
 
 The normal path runs straight through a successful call. The Wasm emitter
@@ -227,9 +216,9 @@ is reclaimed like any other value.
 A prompt counts its `with-prompt`s that are running, so `suspend` panics
 when there is none to catch it. Three places are the backend's own code
 and cannot be left as a frame: the loop that generates an array, which
-lets through only a yield nothing resumes; a cache and a top-level value,
-which keep nothing of a call that yielded; and a host entry, which a yield
-may not leave.
+lets through only a yield nothing resumes; a top-level value, which keeps
+nothing of a call that yielded; and a host entry, which a yield may not
+leave.
 
 This is ordinary calls and explicit frames, not stack switching: any
 WasmGC engine executes the same linked code, and no JavaScript continuation
@@ -266,49 +255,19 @@ WebAssembly treats two GC types as the same only when their whole
 recursion groups match. The backend puts each type in the smallest
 recursion group it can have: the strongly connected component of the graph
 of references between types, ordered by name, with the groups it refers to
-emitted first. A module a program loads while it runs that declares the
-identical group shares the type, by the engine's canonicalization. A case
-of an enum without fields declares no type of its own.
+emitted first. A case of an enum without fields declares no type of its
+own.
 
 `snail-scheme` types are checked at compile time, each library against its
 imports. A value crossing as `Any` keeps its nominal type identity for
 explicit `downcast` checks.
 
-### Linking by hand
-
-A program loads modules while it runs with `(snail shell wasm)`.
-`compile-bytes` compiles a module, `module-imports` lists its imports, and
-`link-module` accepts one explicit `Provider` per import in order. A provider
-is an instance's export, a host service, a constant function, or a function
-that fails if called. Missing or incompatible providers return `LinkFailed`.
-Linking runs `_initialize` when present; the loader calls `main` separately.
-
-`module-export` returns an untyped `Funcref`. `unsafe-cast` wraps it in an `Fn`
-closure at the requested type. The Wasm
-cast checks representation, not `snail-scheme` nominal identity: the caller
-must establish that contract. `run-export` calls a scalar export by name.
-
-`loading-program` identifies the loader. `bind-runtime` selects the loaded
-program's runtime for staging bytes and reporting errors without changing the
-loader's identity. No host registry or plugin namespace participates in
-linking.
-
-`tests/programs/wasm-linking.sld` checks provider selection and failures.
-`wasm-instance-identity.sld` verifies that existing imports keep their original
-provider when a new link uses another instance, and that linking consumers
-does not initialize their providers again. Both run on Node; the identity
-test also runs in Chromium.
-
 ### Hosts
-
-The host compiles bytes, lists imports, binds explicit providers and finds
-exports. Node and the page install these operations; the page's
-are exercised by the Chromium fixture.
 
 Every import module a host provides is named for the runtime interface it
 implements, `snail.runtime.…` (#566): `snail.runtime.link`,
 `snail.runtime.resource` and `snail.runtime.gpu` on every host,
-`snail.runtime.wasm`, `snail.runtime.native.socket`,
+`snail.runtime.native.socket`,
 `snail.runtime.native.process`, `snail.runtime.native.async-files` and
 `snail.runtime.native.web` on Node,
 and `snail.runtime.browser.events`, `.storage`, `.dom` and

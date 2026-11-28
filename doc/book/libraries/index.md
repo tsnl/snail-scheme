@@ -83,7 +83,6 @@ Three conventions run through the shell:
 | [`(snail shell http)`](system.md#snail-shell-http), [`(snail shell http exchange)`](system.md#snail-shell-http-exchange) | A bounded subset of HTTP/1.1, and one exchange over a connection |
 | [`(snail shell web)`](system.md#snail-shell-web) | The length of the file at a URL, and parts of it, on Node |
 | [`(snail shell web zip)`](system.md#snail-shell-web-zip) | Zip archives on the web, pinned, their members kept in the machine's cache |
-| [`(snail shell wasm)`](system.md#snail-shell-wasm) | Compiling, linking and calling WebAssembly modules |
 
 ### Pages, documents and interfaces
 
@@ -180,7 +179,7 @@ Three conventions run through the shell:
 | [`(snail runtime browser …)`](runtime.md#the-page) | The page's events, save, document, requests and files |
 | [`(snail runtime gpu)`](runtime.md#snail-runtime-gpu) | The host's WebGPU device |
 | [`(snail runtime native …)`](runtime.md#nodes-own) | Node's sockets, processes, asynchronous files and the web |
-| [`(snail runtime resource)`](runtime.md#snail-runtime-resource), [`(snail runtime wasm)`](runtime.md#snail-runtime-wasm) | Linked files and WebAssembly on every host |
+| [`(snail runtime resource)`](runtime.md#snail-runtime-resource) | Linked files on every host |
 | [`(snail target node)`](runtime.md#snail-target-node), [`(snail target browser)`](runtime.md#snail-target-browser) | The two targets |
 
 ### Liberated Pixel Cup art

@@ -24,7 +24,6 @@ test-pages:
 # Browser interfaces in headless Chromium: the shell's on Linux, or the
 # browser CHROMIUM names. CI does not run them.
 test-browser:
-	node tests/browser/wasm-instance-identity.mjs "$(CURDIR)"
 	node tests/browser/ui.mjs "$(CURDIR)"
 	node tests/browser/ui-requests.mjs "$(CURDIR)"
 	node tests/browser/gpu.mjs "$(CURDIR)"

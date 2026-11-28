@@ -1,6 +1,0 @@
-initialized once
-existing import keeps provider
-new import uses new provider
-old handle survives
-existing import observes same instance
-linking never reinitializes provider

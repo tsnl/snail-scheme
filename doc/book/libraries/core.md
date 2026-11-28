@@ -46,9 +46,8 @@ The prelude. Its exports, by kind:
 - **Collections**: lists and their operations, arrays, constant arrays and
   `Bytes`. `array-set` answers a new array; `array-set!` and `array-copy!`
   write the one they are given.
-- **Control**: `panic`; the cached functions `cache` and `lru-cache`
-  ([cached functions](../snail-scheme/terms.md#cached-functions)); and the
-  prompts `make-prompt`, `with-prompt` and `suspend`
+- **Control**: `panic`, and the prompts `make-prompt`, `with-prompt` and
+  `suspend`
   ([suspension](../snail-scheme/suspension.md)).
 
 `(list-sort before? items)` is stable: items for which neither precedes the

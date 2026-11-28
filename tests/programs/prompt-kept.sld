@@ -3,11 +3,8 @@
  (snail core io))
 
 ;; What keeps a result keeps none of a call that suspended: a top-level
-;; value's initializer runs again on the next read, and a cache runs its
-;; function again for the same key.
+;; value's initializer runs again on the next read.
 (define failing (→ (Prompt String Never)) (make-prompt))
-
-(define asking (→ (Prompt I64 I64)) (make-prompt))
 
 (record Count
   ((value I64)))
@@ -36,13 +33,4 @@
   (read-fragile out)
   (read-fragile out)
   (write-line out (string-append "attempts: " (show (● attempts value))))
-  ;; A call that suspended and was resumed has its value, and the cache
-  ;; has none: the same key asks again.
-  (let ((remembered (cache (lambda (n) (+ n (suspend asking n))))))
-    (write-line out
-                (show (with-prompt asking
-                                   (lambda () (+ (remembered 1) (remembered 1)))
-                                   (lambda (n resume)
-                                     (write-line out (string-append "asked " (show n)))
-                                     (resume (* n 10)))))))
   (unit))

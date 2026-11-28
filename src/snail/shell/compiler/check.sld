@@ -1284,36 +1284,6 @@
                (map (lambda (arg) (zonk-pattern solution arg)) args)
                (zonk solution type)))))
 
-    ;; ---- Checked operations ----
-
-    ;; Validate operations at their final inferred types: the signature a
-    ;; cache is built for. Each item's first failure is reported, in source
-    ;; order.
-
-    (define (check-final (typed Typed)) (→ Unit)
-      (fail-if-found
-       (in-source-order
-        (failures-of (lambda (item)
-                       (match item
-                         ((Define _ value) (check-operations value))
-                         (_ (unit))))
-                     (● typed items)))))
-
-    (define (check-operations (expr Expr)) (→ Unit)
-      (match (● expr term)
-        ((Var name _ _)
-         (when (member? name (list "prim:cache" "prim:lru-cache"))
-           (check-cache-signature (● expr type) (● expr loc))))
-        (_ (unit)))
-      (for-each check-operations (expr-children expr)))
-
-    ;; A cache is built for one signature, so an unknown F cannot be cached.
-    ;; A generic factory states the function's shape in its header.
-    (define (check-cache-signature (type Type) (loc Loc)) (→ Unit)
-      (match type
-        ((TFun _ (TFun _ _)) (unit))
-        (_ (compile-error loc "cache requires an ordinary Fn function with a known signature"))))
-
     ;; ---- Definitions ----
 
     ;; An unannotated group of mutually recursive definitions is inferred
@@ -1566,12 +1536,9 @@
                        (then (solve-wanted)))
                    (check-value-types ck items)
                    (check-exposures ck items)
-                   (let ((result
-                          (new Typed (program program)
-                               (items (map (lambda (item) (zonk-item (solution ck) item)) typed))
-                               (schemes (final-schemes ck items)))))
-                     (check-final result)
-                     result))))
+                   (new Typed (program program)
+                        (items (map (lambda (item) (zonk-item (solution ck) item)) typed))
+                        (schemes (final-schemes ck items))))))
 
     (define (check-exposures (ck Checker) (items (List Item))) (→ Unit)
       (for-each (lambda (item)

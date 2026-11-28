@@ -42,7 +42,6 @@
    stop
    compiling
    recovering
-   failures-of
    fail-if-found
    in-source-order
    read-text
@@ -268,18 +267,6 @@
                      (match reason
                        ((Failed diagnostics) (Err diagnostics))
                        ((Requested _) (stop reason))))))
-
-    ;; What `check` finds wrong in each item, checking every item past one
-    ;; that fails, in the items' order.
-
-    (define (failures-of (check (Fn A → Unit)) (items (List A)))
-      (→ (List SourceDiagnostic))
-      (∀ (A))
-      (concatenate (map (lambda (item)
-                          (match (recovering (lambda () (check item)))
-                            ((Ok _) (Nil))
-                            ((Err found) (diagnostics->list found))))
-                        items)))
 
     ;; Fails the compile with `found`, unless it is empty.
 
