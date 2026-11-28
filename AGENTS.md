@@ -92,6 +92,11 @@ Keep each pass's inputs, outputs, and decisions visible in its module.
   "Prompts" and "Resuming"). Since no type says which calls may suspend,
   preparation computes it for the whole specialized program
   (`src/snail/shell/compiler/prepare.sld`, "Suspensions").
+- Every function is async: this is a core design tenet. Any call may
+  suspend and no type says which, so a function never needs a second,
+  async version. I/O waits by suspending its task, console I/O included,
+  and never blocks the host; moving all I/O onto async port classes is
+  [#963](https://github.com/tsnl/snail-scheme/issues/963).
 - Parse, don't validate: turn syntax and external data into structured values
   whose construction establishes the required invariants. Carry that evidence
   forward instead of returning a Boolean and repeatedly checking the same raw
