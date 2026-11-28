@@ -33,6 +33,7 @@
    PipelineLayoutObject
    BindingKind
    UniformBinding
+   ReadStorage
    FilterSampler
    FloatTexture
    CubeTexture
@@ -240,18 +241,20 @@
 
     (record GpuPipelineLayout
       ((id I32)))
-    ;; Groups list their bindings in numeric order. All uniform buffers may
-    ;; be read by either graphics stage. Sampled textures belong to fragments.
+    ;; Groups list their bindings in numeric order. Uniform and read-only
+    ;; storage buffers may be read by either graphics stage, as a vertex
+    ;; stage reads an instance's bones. Sampled textures belong to fragments.
     (enum BindingKind
       (UniformBinding)
       (FilterSampler)
       (FloatTexture)
       (CubeTexture)
       (DepthArray)
-      (UnfilterableTexture))
+      (UnfilterableTexture)
+      (ReadStorage))
     (define (binding-code (kind BindingKind)) (→ I32)
       (match kind ((UniformBinding) 0) ((FilterSampler) 1) ((FloatTexture) 2)
-             ((CubeTexture) 3) ((DepthArray) 4) ((UnfilterableTexture) 5)))
+             ((CubeTexture) 3) ((DepthArray) 4) ((UnfilterableTexture) 5) ((ReadStorage) 6)))
     (define (layout-binding-fields (label String) (groups (List (List BindingKind))))
       (→ (List Field))
       (Cons (Text label) (counted groups (lambda (bindings)

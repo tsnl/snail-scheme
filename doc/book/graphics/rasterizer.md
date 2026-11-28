@@ -11,6 +11,8 @@ The renderer draws into its own textures. A browser compositor samples the finis
 3. Sort translucent primitives by distance from the eye and blend them back to front with depth writes disabled. For moving shells, the CPU updates each sort center from the same joint palette as the vertices. A rigid mesh costs one matrix product. Double-sided convex shells draw their back faces first.
 4. Resolve MSAA, tone-map in compute and run FXAA. Both games with a sky render at the canvas’s physical pixel dimensions. The pause menu selects 1× or 4× MSAA. The glTF viewer uses the 1 and 4 keys.
 
+Every draw is of instances. A mesh's vertices are in its own space, and each instance's record, a per-instance vertex attribute, names its first bone and its material frame. The vertex stage places a vertex by its instance's bone and turns its normal and tangent with the bone's signed cofactors; a static scene is one instance whose bone is the identity. A material frame is a tint, whose alpha scales the opacity, the region of the material's images the instance shows, and a glow that adds the surface's own color. Bones and frames are read-only storage beside the camera ([#964](https://github.com/tsnl/snail-scheme/issues/964) moves every drawing onto them).
+
 | glTF material | Depth and shadow maps | Forward color |
 | --- | --- | --- |
 | OPAQUE | Vertex-only for single-sided or two-sided geometry | Material group |

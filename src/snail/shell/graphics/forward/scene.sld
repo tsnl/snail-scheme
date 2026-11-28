@@ -21,7 +21,9 @@
           upload-with-images
           SceneImages
           MovingScene skin-scene deform-scene! release-moving-scene
-          ObjectPose pose-matrix moving-scene)
+          ObjectPose pose-matrix moving-scene
+          MaterialFrame frame-shape default-frame
+          Placing placing-shape identity-bone)
   (import
    (snail core base)
    (snail shell gpu)
@@ -138,6 +140,44 @@
                                       (points (bind-points p sources)))
                                     meshes)
                               meshes))))))))
+    ;; ---- Instances ----
+
+    ;; How one instance shows its material: a tint, whose alpha is the
+    ;; opacity, the region of the material's images it shows, its offset
+    ;; then its size, and its glow in `light`'s x, which adds the surface's
+    ;; own color. A material's frames are a table its instances index.
+    (record MaterialFrame
+      ((tint Vec4f)
+       (region Vec4f)
+       (light Vec4f))
+      (deriving Pod))
+
+    (define frame-shape (→ (Shape MaterialFrame)) (shape))
+
+    (define default-frame
+      (→ MaterialFrame)
+      (new MaterialFrame
+        (tint (v4 1.0 1.0 1.0 1.0))
+        (region (v4 0.0 0.0 1.0 1.0))
+        (light (v4 0.0 0.0 0.0 0.0))))
+
+    ;; An instance's record, read per instance by the vertex stage: the index
+    ;; of its first bone, bone 0 its root, and of its material frame.
+    (record Placing
+      ((bone I32)
+       (frame I32))
+      (deriving Pod))
+
+    (define placing-shape (→ (Shape Placing)) (shape))
+
+    (define identity-bone
+      (→ Mat4x4f)
+      (new Mat4x4f
+        (x (v4 1.0 0.0 0.0 0.0))
+        (y (v4 0.0 1.0 0.0 0.0))
+        (z (v4 0.0 0.0 1.0 0.0))
+        (w (v4 0.0 0.0 0.0 1.0))))
+
     (record SurfaceMaterial
       ((base-color Vec4f)
        (emissive Vec4f)
