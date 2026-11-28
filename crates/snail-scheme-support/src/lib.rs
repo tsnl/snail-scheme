@@ -11,6 +11,8 @@ pub mod assembler;
 mod host;
 mod io;
 mod paths;
+#[cfg(feature = "unicode")]
+mod text;
 #[cfg(feature = "rapier")]
 mod traffic;
 

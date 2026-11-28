@@ -13,8 +13,7 @@
           insert-metadata)
   (import
    (snail core base)
-   (snail shell json)
-   (only (snail shell text) string-downcase))
+   (snail shell json))
   (begin
 
     ;; ---- Manifest ----
@@ -111,10 +110,20 @@
           ((Some end) (new Pair (first end) (second #t)))
           ((None) (new Pair (first at) (second #f))))))
 
+    ;; Tag and doctype names are ASCII, so only ASCII letters are lowered.
+
+    (define (ascii-downcase (text String)) (→ String)
+      (string-generate (string-length text)
+                       (lambda (index)
+                         (let ((char (string-ref text index)))
+                           (if (and (>= char #\A) (<= char #\Z))
+                               (integer->char (+ (char->integer char) 32))
+                               char)))))
+
     (define (tag-after (text String) (at I64) (name String)) (→ (Option I64))
       (let ((end (+ (+ at 1) (string-length name))))
         (if (and (< end (string-length text))
-                 (string=? (string-downcase (substring text at end)) (string-append "<" name))
+                 (string=? (ascii-downcase (substring text at end)) (string-append "<" name))
                  (or (char-whitespace? (string-ref text end)) (char=? (string-ref text end) #\>)))
             (Some (declaration-end text end (None)))
             (None))))
@@ -126,7 +135,7 @@
     (define (doctype-end (text String)) (→ I64)
       (let ((start (preamble-end text 0)))
         (if (and (<= (+ start 9) (string-length text))
-                 (string=? (string-downcase (substring text start (+ start 9))) "<!doctype"))
+                 (string=? (ascii-downcase (substring text start (+ start 9))) "<!doctype"))
             (declaration-end text (+ start 9) (None))
             start)))
 

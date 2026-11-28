@@ -34,6 +34,7 @@ runs:
           build/wasm-snail-scheme-support
           build/wasm-snail-scheme-support-toolchain
           build/wasm-support-rapier
+          build/wasm-support-unicode
         key: cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-${{ hashFiles('crates/*/src/**') }}
         restore-keys: |
           cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('shell.nix', 'npins/**', 'rust-toolchain.toml', 'crates/*/Cargo.*') }}-

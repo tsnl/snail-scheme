@@ -32,7 +32,6 @@
    (snail shell json)
    (snail shell json read)
    (snail shell utf8)
-   (only (snail shell text) string-downcase)
    (only (snail shell format) format-source format-width)
    (only (snail shell highlight)
          Class
@@ -100,9 +99,20 @@
            (cond
             ((string=? header "")
              (match length ((Some _) length) ((None) (read-headers in length))))
-            ((has-prefix? (string-downcase header) "content-length:")
+            ((has-prefix? (ascii-downcase header) "content-length:")
              (read-headers in (string->i64 (trimmed (substring header 15 (string-length header))))))
             (else (read-headers in length)))))))
+
+    ;; ASCII letters lowered and every other scalar kept: header names
+    ;; are ASCII, and Unicode's mapping would also lower the Kelvin sign.
+
+    (define (ascii-downcase (text String)) (→ String)
+      (string-generate (string-length text)
+                       (lambda (index)
+                         (let ((char (string-ref text index)))
+                           (if (and (>= char #\A) (<= char #\Z))
+                               (integer->char (+ (char->integer char) 32))
+                               char)))))
 
     ;; Characters until their UTF-8 encoding is `length` bytes long.
 
