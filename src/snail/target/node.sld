@@ -11,7 +11,6 @@
 ;; - OutputPort, standard output;
 ;; - Clock, the monotonic clock;
 ;; - Resources, the files the program links;
-;; - Wasm, the host's WebAssembly engine;
 ;;
 ;; and the local machine's:
 ;;
@@ -31,7 +30,6 @@
    provide-output-port
    provide-clock
    provide-resources
-   provide-wasm
    provide-input-port
    provide-fs
    provide-files
@@ -46,7 +44,6 @@
    (only (snail shell task) Scheduler dispatch-in)
    (only (snail shell async-files) Files host-files)
    (only (snail shell resource) Resources host-resources)
-   (only (snail shell wasm) Wasm host-wasm)
    (only (snail shell process) Processes Signals host-processes host-signals)
    (only (snail shell socket) Tcp Udp host-tcp host-udp)
    (only (snail shell web) Web host-web))
@@ -79,8 +76,6 @@
     (define (provide-resources) (→ Resources)
       (host-resources root))
 
-    (define (provide-wasm) (→ Wasm)
-      (host-wasm root))
 
     ;; ---- The local machine ----
 

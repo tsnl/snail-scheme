@@ -2,7 +2,7 @@
 import {readFile, writeFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {WASI} from 'node:wasi';
-import {linkedFileImports, runMain, wasmImports} from '../browser/load.mjs';
+import {linkedFileImports, runMain} from '../browser/load.mjs';
 import {createTasks, taskExports} from '../browser/tasks.mjs';
 import {createTcp} from './tcp.mjs';
 import {createUdp} from './udp.mjs';
@@ -16,11 +16,9 @@ import {startTrace, traceFile} from '../browser/trace.mjs';
 
 // ---- One reactor initialization and one program invocation ----
 //
-// A program is one linked module, as every build writes. It may load
-// modules while it runs, through (snail shell wasm); a loaded module links
-// only against what the program kept exported, which is nothing of the
-// runtime's. The files the program links are objects of store/ beside it,
-// read when a task first reads each.
+// A program is one linked module, as every build writes. The files the
+// program links are objects of store/ beside it, read when a task first
+// reads each.
 
 // The status: 0 when every task finishes. A WASI exit is its own status,
 // and one in the first turn ends the program before its other tasks run.
@@ -58,8 +56,7 @@ async function run(filename, arguments_) {
   const report = error => { failed = true; if (error instanceof Error) console.error(`snail: ${error.message}`); };
   const tasks = createTasks(() => program && taskExports(program), {reportError: report});
   const asyncFiles = createAsyncFiles(tasks);
-  const host = {'snail.runtime.wasm': wasmImports(() => program),
-                'snail.runtime.native.async-files': asyncFiles.imports,
+  const host = {'snail.runtime.native.async-files': asyncFiles.imports,
                 'snail.runtime.native.socket': socketImports(() => program, tasks, tcp, udp),
                 'snail.runtime.native.process': processImports(() => program, tasks, processes, termination),
                 'snail.runtime.native.web': webImports(tasks),

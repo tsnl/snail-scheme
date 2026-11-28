@@ -85,8 +85,7 @@ depend on
 JavaScript: a host provides Wasm imports, and JavaScript is the glue that
 provides them on Node and in the page.
 
-Both hosts already do only what a host must: WASI, the Wasm primitives of
-`(snail shell wasm)`, their device services, WebGPU among them, which Node
+Both hosts already do only what a host must: WASI, their device services, WebGPU among them, which Node
 gets from Dawn ([WebGPU on Node](../graphics/plan.md#webgpu-on-node)), and
 the loop that turns the scheduler. A program is one module linked with its runtime, which each
 instantiates. An engine written in `snail-scheme` once linked programs

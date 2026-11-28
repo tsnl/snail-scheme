@@ -172,22 +172,4 @@ deleting it costs only fetching again.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/web/zip.sld)
 
-## `(snail shell wasm)`
-
-WebAssembly modules loaded while a program runs, through the capability
-`Wasm` both targets provide. `compile-bytes` compiles a module,
-`module-imports` lists its imports, and `link-module` takes one `Provider`
-per import, in order: `(ExportOf instance name)`, an instance's export;
-`(HostProvided)`, a host service; `(ConstantOf n)`, a constant function; or
-`(Unprovided)`, a function that traps if called. A provider that is missing
-or does not fit answers `LinkFailed`. Linking runs `_initialize` when the
-module has one.
-
-`module-export` answers an untyped `Funcref`, and `unsafe-cast` makes it an
-`Fn` at the type the caller asserts: WebAssembly's cast checks the
-representation, not `snail-scheme`'s nominal types, so the caller
-establishes that contract. `run-export` calls a scalar export by name
-([linking by hand](../snail-scheme/compilers.md#linking-by-hand)).
-
-[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/shell/wasm.sld)
 

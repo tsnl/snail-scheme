@@ -84,7 +84,6 @@ The standard libraries' capabilities:
 | `Fs` | `(snail core io)` | the host's file system |
 | `Clock` | `(snail core io)` | the monotonic clock |
 | `Resources` | `(snail shell resource)` | reading the files a program links |
-| `Wasm` | `(snail shell wasm)` | compiling and linking modules |
 | `Files` | `(snail shell async-files)` | whole-file reads that wait as a task |
 | `Processes`, `Signals` | `(snail shell process)` | child processes; termination signals |
 | `Tcp`, `Udp` | `(snail shell socket)` | sockets |
@@ -146,7 +145,7 @@ A program names each thing it needs, and gets nothing it did not name.
 
 | Target | Provides |
 | --- | --- |
-| both | `Host`, `Arguments`, `ProcessEnvironment`, `OutputPort`, `Clock`, `Resources`, `Wasm` |
+| both | `Host`, `Arguments`, `ProcessEnvironment`, `OutputPort`, `Clock`, `Resources` |
 | `node` | `InputPort`, `Fs`, `Files`, `Processes`, `Signals`, `Tcp`, `Udp`, `Web` |
 | `browser` | `Events`, `PageStorage`, `Gpu`, `Dom`, `Fetch`, `FilePicker` |
 
