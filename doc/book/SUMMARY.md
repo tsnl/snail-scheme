@@ -69,6 +69,7 @@
   - [Siegework](games/siegework.md)
   - [The Last Mile](games/last-mile.md)
   - [If You’re Going That Way](games/iygtw.md)
+    - [Willowbank cycling prototype](games/willowbank.md)
 
 # Proposals
 

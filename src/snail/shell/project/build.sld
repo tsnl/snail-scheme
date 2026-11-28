@@ -512,12 +512,13 @@
 
     ;; ---- Programs ----
 
-    ;; A chassis uses Rapier in the same Wasm instance as the GC program.
+    ;; A chassis or articulated biped uses Rapier in the same Wasm instance as the GC program.
     ;; Cargo caches that runtime independently of plain and assembler-only builds.
     (define (program-runtime (processes Processes) (builder Builder) (libraries (List String)))
       (→ String)
       (let ((tools (● builder tools)) (assembler? (member? "snail.shell.assembler" libraries)))
-        (cond ((member? "snail.shell.game.chassis" libraries)
+        (cond ((or (member? "snail.shell.game.chassis" libraries)
+                   (member? "snail.shell.game.biped" libraries))
                (let* ((features (if assembler? "rapier,assembler" "rapier"))
                       (target (string-append (● tools root) "/build/wasm-support-" features)))
                  (run-command processes

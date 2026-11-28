@@ -8,6 +8,8 @@
 
 #[cfg(feature = "assembler")]
 pub mod assembler;
+#[cfg(feature = "rapier")]
+mod biped;
 mod host;
 mod io;
 mod paths;

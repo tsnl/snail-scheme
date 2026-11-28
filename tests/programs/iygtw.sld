@@ -286,7 +286,8 @@
 
 (define (main (out OutputPort) (fs Fs)) (→ Unit)
   (let ((file
-         (lambda (name) (read-bytes fs (string-append "src/apps/iygtw/main.resources/" name)))))
+         (lambda (name)
+           (read-bytes fs (string-append "src/apps/iygtw/willowbank/main.resources/" name)))))
     (let ((v (Valley-basins-set
               (read-valley (file "ground.bin") (file "surfaces.bin") (file "waymarks.bin"))
               (read-basins (file "basins.bin")))))

@@ -253,7 +253,7 @@ def export(source, output, scenery):
 
 
 def main():
-    dest = APP / "main.resources"
+    dest = APP / "willowbank" / "main.resources"
     dest.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(dir=dest) as temp:
         out = Path(temp)

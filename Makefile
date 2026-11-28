@@ -33,6 +33,7 @@ test-browser:
 	node tests/browser/orthographic.mjs "$(CURDIR)"
 	node tests/browser/last-mile.mjs "$(CURDIR)"
 	node tests/browser/iygtw.mjs "$(CURDIR)"
+	node tests/browser/iygtw-walk.mjs "$(CURDIR)"
 
 # The GPU checks on Node, on the GPU Dawn finds (host/native/gpu.mjs), or
 # on the CPU through lavapipe where there is none, as in CI (shell.nix).

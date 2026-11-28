@@ -8,7 +8,8 @@
 
 (define (main (fs Fs)) (→ Unit)
   (let* ((read
-          (lambda (name) (read-bytes fs (string-append "src/apps/iygtw/main.resources/" name))))
+          (lambda (name)
+            (read-bytes fs (string-append "src/apps/iygtw/willowbank/main.resources/" name))))
          (v (read-valley (read "ground.bin") (read "surfaces.bin") (read "waymarks.bin"))))
     (define (save (name String) (p XZ) (yaw F64) (light I64)) (→ Unit)
       (let ((ride (Ride-light-set (start-ride v) light)))

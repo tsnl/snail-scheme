@@ -1,4 +1,4 @@
-// Exercise the published app as a rider, including a second visit with all art downloads blocked.
+// Exercise the earlier Willowbank prototype as a rider, including a second visit with all art downloads blocked.
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {readFile, writeFile} from 'node:fs/promises';
@@ -12,7 +12,7 @@ import {blobPartSize, objectPath, partPath} from '../../host/browser/load.mjs';
 
 const [root, screenshot] = process.argv.slice(2);
 const {stdout} = await promisify(execFile)(join(root, 'snail-scheme'),
-  ['build', '--target', 'browser', 'src/apps/iygtw/main.scm'], {cwd: root});
+  ['build', '--target', 'browser', 'src/apps/iygtw/willowbank/main.scm'], {cwd: root});
 const directory = stdout.trim();
 const catalog = JSON.parse(await readFile(join(directory, 'resources.json')));
 assert.deepEqual(Object.keys(catalog).sort(),

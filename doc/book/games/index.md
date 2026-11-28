@@ -8,4 +8,4 @@ save.
   across it, and destroy three nests before their attacks destroy your hub.
   **[Play it](../play/siegework/)**.
 - Drive a taxi from the hills of San Francisco to the Pacific and the Bay islands. [Play The Last Mile](../play/last-mile/) · [Cab driver’s guide](last-mile.md).
-- Cycle the orchard road, cross the river and climb to High Meadow with Moss. [Play If You’re Going That Way](../play/iygtw/) · [Rider’s guide](iygtw.md).
+- Set a walking pace and follow a simulated humanoid across Willowbank terrain. [Play If You’re Going That Way](../play/iygtw/) · [Walking study](iygtw.md).

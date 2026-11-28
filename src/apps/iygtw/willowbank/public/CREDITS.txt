@@ -1,0 +1,39 @@
+If You’re Going That Way
+Willowbank art credits
+
+Willowbank, the bicycle, the courier’s wardrobe and hair, Moss, animation
+and sound were authored for this game.
+
+Blender Studio and the Blender community
+  Human Base Meshes v1.4.1, stylized head and eyes, forearms and hands from the stylized body (CC0)
+  https://www.blender.org/download/demo-files/#assets
+
+The following CC0 scans supply surface and foliage detail.
+
+Rico Cilliers, Poly Haven
+  Tree Small 02, leaf sprays       https://polyhaven.com/a/tree_small_02
+  Grass Medium 02, grass blades    https://polyhaven.com/a/grass_medium_02
+
+Rob Tuytel, Poly Haven
+  Bark Brown 02, tree trunks       https://polyhaven.com/a/bark_brown_02
+  Grass Path 3, lane and gravel    https://polyhaven.com/a/grass_path_3
+  Brown Mud Dry, cultivated soil   https://polyhaven.com/a/brown_mud_dry
+  Aerial Grass Rock, rock and bank https://polyhaven.com/a/aerial_grass_rock
+  Cobblestone Floor 08, mill deck  https://polyhaven.com/a/cobblestone_floor_08
+
+Stephan Seeliger, Poly Haven
+  Roof Tiles                       https://polyhaven.com/a/roof_tiles
+
+Amal Kumar, Poly Haven
+  Plastered Wall                   https://polyhaven.com/a/plastered_wall
+
+Dimitrios Savva and Dario Barresi, Poly Haven
+  Weathered Planks, timber         https://polyhaven.com/a/weathered_planks
+
+ambientCG
+  Grass 004, meadow floor          https://ambientcg.com/view?id=Grass004
+
+Public-domain dedication and source licensing
+  https://creativecommons.org/publicdomain/zero/1.0/
+  https://polyhaven.com/license
+  https://docs.ambientcg.com/license/
