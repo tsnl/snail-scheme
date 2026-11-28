@@ -20,8 +20,8 @@
 (define later (tick))
 (define unused (→ I64) (panic "an unused initializer ran"))
 
-;; A value may be a function: this one keeps the results of its calls.
-(define square (cache (lambda ((n I64)) (→ I64) (begin (tick) (* n n)))))
+;; A value may be a function, which runs on every call.
+(define square (lambda ((n I64)) (→ I64) (begin (tick) (* n n))))
 ;; ANCHOR_END: values
 
 (define (identity (n I64)) (→ I64) n)

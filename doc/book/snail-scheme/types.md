@@ -304,11 +304,6 @@ A task's capabilities are values its saved frames hold, so nothing about
 them crosses the host. See
 [waiting on the host](../runtimes/tasks.md#waiting-on-the-host).
 
-`unsafe-cast` is unchecked: it turns a `Funcref`, a
-function another module exports, into a function of whatever type the
-context expects (`(snail shell wasm)`). The engine verifies its WebAssembly
-representation; the caller must establish its `snail-scheme` type contract.
-
 ## Linked files
 
 `(snail shell resource)` ties a file to a library as one of its dependencies

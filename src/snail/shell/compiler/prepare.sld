@@ -50,7 +50,6 @@
              (specialized (specialize typed items))
              (definitions (● specialized definitions))
              (suspensions (program-suspensions (● specialized declarations) definitions)))
-        (for-each (lambda (definition) (check-cache-keys (● definition value))) definitions)
         (new Prepared
           (declarations (● specialized declarations))
           (suspensions suspensions)
@@ -463,27 +462,6 @@
         ((Let _ value body)
          (or (not (null? (yields suspensions value))) (holds-yield-point? suspensions body)))
         (_ (any? (lambda (child) (holds-yield-point? suspensions child)) (expr-children expr)))))
-
-    ;; ---- Cache keys ----
-
-    ;; A cache's keys are hashed and compared, which a raw Funcref does not
-    ;; support.
-
-    (define (check-cache-keys (expr Expr)) (→ Unit)
-      (match (● expr term)
-        ((Var name _ _)
-         (when (member? name (list "prim:cache" "prim:lru-cache"))
-           (match (● expr type)
-             ((TFun _ (TFun params _))
-              (for-each (lambda (type) (check-cache-key type (● expr loc))) params))
-             (_ (panic "internal error: checking refuses a cache of an unknown signature")))))
-        (_ (unit)))
-      (for-each check-cache-keys (expr-children expr)))
-
-    (define (check-cache-key (type Type) (loc Loc)) (→ Unit)
-      (match type
-        ((TCon "Funcref" _) (compile-error loc "cache keys cannot be raw Funcref values"))
-        (_ (unit))))
 
     ;; ---- Resume routines ----
 

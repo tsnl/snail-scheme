@@ -59,15 +59,6 @@ reads them. `(snail shell resource)` makes its `Resources` over these.
 
 [Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/runtime/resource.sld)
 
-## `(snail runtime wasm)`
-
-Compiling and instantiating WebAssembly modules on every host
-(`host/native/run-snail.mjs` and the page's loader): a module compiled from
-bytes into a handle, linked against providers chosen one per import, and
-its exports found by name. `(snail shell wasm)` makes its `Wasm` over these.
-
-[Source](https://github.com/tsnl/snail-scheme/blob/main/src/snail/runtime/wasm.sld)
-
 ## `(snail target node)`
 
 The Node target, a program run by `host/native/run-snail.mjs`. `start` runs
@@ -75,7 +66,7 @@ the program's `main` as the first task of the host's scheduler, and `main`
 asks for what it needs by its parameters' types; a function here of no
 parameters provides each, made from the one `Host` the target holds. Every
 host gives `Host`, `Arguments`, `ProcessEnvironment`, an `OutputPort`
-(standard output), `Clock`, `Resources` and `Wasm`. Node adds an
+(standard output), `Clock` and `Resources`. Node adds an
 `InputPort` (standard input), `Fs`, `Files`, `Processes`, `Signals`, `Tcp`,
 `Udp` and `Web`. A program that draws asks for `Host` and makes its `Gpu` with
 `host-gpu` ([capabilities](../snail-scheme/capabilities.md)).

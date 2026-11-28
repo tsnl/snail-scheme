@@ -1,12 +1,11 @@
 (import
  (snail core base))
 
-;; Each definition that caches a function of unknown signature is
-;; reported, in source order: one walk after checking finds every item's
-;; first failure.
-(define (first-memo (f F)) (→ F) (∀ (F)) (cache f))
+;; Each item that fails to check is reported, in source order: checking
+;; goes on past an item that fails.
+(define (first-wrong) (→ I64) "one")
 
-(define (second-memo (f F)) (→ F) (∀ (F)) (cache f))
+(define (second-wrong) (→ I64) "two")
 
 (define (main) (→ Unit)
   (unit))

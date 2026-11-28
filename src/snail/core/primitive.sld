@@ -11,8 +11,7 @@
 ;; anything, though some can trap.
 (define-library (snail core primitive)
   (export
-   unit panic unsafe-cast
-   cache lru-cache
+   unit panic
    make-prompt with-prompt suspend
    i32-add i32-sub i32-mul i32-quotient i32-remainder i32-and i32-or i32-xor
    i32-shift-left i32-shift-right i32-shift-right/logical i32-eq i32-lt i32-le i32-gt i32-ge
@@ -53,15 +52,10 @@
 
     ;; ---- Control ----
 
-    ;; `unsafe-cast` makes
-    ;; a function of whatever type is expected from a Funcref, a function
-    ;; another module exports (`(snail shell wasm)`), checking only its Wasm
-    ;; type. It constructs a closure that calls the exported code.
     (primitive unit (Fn → Unit))
     (primitive panic (∀ (A) (Fn String → A)))
-    (primitive unsafe-cast (∀ (A) (Fn Funcref → A)))
 
-    ;; ---- Memoized functions ----
+    ;; ---- Top-level values ----
 
     ;; A top-level value is its thunk's result, which its module keeps: the
     ;; expander wraps the initializer of `(define name value)` in this, and
@@ -69,12 +63,6 @@
     ;; exported. The thunk takes nothing, so an initializer holds no
     ;; capability.
     (primitive cached-thunk (∀ (A) (Fn (Fn → A) → (Fn → A))))
-
-    ;; F stands for an entire function signature of any arity: the wrapper
-    ;; does what its function does, on a miss. Preparation checks that the
-    ;; keys can be compared.
-    (primitive cache (∀ (F) (Fn F → F)))
-    (primitive lru-cache (∀ (F) (Fn I64 F → F)))
 
     ;; ---- Prompts ----
 

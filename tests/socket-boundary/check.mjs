@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {setImmediate as turn} from 'node:timers/promises';
-import {createWasi, instantiate, linkedFileImports, wasmImports} from '../../host/browser/load.mjs';
+import {createWasi, instantiate, linkedFileImports} from '../../host/browser/load.mjs';
 import {programEntry} from '../../host/browser/entry.mjs';
 import {createTasks, taskExports} from '../../host/browser/tasks.mjs';
 import {createTcp} from '../../host/native/tcp.mjs';
@@ -228,5 +228,5 @@ console.log('socket boundary: typed TCP/UDP results, staging and aborts');
 // unused: the files a program links and the host's WebAssembly.
 function portable(module) {
   const unread = file => { throw new Error(`this test reads no linked file ${file}`); };
-  return {...linkedFileImports(unread, module), 'snail.runtime.wasm': wasmImports(() => null)};
+  return linkedFileImports(unread, module);
 }

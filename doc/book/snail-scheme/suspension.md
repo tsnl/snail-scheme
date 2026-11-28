@@ -240,9 +240,8 @@ can be left and resumed. Three places are the backend's own:
   called by a loop that cannot go on from the middle. A suspension nothing
   resumes passes through it; one that may be resumed panics there
   (`tests/programs/prompt-generate.sld`).
-- **A cache and a top-level value** keep a result. A call that suspended
-  kept none: the next call with that key runs the function again, and the
-  next read of the value runs its initializer again
+- **A top-level value** keeps a result. An initializer that suspended
+  kept none: the next read of the value runs it again
   (`tests/programs/prompt-kept.sld`).
 - **The host.** A suspension cannot leave through a function the host
   called to reach a `with-prompt` running beneath it; that panics.
