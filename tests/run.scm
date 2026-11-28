@@ -231,6 +231,16 @@
                      #u8())))
       (or (= (● ran status) 0) (fail suite name "failed" (printed ran))))))
 
+;; A contract test, a snail-scheme program under tests/contracts run with
+;; the root, which panics at the first expectation that fails.
+(define (contract (suite Suite) (name String)) (→ (Fn → Bool))
+  (lambda ()
+    (match (build suite (string-append "tests/contracts/" name ".scm") "node")
+      ((Err failure) (fail suite name "compile failed" failure))
+      ((Ok module)
+       (let ((ran (run-module suite module (list (● suite root)) #u8())))
+         (or (= (● ran status) 0) (fail suite name "failed" (printed ran))))))))
+
 ;; A run's status is its program's. A panic exits with 1, and a trap is 2.
 (define (exit-statuses (suite Suite)) (→ Bool)
   (let ((run (lambda ((file String)) (→ Ran) (snail suite (list "run" "--target" "node" file)))))
@@ -373,15 +383,11 @@
                    "tests/app-runtime/main.sld"
                    "tests/app-runtime/check.mjs"
                    "browser"))
+    (map (lambda (name) (contract suite name))
+         (list "scripts" "workspaces" "launcher" "script-failures" "script-builds" "embedding"))
     (map (lambda (name) (script suite name (Nil)))
-         (list "scripts"
-               "workspaces"
-               "script-builds"
-               "script-run"
-               "script-failures"
-               "script-resources"
-               "web-zip" "embedding" "launcher" "lsp" "tree-sitter" "vscode" "tcp" "udp" "sf-relief"
-               "format-scheme" "siegework/headless"))
+         (list "script-run" "script-resources" "web-zip" "lsp" "tree-sitter"
+               "vscode" "tcp" "udp" "sf-relief" "format-scheme" "siegework/headless"))
     (list (script suite "udp" (list "--test-udp-no-try-send"))))))
 
 ;; ---- The run ----
@@ -407,7 +413,8 @@
             (list "build/examples"
                   "build/tools"
                   "tests/programs/build"
-                  "tests/host-boundary/build"))
+                  "tests/host-boundary/build"
+                  "tests/contracts/build"))
   (match (list-directory (● suite fs) (path suite "build/tests"))
     ((Ok entries)
      (for-each (lambda (entry) (removed! suite (string-append "build/tests/" entry)))
